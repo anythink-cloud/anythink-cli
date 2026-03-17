@@ -1,0 +1,18 @@
+# Build output
+bin/
+obj/
+dist/
+
+# .NET tools
+*.user
+*.suo
+.vs/
+
+# Environment — never commit secrets or internal URLs
+.env
+
+# publish.sh is replaced by .github/workflows/release.yml
+publish.sh
+
+# macOS
+.DS_Store

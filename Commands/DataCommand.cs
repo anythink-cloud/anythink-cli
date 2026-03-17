@@ -1,0 +1,289 @@
+using AnythinkCli.Output;
+using Spectre.Console;
+using Spectre.Console.Cli;
+using System.ComponentModel;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
+namespace AnythinkCli.Commands;
+
+// ── data list ─────────────────────────────────────────────────────────────────
+
+public class DataListSettings : CommandSettings
+{
+    [CommandArgument(0, "<ENTITY>")]
+    [Description("Entity name")]
+    public string Entity { get; set; } = "";
+
+    [CommandOption("--page <N>")]
+    [Description("Page number (default: 1)")]
+    public int Page { get; set; } = 1;
+
+    [CommandOption("--limit <N>")]
+    [Description("Records per page (default: 20)")]
+    public int Limit { get; set; } = 20;
+
+    [CommandOption("--filter <JSON>")]
+    [Description("Filter expression (JSON)")]
+    public string? Filter { get; set; }
+
+    [CommandOption("--json")]
+    [Description("Output raw JSON instead of table")]
+    public bool Json { get; set; }
+}
+
+public class DataListCommand : BaseCommand<DataListSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, DataListSettings settings)
+    {
+        try
+        {
+            var client = GetClient();
+            var result = await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync($"Fetching {settings.Entity} items...", async _ =>
+                    await client.ListItemsAsync(settings.Entity, settings.Page, settings.Limit, settings.Filter));
+
+            var items = result.Items;
+            var total = result.TotalCount ?? items.Count;
+
+            if (settings.Json)
+            {
+                var json = JsonSerializer.Serialize(items, Renderer.PrettyJson);
+                Renderer.PrintJson(json);
+                return 0;
+            }
+
+            Renderer.Header($"{settings.Entity} — page {settings.Page}, {items.Count}/{total} records");
+
+            if (items.Count == 0)
+            {
+                Renderer.Info("No records found.");
+                return 0;
+            }
+
+            // Discover columns from first item
+            var columns = items[0].Select(kv => kv.Key).ToList();
+
+            var table = Renderer.BuildTable(columns.ToArray());
+            foreach (var item in items)
+            {
+                var cells = columns.Select(c =>
+                {
+                    var val = item[c];
+                    if (val == null) return "—";
+                    var str = val.ToString();
+                    return str.Length > 60 ? str[..57] + "..." : str;
+                }).ToArray();
+                Renderer.AddRow(table, cells);
+            }
+
+            AnsiConsole.Write(table);
+
+            if (total > settings.Limit)
+                Renderer.Info($"Showing page {settings.Page} of {(int)Math.Ceiling((double)total / settings.Limit)}. Use --page to navigate.");
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return 1;
+        }
+    }
+}
+
+// ── data get ──────────────────────────────────────────────────────────────────
+
+public class DataGetSettings : CommandSettings
+{
+    [CommandArgument(0, "<ENTITY>")]
+    [Description("Entity name")]
+    public string Entity { get; set; } = "";
+
+    [CommandArgument(1, "<ID>")]
+    [Description("Record ID")]
+    public int Id { get; set; }
+}
+
+public class DataGetCommand : BaseCommand<DataGetSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, DataGetSettings settings)
+    {
+        try
+        {
+            var client = GetClient();
+            JsonObject? item = null;
+
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync($"Fetching {settings.Entity}/{settings.Id}...", async _ =>
+                {
+                    item = await client.GetItemAsync(settings.Entity, settings.Id);
+                });
+
+            Renderer.Header($"{settings.Entity} / {settings.Id}");
+            Renderer.PrintJsonObject(item);
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return 1;
+        }
+    }
+}
+
+// ── data create ───────────────────────────────────────────────────────────────
+
+public class DataCreateSettings : CommandSettings
+{
+    [CommandArgument(0, "<ENTITY>")]
+    [Description("Entity name")]
+    public string Entity { get; set; } = "";
+
+    [CommandOption("--data <JSON>")]
+    [Description("JSON object with field values, e.g. '{\"name\":\"Alice\",\"age\":30}'")]
+    public string? Data { get; set; }
+}
+
+public class DataCreateCommand : BaseCommand<DataCreateSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, DataCreateSettings settings)
+    {
+        var rawData = settings.Data;
+        if (string.IsNullOrEmpty(rawData))
+            rawData = AnsiConsole.Ask<string>("[#F97316]JSON data:[/]");
+
+        JsonObject data;
+        try { data = JsonSerializer.Deserialize<JsonObject>(rawData)!; }
+        catch { Renderer.Error("Invalid JSON."); return 1; }
+
+        try
+        {
+            var client = GetClient();
+            JsonObject? created = null;
+
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync($"Creating {settings.Entity} record...", async _ =>
+                {
+                    created = await client.CreateItemAsync(settings.Entity, data);
+                });
+
+            var id = created?["id"]?.ToString() ?? "?";
+            Renderer.Success($"Record created in [#F97316]{Markup.Escape(settings.Entity)}[/] (id: {Markup.Escape($"{id}")}).");
+            Renderer.PrintJsonObject(created);
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return 1;
+        }
+    }
+}
+
+// ── data update ───────────────────────────────────────────────────────────────
+
+public class DataUpdateSettings : CommandSettings
+{
+    [CommandArgument(0, "<ENTITY>")]
+    [Description("Entity name")]
+    public string Entity { get; set; } = "";
+
+    [CommandArgument(1, "<ID>")]
+    [Description("Record ID")]
+    public int Id { get; set; }
+
+    [CommandOption("--data <JSON>")]
+    [Description("JSON object with fields to update")]
+    public string? Data { get; set; }
+}
+
+public class DataUpdateCommand : BaseCommand<DataUpdateSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, DataUpdateSettings settings)
+    {
+        var rawData = settings.Data;
+        if (string.IsNullOrEmpty(rawData))
+            rawData = AnsiConsole.Ask<string>("[#F97316]JSON data:[/]");
+
+        JsonObject data;
+        try { data = JsonSerializer.Deserialize<JsonObject>(rawData)!; }
+        catch { Renderer.Error("Invalid JSON."); return 1; }
+
+        try
+        {
+            var client = GetClient();
+            JsonObject? updated = null;
+
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync($"Updating {settings.Entity}/{settings.Id}...", async _ =>
+                {
+                    updated = await client.UpdateItemAsync(settings.Entity, settings.Id, data);
+                });
+
+            Renderer.Success($"Record [#F97316]{Markup.Escape(settings.Entity)}/{Markup.Escape(settings.Id.ToString())}[/] updated.");
+            Renderer.PrintJsonObject(updated);
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return 1;
+        }
+    }
+}
+
+// ── data delete ───────────────────────────────────────────────────────────────
+
+public class DataDeleteSettings : CommandSettings
+{
+    [CommandArgument(0, "<ENTITY>")]
+    [Description("Entity name")]
+    public string Entity { get; set; } = "";
+
+    [CommandArgument(1, "<ID>")]
+    [Description("Record ID")]
+    public int Id { get; set; }
+
+    [CommandOption("--yes")]
+    [Description("Skip confirmation")]
+    public bool Yes { get; set; }
+}
+
+public class DataDeleteCommand : BaseCommand<DataDeleteSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, DataDeleteSettings settings)
+    {
+        if (!settings.Yes)
+        {
+            var confirm = AnsiConsole.Confirm(
+                $"[yellow]Delete[/] [bold red]{settings.Entity}/{settings.Id}[/][yellow]?[/]",
+                defaultValue: false);
+            if (!confirm) { Renderer.Info("Cancelled."); return 0; }
+        }
+
+        try
+        {
+            var client = GetClient();
+
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync("Deleting record...", async _ =>
+                {
+                    await client.DeleteItemAsync(settings.Entity, settings.Id);
+                });
+
+            Renderer.Success($"Record [#F97316]{Markup.Escape(settings.Entity)}/{Markup.Escape(settings.Id.ToString())}[/] deleted.");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return 1;
+        }
+    }
+}

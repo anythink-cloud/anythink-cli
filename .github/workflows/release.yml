@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    name: Build & Release
+    runs-on: ubuntu-latest
+    environment: release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Extract version
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Build targets
+        run: |
+          for RID in osx-arm64 osx-x64 linux-x64 linux-arm64; do
+            dotnet publish anythink-cli.csproj \
+              -c Release \
+              -r "$RID" \
+              --self-contained true \
+              -p:PublishSingleFile=true \
+              -p:EnableCompressionInSingleFile=true \
+              -p:IncludeNativeLibrariesForSelfExtract=true \
+              -p:PublishTrimmed=false \
+              -o "dist/$RID"
+
+            BIN="dist/$RID/anythink"
+            [[ -f "$BIN" ]] && cp "$BIN" "dist/anythink-$RID"
+          done
+
+      - name: Compute checksums
+        working-directory: dist
+        run: |
+          sha256sum anythink-osx-arm64 anythink-osx-x64 anythink-linux-x64 anythink-linux-arm64 \
+            > checksums.txt
+          cat checksums.txt
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: v${{ steps.version.outputs.VERSION }}
+          generate_release_notes: true
+          files: |
+            dist/anythink-osx-arm64
+            dist/anythink-osx-x64
+            dist/anythink-linux-x64
+            dist/anythink-linux-arm64
+            dist/checksums.txt
