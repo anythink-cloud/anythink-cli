@@ -6,7 +6,9 @@ namespace AnythinkCli.Tests;
 /// <summary>
 /// Tests for ConfigService — uses a temporary directory to avoid touching ~/.anythink.
 /// ConfigService.ConfigDirOverride is set before each test and cleared after.
+/// Belongs to SequentialConfig collection to prevent parallel conflicts on the static override.
 /// </summary>
+[Collection("SequentialConfig")]
 public class ConfigServiceTests : IDisposable
 {
     private readonly string _tempDir;

@@ -47,7 +47,7 @@ public abstract class BaseCommand<TSettings> : AsyncCommand<TSettings>
             if (string.IsNullOrEmpty(profile.RefreshToken))
                 throw new CliException("Session expired. Run [bold #F97316]anythink login[/] to sign in again.");
 
-            var refreshed = TryRefreshSync(profile);
+            var refreshed = TryRefreshSync(profile, http: null);
             if (refreshed is null)
                 throw new CliException("Session expired and refresh failed. Run [bold #F97316]anythink login[/] to sign in again.");
 
@@ -58,16 +58,18 @@ public abstract class BaseCommand<TSettings> : AsyncCommand<TSettings>
     }
 
     /// <summary>
-    /// Calls the refresh endpoint synchronously (safe in a CLI — no sync context).
+    /// Calls the refresh endpoint synchronously (safe in a CLI — no synchronisation context).
     /// On success, persists the new tokens to disk and returns the updated Profile.
-    /// Returns null when the server rejects the refresh token.
+    /// Returns null when the server rejects the refresh token or on any failure.
+    /// The optional <paramref name="http"/> parameter is for unit testing only.
     /// </summary>
-    private static CliProfile? TryRefreshSync(CliProfile profile)
+    internal static CliProfile? TryRefreshSync(CliProfile profile, HttpClient? http = null)
     {
         try
         {
-            var response = Task.Run(() =>
-                AnythinkClient.RefreshTokenAsync(profile.BaseUrl, profile.OrgId, profile.RefreshToken!))
+            var response = (http is null
+                ? AnythinkClient.RefreshTokenAsync(profile.BaseUrl, profile.OrgId, profile.RefreshToken!)
+                : AnythinkClient.RefreshTokenAsync(profile.BaseUrl, profile.OrgId, profile.RefreshToken!, http))
                 .GetAwaiter().GetResult();
 
             if (response is null) return null;

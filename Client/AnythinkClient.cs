@@ -203,21 +203,27 @@ public class AnythinkClient : HttpApiClient
 
     /// <summary>
     /// Exchanges a saved refresh token for a new access token.
-    /// Uses a plain, auth-free HttpClient — the refresh endpoint is public.
-    /// Returns null when the refresh token is invalid or expired (caller should prompt re-login).
+    /// Returns null when the server rejects the token — caller should prompt re-login.
     /// </summary>
     public static async Task<LoginResponse?> RefreshTokenAsync(string baseUrl, string orgId, string refreshToken)
     {
-        using var http    = new HttpClient();
-        var body          = JsonSerializer.Serialize(new { token = refreshToken }, JsonOpts);
-        var content       = new StringContent(body, Encoding.UTF8, "application/json");
-        var url           = $"{baseUrl.TrimEnd('/')}/org/{orgId}/auth/v1/refresh";
-        var r             = await http.PostAsync(url, content);
+        using var http = new HttpClient();
+        return await RefreshTokenAsync(baseUrl, orgId, refreshToken, http);
+    }
+
+    /// <summary>Internal overload — accepts an injected HttpClient for unit testing.</summary>
+    internal static async Task<LoginResponse?> RefreshTokenAsync(
+        string baseUrl, string orgId, string refreshToken, HttpClient http)
+    {
+        var body    = JsonSerializer.Serialize(new { token = refreshToken }, JsonOpts);
+        var content = new StringContent(body, Encoding.UTF8, "application/json");
+        var url     = $"{baseUrl.TrimEnd('/')}/org/{orgId}/auth/v1/refresh";
+        var r       = await http.PostAsync(url, content);
         if (!r.IsSuccessStatusCode) return null;
-        var raw           = await r.Content.ReadAsStringAsync();
-        return string.IsNullOrWhiteSpace(raw)
-            ? null
-            : JsonSerializer.Deserialize<LoginResponse>(raw, JsonOpts);
+        var raw     = await r.Content.ReadAsStringAsync();
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        try   { return JsonSerializer.Deserialize<LoginResponse>(raw, JsonOpts); }
+        catch (JsonException) { return null; }
     }
 
     // ── Secrets ───────────────────────────────────────────────────────────────
