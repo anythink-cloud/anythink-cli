@@ -214,6 +214,35 @@ public record PaymentMethodResponse(
     [property: JsonPropertyName("exp_year")]  int?    ExpYear
 );
 
+// ── Secrets ──────────────────────────────────────────────────────────────────
+
+public record SecretUserResponse(
+    [property: JsonPropertyName("user_id")]    int    UserId,
+    [property: JsonPropertyName("first_name")] string FirstName,
+    [property: JsonPropertyName("last_name")]  string LastName,
+    [property: JsonPropertyName("email")]      string Email,
+    [property: JsonPropertyName("readonly")]   bool   Readonly
+);
+
+public record SecretResponse(
+    [property: JsonPropertyName("id")]         int                    Id,
+    [property: JsonPropertyName("key")]        string                 Key,
+    [property: JsonPropertyName("created_at")] DateTime               CreatedAt,
+    [property: JsonPropertyName("updated_at")] DateTime               UpdatedAt,
+    [property: JsonPropertyName("users")]      List<SecretUserResponse> Users
+);
+
+public record CreateSecretRequest(
+    [property: JsonPropertyName("key")]      string    Key,
+    [property: JsonPropertyName("value")]    string    Value,
+    [property: JsonPropertyName("user_ids")] List<int>? UserIds = null
+);
+
+public record UpdateSecretRequest(
+    [property: JsonPropertyName("value")]    string    Value,
+    [property: JsonPropertyName("user_ids")] List<int>? UserIds = null
+);
+
 // ── OAuth / Social Auth ────────────────────────────────────────────────────
 
 public record GoogleOAuthSettings(

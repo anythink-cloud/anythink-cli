@@ -338,6 +338,29 @@ app.Configure(config =>
             .WithDescription("List saved payment methods");
     });
 
+    // ── Secrets ───────────────────────────────────────────────────────────────
+
+    config.AddBranch("secrets", secrets =>
+    {
+        secrets.SetDescription("Manage project secrets (API keys, tokens — values are encrypted and never displayed)");
+
+        secrets.AddCommand<SecretsListCommand>("list")
+            .WithDescription("List all secret keys (metadata only, values never shown)");
+
+        secrets.AddCommand<SecretsCreateCommand>("create")
+            .WithDescription("Store a new secret value")
+            .WithExample("secrets", "create", "CLAUDE_API_KEY")
+            .WithExample("secrets", "create", "STRIPE_SECRET_KEY");
+
+        secrets.AddCommand<SecretsUpdateCommand>("update")
+            .WithDescription("Rotate (overwrite) an existing secret value")
+            .WithExample("secrets", "update", "CLAUDE_API_KEY");
+
+        secrets.AddCommand<SecretsDeleteCommand>("delete")
+            .WithDescription("Delete a secret")
+            .WithExample("secrets", "delete", "CLAUDE_API_KEY", "--yes");
+    });
+
     // ── OAuth / Social Auth ───────────────────────────────────────────────────
 
     config.AddBranch("oauth", oauth =>

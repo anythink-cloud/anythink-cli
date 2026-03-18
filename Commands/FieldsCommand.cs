@@ -79,11 +79,11 @@ public class FieldAddSettings : CommandSettings
     public string Name { get; set; } = "";
 
     [CommandOption("--type <TYPE>")]
-    [Description("Database type: text, integer, float, boolean, date, timestamp, uuid, varchar, text, json, many-to-one, one-to-many")]
+    [Description("Database type: varchar, varchar[], text, integer, integer[], bigint, bigint[], decimal, decimal[], boolean, date, timestamp, jsonb, geo, file, user, one-to-one, one-to-many, many-to-one, many-to-many, dynamic-reference")]
     public string? DatabaseType { get; set; }
 
     [CommandOption("--display <DISPLAY>")]
-    [Description("Display type: input, textarea, select, checkbox, datetime, relationship, file, rich_text, uuid")]
+    [Description("Display type: input, textarea, rich-text, select, entity-select, radio, country-select, checkbox, short-date, long-date, timestamp, relationship, file, secret, user, jsonb, geo, dynamic-reference")]
     public string? DisplayType { get; set; }
 
     [CommandOption("--label <LABEL>")]
@@ -120,18 +120,27 @@ public class FieldsAddCommand : BaseCommand<FieldAddSettings>
     // Sensible default display type for each db type
     private static readonly Dictionary<string, string> DefaultDisplay = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["text"]        = "textarea",
-        ["varchar"]     = "input",
-        ["integer"]     = "input",
-        ["bigint"]      = "input",
-        ["float"]       = "input",
-        ["boolean"]     = "checkbox",
-        ["date"]        = "datetime",
-        ["timestamp"]   = "datetime",
-        ["uuid"]        = "uuid",
-        ["json"]        = "rich_text",
-        ["many-to-one"] = "relationship",
-        ["one-to-many"] = "relationship",
+        ["varchar"]           = "input",
+        ["varchar[]"]         = "select",
+        ["text"]              = "textarea",
+        ["integer"]           = "input",
+        ["integer[]"]         = "select",
+        ["bigint"]            = "input",
+        ["bigint[]"]          = "select",
+        ["decimal"]           = "input",
+        ["decimal[]"]         = "select",
+        ["boolean"]           = "checkbox",
+        ["date"]              = "short-date",
+        ["timestamp"]         = "timestamp",
+        ["jsonb"]             = "jsonb",
+        ["geo"]               = "geo",
+        ["file"]              = "file",
+        ["user"]              = "user",
+        ["one-to-one"]        = "relationship",
+        ["one-to-many"]       = "relationship",
+        ["many-to-one"]       = "relationship",
+        ["many-to-many"]      = "relationship",
+        ["dynamic-reference"] = "dynamic-reference",
     };
 
     public override async Task<int> ExecuteAsync(CommandContext context, FieldAddSettings settings)
@@ -142,9 +151,12 @@ public class FieldsAddCommand : BaseCommand<FieldAddSettings>
             dbType = AnsiConsole.Prompt(
                 Renderer.Prompt<string>()
                     .Title("Select [#F97316]database type[/]:")
-                    .AddChoices("varchar", "text", "integer", "bigint", "float",
-                                "boolean", "date", "timestamp", "uuid", "json",
-                                "many-to-one", "one-to-many"));
+                    .AddChoices(
+                        "varchar", "varchar[]", "text",
+                        "integer", "integer[]", "bigint", "bigint[]", "decimal", "decimal[]",
+                        "boolean", "date", "timestamp", "jsonb",
+                        "geo", "file", "user",
+                        "one-to-one", "one-to-many", "many-to-one", "many-to-many", "dynamic-reference"));
         }
 
         var displayType = settings.DisplayType

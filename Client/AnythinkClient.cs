@@ -197,6 +197,20 @@ public class AnythinkClient : HttpApiClient
     public async Task<List<PaymentMethodResponse>> GetPaymentMethodsAsync()
         => (await GetAsync<List<PaymentMethodResponse>>(_pay + "/payment-methods")) ?? [];
 
+    // ── Secrets ───────────────────────────────────────────────────────────────
+
+    public async Task<List<SecretResponse>> GetSecretsAsync()
+        => (await GetAsync<List<SecretResponse>>(_org + "/secrets")) ?? [];
+
+    public Task<SecretResponse> CreateSecretAsync(CreateSecretRequest req)
+        => PostAsync<SecretResponse>(_org + "/secrets", req);
+
+    public Task<SecretResponse> UpdateSecretAsync(string key, UpdateSecretRequest req)
+        => PutAsync<SecretResponse>(_org + $"/secrets/{key}", req);
+
+    public Task DeleteSecretAsync(string key)
+        => DeleteAsync(_org + $"/secrets/{key}");
+
     // ── OAuth / Social Auth ───────────────────────────────────────────────────
 
     public Task<GoogleOAuthSettings?> GetGoogleOAuthAsync()
