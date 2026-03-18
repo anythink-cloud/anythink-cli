@@ -42,6 +42,9 @@ public abstract class HttpApiClient
                 new AuthenticationHeaderValue("Bearer", token);
     }
 
+    /// <summary>Test-only constructor — accepts a pre-configured HttpClient (e.g. with a mock handler).</summary>
+    internal HttpApiClient(HttpClient http) { Http = http; }
+
     protected async Task<T?> GetAsync<T>(string url) =>
         await DeserializeAsync<T>(await Http.GetAsync(url));
 

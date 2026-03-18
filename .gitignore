@@ -3,6 +3,11 @@ bin/
 obj/
 dist/
 
+# Test results and coverage reports
+TestResults*/
+*.coverage
+*.coveragexml
+
 # .NET tools
 *.user
 *.suo

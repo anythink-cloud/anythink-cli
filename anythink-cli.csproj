@@ -16,6 +16,20 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>anythink-cli.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <!-- Exclude the test project folder from this project's compilation -->
+  <ItemGroup>
+    <Compile Remove="anythink-cli.Tests\**" />
+    <Content Remove="anythink-cli.Tests\**" />
+    <EmbeddedResource Remove="anythink-cli.Tests\**" />
+    <None Remove="anythink-cli.Tests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Spectre.Console" Version="0.49.1" />
     <PackageReference Include="Spectre.Console.Cli" Version="0.49.1" />
     <PackageReference Include="Spectre.Console.Json" Version="0.49.1" />

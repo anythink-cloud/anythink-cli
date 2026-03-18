@@ -20,6 +20,14 @@ public class AnythinkClient : HttpApiClient
 
     public AnythinkClient(Profile p) : this(p.OrgId, p.BaseUrl, p.AccessToken, p.ApiKey) { }
 
+    /// <summary>Test-only constructor — injects a mock HttpClient.</summary>
+    internal AnythinkClient(string orgId, string baseUrl, HttpClient http) : base(http)
+    {
+        OrgId   = orgId;
+        BaseUrl = baseUrl.TrimEnd('/');
+        _org    = $"{BaseUrl}/org/{OrgId}";
+    }
+
     // ── Project Auth ──────────────────────────────────────────────────────────
 
     public Task<LoginResponse> ExchangeTransferTokenAsync(string transferToken)

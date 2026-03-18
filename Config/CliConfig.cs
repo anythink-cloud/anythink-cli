@@ -81,9 +81,13 @@ public class CliConfigData
 
 public static class ConfigService
 {
-    private static readonly string ConfigDir  = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".anythink");
-    private static readonly string ConfigPath = Path.Combine(ConfigDir, "config.json");
+    /// <summary>Override the config directory for unit tests. Set before any Load/Save call.</summary>
+    internal static string? ConfigDirOverride { get; set; }
+
+    private static string ConfigDir  =>
+        ConfigDirOverride ?? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".anythink");
+    private static string ConfigPath => Path.Combine(ConfigDir, "config.json");
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
