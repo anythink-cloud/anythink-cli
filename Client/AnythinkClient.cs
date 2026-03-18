@@ -1,5 +1,7 @@
 using AnythinkCli.Config;
 using AnythinkCli.Models;
+using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace AnythinkCli.Client;
@@ -196,6 +198,27 @@ public class AnythinkClient : HttpApiClient
 
     public async Task<List<PaymentMethodResponse>> GetPaymentMethodsAsync()
         => (await GetAsync<List<PaymentMethodResponse>>(_pay + "/payment-methods")) ?? [];
+
+    // ── Token refresh (unauthenticated — called before building a client) ─────
+
+    /// <summary>
+    /// Exchanges a saved refresh token for a new access token.
+    /// Uses a plain, auth-free HttpClient — the refresh endpoint is public.
+    /// Returns null when the refresh token is invalid or expired (caller should prompt re-login).
+    /// </summary>
+    public static async Task<LoginResponse?> RefreshTokenAsync(string baseUrl, string orgId, string refreshToken)
+    {
+        using var http    = new HttpClient();
+        var body          = JsonSerializer.Serialize(new { token = refreshToken }, JsonOpts);
+        var content       = new StringContent(body, Encoding.UTF8, "application/json");
+        var url           = $"{baseUrl.TrimEnd('/')}/org/{orgId}/auth/v1/refresh";
+        var r             = await http.PostAsync(url, content);
+        if (!r.IsSuccessStatusCode) return null;
+        var raw           = await r.Content.ReadAsStringAsync();
+        return string.IsNullOrWhiteSpace(raw)
+            ? null
+            : JsonSerializer.Deserialize<LoginResponse>(raw, JsonOpts);
+    }
 
     // ── Secrets ───────────────────────────────────────────────────────────────
 

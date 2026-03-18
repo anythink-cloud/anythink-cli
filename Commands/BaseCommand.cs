@@ -1,5 +1,7 @@
 using AnythinkCli.Client;
 using AnythinkCli.Config;
+using CliProfile = AnythinkCli.Config.Profile;
+using AnythinkCli.Models;
 using AnythinkCli.Output;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -26,15 +28,67 @@ public abstract class BaseCommand<TSettings> : AsyncCommand<TSettings>
         var token  = Env("ANYTHINK_TOKEN");
         var url    = Env("ANYTHINK_BASE_URL") ?? EnvPresetUrl();
 
+        // Env-var path: no refresh logic needed — caller controls the token lifecycle.
         if (orgId != null && (apiKey != null || token != null))
             return new AnythinkClient(orgId, url ?? ApiDefaults.ProdApi, token, apiKey);
 
-        return new AnythinkClient(
-            ConfigService.GetActiveProfile()
+        var profile = ConfigService.GetActiveProfile()
             ?? throw new CliException(
                 "No credentials. Run [bold #F97316]anythink login[/] or set " +
-                "[#F97316]ANYTHINK_ORG_ID[/] + [#F97316]ANYTHINK_API_KEY[/].")
-        );
+                "[#F97316]ANYTHINK_ORG_ID[/] + [#F97316]ANYTHINK_API_KEY[/].");
+
+        // API-key profiles never expire — use directly.
+        if (!string.IsNullOrEmpty(profile.ApiKey))
+            return new AnythinkClient(profile);
+
+        // JWT expired — attempt a silent token refresh before giving up.
+        if (profile.IsTokenExpired)
+        {
+            if (string.IsNullOrEmpty(profile.RefreshToken))
+                throw new CliException("Session expired. Run [bold #F97316]anythink login[/] to sign in again.");
+
+            var refreshed = TryRefreshSync(profile);
+            if (refreshed is null)
+                throw new CliException("Session expired and refresh failed. Run [bold #F97316]anythink login[/] to sign in again.");
+
+            profile = refreshed;
+        }
+
+        return new AnythinkClient(profile);
+    }
+
+    /// <summary>
+    /// Calls the refresh endpoint synchronously (safe in a CLI — no sync context).
+    /// On success, persists the new tokens to disk and returns the updated Profile.
+    /// Returns null when the server rejects the refresh token.
+    /// </summary>
+    private static CliProfile? TryRefreshSync(CliProfile profile)
+    {
+        try
+        {
+            var response = Task.Run(() =>
+                AnythinkClient.RefreshTokenAsync(profile.BaseUrl, profile.OrgId, profile.RefreshToken!))
+                .GetAwaiter().GetResult();
+
+            if (response is null) return null;
+
+            profile.AccessToken    = response.AccessToken;
+            profile.RefreshToken   = response.RefreshToken ?? profile.RefreshToken;
+            profile.TokenExpiresAt = response.ExpiresIn.HasValue
+                ? DateTime.UtcNow.AddSeconds(response.ExpiresIn.Value)
+                : DateTime.UtcNow.AddHours(1);
+
+            // Persist so the next command doesn't need to refresh again.
+            var config = ConfigService.Load();
+            config.Profiles[config.DefaultProfile] = profile;
+            ConfigService.Save(config);
+
+            return profile;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>Returns the API URL implied by ANYTHINK_ENV, if set.</summary>
