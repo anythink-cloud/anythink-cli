@@ -36,7 +36,7 @@ public class ConfigServiceTests : IDisposable
         config.Should().NotBeNull();
         config.Profiles.Should().BeEmpty();
         config.DefaultProfile.Should().BeEmpty();
-        config.Platform.Should().BeNull();
+        config.Platform?.Token.Should().BeNull(); // Platform is initialised with defaults but has no token
     }
 
     // ── Save + Load round-trip ────────────────────────────────────────────────
@@ -53,7 +53,7 @@ public class ConfigServiceTests : IDisposable
                 {
                     OrgId       = "org-123",
                     AccessToken = "tok-abc",
-                    BaseUrl     = "https://api.my.anythink.cloud",
+                    InstanceApiUrl     = "https://api.my.anythink.cloud",
                     Alias       = "myapp"
                 }
             }
@@ -87,7 +87,7 @@ public class ConfigServiceTests : IDisposable
     [Fact]
     public void SaveProfile_StoresProfileAndSetsAsDefault_WhenFirst()
     {
-        var profile = new Profile { OrgId = "org-1", BaseUrl = "https://api.my.anythink.cloud" };
+        var profile = new Profile { OrgId = "org-1", InstanceApiUrl = "https://api.my.anythink.cloud" };
         ConfigService.SaveProfile("app1", profile);
 
         var config = ConfigService.Load();

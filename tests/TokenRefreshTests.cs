@@ -180,7 +180,7 @@ public class TryRefreshSyncTests : IDisposable
         new()
         {
             OrgId          = orgId,
-            BaseUrl        = baseUrl,
+            InstanceApiUrl =baseUrl,
             AccessToken    = "old-access",
             RefreshToken   = "old-refresh",
             TokenExpiresAt = DateTime.UtcNow.AddHours(-1)   // already expired
@@ -209,7 +209,7 @@ public class TryRefreshSyncTests : IDisposable
         SaveProfile(profile);
 
         var mock = new MockHttpMessageHandler();
-        mock.When(HttpMethod.Post, RefreshUrl(profile.BaseUrl, profile.OrgId))
+        mock.When(HttpMethod.Post, RefreshUrl(profile.InstanceApiUrl, profile.OrgId))
             .Respond("application/json", TokenResponse());
 
         var result = BaseCommand<Spectre.Console.Cli.EmptyCommandSettings>
@@ -226,7 +226,7 @@ public class TryRefreshSyncTests : IDisposable
         SaveProfile(profile);
 
         var mock = new MockHttpMessageHandler();
-        mock.When(HttpMethod.Post, RefreshUrl(profile.BaseUrl, profile.OrgId))
+        mock.When(HttpMethod.Post, RefreshUrl(profile.InstanceApiUrl, profile.OrgId))
             .Respond("application/json", TokenResponse(refresh: "rotated-refresh"));
 
         var result = BaseCommand<Spectre.Console.Cli.EmptyCommandSettings>
@@ -242,7 +242,7 @@ public class TryRefreshSyncTests : IDisposable
         SaveProfile(profile);
 
         var mock = new MockHttpMessageHandler();
-        mock.When(HttpMethod.Post, RefreshUrl(profile.BaseUrl, profile.OrgId))
+        mock.When(HttpMethod.Post, RefreshUrl(profile.InstanceApiUrl, profile.OrgId))
             .Respond("application/json", TokenResponse(refresh: null));
 
         var result = BaseCommand<Spectre.Console.Cli.EmptyCommandSettings>
@@ -259,7 +259,7 @@ public class TryRefreshSyncTests : IDisposable
         var before = DateTime.UtcNow;
 
         var mock = new MockHttpMessageHandler();
-        mock.When(HttpMethod.Post, RefreshUrl(profile.BaseUrl, profile.OrgId))
+        mock.When(HttpMethod.Post, RefreshUrl(profile.InstanceApiUrl, profile.OrgId))
             .Respond("application/json", TokenResponse(expiresIn: 3600));
 
         var result = BaseCommand<Spectre.Console.Cli.EmptyCommandSettings>
@@ -276,7 +276,7 @@ public class TryRefreshSyncTests : IDisposable
         var before = DateTime.UtcNow;
 
         var mock = new MockHttpMessageHandler();
-        mock.When(HttpMethod.Post, RefreshUrl(profile.BaseUrl, profile.OrgId))
+        mock.When(HttpMethod.Post, RefreshUrl(profile.InstanceApiUrl, profile.OrgId))
             .Respond("application/json", TokenResponse(expiresIn: null));
 
         var result = BaseCommand<Spectre.Console.Cli.EmptyCommandSettings>
@@ -292,7 +292,7 @@ public class TryRefreshSyncTests : IDisposable
         SaveProfile(profile);
 
         var mock = new MockHttpMessageHandler();
-        mock.When(HttpMethod.Post, RefreshUrl(profile.BaseUrl, profile.OrgId))
+        mock.When(HttpMethod.Post, RefreshUrl(profile.InstanceApiUrl, profile.OrgId))
             .Respond("application/json", TokenResponse());
 
         BaseCommand<Spectre.Console.Cli.EmptyCommandSettings>
@@ -313,7 +313,7 @@ public class TryRefreshSyncTests : IDisposable
         SaveProfile(profile);
 
         var mock = new MockHttpMessageHandler();
-        mock.When(HttpMethod.Post, RefreshUrl(profile.BaseUrl, profile.OrgId))
+        mock.When(HttpMethod.Post, RefreshUrl(profile.InstanceApiUrl, profile.OrgId))
             .Respond(HttpStatusCode.Unauthorized);
 
         var result = BaseCommand<Spectre.Console.Cli.EmptyCommandSettings>
@@ -329,7 +329,7 @@ public class TryRefreshSyncTests : IDisposable
         SaveProfile(profile);
 
         var mock = new MockHttpMessageHandler();
-        mock.When(HttpMethod.Post, RefreshUrl(profile.BaseUrl, profile.OrgId))
+        mock.When(HttpMethod.Post, RefreshUrl(profile.InstanceApiUrl, profile.OrgId))
             .Throw(new HttpRequestException("Network unreachable"));
 
         var result = BaseCommand<Spectre.Console.Cli.EmptyCommandSettings>
@@ -345,7 +345,7 @@ public class TryRefreshSyncTests : IDisposable
         SaveProfile(profile);
 
         var mock = new MockHttpMessageHandler();
-        mock.When(HttpMethod.Post, RefreshUrl(profile.BaseUrl, profile.OrgId))
+        mock.When(HttpMethod.Post, RefreshUrl(profile.InstanceApiUrl, profile.OrgId))
             .Respond(HttpStatusCode.InternalServerError);
 
         var act = () => BaseCommand<Spectre.Console.Cli.EmptyCommandSettings>

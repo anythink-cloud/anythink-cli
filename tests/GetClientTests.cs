@@ -73,7 +73,7 @@ public class GetClientTests : IDisposable
         var profile = new Profile
         {
             OrgId          = "10",
-            BaseUrl        = "https://api.example.com",
+            InstanceApiUrl ="https://api.example.com",
             ApiKey         = "ak_test123",
             TokenExpiresAt = DateTime.UtcNow.AddDays(-99)  // would be "expired" if checked
         };
@@ -95,7 +95,7 @@ public class GetClientTests : IDisposable
         var profile = new Profile
         {
             OrgId          = "20",
-            BaseUrl        = "https://api.example.com",
+            InstanceApiUrl ="https://api.example.com",
             AccessToken    = "valid-jwt",
             RefreshToken   = "refresh-tok",
             TokenExpiresAt = DateTime.UtcNow.AddHours(2)   // not yet expired
@@ -119,7 +119,7 @@ public class GetClientTests : IDisposable
         var profile = new Profile
         {
             OrgId          = "30",
-            BaseUrl        = "https://api.example.com",
+            InstanceApiUrl ="https://api.example.com",
             AccessToken    = "expired-jwt",
             RefreshToken   = null,
             TokenExpiresAt = DateTime.UtcNow.AddHours(-1)
@@ -142,7 +142,7 @@ public class GetClientTests : IDisposable
         var profile = new Profile
         {
             OrgId          = "40",
-            BaseUrl        = "https://api.example.com",
+            InstanceApiUrl ="https://api.example.com",
             AccessToken    = "expired-jwt",
             RefreshToken   = "stale-refresh",
             TokenExpiresAt = DateTime.UtcNow.AddHours(-1)
@@ -151,7 +151,7 @@ public class GetClientTests : IDisposable
         ConfigService.SetDefault("prod");
 
         var mock = new MockHttpMessageHandler();
-        mock.When(HttpMethod.Post, RefreshEndpoint(profile.BaseUrl, profile.OrgId))
+        mock.When(HttpMethod.Post, RefreshEndpoint(profile.InstanceApiUrl, profile.OrgId))
             .Respond(HttpStatusCode.Unauthorized);
 
         var cmd = new TestCommand();
@@ -169,7 +169,7 @@ public class GetClientTests : IDisposable
         var profile = new Profile
         {
             OrgId          = "50",
-            BaseUrl        = "https://api.example.com",
+            InstanceApiUrl ="https://api.example.com",
             AccessToken    = "expired-jwt",
             RefreshToken   = "valid-refresh",
             TokenExpiresAt = DateTime.UtcNow.AddHours(-1)
@@ -178,7 +178,7 @@ public class GetClientTests : IDisposable
         ConfigService.SetDefault("prod");
 
         var mock = new MockHttpMessageHandler();
-        mock.When(HttpMethod.Post, RefreshEndpoint(profile.BaseUrl, profile.OrgId))
+        mock.When(HttpMethod.Post, RefreshEndpoint(profile.InstanceApiUrl, profile.OrgId))
             .Respond("application/json", OkRefreshBody());
 
         var cmd    = new TestCommand();
@@ -194,7 +194,7 @@ public class GetClientTests : IDisposable
         var profile = new Profile
         {
             OrgId          = "60",
-            BaseUrl        = "https://api.example.com",
+            InstanceApiUrl ="https://api.example.com",
             AccessToken    = "expired-jwt",
             RefreshToken   = "valid-refresh",
             TokenExpiresAt = DateTime.UtcNow.AddHours(-1)
@@ -203,7 +203,7 @@ public class GetClientTests : IDisposable
         ConfigService.SetDefault("prod");
 
         var mock = new MockHttpMessageHandler();
-        mock.When(HttpMethod.Post, RefreshEndpoint(profile.BaseUrl, profile.OrgId))
+        mock.When(HttpMethod.Post, RefreshEndpoint(profile.InstanceApiUrl, profile.OrgId))
             .Respond("application/json", OkRefreshBody(access: "brand-new-access"));
 
         new TestCommand().CallGetClient(mock.ToHttpClient());
