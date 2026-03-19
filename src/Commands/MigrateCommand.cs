@@ -1148,7 +1148,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
     /// "/org/54925003/entities/categories" → "/org/37523255/entities/categories"
     /// Hrefs without an org prefix are returned unchanged.
     /// </summary>
-    private static string RemapHref(string href, string srcOrgId, string dstOrgId) =>
+    internal static string RemapHref(string href, string srcOrgId, string dstOrgId) =>
         href.Replace($"/org/{srcOrgId}/", $"/org/{dstOrgId}/", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Collects all hrefs (including nested children) into a flat set.</summary>
@@ -1226,7 +1226,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
     /// or "file_type". Null is returned for such objects so callers can omit the field entirely.
     /// Arrays have file-like elements removed. All other values are passed through unchanged.
     /// </summary>
-    private static JsonNode? StripEmbeddedFileRefs(JsonNode? node)
+    internal static JsonNode? StripEmbeddedFileRefs(JsonNode? node)
     {
         if (node == null) return null;
         if (node is JsonObject obj)
@@ -1254,7 +1254,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         return node.DeepClone();
     }
 
-    private static int CountItems(List<MenuItemResponse> items) =>
+    internal static int CountItems(List<MenuItemResponse> items) =>
         items.Sum(i => 1 + CountItems(i.Items));
 
     private static JsonElement? RemapRelationship(
