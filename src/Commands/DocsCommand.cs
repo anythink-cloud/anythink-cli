@@ -31,13 +31,13 @@ public class DocsCommand : Command<DocsSettings>
 
     private static object BuildSpec() => new
     {
-        tool        = "anythink",
-        version     = "1.0.0",
+        tool = "anythink",
+        version = "1.0.0",
         description = "Anythink BaaS CLI — manage your backend platform from the command line",
         api_urls = new
         {
-            myanythink     = ApiDefaults.MyAnythinkApiUrl,
-            billing        = ApiDefaults.BillingApiUrl
+            myanythink = ApiDefaults.MyAnythinkApiUrl,
+            billing = ApiDefaults.BillingApiUrl
         },
         quick_start = new[]
         {
@@ -103,7 +103,7 @@ public class DocsCommand : Command<DocsSettings>
           "Create a project — interactive plan and region picker if flags omitted",
           ["--plan PLAN_UUID", "--region REGION", "--account ID"],
           ["anythink projects create \"My App\"", "anythink projects create \"My App\" --plan <uuid> --region lon1"],
-          "Regions: lon1 nyc1 fra1 sgp1 syd1"),
+          "Regions: lon1"),
 
         C("projects use ID",
           "Connect to a project; saves it as the active profile",
@@ -239,7 +239,7 @@ public class DocsCommand : Command<DocsSettings>
         | `anythink projects use ID` | Connect to project; saves as active profile |
         | `anythink projects delete ID [--yes]` | Delete project and all data |
 
-        **Regions:** `lon1` `nyc1` `fra1` `sgp1` `syd1`
+        **Regions:** `lon1`
 
         ## Data Model
 

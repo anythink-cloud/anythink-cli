@@ -25,28 +25,7 @@ public abstract class BasePlatformCommand<TSettings> : BaseCommand<TSettings>
 
     protected BillingClient GetUnauthenticatedBillingClient() => new(ResolvePlatform());
 
-    protected PlatformConfig ResolvePlatform()
-    {
-        var orgId = Env("ANYTHINK_PLATFORM_ORG_ID");
-        var token = Env("ANYTHINK_PLATFORM_TOKEN");
-        var apiUrl = Env("ANYTHINK_PLATFORM_API_URL");
-        var billingUrl = Env("ANYTHINK_BILLING_URL");
-        
-        if (orgId != null)
-        {
-            return new PlatformConfig
-            {
-                MyAnythinkOrgId = orgId,
-                MyAnythinkUrl = apiUrl ?? ApiDefaults.MyAnythinkApiUrl,
-                Token = token,
-                BillingUrl = billingUrl ?? ApiDefaults.BillingApiUrl,
-                AccountId = Env("ANYTHINK_ACCOUNT_ID")
-            };
-        }
-
-        var saved = ConfigService.GetPlatform() ?? new PlatformConfig();
-        return saved;
-    }
+    protected PlatformConfig ResolvePlatform() => ConfigService.ResolvePlatform();
 
     protected void SavePlatform(PlatformConfig platform)
         => ConfigService.SavePlatform(platform);

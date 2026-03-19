@@ -96,7 +96,7 @@ public class ProjectsCreateSettings : CommandSettings
     public string? PlanId { get; set; }
 
     [CommandOption("--region <REGION>")]
-    [Description("Deployment region (e.g. lon1, nyc1, fra1)")]
+    [Description("Deployment region (e.g. lon1)")]
     public string? Region { get; set; }
 
     [CommandOption("--description <DESC>")]
@@ -128,7 +128,7 @@ public class ProjectsCreateCommand : BasePlatformCommand<ProjectsCreateSettings>
         var region = settings.Region ?? AnsiConsole.Prompt(
             Renderer.Prompt<string>()
                 .Title("[#F97316]Region:[/]")
-                .AddChoices("lon1", "nyc1", "fra1", "sgp1", "syd1"));
+                .AddChoices("lon1"));
 
         try
         {
@@ -145,7 +145,7 @@ public class ProjectsCreateCommand : BasePlatformCommand<ProjectsCreateSettings>
                 });
 
             Renderer.Success($"Project [#F97316]{Markup.Escape(project!.Name)}[/] created!");
-            Renderer.KeyValue("ID",     project.Id.ToString());
+            Renderer.KeyValue("ID", project.Id.ToString());
             Renderer.KeyValue("Status", ProjectStatusMarkup.Render(project.Status));
             Renderer.KeyValue("Region", project.Region ?? "—");
 
@@ -280,17 +280,17 @@ public class ProjectsUseCommand : BasePlatformCommand<ProjectsUseSettings>
                 return 1;
             }
 
-            var platform   = ResolvePlatform();
-            var baseUrl    = match.ApiUrl?.TrimEnd('/') ?? platform.MyAnythinkUrl;
+            var platform = ResolvePlatform();
+            var baseUrl = match.ApiUrl?.TrimEnd('/') ?? platform.MyAnythinkUrl;
             var profileKey = match.Name.ToLower().Replace(" ", "-");
 
             // Save profile — no AccessToken yet if no API key provided
             var profile = new CliProfile
             {
-                OrgId   = match.TenantId.Value.ToString(),
-                ApiKey  = settings.ApiKey,
+                OrgId = match.TenantId.Value.ToString(),
+                ApiKey = settings.ApiKey,
                 InstanceApiUrl = baseUrl,
-                Alias   = match.Name
+                Alias = match.Name
             };
             ConfigService.SaveProfile(profileKey, profile);
             ConfigService.SetDefault(profileKey);
@@ -318,8 +318,8 @@ public class ProjectsUseCommand : BasePlatformCommand<ProjectsUseSettings>
                         loginResp = await projectClient.ExchangeTransferTokenAsync(transferResp.TransferToken);
                     });
 
-                profile.AccessToken    = loginResp!.AccessToken;
-                profile.RefreshToken   = loginResp.RefreshToken;
+                profile.AccessToken = loginResp!.AccessToken;
+                profile.RefreshToken = loginResp.RefreshToken;
                 profile.TokenExpiresAt = loginResp.ExpiresIn.HasValue
                     ? DateTime.UtcNow.AddSeconds(loginResp.ExpiresIn.Value)
                     : DateTime.UtcNow.AddHours(1);

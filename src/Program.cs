@@ -2,6 +2,22 @@ using AnythinkCli.Commands;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
+// Load .env from the current working directory if present.
+var dotEnvPath = Path.Combine(Directory.GetCurrentDirectory(), ".env");
+if (File.Exists(dotEnvPath))
+{
+    foreach (var line in File.ReadAllLines(dotEnvPath))
+    {
+        var trimmed = line.Trim();
+        if (trimmed.StartsWith('#') || !trimmed.Contains('=')) continue;
+        var idx = trimmed.IndexOf('=');
+        var key = trimmed[..idx].Trim();
+        var val = trimmed[(idx + 1)..].Trim().Trim('"').Trim('\'');
+        if (!string.IsNullOrEmpty(key) && Environment.GetEnvironmentVariable(key) is null)
+            Environment.SetEnvironmentVariable(key, val);
+    }
+}
+
 var app = new CommandApp();
 
 app.Configure(config =>
@@ -53,7 +69,7 @@ app.Configure(config =>
 
         cfg.AddCommand<ConfigRemoveCommand>("remove")
             .WithDescription("Remove a project profile");
-        
+
         cfg.AddCommand<ConfigResetCommand>("reset")
             .WithDescription("Reset CLI configuration to default settings");
     });

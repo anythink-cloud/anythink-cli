@@ -167,6 +167,35 @@ public static class ConfigService
         return config.Platform;
     }
 
+    /// <summary>
+    /// Returns the platform configuration from disk, with overrides from environment variables.
+    /// Priority: Environment variables > saved config > defaults.
+    /// </summary>
+    public static PlatformConfig ResolvePlatform()
+    {
+        var platform = GetPlatform() ?? new PlatformConfig();
+
+        var envOrgId = Environment.GetEnvironmentVariable("MYANYTHINK_ORG_ID") 
+                      ?? Environment.GetEnvironmentVariable("ANYTHINK_PLATFORM_ORG_ID");
+        if (!string.IsNullOrEmpty(envOrgId)) platform.MyAnythinkOrgId = envOrgId;
+
+        var envUrl = Environment.GetEnvironmentVariable("MYANYTHINK_API_URL") 
+                    ?? Environment.GetEnvironmentVariable("ANYTHINK_PLATFORM_API_URL");
+        if (!string.IsNullOrEmpty(envUrl)) platform.MyAnythinkUrl = envUrl;
+
+        var envBillingUrl = Environment.GetEnvironmentVariable("BILLING_API_URL") 
+                           ?? Environment.GetEnvironmentVariable("ANYTHINK_BILLING_URL");
+        if (!string.IsNullOrEmpty(envBillingUrl)) platform.BillingUrl = envBillingUrl;
+
+        var envToken = Environment.GetEnvironmentVariable("ANYTHINK_PLATFORM_TOKEN");
+        if (!string.IsNullOrEmpty(envToken)) platform.Token = envToken;
+
+        var envAccountId = Environment.GetEnvironmentVariable("ANYTHINK_ACCOUNT_ID");
+        if (!string.IsNullOrEmpty(envAccountId)) platform.AccountId = envAccountId;
+
+        return platform;
+    }
+
     public static void SavePlatform(PlatformConfig platform)
     {
         var config = Load();
