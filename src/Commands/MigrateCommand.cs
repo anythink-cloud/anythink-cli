@@ -52,6 +52,10 @@ public class MigrateSettings : CommandSettings
     [Description("Include menu configuration")]
     public bool IncludeMenus { get; set; }
 
+    [CommandOption("--force-menus")]
+    [Description("Delete existing target menus before recreating them (fixes incorrect hrefs from a previous migration)")]
+    public bool ForceMenus { get; set; }
+
     [CommandOption("--include-files")]
     [Description("Include uploaded files")]
     public bool IncludeFiles { get; set; }
@@ -596,6 +600,22 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                             continue;
                         }
 
+                        // --force-menus: delete the existing menu so it is fully recreated
+                        if (existingDstMenu != null && settings.ForceMenus)
+                        {
+                            try
+                            {
+                                await dstClient.DeleteMenuAsync(existingDstMenu.Id);
+                                existingDstMenu = null;
+                            }
+                            catch (AnythinkException ex)
+                            {
+                                errors.Add($"Deleting menu '{menu.Name}': {ex.Message}");
+                                menuTask.Increment(1);
+                                continue;
+                            }
+                        }
+
                         int targetMenuId;
                         if (existingDstMenu != null)
                         {
@@ -638,7 +658,8 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                         FlattenItems(fullDstMenu?.Items ?? [], dstItemsByName);
 
                         await MergeMenuItems(dstClient, targetMenuId, fullSrcMenu.Items, 0,
-                            existingHrefs, dstItemsByName, errors, menuItemsCreated);
+                            existingHrefs, dstItemsByName, errors, menuItemsCreated,
+                            srcClient.OrgId, dstClient.OrgId);
 
                         menuTask.Increment(1);
                     }
@@ -806,6 +827,14 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         cCreated.Value++;
     }
 
+    /// <summary>
+    /// Remaps the org ID in an href from source to destination.
+    /// "/org/54925003/entities/categories" → "/org/37523255/entities/categories"
+    /// Hrefs without an org prefix are returned unchanged.
+    /// </summary>
+    private static string RemapHref(string href, string srcOrgId, string dstOrgId) =>
+        href.Replace($"/org/{srcOrgId}/", $"/org/{dstOrgId}/", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Collects all hrefs (including nested children) into a flat set.</summary>
     private static void CollectHrefs(List<MenuItemResponse> items, HashSet<string> hrefs)
     {
@@ -836,13 +865,17 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         List<MenuItemResponse> items, int dstParentId,
         HashSet<string> existingHrefs,
         Dictionary<string, int> dstItemsByName,
-        List<string> errors, Counter count)
+        List<string> errors, Counter count,
+        string srcOrgId, string dstOrgId)
     {
         foreach (var item in items.OrderBy(i => i.SortOrder))
         {
             int dstItemId;
+            var remappedHref = string.IsNullOrEmpty(item.Href)
+                ? item.Href
+                : RemapHref(item.Href, srcOrgId, dstOrgId);
 
-            if (!string.IsNullOrEmpty(item.Href) && existingHrefs.Contains(item.Href))
+            if (!string.IsNullOrEmpty(remappedHref) && existingHrefs.Contains(remappedHref))
             {
                 // Item already exists — resolve dst ID so children can use it as parent
                 dstItemsByName.TryGetValue(item.DisplayName, out dstItemId);
@@ -852,10 +885,10 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                 try
                 {
                     var created = await client.CreateMenuItemAsync(menuId,
-                        new CreateMenuItemRequest(item.DisplayName, item.Icon, item.Href, dstParentId));
+                        new CreateMenuItemRequest(item.DisplayName, item.Icon, remappedHref, dstParentId));
                     dstItemId = created.Id;
                     dstItemsByName.TryAdd(item.DisplayName, dstItemId);
-                    if (!string.IsNullOrEmpty(item.Href)) existingHrefs.Add(item.Href);
+                    if (!string.IsNullOrEmpty(remappedHref)) existingHrefs.Add(remappedHref);
                     count.Value++;
                 }
                 catch (AnythinkException ex)
@@ -867,7 +900,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
 
             if (item.Items.Count > 0 && dstItemId != 0)
                 await MergeMenuItems(client, menuId, item.Items, dstItemId,
-                    existingHrefs, dstItemsByName, errors, count);
+                    existingHrefs, dstItemsByName, errors, count, srcOrgId, dstOrgId);
         }
     }
 

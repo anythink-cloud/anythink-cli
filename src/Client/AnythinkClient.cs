@@ -317,6 +317,9 @@ public class AnythinkClient : HttpApiClient
     public Task<MenuItemResponse> CreateMenuItemAsync(int menuId, CreateMenuItemRequest req)
         => PostAsync<MenuItemResponse>(_org + $"/menus/{menuId}/items", req);
 
+    public Task DeleteMenuAsync(int menuId)
+        => DeleteAsync(_org + $"/menus/{menuId}");
+
     // ── Tenant / Organisation Settings ────────────────────────────────────────
 
     public Task<TenantResponse?> GetTenantAsync()
