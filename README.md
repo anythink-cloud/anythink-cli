@@ -54,12 +54,12 @@ The official command-line interface for [Anythink](https://anythink.cloud) — t
 
 Grab the latest release for your platform from the [Releases](https://github.com/Anythink-Ltd/anythink-cli/releases/latest) page:
 
-| Platform | Binary |
-|---|---|
-| macOS (Apple Silicon) | `anythink-osx-arm64` |
-| macOS (Intel) | `anythink-osx-x64` |
-| Linux (x86_64) | `anythink-linux-x64` |
-| Linux (ARM64) | `anythink-linux-arm64` |
+| Platform              | Binary                 |
+| --------------------- | ---------------------- |
+| macOS (Apple Silicon) | `anythink-osx-arm64`   |
+| macOS (Intel)         | `anythink-osx-x64`     |
+| Linux (x86_64)        | `anythink-linux-x64`   |
+| Linux (ARM64)         | `anythink-linux-arm64` |
 
 ```bash
 # Example — macOS Apple Silicon
@@ -163,10 +163,10 @@ anythink projects delete <id>          Delete a project
 
 **Options — `projects create`**
 
-| Flag | Description |
-|---|---|
-| `--region <id>` | Deployment region (e.g. `lon1`, `nyc1`) |
-| `--plan <id>` | Plan ID (see `anythink plans`) |
+| Flag            | Description                     |
+| --------------- | ------------------------------- |
+| `--region <id>` | Deployment region (e.g. `lon1`) |
+| `--plan <id>`   | Plan ID (see `anythink plans`)  |
 
 **Examples**
 
@@ -206,12 +206,12 @@ anythink entities delete <name>        Delete an entity and all its data
 
 **Options — `entities create`**
 
-| Flag | Description |
-|---|---|
-| `--rls` | Enable row-level security |
-| `--public` | Make the entity publicly readable |
-| `--lock` | Lock new records (prevent direct creation) |
-| `--junction` | Mark as a junction (many-to-many) table |
+| Flag         | Description                                |
+| ------------ | ------------------------------------------ |
+| `--rls`      | Enable row-level security                  |
+| `--public`   | Make the entity publicly readable          |
+| `--lock`     | Lock new records (prevent direct creation) |
+| `--junction` | Mark as a junction (many-to-many) table    |
 
 **Examples**
 
@@ -235,13 +235,13 @@ anythink fields delete <entity> <id>   Delete a field
 
 **Options — `fields add`**
 
-| Flag | Description |
-|---|---|
-| `--type <type>` | Field type: `varchar`, `text`, `int`, `float`, `bool`, `datetime`, `json`, `uuid` |
-| `--required` | Mark the field as required |
-| `--unique` | Enforce a unique constraint |
-| `--indexed` | Add a database index |
-| `--default <value>` | Default value |
+| Flag                | Description                                                                       |
+| ------------------- | --------------------------------------------------------------------------------- |
+| `--type <type>`     | Field type: `varchar`, `text`, `int`, `float`, `bool`, `datetime`, `json`, `uuid` |
+| `--required`        | Mark the field as required                                                        |
+| `--unique`          | Enforce a unique constraint                                                       |
+| `--indexed`         | Add a database index                                                              |
+| `--default <value>` | Default value                                                                     |
 
 **Examples**
 
@@ -268,15 +268,15 @@ anythink data delete <entity> <id>     Delete a record
 
 **Options — `data list`**
 
-| Flag | Description |
-|---|---|
+| Flag          | Description                               |
+| ------------- | ----------------------------------------- |
 | `--limit <n>` | Number of records to return (default: 25) |
-| `--page <n>` | Page number |
+| `--page <n>`  | Page number                               |
 
 **Options — `data create` / `data update`**
 
-| Flag | Description |
-|---|---|
+| Flag            | Description                 |
+| --------------- | --------------------------- |
 | `--data <json>` | JSON object of field values |
 
 **Examples**
@@ -307,11 +307,11 @@ anythink workflows delete <id>         Delete a workflow
 
 **Options — `workflows create`**
 
-| Flag | Description |
-|---|---|
+| Flag               | Description                                                       |
+| ------------------ | ----------------------------------------------------------------- |
 | `--trigger <type>` | Trigger type: `Timed`, `EntityCreated`, `EntityUpdated`, `Manual` |
-| `--cron <expr>` | Cron expression (for `Timed` trigger, e.g. `0 6 * * *`) |
-| `--entity <name>` | Entity name (for `EntityCreated` / `EntityUpdated` triggers) |
+| `--cron <expr>`    | Cron expression (for `Timed` trigger, e.g. `0 6 * * *`)           |
+| `--entity <name>`  | Entity name (for `EntityCreated` / `EntityUpdated` triggers)      |
 
 **Examples**
 
@@ -337,8 +337,8 @@ anythink users delete <id>             Delete a user
 
 **Options — `users invite`**
 
-| Flag | Description |
-|---|---|
+| Flag             | Description                   |
+| ---------------- | ----------------------------- |
 | `--role-id <id>` | Assign a role to the new user |
 
 **Examples**
@@ -364,15 +364,15 @@ anythink files delete <id>             Delete a file
 
 **Options — `files list`**
 
-| Flag | Description |
-|---|---|
-| `--page <n>` | Page number |
+| Flag          | Description                  |
+| ------------- | ---------------------------- |
+| `--page <n>`  | Page number                  |
 | `--limit <n>` | Files per page (default: 25) |
 
 **Options — `files upload`**
 
-| Flag | Description |
-|---|---|
+| Flag       | Description                       |
+| ---------- | --------------------------------- |
 | `--public` | Make the file publicly accessible |
 
 **Examples**
@@ -398,8 +398,8 @@ anythink roles delete <id>             Delete a role
 
 **Options — `roles create`**
 
-| Flag | Description |
-|---|---|
+| Flag                   | Description                            |
+| ---------------------- | -------------------------------------- |
 | `--description <text>` | Human-readable description of the role |
 
 **Examples**
@@ -425,9 +425,9 @@ anythink pay methods                   List saved payment methods
 
 **Options — `pay payments`**
 
-| Flag | Description |
-|---|---|
-| `--page <n>` | Page number |
+| Flag          | Description                     |
+| ------------- | ------------------------------- |
+| `--page <n>`  | Page number                     |
 | `--limit <n>` | Payments per page (default: 25) |
 
 `pay connect` is interactive — it prompts for business type, country, and contact email, creates a Stripe Connect account, then opens the Stripe onboarding URL in your browser.
@@ -454,6 +454,7 @@ anythink oauth google configure        Set Google OAuth client ID and secret
 Google OAuth lets your project's users sign in with their Google account. You'll need a Google Cloud project with the OAuth 2.0 credentials created — see the [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
 
 Set the authorised redirect URI in your Google Cloud credentials to:
+
 ```
 https://api.my.anythink.cloud/org/<your-org-id>/auth/v1/google/callback
 ```
@@ -499,11 +500,11 @@ anythink migrate --from <profile> --to <profile>
 
 **Options**
 
-| Flag | Description |
-|---|---|
-| `--from <profile>` | Source profile name (required) |
-| `--to <profile>` | Destination profile name (required) |
-| `--dry-run` | Show what would be migrated without making changes |
+| Flag               | Description                                        |
+| ------------------ | -------------------------------------------------- |
+| `--from <profile>` | Source profile name (required)                     |
+| `--to <profile>`   | Destination profile name (required)                |
+| `--dry-run`        | Show what would be migrated without making changes |
 
 **Examples**
 
@@ -552,23 +553,17 @@ dotnet run -- entities list
 
 ### Environment variables
 
-The CLI targets production (`https://api.my.anythink.cloud`) by default. Contributors working against a local or staging instance can override this in `.env`:
+The CLI targets production (`https://api.my.anythink.cloud`) by default. You can override platform and API settings via environment variables (e.g. in your shell or a `.env` file in the current working directory):
 
-| Variable | Description |
-|---|---|
-| `ANYTHINK_DEV_API` | Dev API base URL |
-| `ANYTHINK_DEV_BILLING` | Dev billing API base URL |
-| `ANYTHINK_DEV_ORG_ID` | Platform org ID for dev |
-| `ANYTHINK_LOCAL_API` | Local API base URL (default: `http://localhost:5099`) |
-| `ANYTHINK_LOCAL_BILLING` | Local billing URL (default: `http://localhost:5100`) |
-| `ANYTHINK_LOCAL_ORG_ID` | Platform org ID for local |
+| Variable                 | Description                                           |
+| ------------------------ | ----------------------------------------------------- |
+| `MYANYTHINK_API_URL`     | Platform management API base URL                      |
+| `MYANYTHINK_ORG_ID`      | Platform organization/tenant ID                       |
+| `BILLING_API_URL`        | Billing API base URL                                  |
+| `ANYTHINK_PLATFORM_TOKEN`| JWT access token for platform commands                |
+| `ANYTHINK_ACCOUNT_ID`    | UUID of the active billing account                    |
 
-Switch environments at runtime with the hidden `--env` flag:
-
-```bash
-dotnet run -- --env dev projects list
-dotnet run -- --env local entities list
-```
+These variables take precedence over the saved configuration in `~/.anythink/config.json`. Overrides are applied at runtime by the configuration resolution logic.
 
 ### Releases
 
@@ -585,39 +580,16 @@ The workflow builds self-contained binaries for macOS (arm64, x64) and Linux (x6
 
 ```
 anythink-cli/
-├── Client/
-│   ├── HttpApiClient.cs        # Shared HTTP base class (auth, serialisation, error handling)
-│   ├── AnythinkClient.cs       # Project-scoped API client
-│   └── BillingClient.cs        # Billing / platform API client
-├── Commands/
-│   ├── SignupCommand.cs         # signup
-│   ├── LoginCommand.cs          # login / logout
-│   ├── AccountsCommand.cs       # accounts *
-│   ├── ProjectsCommand.cs       # projects *
-│   ├── ConfigCommand.cs         # config *
-│   ├── EntitiesCommand.cs       # entities *
-│   ├── FieldsCommand.cs         # fields *
-│   ├── DataCommand.cs           # data *
-│   ├── WorkflowsCommand.cs      # workflows *
-│   ├── UsersCommand.cs          # users *
-│   ├── FilesCommand.cs          # files *
-│   ├── RolesCommand.cs          # roles *
-│   ├── PayCommand.cs            # pay *
-│   ├── OAuthCommand.cs          # oauth *
-│   ├── ApiCommand.cs            # api
-│   ├── DocsCommand.cs           # docs
-│   ├── MigrateCommand.cs        # migrate
-│   └── PlansCommand.cs          # plans
-├── Config/
-│   └── CliConfig.cs             # Profile, PlatformConfig, ConfigService, ApiDefaults
-├── Models/
-│   ├── ApiModels.cs             # Request/response records for the project API
-│   └── BillingModels.cs         # Request/response records for the billing API
-├── Output/
-│   └── Renderer.cs              # Spectre.Console helpers, banner, JWT decode
-├── .env.example                 # Contributor environment variable template
-├── .gitignore
-└── anythink-cli.csproj
+├── src/
+│   ├── Commands/               # Command implementations (signup, login, etc)
+│   ├── Config/                 # CliConfig.cs, Profile, ConfigService
+│   ├── Models/                 # ApiModels.cs, BillingModels.cs
+│   ├── Client/                 # HttpApiClient.cs, AnythinkClient.cs, BillingClient.cs
+│   ├── Output/                 # Renderer.cs (Spectre.Console helpers)
+│   └── Program.cs              # Application entry point & .env loader
+├── tests/                      # Unit tests
+├── AnythinkCli.sln             # Solution file
+└── .gitignore
 ```
 
 ---
