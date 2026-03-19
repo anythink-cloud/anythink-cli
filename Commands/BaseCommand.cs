@@ -21,7 +21,14 @@ namespace AnythinkCli.Commands;
 public abstract class BaseCommand<TSettings> : AsyncCommand<TSettings>
     where TSettings : CommandSettings
 {
-    protected AnythinkClient GetClient()
+    protected AnythinkClient GetClient() => GetClient(refreshHttp: null);
+
+    /// <summary>
+    /// Full credential-resolution logic.
+    /// <paramref name="refreshHttp"/> is null in production (a real HttpClient is created inside
+    /// RefreshTokenAsync) and injected in unit tests so the refresh call can be mocked.
+    /// </summary>
+    internal AnythinkClient GetClient(HttpClient? refreshHttp)
     {
         var orgId  = Env("ANYTHINK_ORG_ID");
         var apiKey = Env("ANYTHINK_API_KEY");
@@ -47,7 +54,7 @@ public abstract class BaseCommand<TSettings> : AsyncCommand<TSettings>
             if (string.IsNullOrEmpty(profile.RefreshToken))
                 throw new CliException("Session expired. Run [bold #F97316]anythink login[/] to sign in again.");
 
-            var refreshed = TryRefreshSync(profile, http: null);
+            var refreshed = TryRefreshSync(profile, refreshHttp);
             if (refreshed is null)
                 throw new CliException("Session expired and refresh failed. Run [bold #F97316]anythink login[/] to sign in again.");
 
@@ -61,9 +68,12 @@ public abstract class BaseCommand<TSettings> : AsyncCommand<TSettings>
     /// Calls the refresh endpoint synchronously (safe in a CLI — no synchronisation context).
     /// On success, persists the new tokens to disk and returns the updated Profile.
     /// Returns null when the server rejects the refresh token or on any failure.
+    /// <paramref name="profileKey"/> is the config dictionary key to save the refreshed tokens under;
+    /// defaults to <c>config.DefaultProfile</c> when null (the normal single-profile case).
     /// The optional <paramref name="http"/> parameter is for unit testing only.
     /// </summary>
-    internal static CliProfile? TryRefreshSync(CliProfile profile, HttpClient? http = null)
+    internal static CliProfile? TryRefreshSync(CliProfile profile, HttpClient? http = null,
+        string? profileKey = null)
     {
         try
         {
@@ -81,8 +91,10 @@ public abstract class BaseCommand<TSettings> : AsyncCommand<TSettings>
                 : DateTime.UtcNow.AddHours(1);
 
             // Persist so the next command doesn't need to refresh again.
+            // Use the supplied key (named profile) or fall back to the default slot.
             var config = ConfigService.Load();
-            config.Profiles[config.DefaultProfile] = profile;
+            var key = profileKey ?? config.DefaultProfile;
+            config.Profiles[key] = profile;
             ConfigService.Save(config);
 
             return profile;
@@ -91,6 +103,39 @@ public abstract class BaseCommand<TSettings> : AsyncCommand<TSettings>
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// Resolves a named profile by key, refreshing its token if expired.
+    /// Use this instead of <see cref="GetClient()"/> when a specific profile key is needed
+    /// (e.g. the migrate command's --from / --to profiles).
+    /// </summary>
+    internal AnythinkClient GetClientForProfile(string profileKey, HttpClient? refreshHttp = null)
+    {
+        var profile = ConfigService.GetProfile(profileKey)
+            ?? throw new CliException($"Profile '[bold #F97316]{Markup.Escape(profileKey)}[/]' not found. " +
+                                      "Run [bold #F97316]anythink config show[/] to list saved profiles.");
+
+        if (!string.IsNullOrEmpty(profile.ApiKey))
+            return new AnythinkClient(profile);
+
+        if (profile.IsTokenExpired)
+        {
+            if (string.IsNullOrEmpty(profile.RefreshToken))
+                throw new CliException(
+                    $"Session expired for profile '[bold #F97316]{Markup.Escape(profileKey)}[/]'. " +
+                    "Run [bold #F97316]anythink login[/] and [bold #F97316]anythink projects use[/] to sign in again.");
+
+            var refreshed = TryRefreshSync(profile, refreshHttp, profileKey: profileKey);
+            if (refreshed is null)
+                throw new CliException(
+                    $"Token refresh failed for profile '[bold #F97316]{Markup.Escape(profileKey)}[/]'. " +
+                    "Run [bold #F97316]anythink login[/] and [bold #F97316]anythink projects use[/] to sign in again.");
+
+            profile = refreshed;
+        }
+
+        return new AnythinkClient(profile);
     }
 
     /// <summary>Returns the API URL implied by ANYTHINK_ENV, if set.</summary>

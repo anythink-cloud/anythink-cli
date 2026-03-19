@@ -37,7 +37,8 @@ public record Field(
     [property: JsonPropertyName("is_searchable")] bool IsSearchable,
     [property: JsonPropertyName("is_indexed")] bool IsIndexed,
     [property: JsonPropertyName("default_value")] string? DefaultValue,
-    [property: JsonPropertyName("locked")] bool Locked
+    [property: JsonPropertyName("locked")] bool Locked,
+    [property: JsonPropertyName("relationship")] System.Text.Json.JsonElement? Relationship = null
 );
 
 public record CreateEntityRequest(
@@ -64,7 +65,8 @@ public record CreateFieldRequest(
     [property: JsonPropertyName("is_required")] bool IsRequired = false,
     [property: JsonPropertyName("is_unique")] bool IsUnique = false,
     [property: JsonPropertyName("is_searchable")] bool IsSearchable = false,
-    [property: JsonPropertyName("is_indexed")] bool IsIndexed = false
+    [property: JsonPropertyName("is_indexed")] bool IsIndexed = false,
+    [property: JsonPropertyName("relationship")] System.Text.Json.JsonElement? Relationship = null
 );
 
 public record Workflow(
@@ -73,18 +75,21 @@ public record Workflow(
     [property: JsonPropertyName("description")] string? Description,
     [property: JsonPropertyName("trigger")] string Trigger,
     [property: JsonPropertyName("enabled")] bool Enabled,
-    [property: JsonPropertyName("steps")] List<WorkflowStep>? Steps
+    [property: JsonPropertyName("steps")] List<WorkflowStep>? Steps,
+    [property: JsonPropertyName("options")] System.Text.Json.JsonElement? Options = null
 );
 
 public record WorkflowStep(
     [property: JsonPropertyName("id")] int Id,
     [property: JsonPropertyName("key")] string Key,
     [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("description")] string? Description,
     [property: JsonPropertyName("action")] string Action,
     [property: JsonPropertyName("enabled")] bool Enabled,
     [property: JsonPropertyName("is_start_step")] bool IsStartStep,
     [property: JsonPropertyName("on_success_step_id")] int? OnSuccessStepId,
-    [property: JsonPropertyName("on_failure_step_id")] int? OnFailureStepId
+    [property: JsonPropertyName("on_failure_step_id")] int? OnFailureStepId,
+    [property: JsonPropertyName("parameters")] System.Text.Json.JsonElement? Parameters = null
 );
 
 public record CreateWorkflowRequest(
@@ -93,6 +98,23 @@ public record CreateWorkflowRequest(
     [property: JsonPropertyName("trigger")] string Trigger,
     [property: JsonPropertyName("enabled")] bool Enabled,
     [property: JsonPropertyName("options")] object Options
+);
+
+public record CreateWorkflowStepRequest(
+    [property: JsonPropertyName("key")] string Key,
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("action")] string Action,
+    [property: JsonPropertyName("enabled")] bool Enabled,
+    [property: JsonPropertyName("is_start_step")] bool IsStartStep,
+    [property: JsonPropertyName("description")] string? Description = null,
+    [property: JsonPropertyName("parameters")] System.Text.Json.JsonElement? Parameters = null
+);
+
+public record UpdateWorkflowStepLinksRequest(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("action")] string Action,
+    [property: JsonPropertyName("on_success_step_id")] int? OnSuccessStepId,
+    [property: JsonPropertyName("on_failure_step_id")] int? OnFailureStepId
 );
 
 // Used internally to avoid C# 'event' keyword conflict in anonymous types
@@ -156,17 +178,41 @@ public record FileResponse(
 
 // ── Roles ────────────────────────────────────────────────────────────────────
 
-public record RoleResponse(
+public record Permission(
     [property: JsonPropertyName("id")]          int     Id,
     [property: JsonPropertyName("name")]        string  Name,
     [property: JsonPropertyName("description")] string? Description,
+    [property: JsonPropertyName("entity_id")]   int?    EntityId,
     [property: JsonPropertyName("is_active")]   bool    IsActive
+);
+
+public record RoleResponse(
+    [property: JsonPropertyName("id")]               int              Id,
+    [property: JsonPropertyName("name")]             string           Name,
+    [property: JsonPropertyName("description")]      string?          Description,
+    [property: JsonPropertyName("is_active")]        bool             IsActive,
+    [property: JsonPropertyName("anyapi_access")]    bool             AnyApiAccess = false,
+    [property: JsonPropertyName("permissions")]      List<Permission>? Permissions = null
 );
 
 public record CreateRoleRequest(
     [property: JsonPropertyName("name")]        string  Name,
     [property: JsonPropertyName("description")] string? Description = null,
     [property: JsonPropertyName("is_active")]   bool    IsActive = true
+);
+
+public record CreatePermissionRequest(
+    [property: JsonPropertyName("name")]        string  Name,
+    [property: JsonPropertyName("description")] string? Description,
+    [property: JsonPropertyName("is_active")]   bool    IsActive
+);
+
+public record UpdateRolePermissionsRequest(
+    [property: JsonPropertyName("name")]            string    Name,
+    [property: JsonPropertyName("description")]     string?   Description,
+    [property: JsonPropertyName("is_active")]       bool      IsActive,
+    [property: JsonPropertyName("anyapi_access")]   bool      AnyApiAccess,
+    [property: JsonPropertyName("permission_ids")]  List<int> PermissionIds
 );
 
 // ── Pay ──────────────────────────────────────────────────────────────────────
@@ -255,4 +301,72 @@ public record UpdateGoogleOAuthRequest(
     [property: JsonPropertyName("enabled")]       bool    Enabled,
     [property: JsonPropertyName("client_id")]     string  ClientId,
     [property: JsonPropertyName("client_secret")] string  ClientSecret
+);
+
+// ── Menu ─────────────────────────────────────────────────────────────────────
+
+public record MenuResponse(
+    [property: JsonPropertyName("id")]      int                    Id,
+    [property: JsonPropertyName("name")]    string                 Name,
+    [property: JsonPropertyName("role_id")] int                    RoleId,
+    [property: JsonPropertyName("items")]   List<MenuItemResponse> Items
+);
+
+public record MenuItemResponse(
+    [property: JsonPropertyName("id")]           int                    Id,
+    [property: JsonPropertyName("menu_id")]      int                    MenuId,
+    [property: JsonPropertyName("display_name")] string                 DisplayName,
+    [property: JsonPropertyName("icon")]         string                 Icon,
+    [property: JsonPropertyName("href")]         string                 Href,
+    [property: JsonPropertyName("parent_id")]    int?                   ParentId,
+    [property: JsonPropertyName("sort_order")]   int                    SortOrder,
+    [property: JsonPropertyName("items")]        List<MenuItemResponse> Items
+);
+
+public record CreateMenuRequest(
+    [property: JsonPropertyName("name")]    string Name,
+    [property: JsonPropertyName("role_id")] int    RoleId
+);
+
+public record CreateMenuItemRequest(
+    [property: JsonPropertyName("display_name")] string DisplayName,
+    [property: JsonPropertyName("icon")]         string Icon,
+    [property: JsonPropertyName("href")]         string Href,
+    [property: JsonPropertyName("parent_id")]    int    ParentId
+);
+
+// ── Organisation / Tenant Settings ───────────────────────────────────────────
+
+public record TenantSettingsDto(
+    [property: JsonPropertyName("allow_registrations")]    bool          AllowRegistrations,
+    [property: JsonPropertyName("default_role_id")]        int?          DefaultRoleId,
+    [property: JsonPropertyName("allowed_application_urls")] List<string> AllowedApplicationUrls,
+    [property: JsonPropertyName("payment_success_url")]    string?       PaymentSuccessUrl,
+    [property: JsonPropertyName("payment_cancel_url")]     string?       PaymentCancelUrl
+);
+
+public record ThemeSettingsDto(
+    [property: JsonPropertyName("primary_color")] string? PrimaryColor,
+    [property: JsonPropertyName("gray_color")]    string? GrayColor
+);
+
+public record TenantResponse(
+    [property: JsonPropertyName("id")]              int                Id,
+    [property: JsonPropertyName("name")]            string             Name,
+    [property: JsonPropertyName("description")]     string?            Description,
+    [property: JsonPropertyName("tenant_settings")] TenantSettingsDto? TenantSettings,
+    [property: JsonPropertyName("theme_settings")]  ThemeSettingsDto?  ThemeSettings,
+    [property: JsonPropertyName("logo_square")]     FileResponse?      LogoSquare,
+    [property: JsonPropertyName("logo_standard")]   FileResponse?      LogoStandard,
+    [property: JsonPropertyName("google_maps_key")] string?            GoogleMapsKey
+);
+
+public record UpdateTenantRequest(
+    [property: JsonPropertyName("name")]              string             Name,
+    [property: JsonPropertyName("description")]       string?            Description,
+    [property: JsonPropertyName("google_maps_key")]   string?            GoogleMapsKey,
+    [property: JsonPropertyName("logo_square_id")]    int?               LogoSquareId,
+    [property: JsonPropertyName("logo_standard_id")]  int?               LogoStandardId,
+    [property: JsonPropertyName("tenant_settings")]   TenantSettingsDto? TenantSettings,
+    [property: JsonPropertyName("theme_settings")]    ThemeSettingsDto?  ThemeSettings
 );

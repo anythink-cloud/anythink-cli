@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -49,10 +50,46 @@ public class Profile
     [JsonPropertyName("alias")]             public string?   Alias          { get; set; }
 
     [JsonIgnore]
-    public bool IsTokenExpired =>
-        string.IsNullOrEmpty(ApiKey) &&
-        (string.IsNullOrEmpty(AccessToken) ||
-         (TokenExpiresAt.HasValue && DateTime.UtcNow >= TokenExpiresAt.Value));
+    public bool IsTokenExpired
+    {
+        get
+        {
+            if (!string.IsNullOrEmpty(ApiKey))   return false;  // API keys never expire
+            if (string.IsNullOrEmpty(AccessToken)) return true;
+
+            // Primary: read the exp claim directly from the JWT payload.
+            // This works even when TokenExpiresAt was never stored (e.g. old profiles).
+            var jwtExpiry = ReadJwtExpiry(AccessToken);
+            if (jwtExpiry.HasValue) return DateTime.UtcNow >= jwtExpiry.Value;
+
+            // Fallback: use the stored expiry timestamp.
+            return TokenExpiresAt.HasValue && DateTime.UtcNow >= TokenExpiresAt.Value;
+        }
+    }
+
+    /// <summary>
+    /// Decodes the JWT payload (base64url, no signature verification) and returns
+    /// the Unix-epoch exp claim as a UTC DateTime, or null if the token is not a JWT
+    /// or does not contain an exp claim.
+    /// </summary>
+    private static DateTime? ReadJwtExpiry(string token)
+    {
+        try
+        {
+            var parts = token.Split('.');
+            if (parts.Length < 2) return null;
+
+            var payload = parts[1].Replace('-', '+').Replace('_', '/');
+            payload += (payload.Length % 4) switch { 2 => "==", 3 => "=", _ => "" };
+
+            var json = Encoding.UTF8.GetString(Convert.FromBase64String(payload));
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.TryGetProperty("exp", out var exp)
+                ? DateTimeOffset.FromUnixTimeSeconds(exp.GetInt64()).UtcDateTime
+                : null;
+        }
+        catch { return null; }
+    }
 }
 
 /// <summary>Central-platform credentials for signup, billing, and project management.</summary>

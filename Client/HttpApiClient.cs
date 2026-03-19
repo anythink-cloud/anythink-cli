@@ -55,11 +55,20 @@ public abstract class HttpApiClient
                ?? throw new AnythinkException("Empty response.", (int)r.StatusCode);
     }
 
-    protected async Task<T> PutAsync<T>(string url, object body)
+    protected async Task<T?> PutAsync<T>(string url, object body)
     {
         var r = await Http.PutAsync(url, Serialize(body));
+        // 204 No Content = success with no body (e.g. entity item updates)
+        if (r.StatusCode == System.Net.HttpStatusCode.NoContent) return default;
         return await DeserializeAsync<T>(r)
                ?? throw new AnythinkException("Empty response.", (int)r.StatusCode);
+    }
+
+    protected async Task PostVoidAsync(string url, object? body = null)
+    {
+        var r = await Http.PostAsync(url, Serialize(body ?? new { }));
+        if (!r.IsSuccessStatusCode)
+            throw new AnythinkException(await r.Content.ReadAsStringAsync(), (int)r.StatusCode);
     }
 
     protected async Task PutVoidAsync(string url, object body)

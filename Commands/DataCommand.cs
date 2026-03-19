@@ -226,7 +226,7 @@ public class DataUpdateCommand : BaseCommand<DataUpdateSettings>
                 });
 
             Renderer.Success($"Record [#F97316]{Markup.Escape(settings.Entity)}/{Markup.Escape(settings.Id.ToString())}[/] updated.");
-            Renderer.PrintJsonObject(updated);
+            if (updated is not null) Renderer.PrintJsonObject(updated);
             return 0;
         }
         catch (Exception ex)

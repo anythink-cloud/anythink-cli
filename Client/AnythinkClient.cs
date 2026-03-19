@@ -48,7 +48,7 @@ public class AnythinkClient : HttpApiClient
     public Task<Entity> CreateEntityAsync(CreateEntityRequest req)
         => PostAsync<Entity>(_org + "/entities", req);
 
-    public Task<Entity> UpdateEntityAsync(string name, UpdateEntityRequest req)
+    public Task<Entity?> UpdateEntityAsync(string name, UpdateEntityRequest req)
         => PutAsync<Entity>(_org + $"/entities/{name}", req);
 
     public Task DeleteEntityAsync(string name)
@@ -86,6 +86,12 @@ public class AnythinkClient : HttpApiClient
 
     public Task DeleteWorkflowAsync(int id) => DeleteAsync(_org + $"/workflows/{id}");
 
+    public Task<WorkflowStep> AddWorkflowStepAsync(int workflowId, CreateWorkflowStepRequest req)
+        => PostAsync<WorkflowStep>(_org + $"/workflows/{workflowId}/steps", req);
+
+    public Task<WorkflowStep?> UpdateWorkflowStepAsync(int workflowId, int stepId, UpdateWorkflowStepLinksRequest req)
+        => PutAsync<WorkflowStep>(_org + $"/workflows/{workflowId}/steps/{stepId}", req);
+
     // ── Data ──────────────────────────────────────────────────────────────────
 
     public async Task<PaginatedResult<JsonObject>> ListItemsAsync(
@@ -104,7 +110,7 @@ public class AnythinkClient : HttpApiClient
     public Task<JsonObject> CreateItemAsync(string entityName, JsonObject data)
         => PostAsync<JsonObject>(_org + $"/entities/{entityName}/items", data);
 
-    public Task<JsonObject> UpdateItemAsync(string entityName, int id, JsonObject data)
+    public Task<JsonObject?> UpdateItemAsync(string entityName, int id, JsonObject data)
         => PutAsync<JsonObject>(_org + $"/entities/{entityName}/items/{id}", data);
 
     public Task DeleteItemAsync(string entityName, int id)
@@ -124,7 +130,7 @@ public class AnythinkClient : HttpApiClient
     public Task<UserResponse> CreateUserAsync(CreateUserRequest req)
         => PostAsync<UserResponse>(_org + "/users", req);
 
-    public Task<UserResponse> UpdateUserAsync(int userId, UpdateUserRequest req)
+    public Task<UserResponse?> UpdateUserAsync(int userId, UpdateUserRequest req)
         => PutAsync<UserResponse>(_org + $"/users/{userId}", req);
 
     public Task DeleteUserAsync(int userId)
@@ -139,6 +145,23 @@ public class AnythinkClient : HttpApiClient
     {
         var result = await GetAsync<PaginatedResult<FileResponse>>(_org + $"/files?page={page}&pageSize={pageSize}");
         return result?.Items ?? [];
+    }
+
+    /// <summary>Fetches all files across pages — use for migration where completeness matters.</summary>
+    public async Task<List<FileResponse>> GetAllFilesAsync()
+    {
+        var all  = new List<FileResponse>();
+        var page = 1;
+        while (true)
+        {
+            var result = await GetAsync<PaginatedResult<FileResponse>>(
+                _org + $"/files?page={page}&pageSize=100");
+            var items = result?.Items ?? [];
+            all.AddRange(items);
+            if (items.Count < 100) break;
+            page++;
+        }
+        return all;
     }
 
     public Task<FileResponse?> GetFileAsync(int id)
@@ -162,16 +185,56 @@ public class AnythinkClient : HttpApiClient
         return System.Text.Json.JsonSerializer.Deserialize<FileResponse>(json, JsonOpts)!;
     }
 
+    /// <summary>
+    /// Downloads a file from <paramref name="sourceUrl"/> (using <paramref name="sourceToken"/>
+    /// for auth if provided) and re-uploads it to this project.
+    /// </summary>
+    public async Task<FileResponse> UploadFileFromUrlAsync(
+        string sourceUrl, string fileName, bool isPublic = false, string? sourceToken = null)
+    {
+        using var downloader = new HttpClient();
+        if (!string.IsNullOrEmpty(sourceToken))
+            downloader.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", sourceToken);
+
+        var bytes = await downloader.GetByteArrayAsync(sourceUrl);
+
+        using var form = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(bytes);
+        fileContent.Headers.ContentType =
+            new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+        form.Add(fileContent, "file", fileName);
+
+        var url = _org + $"/files?isPublic={isPublic.ToString().ToLower()}";
+        var resp = await Http.PostAsync(url, form);
+        if (!resp.IsSuccessStatusCode)
+            throw new AnythinkException(await resp.Content.ReadAsStringAsync(), (int)resp.StatusCode);
+        var json = await resp.Content.ReadAsStringAsync();
+        return System.Text.Json.JsonSerializer.Deserialize<FileResponse>(json, JsonOpts)!;
+    }
+
     // ── Roles ─────────────────────────────────────────────────────────────────
 
     public async Task<List<RoleResponse>> GetRolesAsync()
         => (await GetAsync<List<RoleResponse>>(_org + "/roles")) ?? [];
+
+    public Task<RoleResponse?> GetRoleAsync(int roleId)
+        => GetAsync<RoleResponse>(_org + $"/roles/{roleId}");
 
     public Task<RoleResponse> CreateRoleAsync(CreateRoleRequest req)
         => PostAsync<RoleResponse>(_org + "/roles", req);
 
     public Task DeleteRoleAsync(int roleId)
         => DeleteAsync(_org + $"/roles/{roleId}");
+
+    public Task<Permission> CreatePermissionAsync(CreatePermissionRequest req)
+        => PostAsync<Permission>(_org + "/permissions", req);
+
+    public async Task<List<Permission>> GetPermissionsAsync()
+        => (await GetAsync<List<Permission>>(_org + "/permissions")) ?? [];
+
+    public Task<RoleResponse?> UpdateRoleWithPermissionsAsync(int roleId, UpdateRolePermissionsRequest req)
+        => PutAsync<RoleResponse>(_org + $"/roles/{roleId}", req);
 
     // ── Pay ───────────────────────────────────────────────────────────────────
 
@@ -234,7 +297,7 @@ public class AnythinkClient : HttpApiClient
     public Task<SecretResponse> CreateSecretAsync(CreateSecretRequest req)
         => PostAsync<SecretResponse>(_org + "/secrets", req);
 
-    public Task<SecretResponse> UpdateSecretAsync(string key, UpdateSecretRequest req)
+    public Task<SecretResponse?> UpdateSecretAsync(string key, UpdateSecretRequest req)
         => PutAsync<SecretResponse>(_org + $"/secrets/{key}", req);
 
     public Task DeleteSecretAsync(string key)
@@ -247,4 +310,26 @@ public class AnythinkClient : HttpApiClient
 
     public Task PutGoogleOAuthAsync(UpdateGoogleOAuthRequest req)
         => PutVoidAsync(_org + "/integrations/oauth/google", req);
+
+    // ── Menus ─────────────────────────────────────────────────────────────────
+
+    public async Task<List<MenuResponse>> GetMenusAsync()
+        => (await GetAsync<List<MenuResponse>>(_org + "/menus")) ?? [];
+
+    public Task<MenuResponse?> GetMenuAsync(int menuId)
+        => GetAsync<MenuResponse>(_org + $"/menus/{menuId}");
+
+    public Task<MenuResponse> CreateMenuAsync(CreateMenuRequest req)
+        => PostAsync<MenuResponse>(_org + "/menus", req);
+
+    public Task<MenuItemResponse> CreateMenuItemAsync(int menuId, CreateMenuItemRequest req)
+        => PostAsync<MenuItemResponse>(_org + $"/menus/{menuId}/items", req);
+
+    // ── Tenant / Organisation Settings ────────────────────────────────────────
+
+    public Task<TenantResponse?> GetTenantAsync()
+        => GetAsync<TenantResponse>(BaseUrl + $"/org/{OrgId}");
+
+    public Task<TenantResponse?> UpdateTenantAsync(UpdateTenantRequest req)
+        => PutAsync<TenantResponse>(BaseUrl + $"/org/{OrgId}", req);
 }

@@ -64,7 +64,7 @@ public class AnythinkClientExtendedTests
         var req    = new UpdateEntityRequest(EnableRls: true, IsPublic: true, LockNewRecords: false);
         var result = await BuildClient(handler).UpdateEntityAsync("orders", req);
 
-        result.EnableRls.Should().BeTrue();
+        result!.EnableRls.Should().BeTrue();
         result.IsPublic.Should().BeTrue();
     }
 
@@ -274,7 +274,7 @@ public class AnythinkClientExtendedTests
         var data   = new JsonObject { ["status"] = "approved" };
         var result = await BuildClient(handler).UpdateItemAsync("blog_posts", 10, data);
 
-        result["status"]!.GetValue<string>().Should().Be("approved");
+        result!["status"]!.GetValue<string>().Should().Be("approved");
     }
 
     [Fact]
@@ -355,7 +355,7 @@ public class AnythinkClientExtendedTests
         var req  = new UpdateUserRequest("Robert", "Jones", null);
         var user = await BuildClient(handler).UpdateUserAsync(8, req);
 
-        user.FirstName.Should().Be("Robert");
+        user!.FirstName.Should().Be("Robert");
     }
 
     [Fact]
