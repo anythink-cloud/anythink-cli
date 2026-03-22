@@ -1,6 +1,7 @@
 using AnythinkCli.Client;
 using AnythinkCli.Config;
 using CliProfile = AnythinkCli.Config.Profile;
+using ProfileCtx = AnythinkCli.Config.ProfileContext;
 using AnythinkCli.Output;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -19,9 +20,17 @@ public abstract class BaseCommand<TSettings> : AsyncCommand<TSettings>
     /// Full credential-resolution logic.
     /// <paramref name="refreshHttp"/> is null in production (a real HttpClient is created inside
     /// RefreshTokenAsync) and injected in unit tests so the refresh call can be mocked.
+    /// <para>
+    /// If <c>--profile &lt;name&gt;</c> was passed on the command line, that named profile is used
+    /// instead of the active profile — safe for concurrent multi-instance use.
+    /// </para>
     /// </summary>
     internal AnythinkClient GetClient(HttpClient? refreshHttp)
     {
+        // --profile flag takes precedence over the active profile on disk.
+        if (!string.IsNullOrEmpty(ProfileCtx.Current))
+            return GetClientForProfile(ProfileCtx.Current, refreshHttp);
+
         var profile = ConfigService.GetActiveProfile()
             ?? throw new CliException(
                 "No credentials. Run [bold #F97316]anythink login[/]");

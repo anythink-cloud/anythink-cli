@@ -198,15 +198,149 @@ public class AnythinkClientExtendedTests
         await act.Should().NotThrowAsync();
     }
 
+    // ── Fields – Update ───────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task UpdateFieldAsync_ReturnsUpdatedField()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.When(HttpMethod.Put, $"{OrgPath}/entities/products/fields/101")
+               .Respond("application/json",
+                   """{"id":101,"name":"description","database_type":"text","display_type":"rich-text","is_required":false,"is_unique":false,"is_immutable":false,"is_searchable":true,"is_indexed":false,"locked":false}""");
+
+        var req   = new UpdateFieldRequest("rich-text", IsSearchable: true);
+        var field = await BuildClient(handler).UpdateFieldAsync("products", 101, req);
+
+        field.Id.Should().Be(101);
+        field.DisplayType.Should().Be("rich-text");
+        field.IsSearchable.Should().BeTrue();
+    }
+
+    // ── Workflows – Update ───────────────────────────────────────────────────
+
+    [Fact]
+    public async Task UpdateWorkflowAsync_ReturnsUpdatedWorkflow()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.When(HttpMethod.Put, $"{OrgPath}/workflows/31")
+               .Respond("application/json",
+                   """{"id":31,"name":"Renamed Workflow","trigger":"Timed","enabled":true,"description":"Updated"}""");
+
+        var req = new UpdateWorkflowRequest(Name: "Renamed Workflow", Description: "Updated");
+        var wf  = await BuildClient(handler).UpdateWorkflowAsync(31, req);
+
+        wf.Id.Should().Be(31);
+        wf.Name.Should().Be("Renamed Workflow");
+    }
+
+    // ── Workflows – Jobs ─────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetWorkflowJobsAsync_ReturnsPaginatedJobs()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.When($"{OrgPath}/workflows/31/jobs?page=1&pageSize=10")
+               .Respond("application/json",
+                   """{"items":[{"id":5,"status":"Completed","started_at":"2026-03-20T10:00:00Z"}],"total_items":1,"total_pages":1,"has_next_page":false,"page":1,"page_size":10}""");
+
+        var result = await BuildClient(handler).GetWorkflowJobsAsync(31);
+
+        result.Items.Should().HaveCount(1);
+        result.Items[0].Id.Should().Be(5);
+        result.Items[0].Status.Should().Be("Completed");
+    }
+
+    [Fact]
+    public async Task GetWorkflowJobAsync_ReturnsJob()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.When($"{OrgPath}/workflows/31/jobs/5")
+               .Respond("application/json",
+                   """{"id":5,"status":"Completed","started_at":"2026-03-20T10:00:00Z","completed_at":"2026-03-20T10:01:00Z"}""");
+
+        var job = await BuildClient(handler).GetWorkflowJobAsync(31, 5);
+
+        job.Id.Should().Be(5);
+        job.Status.Should().Be("Completed");
+    }
+
+    [Fact]
+    public async Task GetWorkflowJobAsync_NotFound_Throws()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.When($"{OrgPath}/workflows/31/jobs/999")
+               .Respond(HttpStatusCode.NotFound, "application/json", """{"error":"Not found"}""");
+
+        var act = async () => await BuildClient(handler).GetWorkflowJobAsync(31, 999);
+        await act.Should().ThrowAsync<AnythinkException>().Where(ex => ex.StatusCode == 404);
+    }
+
+    // ── Workflows – Step full update ─────────────────────────────────────────
+
+    [Fact]
+    public async Task UpdateWorkflowStepFullAsync_ReturnsUpdatedStep()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.When(HttpMethod.Put, $"{OrgPath}/workflows/31/steps/8")
+               .Respond("application/json",
+                   """{"id":8,"key":"parse","name":"Parse Response","action":"RunScript","enabled":true,"is_start_step":false}""");
+
+        var body = new Dictionary<string, object?> { ["name"] = "Parse Response", ["action"] = "RunScript" };
+        var step = await BuildClient(handler).UpdateWorkflowStepFullAsync(31, 8, body);
+
+        step!.Id.Should().Be(8);
+        step.Name.Should().Be("Parse Response");
+    }
+
+    // ── FetchRawAsync ────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task FetchRawAsync_GET_ReturnsBody()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.When(HttpMethod.Get, "https://api.example.com/org/99999/some/endpoint")
+               .Respond("application/json", """{"ok":true}""");
+
+        var result = await BuildClient(handler).FetchRawAsync("https://api.example.com/org/99999/some/endpoint");
+
+        result.Should().Contain("\"ok\"");
+    }
+
+    [Fact]
+    public async Task FetchRawAsync_POST_SendsBody()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.When(HttpMethod.Post, "https://api.example.com/org/99999/some/endpoint")
+               .Respond("application/json", """{"created":true}""");
+
+        var result = await BuildClient(handler).FetchRawAsync(
+            "https://api.example.com/org/99999/some/endpoint",
+            method: "POST",
+            body: """{"name":"test"}""");
+
+        result.Should().Contain("\"created\"");
+    }
+
+    [Fact]
+    public async Task FetchRawAsync_ErrorResponse_ThrowsAnythinkException()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.When("https://api.example.com/org/99999/bad")
+               .Respond(HttpStatusCode.Forbidden, "application/json", """{"error":"Forbidden"}""");
+
+        var act = async () => await BuildClient(handler).FetchRawAsync("https://api.example.com/org/99999/bad");
+        await act.Should().ThrowAsync<AnythinkException>().Where(ex => ex.StatusCode == 403);
+    }
+
     // ── Data ─────────────────────────────────────────────────────────────────
 
     [Fact]
     public async Task ListItemsAsync_ReturnsPaginatedResult()
     {
         var handler = new MockHttpMessageHandler();
-        handler.When($"{OrgPath}/entities/blog_posts/items?page=1&page_size=20")
+        handler.When($"{OrgPath}/entities/blog_posts/items?limit=20&page=1")
                .Respond("application/json",
-                   """{"items":[{"id":1,"title":"Hello"},{"id":2,"title":"World"}],"total_count":2,"page":1,"page_size":20}""");
+                   """{"items":[{"id":1,"title":"Hello"},{"id":2,"title":"World"}],"total_items":2,"total_pages":1,"has_next_page":false,"page":1,"page_size":20}""");
 
         var result = await BuildClient(handler).ListItemsAsync("blog_posts");
 
@@ -220,7 +354,7 @@ public class AnythinkClientExtendedTests
         var handler = new MockHttpMessageHandler();
         handler.When($"{OrgPath}/entities/blog_posts/items*")
                .Respond("application/json",
-                   """{"items":[],"total_count":0,"page":1,"page_size":20}""");
+                   """{"items":[],"total_items":0,"total_pages":0,"has_next_page":false,"page":1,"page_size":20}""");
 
         // Should not throw — filter is URL-encoded and appended
         var result = await BuildClient(handler).ListItemsAsync("blog_posts", filterJson: """{"status":"draft"}""");

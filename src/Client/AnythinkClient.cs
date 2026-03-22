@@ -30,6 +30,20 @@ public class AnythinkClient : HttpApiClient
         _org    = $"{BaseUrl}/org/{OrgId}";
     }
 
+    // ── Raw fetch (for CLI `fetch` command) ────────────────────────────────────
+
+    public async Task<string> FetchRawAsync(string url, string method = "GET", string? body = null)
+    {
+        var request = new HttpRequestMessage(new HttpMethod(method), url);
+        if (body != null)
+            request.Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
+        var response = await Http.SendAsync(request);
+        var content = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+            throw new AnythinkException(content, (int)response.StatusCode);
+        return content;
+    }
+
     // ── Project Auth ──────────────────────────────────────────────────────────
 
     public Task<LoginResponse> ExchangeTransferTokenAsync(string transferToken)
@@ -63,6 +77,9 @@ public class AnythinkClient : HttpApiClient
     public Task<Field> AddFieldAsync(string entityName, CreateFieldRequest req)
         => PostAsync<Field>(_org + $"/entities/{entityName}/fields", req);
 
+    public async Task<Field> UpdateFieldAsync(string entityName, int fieldId, UpdateFieldRequest req)
+        => (await PutAsync<Field>(_org + $"/entities/{entityName}/fields/{fieldId}", req))!;
+
     public Task DeleteFieldAsync(string entityName, int fieldId)
         => DeleteAsync(_org + $"/entities/{entityName}/fields/{fieldId}");
 
@@ -78,6 +95,9 @@ public class AnythinkClient : HttpApiClient
     public Task<Workflow> CreateWorkflowAsync(CreateWorkflowRequest req)
         => PostAsync<Workflow>(_org + "/workflows", req);
 
+    public async Task<Workflow> UpdateWorkflowAsync(int id, UpdateWorkflowRequest req)
+        => (await PutAsync<Workflow>(_org + $"/workflows/{id}", req))!;
+
     public Task EnableWorkflowAsync(int id)  => PostAsync<JsonObject>(_org + $"/workflows/{id}/enable");
     public Task DisableWorkflowAsync(int id) => PostAsync<JsonObject>(_org + $"/workflows/{id}/disable");
 
@@ -86,21 +106,32 @@ public class AnythinkClient : HttpApiClient
 
     public Task DeleteWorkflowAsync(int id) => DeleteAsync(_org + $"/workflows/{id}");
 
+    public async Task<PaginatedResult<WorkflowJob>> GetWorkflowJobsAsync(int workflowId, int page = 1, int pageSize = 10)
+        => (await GetAsync<PaginatedResult<WorkflowJob>>(_org + $"/workflows/{workflowId}/jobs?page={page}&pageSize={pageSize}"))
+           ?? new PaginatedResult<WorkflowJob>([], 0, null, false, page, pageSize);
+
+    public async Task<WorkflowJob> GetWorkflowJobAsync(int workflowId, int jobId)
+        => (await GetAsync<WorkflowJob>(_org + $"/workflows/{workflowId}/jobs/{jobId}"))
+           ?? throw new AnythinkException($"Job {jobId} not found.", 404);
+
     public Task<WorkflowStep> AddWorkflowStepAsync(int workflowId, CreateWorkflowStepRequest req)
         => PostAsync<WorkflowStep>(_org + $"/workflows/{workflowId}/steps", req);
 
     public Task<WorkflowStep?> UpdateWorkflowStepAsync(int workflowId, int stepId, UpdateWorkflowStepLinksRequest req)
         => PutAsync<WorkflowStep>(_org + $"/workflows/{workflowId}/steps/{stepId}", req);
 
+    public Task<WorkflowStep?> UpdateWorkflowStepFullAsync(int workflowId, int stepId, object body)
+        => PutAsync<WorkflowStep>(_org + $"/workflows/{workflowId}/steps/{stepId}", body);
+
     // ── Data ──────────────────────────────────────────────────────────────────
 
     public async Task<PaginatedResult<JsonObject>> ListItemsAsync(
         string entityName, int page = 1, int pageSize = 20, string? filterJson = null)
     {
-        var url = _org + $"/entities/{entityName}/items?page={page}&page_size={pageSize}";
+        var url = _org + $"/entities/{entityName}/items?limit={pageSize}&page={page}";
         if (!string.IsNullOrEmpty(filterJson)) url += $"&filter={Uri.EscapeDataString(filterJson)}";
         return (await GetAsync<PaginatedResult<JsonObject>>(url))
-               ?? new PaginatedResult<JsonObject>([], 0, page, pageSize);
+               ?? new PaginatedResult<JsonObject>([], 0, null, false, page, pageSize);
     }
 
     public async Task<JsonObject> GetItemAsync(string entityName, int id)

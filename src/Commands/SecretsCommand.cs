@@ -67,13 +67,17 @@ public class SecretCreateSettings : CommandSettings
     [CommandArgument(0, "<KEY>")]
     [Description("Secret key name (e.g. CLAUDE_API_KEY, STRIPE_SECRET_KEY)")]
     public string Key { get; set; } = "";
+
+    [CommandOption("--value <VALUE>")]
+    [Description("Secret value (use for non-interactive / scripted usage)")]
+    public string? Value { get; set; }
 }
 
 public class SecretsCreateCommand : BaseCommand<SecretCreateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, SecretCreateSettings settings)
     {
-        var value = AnsiConsole.Prompt(
+        var value = settings.Value ?? AnsiConsole.Prompt(
             new TextPrompt<string>($"Value for [#F97316]{Markup.Escape(settings.Key)}[/]:")
                 .Secret()
                 .PromptStyle("grey"));
@@ -115,6 +119,10 @@ public class SecretKeySettings : CommandSettings
     [CommandArgument(0, "<KEY>")]
     [Description("Secret key name")]
     public string Key { get; set; } = "";
+
+    [CommandOption("--value <VALUE>")]
+    [Description("Secret value (use for non-interactive / scripted usage)")]
+    public string? Value { get; set; }
 }
 
 public class SecretsUpdateCommand : BaseCommand<SecretKeySettings>
@@ -123,7 +131,7 @@ public class SecretsUpdateCommand : BaseCommand<SecretKeySettings>
     {
         AnsiConsole.MarkupLine($"[dim]Rotating value for[/] [bold #F97316]{Markup.Escape(settings.Key)}[/][dim]. The existing value will be overwritten.[/]");
 
-        var value = AnsiConsole.Prompt(
+        var value = settings.Value ?? AnsiConsole.Prompt(
             new TextPrompt<string>("New value:")
                 .Secret()
                 .PromptStyle("grey"));

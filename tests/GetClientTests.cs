@@ -65,6 +65,62 @@ public class GetClientTests : IDisposable
             .WithMessage("*No credentials*");
     }
 
+    // ── ProfileContext override ─────────────────────────────────────────────────
+
+    [Fact]
+    public void ProfileContext_Override_Uses_Named_Profile()
+    {
+        // Save two profiles: "default-prof" as active, and "named-prof" as a named profile
+        var defaultProfile = new Profile
+        {
+            OrgId          = "10",
+            InstanceApiUrl = "https://api.example.com",
+            ApiKey         = "ak_default"
+        };
+        ConfigService.SaveProfile("default-prof", defaultProfile);
+        ConfigService.SetDefault("default-prof");
+
+        var namedProfile = new Profile
+        {
+            OrgId          = "20",
+            InstanceApiUrl = "https://api.example.com",
+            ApiKey         = "ak_named"
+        };
+        ConfigService.SaveProfile("named-prof", namedProfile);
+
+        // Simulate --profile named-prof
+        ProfileContext.Current = "named-prof";
+        try
+        {
+            var cmd    = new TestCommand();
+            var client = cmd.CallGetClient();
+
+            client.OrgId.Should().Be("20");   // named profile, not default
+        }
+        finally
+        {
+            ProfileContext.Current = null;
+        }
+    }
+
+    [Fact]
+    public void ProfileContext_Override_Missing_Profile_Throws()
+    {
+        ProfileContext.Current = "nonexistent";
+        try
+        {
+            var cmd = new TestCommand();
+            var act = () => cmd.CallGetClient();
+
+            act.Should().Throw<CliException>()
+                .WithMessage("*nonexistent*not found*");
+        }
+        finally
+        {
+            ProfileContext.Current = null;
+        }
+    }
+
     // ── Branch 2: API-key profile ─────────────────────────────────────────────
 
     [Fact]

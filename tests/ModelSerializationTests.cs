@@ -149,7 +149,9 @@ public class ModelSerializationTests
         const string json = """
             {
                 "items": [{"id": 1}, {"id": 2}],
-                "total_count": 50,
+                "total_items": 50,
+                "total_pages": 25,
+                "has_next_page": true,
                 "page": 2,
                 "page_size": 2
             }
@@ -159,8 +161,125 @@ public class ModelSerializationTests
 
         result.Items.Should().HaveCount(2);
         result.TotalCount.Should().Be(50);
+        result.TotalPages.Should().Be(25);
+        result.HasNextPage.Should().BeTrue();
         result.Page.Should().Be(2);
         result.PageSize.Should().Be(2);
+    }
+
+    [Fact]
+    public void PaginatedResult_Deserializes_WithoutOptionalFields()
+    {
+        const string json = """
+            {
+                "items": [{"id": 1}],
+                "has_next_page": false,
+                "page": 1,
+                "page_size": 10
+            }
+            """;
+
+        var result = JsonSerializer.Deserialize<PaginatedResult<System.Text.Json.Nodes.JsonObject>>(json, Opts)!;
+
+        result.Items.Should().HaveCount(1);
+        result.TotalCount.Should().BeNull();
+        result.TotalPages.Should().BeNull();
+        result.HasNextPage.Should().BeFalse();
+    }
+
+    // ── UpdateFieldRequest ───────────────────────────────────────────────────
+
+    [Fact]
+    public void UpdateFieldRequest_Serializes_WithSnakeCaseNames()
+    {
+        var req  = new UpdateFieldRequest("rich-text", Label: "Description", IsSearchable: true);
+        var json = JsonSerializer.Serialize(req, Opts);
+        var doc  = JsonDocument.Parse(json).RootElement;
+
+        doc.GetProperty("display_type").GetString().Should().Be("rich-text");
+        doc.GetProperty("label").GetString().Should().Be("Description");
+        doc.GetProperty("is_searchable").GetBoolean().Should().BeTrue();
+        doc.GetProperty("is_required").GetBoolean().Should().BeFalse();
+    }
+
+    // ── WorkflowJob / WorkflowJobStep ────────────────────────────────────────
+
+    [Fact]
+    public void WorkflowJob_Deserializes_WithSteps()
+    {
+        const string json = """
+            {
+                "id": 5,
+                "status": "Completed",
+                "started_at": "2026-03-20T10:00:00Z",
+                "completed_at": "2026-03-20T10:01:00Z",
+                "error_message": null,
+                "job_steps": [
+                    {
+                        "id": 11,
+                        "step_key": "fetch_data",
+                        "status": "Completed",
+                        "error_message": null,
+                        "log": "Fetched 42 rows"
+                    }
+                ]
+            }
+            """;
+
+        var job = JsonSerializer.Deserialize<WorkflowJob>(json, Opts)!;
+
+        job.Id.Should().Be(5);
+        job.Status.Should().Be("Completed");
+        job.StartedAt.Should().Be("2026-03-20T10:00:00Z");
+        job.ErrorMessage.Should().BeNull();
+        job.JobSteps.Should().HaveCount(1);
+        job.JobSteps![0].StepKey.Should().Be("fetch_data");
+        job.JobSteps[0].Log.Should().Be("Fetched 42 rows");
+    }
+
+    [Fact]
+    public void WorkflowJobStep_Deserializes_WithError()
+    {
+        const string json = """
+            {
+                "id": 22,
+                "step_key": "send_email",
+                "status": "Failed",
+                "error_message": "SMTP timeout",
+                "log": null
+            }
+            """;
+
+        var step = JsonSerializer.Deserialize<WorkflowJobStep>(json, Opts)!;
+
+        step.Id.Should().Be(22);
+        step.Status.Should().Be("Failed");
+        step.ErrorMessage.Should().Be("SMTP timeout");
+        step.Log.Should().BeNull();
+    }
+
+    // ── UpdateWorkflowRequest ────────────────────────────────────────────────
+
+    [Fact]
+    public void UpdateWorkflowRequest_Serializes_WithSnakeCaseNames()
+    {
+        var req  = new UpdateWorkflowRequest(Name: "New Name", Description: "Updated desc");
+        var json = JsonSerializer.Serialize(req, Opts);
+        var doc  = JsonDocument.Parse(json).RootElement;
+
+        doc.GetProperty("name").GetString().Should().Be("New Name");
+        doc.GetProperty("description").GetString().Should().Be("Updated desc");
+    }
+
+    [Fact]
+    public void UpdateWorkflowRequest_OmitsNulls()
+    {
+        var req  = new UpdateWorkflowRequest(Name: "Only Name");
+        var json = JsonSerializer.Serialize(req, Opts);
+        var doc  = JsonDocument.Parse(json).RootElement;
+
+        doc.GetProperty("name").GetString().Should().Be("Only Name");
+        doc.TryGetProperty("description", out _).Should().BeFalse();
     }
 
     // ── GoogleOAuthSettings ───────────────────────────────────────────────────
