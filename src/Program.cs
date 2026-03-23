@@ -345,6 +345,19 @@ app.Configure(config =>
         roles.AddCommand<RolesDeleteCommand>("delete")
             .WithDescription("Delete a role by ID")
             .WithExample("roles", "delete", "5", "--yes");
+
+        roles.AddBranch("permissions", perms =>
+        {
+            perms.SetDescription("Manage role permissions");
+
+            perms.AddCommand<RolesPermissionsListCommand>("list")
+                .WithDescription("List entity permissions for a role")
+                .WithExample("roles", "permissions", "list", "239");
+
+            perms.AddCommand<RolesPermissionsAddCommand>("add")
+                .WithDescription("Add entity permissions to a role")
+                .WithExample("roles", "permissions", "add", "239", "badges", "--actions", "read,create");
+        });
     });
 
     // ── Pay ───────────────────────────────────────────────────────────────────

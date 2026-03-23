@@ -656,6 +656,79 @@ public class AnythinkClientExtendedTests
         await act.Should().NotThrowAsync();
     }
 
+    [Fact]
+    public async Task GetRoleAsync_ReturnsRoleWithPermissions()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.When($"{OrgPath}/roles/1")
+               .Respond("application/json",
+                   """{"id":1,"name":"admin","description":"Full access","is_active":true,"anyapi_access":true,"permissions":[{"id":10,"name":"posts:read","description":null,"entity_id":5,"is_active":true}]}""");
+
+        var role = await BuildClient(handler).GetRoleAsync(1);
+
+        role!.Id.Should().Be(1);
+        role.Name.Should().Be("admin");
+        role.AnyApiAccess.Should().BeTrue();
+        role.Permissions.Should().HaveCount(1);
+        role.Permissions![0].Name.Should().Be("posts:read");
+        role.Permissions[0].EntityId.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task GetRoleAsync_NotFound_ReturnsNull()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.When($"{OrgPath}/roles/999")
+               .Respond(HttpStatusCode.NotFound, "application/json", """{"error":"Not found"}""");
+
+        var act = async () => await BuildClient(handler).GetRoleAsync(999);
+        await act.Should().ThrowAsync<AnythinkException>().Where(ex => ex.StatusCode == 404);
+    }
+
+    [Fact]
+    public async Task GetPermissionsAsync_ReturnsPermissionList()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.When($"{OrgPath}/permissions")
+               .Respond("application/json",
+                   """[{"id":10,"name":"posts:read","description":null,"entity_id":5,"is_active":true},{"id":11,"name":"posts:create","description":null,"entity_id":5,"is_active":true}]""");
+
+        var perms = await BuildClient(handler).GetPermissionsAsync();
+
+        perms.Should().HaveCount(2);
+        perms[0].Name.Should().Be("posts:read");
+        perms[1].Name.Should().Be("posts:create");
+    }
+
+    [Fact]
+    public async Task CreatePermissionAsync_ReturnsCreatedPermission()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.When(HttpMethod.Post, $"{OrgPath}/permissions")
+               .Respond("application/json",
+                   """{"id":20,"name":"orders:read","description":"Read orders","entity_id":8,"is_active":true}""");
+
+        var req  = new CreatePermissionRequest("orders:read", "Read orders", true);
+        var perm = await BuildClient(handler).CreatePermissionAsync(req);
+
+        perm.Id.Should().Be(20);
+        perm.Name.Should().Be("orders:read");
+    }
+
+    [Fact]
+    public async Task UpdateRoleWithPermissionsAsync_ReturnsUpdatedRole()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.When(HttpMethod.Put, $"{OrgPath}/roles/1")
+               .Respond("application/json",
+                   """{"id":1,"name":"admin","description":"Full access","is_active":true,"anyapi_access":true,"permissions":[{"id":10,"name":"posts:read","description":null,"entity_id":5,"is_active":true},{"id":11,"name":"posts:create","description":null,"entity_id":5,"is_active":true}]}""");
+
+        var req = new UpdateRolePermissionsRequest("admin", "Full access", true, true, [10, 11]);
+        var role = await BuildClient(handler).UpdateRoleWithPermissionsAsync(1, req);
+
+        role!.Permissions.Should().HaveCount(2);
+    }
+
     // ── Pay ───────────────────────────────────────────────────────────────────
 
     [Fact]
