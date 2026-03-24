@@ -281,7 +281,7 @@ public class RolesPermissionsAddCommand : BaseCommand<RolePermissionsAddSettings
                             role.Name, role.Description, role.IsActive, role.AnyApiAccess, permIds));
                 });
 
-            Renderer.Success($"Added [{string.Join(", ", added)}] on [#F97316]{Markup.Escape(settings.Entity)}[/] to role {settings.RoleId}.");
+            Renderer.Success($"Added {Markup.Escape(string.Join(", ", added))} on [#F97316]{Markup.Escape(settings.Entity)}[/] to role {settings.RoleId}.");
             return 0;
         }
         catch (Exception ex)
