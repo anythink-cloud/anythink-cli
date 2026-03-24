@@ -10,6 +10,9 @@ namespace AnythinkMcp.Tools;
 /// Covers every command the CLI supports — useful as a catch-all for commands
 /// that don't have dedicated MCP tool wrappers (accounts, projects, users,
 /// files, pay, oauth, migrate, fetch, etc.).
+///
+/// Requires the <c>anythink</c> CLI to be installed and available on PATH
+/// (e.g. via <c>dotnet tool install -g anythink-cli</c>).
 /// </summary>
 [McpServerToolType]
 public class CliTool
@@ -26,15 +29,15 @@ public class CliTool
     [McpServerTool(Name = "cli"),
      Description(
         "Run any Anythink CLI command and return its output. " +
-        "Use this for commands not covered by dedicated tools (accounts, projects, users, files, " +
-        "pay, oauth, migrate, config, fetch, api, docs, etc.). " +
-        "Pass the command exactly as you would after 'anythink', e.g. 'accounts list' or 'projects list'. " +
+        "Use this for commands not covered by dedicated tools (entities, fields, data, workflows, " +
+        "roles, secrets, users, files, pay, oauth, migrate, fetch, api, docs, etc.). " +
+        "Pass the command exactly as you would after 'anythink', e.g. 'entities list' or 'data list posts'. " +
         "For destructive commands add '--yes' to skip confirmation prompts. " +
         "Add '--json' where supported for machine-readable output.")]
     public async Task<string> RunCli(
         [Description(
-            "CLI arguments after 'anythink', e.g. 'accounts list', 'users me', " +
-            "'projects list', 'migrate --from a --to b --dry-run', 'fetch /some/path'. " +
+            "CLI arguments after 'anythink', e.g. 'entities list', 'users me', " +
+            "'data list blog_posts --json', 'migrate --from a --to b --dry-run', 'fetch /some/path'. " +
             "Do NOT include 'anythink' itself or '--profile' (profile is injected automatically).")]
         string command)
     {
@@ -45,19 +48,10 @@ public class CliTool
         if (!SafeArgs.IsMatch(command))
             return "Error: command contains disallowed characters.";
 
-        // ── Resolve CLI project path ────────────────────────────────────────────
-        var mpcDir = Path.GetDirectoryName(typeof(CliTool).Assembly.Location)!;
-        // Walk up from bin/Debug/net8.0 → mcp/ → repo root → src/
-        var repoRoot = Path.GetFullPath(Path.Combine(mpcDir, "..", "..", "..", ".."));
-        var cliProject = Path.Combine(repoRoot, "src");
-
-        if (!Directory.Exists(cliProject))
-            return $"Error: CLI project not found at {cliProject}";
-
         // ── Build argument list (no shell involved — args passed directly) ──────
         var psi = new ProcessStartInfo
         {
-            FileName = "dotnet",
+            FileName = "anythink",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -65,12 +59,6 @@ public class CliTool
             // Suppress Spectre.Console ANSI sequences for cleaner output.
             Environment = { ["NO_COLOR"] = "1", ["TERM"] = "dumb" }
         };
-
-        // Use ArgumentList for safe argument passing (no shell interpolation).
-        psi.ArgumentList.Add("run");
-        psi.ArgumentList.Add("--project");
-        psi.ArgumentList.Add(cliProject);
-        psi.ArgumentList.Add("--");
 
         // Inject --profile if the MCP server was started with one.
         var profile = _factory.ProfileName;
@@ -84,18 +72,25 @@ public class CliTool
         foreach (var arg in SplitArgs(command))
             psi.ArgumentList.Add(arg);
 
-        using var process = Process.Start(psi)!;
-        var stdout = await process.StandardOutput.ReadToEndAsync();
-        var stderr = await process.StandardError.ReadToEndAsync();
-        await process.WaitForExitAsync();
-
-        if (process.ExitCode != 0)
+        try
         {
-            var msg = !string.IsNullOrWhiteSpace(stderr) ? stderr.Trim() : stdout.Trim();
-            return $"CLI exited with code {process.ExitCode}: {msg}";
-        }
+            using var process = Process.Start(psi)!;
+            var stdout = await process.StandardOutput.ReadToEndAsync();
+            var stderr = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
 
-        return string.IsNullOrWhiteSpace(stdout) ? "(no output)" : stdout.Trim();
+            if (process.ExitCode != 0)
+            {
+                var msg = !string.IsNullOrWhiteSpace(stderr) ? stderr.Trim() : stdout.Trim();
+                return $"CLI exited with code {process.ExitCode}: {msg}";
+            }
+
+            return string.IsNullOrWhiteSpace(stdout) ? "(no output)" : stdout.Trim();
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            return "Error: 'anythink' CLI not found on PATH. Install it with: dotnet tool install -g anythink-cli";
+        }
     }
 
     /// <summary>

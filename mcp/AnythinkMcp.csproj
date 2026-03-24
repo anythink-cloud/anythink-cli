@@ -7,6 +7,11 @@
     <RootNamespace>AnythinkMcp</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>anythink-mcp</ToolCommandName>
+    <PackageId>anythink-mcp</PackageId>
+    <Version>1.0.0</Version>
+    <Description>Anythink MCP server — exposes the Anythink BaaS platform to AI assistants via the Model Context Protocol</Description>
   </PropertyGroup>
 
   <!-- MCP SDK — stdio-based server with DI hosting -->
