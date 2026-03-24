@@ -15,6 +15,13 @@ public class BillingClient : HttpApiClient
         _auth    = $"{p.MyAnythinkUrl.TrimEnd('/')}/org/{p.MyAnythinkOrgId}";
     }
 
+    /// <summary>Test-only constructor — accepts a pre-configured HttpClient (e.g. with a mock handler).</summary>
+    internal BillingClient(PlatformConfig p, HttpClient http) : base(http)
+    {
+        _billing = p.BillingUrl.TrimEnd('/');
+        _auth    = $"{p.MyAnythinkUrl.TrimEnd('/')}/org/{p.MyAnythinkOrgId}";
+    }
+
     // ── Platform Auth ─────────────────────────────────────────────────────────
 
     public Task RegisterAsync(RegisterRequest req)

@@ -277,6 +277,11 @@ app.Configure(config =>
         data.AddCommand<DataDeleteCommand>("delete")
             .WithDescription("Delete a record")
             .WithExample("data", "delete", "blog_posts", "42", "--yes");
+
+        data.AddCommand<DataRlsCommand>("rls")
+            .WithDescription("View or set RLS (row-level security) user access on a record")
+            .WithExample("data", "rls", "completed_workouts", "3")
+            .WithExample("data", "rls", "completed_workouts", "3", "--user", "72");
     });
 
     // ── Users ─────────────────────────────────────────────────────────────────
