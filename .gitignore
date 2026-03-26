@@ -19,5 +19,11 @@ TestResults*/
 # publish.sh is replaced by .github/workflows/release.yml
 publish.sh
 
+# MCP config — contains absolute paths, generated per-machine
+.mcp.json
+
+# MCP debug logs
+mcp_stderr.txt
+
 # macOS
 .DS_Store
