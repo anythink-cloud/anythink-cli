@@ -33,7 +33,7 @@ public class DataListSettings : CommandSettings
     public bool Json { get; set; }
 
     [CommandOption("--all")]
-    [Description("Stream all pages to stdout as newline-delimited JSON (requires --json). Each line is one page of results.")]
+    [Description("Stream all pages to stdout as sequential JSON objects (requires --json). Each object contains one page of results.")]
     public bool All { get; set; }
 }
 

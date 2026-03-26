@@ -477,7 +477,7 @@ public class WorkflowsCreateCommand : BaseCommand<WorkflowCreateSettings>
                 settings.Event ?? "EntityCreated",
                 settings.EventEntity ?? ""
             ),
-            "Api" => new { api_route = settings.ApiRoute ?? "" },
+            "Api" => new { api_route = settings.ApiRoute ?? "", event_entity = settings.EventEntity ?? "" },
             _ => new { }
         };
 
@@ -495,7 +495,8 @@ public class WorkflowsCreateCommand : BaseCommand<WorkflowCreateSettings>
                         settings.Description,
                         trigger,
                         settings.Enabled,
-                        options
+                        options,
+                        trigger == "Api" ? settings.ApiRoute : null
                     ));
                 });
 
@@ -637,7 +638,11 @@ public class WorkflowsTriggerCommand : BaseCommand<WorkflowTriggerSettings>
         object? payload = null;
         if (!string.IsNullOrEmpty(settings.Payload))
         {
-            try { payload = System.Text.Json.JsonSerializer.Deserialize<JsonObject>(settings.Payload); }
+            try
+            {
+                var parsed = System.Text.Json.JsonSerializer.Deserialize<JsonObject>(settings.Payload);
+                payload = new { data = parsed };
+            }
             catch { Renderer.Error("Invalid JSON payload."); return 1; }
         }
 

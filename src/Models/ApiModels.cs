@@ -132,7 +132,8 @@ public record CreateWorkflowRequest(
     [property: JsonPropertyName("description")] string? Description,
     [property: JsonPropertyName("trigger")] string Trigger,
     [property: JsonPropertyName("enabled")] bool Enabled,
-    [property: JsonPropertyName("options")] object Options
+    [property: JsonPropertyName("options")] object Options,
+    [property: JsonPropertyName("api_route")] string? ApiRoute = null
 );
 
 public record CreateWorkflowStepRequest(
