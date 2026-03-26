@@ -6,6 +6,7 @@ using Spectre.Console;
 using Spectre.Console.Cli;
 using System.ComponentModel;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace AnythinkCli.Commands;
 
@@ -52,9 +53,25 @@ public class MigrateSettings : CommandSettings
     [Description("Include menu configuration")]
     public bool IncludeMenus { get; set; }
 
+    [CommandOption("--force-menus")]
+    [Description("Delete existing target menus before recreating them (fixes incorrect hrefs from a previous migration)")]
+    public bool ForceMenus { get; set; }
+
     [CommandOption("--include-files")]
     [Description("Include uploaded files")]
     public bool IncludeFiles { get; set; }
+
+    [CommandOption("--include-data")]
+    [Description("Include entity records (data). Skips entities that already have records on the target.")]
+    public bool IncludeData { get; set; }
+
+    [CommandOption("--force-data")]
+    [Description("Re-migrate data even if the target already has records. Implies --include-data.")]
+    public bool ForceData { get; set; }
+
+    [CommandOption("--force-data-entities <ENTITIES>")]
+    [Description("Comma-separated entity names to force-migrate (e.g. mental_edge_questions,profiles). Implies --force-data.")]
+    public string? ForceDataEntities { get; set; }
 }
 
 public class MigrateCommand : BaseCommand<MigrateSettings>
@@ -71,6 +88,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
     private const string ScopeSettings  = "Organisation Settings";
     private const string ScopeMenus     = "Menu Configuration";
     private const string ScopeFiles     = "Files";
+    private const string ScopeData      = "Data (Entity Records)";
 
     public override async Task<int> ExecuteAsync(CommandContext context, MigrateSettings settings)
     {
@@ -109,8 +127,11 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         }
 
         // ── Determine migration scope (flags or interactive) ──────────────────
+        // --force-data / --force-data-entities imply --include-data
         bool anyFlagSet = settings.IncludeWorkflows || settings.IncludeRoles ||
-                          settings.IncludeSettings  || settings.IncludeMenus || settings.IncludeFiles;
+                          settings.IncludeSettings  || settings.IncludeMenus ||
+                          settings.IncludeFiles      || settings.IncludeData  ||
+                          settings.ForceData         || settings.ForceDataEntities != null;
 
         HashSet<string> scope;
         if (anyFlagSet)
@@ -121,6 +142,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
             if (settings.IncludeSettings)  scope.Add(ScopeSettings);
             if (settings.IncludeMenus)     scope.Add(ScopeMenus);
             if (settings.IncludeFiles)     scope.Add(ScopeFiles);
+            if (settings.IncludeData || settings.ForceData || settings.ForceDataEntities != null) scope.Add(ScopeData);
         }
         else
         {
@@ -131,7 +153,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                     .HighlightStyle(new Style(foreground: new Color(249, 115, 22)))
                     .InstructionsText("[grey](Press [grey]<space>[/] to toggle, [grey]<enter>[/] to confirm)[/]")
                     .AddChoices([ScopeEntities, ScopeWorkflows, ScopeRoles,
-                                 ScopeSettings, ScopeMenus, ScopeFiles])
+                                 ScopeSettings, ScopeMenus, ScopeFiles, ScopeData])
                     .Select(ScopeEntities));
             scope = [.. selected];
         }
@@ -151,6 +173,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         List<FileResponse> srcFiles     = [];
         TenantResponse?    srcTenant    = null;
         List<MenuResponse> srcMenus     = [];
+        var srcRecordCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
         await AnsiConsole.Status().Spinner(Spinner.Known.Dots)
             .StartAsync("Reading source project...", async _ =>
@@ -159,9 +182,16 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                 if (scope.Contains(ScopeWorkflows)) srcWorkflows = await srcClient.GetWorkflowsAsync();
                 // Always fetch roles — needed for menu role-ID remapping even when ScopeRoles not selected
                 srcRoles    = await srcClient.GetRolesAsync();
-                if (scope.Contains(ScopeFiles))    srcFiles  = await srcClient.GetAllFilesAsync();
+                if (scope.Contains(ScopeFiles) || scope.Contains(ScopeData))
+                    srcFiles  = await srcClient.GetAllFilesAsync();
                 if (scope.Contains(ScopeSettings)) srcTenant = await srcClient.GetTenantAsync();
                 if (scope.Contains(ScopeMenus))    srcMenus  = await srcClient.GetMenusAsync();
+                if (scope.Contains(ScopeData))
+                {
+                    // Count records per entity — paginate fully if TotalCount is unavailable
+                    foreach (var e in srcEntities.Where(e => !e.IsSystem))
+                        srcRecordCounts[e.Name] = await CountRecordsAsync(srcClient, e.Name);
+                }
             });
 
         var migratable = srcEntities.Where(e => !e.IsSystem).OrderBy(e => e.Name).ToList();
@@ -191,7 +221,8 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                 // Always fetch target roles — needed for menu + settings role-ID remapping
                 dstRoles    = await dstClient.GetRolesAsync();
                 if (scope.Contains(ScopeRoles))     dstPermissions = await dstClient.GetPermissionsAsync();
-                if (scope.Contains(ScopeFiles))     dstFiles       = await dstClient.GetAllFilesAsync();
+                if (scope.Contains(ScopeFiles) || scope.Contains(ScopeData))
+                    dstFiles       = await dstClient.GetAllFilesAsync();
                 if (scope.Contains(ScopeSettings))  dstTenant      = await dstClient.GetTenantAsync();
                 if (scope.Contains(ScopeMenus))     dstMenus       = await dstClient.GetMenusAsync();
             });
@@ -214,6 +245,11 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         var settingsDone     = new Counter();
         var menusCreated     = new Counter(); var menuItemsCreated = new Counter();
         var filesCreated     = new Counter(); var filesFailed      = new Counter();
+        var recordsCreated   = new Counter(); var recordsSkipped   = new Counter();
+        var recordsFailed    = new Counter();
+        var dataDetail       = new List<(string Entity, int WouldCreate, int Skipped)>();
+        // Populated by Files section; used by Data section for file field remapping
+        var fileIdMap        = new Dictionary<int, int>();
 
         var errors = new List<string>();
 
@@ -241,6 +277,8 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                 var settingsTask = scope.Contains(ScopeSettings)  ? ctx.AddTask($"[bold]{ScopeSettings}[/]",  maxValue: 1) : ctx.AddTask(ScopeSettings,  maxValue: 1);
                 var menuTask     = scope.Contains(ScopeMenus)     ? ctx.AddTask($"[bold]{ScopeMenus}[/]",     maxValue: Math.Max(1, srcMenus.Count))    : ctx.AddTask(ScopeMenus,     maxValue: 1);
                 var fileTask     = scope.Contains(ScopeFiles)     ? ctx.AddTask($"[bold]{ScopeFiles}[/]",     maxValue: Math.Max(1, srcFiles.Count))    : ctx.AddTask(ScopeFiles,     maxValue: 1);
+                var totalSrcRecords = srcRecordCounts.Values.Sum();
+                var dataTask     = scope.Contains(ScopeData)      ? ctx.AddTask($"[bold]{ScopeData}[/]",      maxValue: Math.Max(1, totalSrcRecords))   : ctx.AddTask(ScopeData,      maxValue: 1);
 
                 // Complete tasks that are out of scope immediately
                 if (!scope.Contains(ScopeEntities))  { entityTask.Value  = 1; fieldTask.Value    = 1; }
@@ -249,6 +287,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                 if (!scope.Contains(ScopeSettings))    settingsTask.Value = 1;
                 if (!scope.Contains(ScopeMenus))       menuTask.Value     = 1;
                 if (!scope.Contains(ScopeFiles))       fileTask.Value     = 1;
+                if (!scope.Contains(ScopeData))        dataTask.Value     = 1;
 
                 // ── Entities + Fields ─────────────────────────────────────────
                 if (scope.Contains(ScopeEntities))
@@ -596,6 +635,22 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                             continue;
                         }
 
+                        // --force-menus: delete the existing menu so it is fully recreated
+                        if (existingDstMenu != null && settings.ForceMenus)
+                        {
+                            try
+                            {
+                                await dstClient.DeleteMenuAsync(existingDstMenu.Id);
+                                existingDstMenu = null;
+                            }
+                            catch (AnythinkException ex)
+                            {
+                                errors.Add($"Deleting menu '{menu.Name}': {ex.Message}");
+                                menuTask.Increment(1);
+                                continue;
+                            }
+                        }
+
                         int targetMenuId;
                         if (existingDstMenu != null)
                         {
@@ -638,7 +693,8 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                         FlattenItems(fullDstMenu?.Items ?? [], dstItemsByName);
 
                         await MergeMenuItems(dstClient, targetMenuId, fullSrcMenu.Items, 0,
-                            existingHrefs, dstItemsByName, errors, menuItemsCreated);
+                            existingHrefs, dstItemsByName, errors, menuItemsCreated,
+                            srcClient.OrgId, dstClient.OrgId);
 
                         menuTask.Increment(1);
                     }
@@ -655,8 +711,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
 
                     var srcBaseUrl = fromProfile.InstanceApiUrl.TrimEnd('/');
 
-                    // Track original file ID → new file ID for logo remapping
-                    var fileIdMap = new Dictionary<int, int>();
+                    // fileIdMap is declared outside — populated here for logo remapping + data migration
 
                     foreach (var file in srcFiles.OrderBy(f => f.OriginalFileName))
                     {
@@ -731,6 +786,253 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
 
                     fileTask.Value = fileTask.MaxValue;
                 }
+
+                // ── Data (Entity Records) ─────────────────────────────────────
+                if (scope.Contains(ScopeData) && migratable.Count > 0)
+                {
+                    // Build FK field map: entity name → list of (jsonFieldName, targetEntityName)
+                    // Only many-to-one / one-to-one fields create FK columns we need to remap.
+                    var fkMap = new Dictionary<string, List<(string FieldName, string TargetEntity)>>(
+                        StringComparer.OrdinalIgnoreCase);
+
+                    foreach (var entity in migratable)
+                    {
+                        var fks = new List<(string, string)>();
+                        foreach (var field in entity.Fields ?? [])
+                        {
+                            if (!PrimaryRelTypes.Contains(field.DatabaseType)) continue;
+                            if (!field.Relationship.HasValue) continue;
+                            var rel = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
+                                field.Relationship.Value.GetRawText())!;
+                            if (rel.TryGetValue("target_entity_id", out var tEl) &&
+                                tEl.ValueKind == JsonValueKind.Number &&
+                                srcIdToName.TryGetValue(tEl.GetInt32(), out var targetName))
+                                fks.Add((field.Name, targetName));
+                        }
+                        fkMap[entity.Name] = fks;
+                    }
+
+                    // Supplement fileIdMap with dst files that already existed before this run
+                    // (the Files section only adds files it uploaded; previously-existing files are missing)
+                    if (srcFiles.Count > 0)
+                    {
+                        var dstFilesByName = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                        foreach (var f in dstFiles) dstFilesByName[f.OriginalFileName] = f.Id;
+                        foreach (var srcFile in srcFiles)
+                            if (!fileIdMap.ContainsKey(srcFile.Id) &&
+                                dstFilesByName.TryGetValue(srcFile.OriginalFileName, out var dstFileId))
+                                fileIdMap[srcFile.Id] = dstFileId;
+                    }
+
+                    // Build per-entity set of file-type field names
+                    var fileFieldNames = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var entity in migratable)
+                    {
+                        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        foreach (var field in entity.Fields ?? [])
+                            if (field.DatabaseType.Equals("file", StringComparison.OrdinalIgnoreCase) ||
+                                field.DisplayType.Equals("file", StringComparison.OrdinalIgnoreCase))
+                                names.Add(field.Name);
+                        if (names.Count > 0) fileFieldNames[entity.Name] = names;
+                    }
+
+                    // Per-entity source ID → destination ID (built as records are created)
+                    var dataIdMap = new Dictionary<string, Dictionary<int, int>>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var entity in migratable)
+                        dataIdMap[entity.Name] = [];
+
+                    // Entities to force-migrate regardless of existing target records.
+                    // null = force all; empty set = force none
+                    HashSet<string>? forceEntities;
+                    if (settings.ForceData)
+                        forceEntities = null; // force all
+                    else if (!string.IsNullOrEmpty(settings.ForceDataEntities))
+                        forceEntities = new HashSet<string>(
+                            settings.ForceDataEntities.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+                            StringComparer.OrdinalIgnoreCase);
+                    else
+                        forceEntities = new HashSet<string>(StringComparer.OrdinalIgnoreCase); // force none
+
+                    // Non-junction entities first so FK maps are populated before junction records
+                    var dataOrder = migratable
+                        .OrderBy(e => e.IsJunction ? 1 : 0)
+                        .ThenBy(e => e.Name)
+                        .ToList();
+
+                    foreach (var entity in dataOrder)
+                    {
+                        var srcCount = srcRecordCounts.GetValueOrDefault(entity.Name, 0);
+                        if (srcCount == 0) continue;
+
+                        if (settings.DryRun)
+                        {
+                            // Dry run: use pre-fetched counts, no pagination needed
+                            recordsCreated.Value += srcCount;
+                            dataDetail.Add((entity.Name, srcCount, 0));
+                            dataTask.Increment(srcCount);
+                            continue;
+                        }
+
+                        // Check if destination already has records for this entity
+                        // Wrap in try-catch: Anythink JOINs anythink_files even on SELECT
+                        // and that table may not exist yet on a new project.
+                        int dstCount;
+                        try   { dstCount = await CountRecordsAsync(dstClient, entity.Name); }
+                        catch { dstCount = 0; } // table missing — assume empty, proceed
+
+                        var isForced = forceEntities == null || forceEntities.Contains(entity.Name);
+                        if (dstCount > 0 && !isForced)
+                        {
+                            recordsSkipped.Value += srcCount;
+                            dataDetail.Add((entity.Name, 0, srcCount));
+                            dataTask.Increment(srcCount);
+                            continue;
+                        }
+
+                        const int pageSize = 100;
+                        var page = 1;
+                        var entityCreated = 0;
+
+                        while (true)
+                        {
+                            PaginatedResult<JsonObject> result;
+                            try   { result = await srcClient.ListItemsAsync(entity.Name, page, pageSize); }
+                            catch (AnythinkException ex)
+                            {
+                                errors.Add($"{entity.Name} page {page}: {ex.Message}");
+                                break;
+                            }
+
+                            foreach (var item in result.Items)
+                            {
+                                var srcIdNode = item["id"];
+                                if (srcIdNode == null) { dataTask.Increment(1); continue; }
+                                var srcId = srcIdNode.GetValue<int>();
+
+                                // Build payload — strip server-managed fields
+                                var payload = new JsonObject();
+                                foreach (var prop in item)
+                                {
+                                    if (prop.Key is "id" or "tenant_id") continue;
+                                    payload[prop.Key] = prop.Value?.DeepClone();
+                                }
+
+                                // Remap FK fields using maps built so far
+                                foreach (var (fieldName, targetEntity) in fkMap[entity.Name])
+                                {
+                                    if (payload[fieldName] is not JsonNode fkNode) continue;
+
+                                    int srcFkId;
+                                    if (fkNode is JsonValue fkVal && fkVal.TryGetValue<int>(out var directId))
+                                        srcFkId = directId;
+                                    else if (fkNode is JsonObject fkObj &&
+                                             fkObj["id"] is JsonValue idVal &&
+                                             idVal.TryGetValue<int>(out var objId))
+                                        srcFkId = objId;
+                                    else continue;
+
+                                    if (dataIdMap.TryGetValue(targetEntity, out var targetMap) &&
+                                        targetMap.TryGetValue(srcFkId, out var dstFkId))
+                                        payload[fieldName] = JsonValue.Create(dstFkId);
+                                    else
+                                        payload.Remove(fieldName); // can't remap — omit rather than send a stale ID
+                                }
+
+                                // Remap file fields: source file IDs → destination file IDs
+                                if (fileFieldNames.TryGetValue(entity.Name, out var fileFields))
+                                {
+                                    foreach (var ffName in fileFields)
+                                    {
+                                        if (!payload.ContainsKey(ffName)) continue;
+                                        var ffNode = payload[ffName];
+                                        if (ffNode == null) continue;
+
+                                        if (ffNode is JsonValue ffVal && ffVal.TryGetValue<int>(out var singleFileId))
+                                        {
+                                            if (fileIdMap.TryGetValue(singleFileId, out var dstSingle))
+                                                payload[ffName] = JsonValue.Create(dstSingle);
+                                            else
+                                                payload.Remove(ffName);
+                                        }
+                                        else if (ffNode is JsonArray ffArr)
+                                        {
+                                            var remapped = new JsonArray();
+                                            foreach (var el in ffArr)
+                                                if (el is JsonValue elv && elv.TryGetValue<int>(out var arrFileId) &&
+                                                    fileIdMap.TryGetValue(arrFileId, out var dstArrId))
+                                                    remapped.Add(JsonValue.Create(dstArrId));
+                                            payload[ffName] = remapped;
+                                        }
+                                        else if (ffNode is JsonObject ffObj &&
+                                                 ffObj["id"] is JsonValue objIdV &&
+                                                 objIdV.TryGetValue<int>(out var objFileId))
+                                        {
+                                            if (fileIdMap.TryGetValue(objFileId, out var dstObjId))
+                                                payload[ffName] = JsonValue.Create(dstObjId);
+                                            else
+                                                payload.Remove(ffName);
+                                        }
+                                    }
+                                }
+
+                                try
+                                {
+                                    var created = await dstClient.CreateItemAsync(entity.Name, payload);
+                                    if (created["id"]?.GetValue<int>() is int dstId)
+                                        dataIdMap[entity.Name][srcId] = dstId;
+                                    recordsCreated.Value++;
+                                    entityCreated++;
+                                }
+                                catch (AnythinkException ex) when (ex.Message.Contains("anythink_files"))
+                                {
+                                    // Strip all detected file fields by name
+                                    if (fileFieldNames.TryGetValue(entity.Name, out var ffStrip))
+                                        foreach (var ffn in ffStrip) payload.Remove(ffn);
+
+                                    // Deep-clean all remaining values: recursively strip embedded file
+                                    // objects (Anythink scans JSON columns for file refs internally)
+                                    foreach (var key in payload.Select(p => p.Key).ToList())
+                                        payload[key] = StripEmbeddedFileRefs(payload[key]);
+
+                                    try
+                                    {
+                                        var created = await dstClient.CreateItemAsync(entity.Name, payload);
+                                        if (created["id"]?.GetValue<int>() is int dstId2)
+                                            dataIdMap[entity.Name][srcId] = dstId2;
+                                        recordsCreated.Value++;
+                                        entityCreated++;
+                                    }
+                                    catch (AnythinkException ex2) when (ex2.Message.Contains("anythink_files"))
+                                    {
+                                        errors.Add($"{entity.Name}#{srcId}: target schema missing 'anythink_files' table — " +
+                                            "go to the target project in Anythink, create and save a record with a file field attached, " +
+                                            "then re-run with --force-data-entities " + entity.Name);
+                                        recordsFailed.Value++;
+                                    }
+                                    catch (AnythinkException ex2)
+                                    {
+                                        errors.Add($"{entity.Name}#{srcId}: {ex2.Message}");
+                                        recordsFailed.Value++;
+                                    }
+                                }
+                                catch (AnythinkException ex)
+                                {
+                                    errors.Add($"{entity.Name}#{srcId}: {ex.Message}");
+                                    recordsFailed.Value++;
+                                }
+
+                                dataTask.Increment(1);
+                            }
+
+                            if (result.Items.Count < pageSize) break;
+                            page++;
+                        }
+
+                        dataDetail.Add((entity.Name, entityCreated, 0));
+                    }
+
+                    dataTask.Value = dataTask.MaxValue;
+                }
             });
 
         // ── Summary ───────────────────────────────────────────────────────────
@@ -757,6 +1059,19 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         if (scope.Contains(ScopeFiles))
             AnsiConsole.MarkupLine($"  Files                 [green]+{filesCreated.Value}[/]" +
                                    (filesFailed.Value > 0 ? $"  [red]failed {filesFailed.Value}[/]" : ""));
+        if (scope.Contains(ScopeData))
+        {
+            var verb = settings.DryRun ? "would create" : "created";
+            AnsiConsole.MarkupLine($"  Records               [green]+{recordsCreated.Value}[/]  skipped [dim]{recordsSkipped.Value}[/]" +
+                                   (recordsFailed.Value > 0 ? $"  [red]failed {recordsFailed.Value}[/]" : ""));
+            foreach (var (entity, wouldCreate, skipped) in dataDetail.OrderBy(d => d.Entity))
+            {
+                if (wouldCreate > 0)
+                    AnsiConsole.MarkupLine($"    [dim]·[/] {Markup.Escape(entity),-30} {verb} [green]{wouldCreate}[/]");
+                else if (skipped > 0)
+                    AnsiConsole.MarkupLine($"    [dim]·[/] {Markup.Escape(entity),-30} [dim]skipped — already has data[/]");
+            }
+        }
 
         if (errors.Count > 0)
         {
@@ -768,18 +1083,40 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
 
         AnsiConsole.WriteLine();
         bool anyCreated = entitiesCreated.Value + fieldsCreated.Value + workflowsCreated.Value +
-                          rolesCreated.Value + settingsDone.Value + menusCreated.Value + filesCreated.Value > 0;
+                          rolesCreated.Value + settingsDone.Value + menusCreated.Value +
+                          filesCreated.Value + recordsCreated.Value > 0;
         if (anyCreated || settings.DryRun)
             Renderer.Success(settings.DryRun ? "Dry run complete." : "Migration complete.");
         else
             Renderer.Info("Nothing new — target is already up to date.");
 
-        return (fieldsFailed.Value > 0 || filesFailed.Value > 0 || errors.Count > 0) ? 2 : 0;
+        return (fieldsFailed.Value > 0 || filesFailed.Value > 0 || recordsFailed.Value > 0 || errors.Count > 0) ? 2 : 0;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private sealed class Counter { public int Value; }
+
+    /// <summary>
+    /// Returns the total record count for an entity.
+    /// Uses TotalCount from the first page if available; otherwise paginates to count.
+    /// </summary>
+    private static async Task<int> CountRecordsAsync(AnythinkClient client, string entityName)
+    {
+        var first = await client.ListItemsAsync(entityName, 1, 100);
+        if (first.TotalCount.HasValue) return first.TotalCount.Value;
+
+        // TotalCount not in response — paginate to count
+        var total = first.Items.Count;
+        var page  = 2;
+        while (first.Items.Count == 100)
+        {
+            var next = await client.ListItemsAsync(entityName, page++, 100);
+            total += next.Items.Count;
+            first  = next;
+        }
+        return total;
+    }
 
     private static async Task MigrateField(
         AnythinkClient client, string entityName, Field field, bool dryRun,
@@ -805,6 +1142,14 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         }
         cCreated.Value++;
     }
+
+    /// <summary>
+    /// Remaps the org ID in an href from source to destination.
+    /// "/org/54925003/entities/categories" → "/org/37523255/entities/categories"
+    /// Hrefs without an org prefix are returned unchanged.
+    /// </summary>
+    internal static string RemapHref(string href, string srcOrgId, string dstOrgId) =>
+        href.Replace($"/org/{srcOrgId}/", $"/org/{dstOrgId}/", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Collects all hrefs (including nested children) into a flat set.</summary>
     private static void CollectHrefs(List<MenuItemResponse> items, HashSet<string> hrefs)
@@ -836,13 +1181,17 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         List<MenuItemResponse> items, int dstParentId,
         HashSet<string> existingHrefs,
         Dictionary<string, int> dstItemsByName,
-        List<string> errors, Counter count)
+        List<string> errors, Counter count,
+        string srcOrgId, string dstOrgId)
     {
         foreach (var item in items.OrderBy(i => i.SortOrder))
         {
             int dstItemId;
+            var remappedHref = string.IsNullOrEmpty(item.Href)
+                ? item.Href
+                : RemapHref(item.Href, srcOrgId, dstOrgId);
 
-            if (!string.IsNullOrEmpty(item.Href) && existingHrefs.Contains(item.Href))
+            if (!string.IsNullOrEmpty(remappedHref) && existingHrefs.Contains(remappedHref))
             {
                 // Item already exists — resolve dst ID so children can use it as parent
                 dstItemsByName.TryGetValue(item.DisplayName, out dstItemId);
@@ -852,10 +1201,10 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                 try
                 {
                     var created = await client.CreateMenuItemAsync(menuId,
-                        new CreateMenuItemRequest(item.DisplayName, item.Icon, item.Href, dstParentId));
+                        new CreateMenuItemRequest(item.DisplayName, item.Icon, remappedHref, dstParentId));
                     dstItemId = created.Id;
                     dstItemsByName.TryAdd(item.DisplayName, dstItemId);
-                    if (!string.IsNullOrEmpty(item.Href)) existingHrefs.Add(item.Href);
+                    if (!string.IsNullOrEmpty(remappedHref)) existingHrefs.Add(remappedHref);
                     count.Value++;
                 }
                 catch (AnythinkException ex)
@@ -867,11 +1216,45 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
 
             if (item.Items.Count > 0 && dstItemId != 0)
                 await MergeMenuItems(client, menuId, item.Items, dstItemId,
-                    existingHrefs, dstItemsByName, errors, count);
+                    existingHrefs, dstItemsByName, errors, count, srcOrgId, dstOrgId);
         }
     }
 
-    private static int CountItems(List<MenuItemResponse> items) =>
+    /// <summary>
+    /// Recursively removes file-like objects from a JSON value.
+    /// An object is considered a file reference if it contains "original_file_name", "file_name",
+    /// or "file_type". Null is returned for such objects so callers can omit the field entirely.
+    /// Arrays have file-like elements removed. All other values are passed through unchanged.
+    /// </summary>
+    internal static JsonNode? StripEmbeddedFileRefs(JsonNode? node)
+    {
+        if (node == null) return null;
+        if (node is JsonObject obj)
+        {
+            if (obj.ContainsKey("original_file_name") || obj.ContainsKey("file_name") || obj.ContainsKey("file_type"))
+                return null; // this object IS a file — remove it
+            var cleaned = new JsonObject();
+            foreach (var (k, v) in obj)
+            {
+                var cv = StripEmbeddedFileRefs(v);
+                cleaned[k] = cv;
+            }
+            return cleaned;
+        }
+        if (node is JsonArray arr)
+        {
+            var cleaned = new JsonArray();
+            foreach (var item in arr)
+            {
+                var cv = StripEmbeddedFileRefs(item);
+                if (cv != null) cleaned.Add(cv);
+            }
+            return cleaned;
+        }
+        return node.DeepClone();
+    }
+
+    internal static int CountItems(List<MenuItemResponse> items) =>
         items.Sum(i => 1 + CountItems(i.Items));
 
     private static JsonElement? RemapRelationship(

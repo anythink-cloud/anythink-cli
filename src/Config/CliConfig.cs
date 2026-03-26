@@ -5,6 +5,15 @@ using System.Text.Json.Serialization;
 namespace AnythinkCli.Config;
 
 /// <summary>
+/// Holds the --profile value parsed before Spectre.Console processes args.
+/// Populated in Program.cs; consumed by BaseCommand.GetClient().
+/// </summary>
+public static class ProfileContext
+{
+    public static string? Current { get; set; }
+}
+
+/// <summary>
 /// Canonical API URL constants and environment presets.
 /// </summary>
 public static class ApiDefaults

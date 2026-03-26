@@ -1,4 +1,5 @@
 using AnythinkCli.Commands;
+using AnythinkCli.Config;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -16,6 +17,24 @@ if (File.Exists(dotEnvPath))
         if (!string.IsNullOrEmpty(key) && Environment.GetEnvironmentVariable(key) is null)
             Environment.SetEnvironmentVariable(key, val);
     }
+}
+
+// ── Pre-parse --profile before Spectre.Console sees args ─────────────────────
+// Strips "--profile <name>" (or "-p <name>") from the args array so Spectre
+// doesn't reject it as an unknown option, and stores the value in ProfileContext
+// for BaseCommand.GetClient() to use.
+{
+    var argList = args.ToList();
+    for (var i = 0; i < argList.Count - 1; i++)
+    {
+        if (argList[i] is "--profile" or "-p")
+        {
+            ProfileContext.Current = argList[i + 1];
+            argList.RemoveRange(i, 2);
+            break;
+        }
+    }
+    args = [.. argList];
 }
 
 var app = new CommandApp();
@@ -168,6 +187,11 @@ app.Configure(config =>
             .WithDescription("Add a field to an entity")
             .WithExample("fields", "add", "customers", "email", "--type", "varchar", "--unique", "--required");
 
+        fields.AddCommand<FieldsUpdateCommand>("update")
+            .WithDescription("Update properties of an existing field")
+            .WithExample("fields", "update", "doc_page", "status", "--public", "--searchable")
+            .WithExample("fields", "update", "products", "description", "--display", "rich-text");
+
         fields.AddCommand<FieldsDeleteCommand>("delete")
             .WithDescription("Delete a field from an entity")
             .WithExample("fields", "delete", "customers", "1234", "--yes");
@@ -186,9 +210,29 @@ app.Configure(config =>
             .WithDescription("Get workflow details and steps")
             .WithExample("workflows", "get", "76");
 
+        wf.AddCommand<WorkflowsJobsCommand>("jobs")
+            .WithDescription("View job history for a workflow")
+            .WithExample("workflows", "jobs", "31");
+
+        wf.AddCommand<WorkflowsStepGetCommand>("step-get")
+            .WithDescription("View step details including parameters")
+            .WithExample("workflows", "step-get", "31", "8");
+
+        wf.AddCommand<WorkflowsStepAddCommand>("step-add")
+            .WithDescription("Add a step to a workflow")
+            .WithExample("workflows", "step-add", "31", "parse_response", "--action", "RunScript", "--params", "{\"script\":\"return {}\"}");
+
+        wf.AddCommand<WorkflowsStepUpdateCommand>("step-update")
+            .WithDescription("Update step parameters and properties")
+            .WithExample("workflows", "step-update", "31", "8", "--params", "{\"entity\":\"mental_edge_answers\"}");
+
         wf.AddCommand<WorkflowsCreateCommand>("create")
             .WithDescription("Create a new workflow")
             .WithExample("workflows", "create", "daily-sync", "--trigger", "Timed", "--cron", "0 6 * * *");
+
+        wf.AddCommand<WorkflowsUpdateCommand>("update")
+            .WithDescription("Update a workflow's name or description")
+            .WithExample("workflows", "update", "31", "--name", "Generate Mental Edge Report");
 
         wf.AddCommand<WorkflowsEnableCommand>("enable")
             .WithDescription("Enable a workflow");
@@ -202,6 +246,10 @@ app.Configure(config =>
 
         wf.AddCommand<WorkflowsDeleteCommand>("delete")
             .WithDescription("Delete a workflow");
+
+        wf.AddCommand<WorkflowsStepLinkCommand>("step-link")
+            .WithDescription("Link workflow steps together (set on-success/on-failure)")
+            .WithExample("workflows", "step-link", "31", "8", "--on-success", "9");
     });
 
     // ── Data ──────────────────────────────────────────────────────────────────
@@ -297,6 +345,19 @@ app.Configure(config =>
         roles.AddCommand<RolesDeleteCommand>("delete")
             .WithDescription("Delete a role by ID")
             .WithExample("roles", "delete", "5", "--yes");
+
+        roles.AddBranch("permissions", perms =>
+        {
+            perms.SetDescription("Manage role permissions");
+
+            perms.AddCommand<RolesPermissionsListCommand>("list")
+                .WithDescription("List entity permissions for a role")
+                .WithExample("roles", "permissions", "list", "239");
+
+            perms.AddCommand<RolesPermissionsAddCommand>("add")
+                .WithDescription("Add entity permissions to a role")
+                .WithExample("roles", "permissions", "add", "239", "badges", "--actions", "read,create");
+        });
     });
 
     // ── Pay ───────────────────────────────────────────────────────────────────
@@ -361,6 +422,14 @@ app.Configure(config =>
                 .WithExample("oauth", "google", "configure");
         });
     });
+
+    // ── Fetch (raw API call) ──────────────────────────────────────────────────
+
+    config.AddCommand<FetchCommand>("fetch")
+        .WithDescription("Make an authenticated API request to the active project")
+        .WithExample("fetch", "/integrations/definitions")
+        .WithExample("fetch", "/integrations/definitions/slack/fields/channel/options")
+        .WithExample("fetch", "/integrations/connections", "--method", "POST", "--body", "{\"name\":\"test\"}");
 
     // ── API explorer ──────────────────────────────────────────────────────────
 

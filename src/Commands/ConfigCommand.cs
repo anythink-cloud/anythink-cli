@@ -30,9 +30,9 @@ public class ConfigShowCommand : Command<EmptySettings>
             var isDefault = key == config.DefaultProfile ? "[green]●[/]" : "";
             table.AddRow(
                 key == config.DefaultProfile ? $"[bold]{Markup.Escape(key)}[/]" : Markup.Escape(key),
-                Markup.Escape(p.OrgId),
+                Markup.Escape(p.OrgId ?? "—"),
                 auth,
-                Markup.Escape(p.InstanceApiUrl),
+                Markup.Escape(p.InstanceApiUrl ?? "—"),
                 isDefault
             );
         }

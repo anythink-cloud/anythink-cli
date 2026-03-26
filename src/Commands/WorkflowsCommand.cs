@@ -119,6 +119,303 @@ public class WorkflowsGetCommand : BaseCommand<WorkflowIdSettings>
     }
 }
 
+// ── workflows jobs ────────────────────────────────────────────────────────────
+
+public class WorkflowsJobsCommand : BaseCommand<WorkflowIdSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, WorkflowIdSettings settings)
+    {
+        try
+        {
+            var client = GetClient();
+            PaginatedResult<WorkflowJob>? result = null;
+
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync($"Fetching jobs for workflow {settings.Id}...", async _ =>
+                {
+                    result = await client.GetWorkflowJobsAsync(settings.Id);
+                });
+
+            var jobs = result!.Items ?? [];
+            Renderer.Header($"Jobs ({result.TotalCount})");
+
+            if (jobs.Count == 0)
+            {
+                Renderer.Info("No jobs found.");
+                return 0;
+            }
+
+            foreach (var job in jobs.OrderByDescending(j => j.Id))
+            {
+                var statusColor = job.Status switch
+                {
+                    "Completed" => "green",
+                    "Failed" => "red",
+                    "Running" => "yellow",
+                    _ => "dim"
+                };
+                AnsiConsole.MarkupLine($"\n  [bold]Job #{job.Id}[/] [{statusColor}]{Markup.Escape(job.Status ?? "unknown")}[/] — {Markup.Escape(job.StartedAt ?? "?")}");
+
+                if (!string.IsNullOrEmpty(job.ErrorMessage))
+                    AnsiConsole.MarkupLine($"  [red]Error:[/] {Markup.Escape(job.ErrorMessage)}");
+
+                foreach (var step in job.JobSteps ?? [])
+                {
+                    var stepColor = step.Status switch
+                    {
+                        "Completed" => "green",
+                        "Failed" => "red",
+                        "Running" => "yellow",
+                        _ => "dim"
+                    };
+                    AnsiConsole.MarkupLine($"    [{stepColor}]●[/] {Markup.Escape(step.StepKey ?? "?")}: [{stepColor}]{Markup.Escape(step.Status ?? "?")}[/]");
+                    if (!string.IsNullOrEmpty(step.ErrorMessage))
+                        AnsiConsole.MarkupLine($"      [red]{Markup.Escape(step.ErrorMessage)}[/]");
+                    if (!string.IsNullOrEmpty(step.Log))
+                        AnsiConsole.MarkupLine($"      [dim]{Markup.Escape(step.Log)}[/]");
+                }
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return 1;
+        }
+    }
+}
+
+// ── workflows step-get ───────────────────────────────────────────────────────
+
+public class WorkflowStepGetSettings : CommandSettings
+{
+    [CommandArgument(0, "<WORKFLOW_ID>")]
+    [Description("Workflow ID")]
+    public int WorkflowId { get; set; }
+
+    [CommandArgument(1, "<STEP_ID>")]
+    [Description("Step ID")]
+    public int StepId { get; set; }
+}
+
+public class WorkflowsStepGetCommand : BaseCommand<WorkflowStepGetSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, WorkflowStepGetSettings settings)
+    {
+        try
+        {
+            var client = GetClient();
+            Workflow? wf = null;
+
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync("Fetching workflow...", async _ =>
+                {
+                    wf = await client.GetWorkflowAsync(settings.WorkflowId);
+                });
+
+            var step = wf!.Steps?.FirstOrDefault(s => s.Id == settings.StepId);
+            if (step == null)
+            {
+                Renderer.Error($"Step {settings.StepId} not found in workflow {settings.WorkflowId}.");
+                return 1;
+            }
+
+            Renderer.Header($"Step: {step.Name}");
+            Renderer.KeyValue("ID", step.Id.ToString());
+            Renderer.KeyValue("Key", step.Key);
+            Renderer.KeyValue("Action", step.Action);
+            Renderer.KeyValue("Enabled", step.Enabled ? "yes" : "no", step.Enabled ? "green" : "red");
+            Renderer.KeyValue("Start Step", step.IsStartStep ? "yes" : "no");
+            Renderer.KeyValue("On Success", step.OnSuccessStepId?.ToString() ?? "—");
+            Renderer.KeyValue("On Failure", step.OnFailureStepId?.ToString() ?? "—");
+
+            AnsiConsole.WriteLine();
+            AnsiConsole.MarkupLine("[bold]Parameters:[/]");
+            if (step.Parameters.HasValue)
+                Renderer.PrintJson(step.Parameters.Value.GetRawText());
+            else
+                AnsiConsole.MarkupLine("[dim]  (none)[/]");
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return 1;
+        }
+    }
+}
+
+// ── workflows step-update ─────────────────────────────────────────────────────
+
+public class WorkflowStepUpdateSettings : CommandSettings
+{
+    [CommandArgument(0, "<WORKFLOW_ID>")]
+    [Description("Workflow ID")]
+    public int WorkflowId { get; set; }
+
+    [CommandArgument(1, "<STEP_ID>")]
+    [Description("Step ID")]
+    public int StepId { get; set; }
+
+    [CommandOption("--params <JSON>")]
+    [Description("Step parameters as JSON")]
+    public string? Params { get; set; }
+
+    [CommandOption("--name <NAME>")]
+    [Description("Step name")]
+    public string? Name { get; set; }
+
+    [CommandOption("--enabled")]
+    [Description("Enable this step")]
+    public bool? Enabled { get; set; }
+}
+
+public class WorkflowsStepUpdateCommand : BaseCommand<WorkflowStepUpdateSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, WorkflowStepUpdateSettings settings)
+    {
+        try
+        {
+            var client = GetClient();
+
+            // Fetch current step to preserve existing values
+            Workflow? wf = null;
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync("Fetching workflow...", async _ =>
+                {
+                    wf = await client.GetWorkflowAsync(settings.WorkflowId);
+                });
+
+            var step = wf!.Steps?.FirstOrDefault(s => s.Id == settings.StepId);
+            if (step == null)
+            {
+                Renderer.Error($"Step {settings.StepId} not found in workflow {settings.WorkflowId}.");
+                return 1;
+            }
+
+            // Build the full update body preserving existing values
+            var body = new Dictionary<string, object?>
+            {
+                ["name"] = settings.Name ?? step.Name,
+                ["action"] = step.Action,
+                ["enabled"] = settings.Enabled ?? step.Enabled,
+                ["is_start_step"] = step.IsStartStep,
+                ["on_success_step_id"] = step.OnSuccessStepId,
+                ["on_failure_step_id"] = step.OnFailureStepId,
+            };
+
+            if (!string.IsNullOrEmpty(settings.Params))
+            {
+                body["parameters"] = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(settings.Params);
+            }
+            else if (step.Parameters.HasValue)
+            {
+                body["parameters"] = step.Parameters.Value;
+            }
+
+            WorkflowStep? updated = null;
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync($"Updating step {settings.StepId}...", async _ =>
+                {
+                    updated = await client.UpdateWorkflowStepFullAsync(settings.WorkflowId, settings.StepId, body);
+                });
+
+            Renderer.Success($"Step [#F97316]{Markup.Escape(updated!.Name)}[/] updated.");
+            if (updated.Parameters.HasValue)
+            {
+                AnsiConsole.MarkupLine("[bold]Parameters:[/]");
+                Renderer.PrintJson(updated.Parameters.Value.GetRawText());
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return 1;
+        }
+    }
+}
+
+// ── workflows step-add ────────────────────────────────────────────────────────
+
+public class WorkflowStepAddSettings : CommandSettings
+{
+    [CommandArgument(0, "<WORKFLOW_ID>")]
+    [Description("Workflow ID")]
+    public int WorkflowId { get; set; }
+
+    [CommandArgument(1, "<KEY>")]
+    [Description("Step key (unique identifier)")]
+    public string Key { get; set; } = "";
+
+    [CommandOption("--name <NAME>")]
+    [Description("Step display name")]
+    public string? Name { get; set; }
+
+    [CommandOption("--action <ACTION>")]
+    [Description("Action type: ReadData, CreateData, UpdateData, DeleteData, CallAnApi, RunScript, Condition, SendAnEmail")]
+    public string Action { get; set; } = "RunScript";
+
+    [CommandOption("--params <JSON>")]
+    [Description("Step parameters as JSON")]
+    public string? Params { get; set; }
+
+    [CommandOption("--start")]
+    [Description("Set as start step")]
+    public bool IsStartStep { get; set; }
+
+    [CommandOption("--enabled")]
+    [Description("Enable step immediately")]
+    public bool Enabled { get; set; } = true;
+}
+
+public class WorkflowsStepAddCommand : BaseCommand<WorkflowStepAddSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, WorkflowStepAddSettings settings)
+    {
+        try
+        {
+            var client = GetClient();
+
+            System.Text.Json.JsonElement? parameters = null;
+            if (!string.IsNullOrEmpty(settings.Params))
+                parameters = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(settings.Params);
+
+            WorkflowStep? step = null;
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync($"Adding step '{settings.Key}'...", async _ =>
+                {
+                    step = await client.AddWorkflowStepAsync(settings.WorkflowId,
+                        new CreateWorkflowStepRequest(
+                            settings.Key,
+                            settings.Name ?? settings.Key,
+                            settings.Action,
+                            settings.Enabled,
+                            settings.IsStartStep,
+                            null,
+                            parameters
+                        ));
+                });
+
+            Renderer.Success($"Step [#F97316]{Markup.Escape(step!.Key)}[/] (id: {step.Id}) added to workflow {settings.WorkflowId}.");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return 1;
+        }
+    }
+}
+
 // ── workflows create ──────────────────────────────────────────────────────────
 
 public class WorkflowCreateSettings : CommandSettings
@@ -203,6 +500,59 @@ public class WorkflowsCreateCommand : BaseCommand<WorkflowCreateSettings>
                 });
 
             Renderer.Success($"Workflow [#F97316]{Markup.Escape(wf!.Name)}[/] created (id: {Markup.Escape(wf.Id.ToString())}).");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return 1;
+        }
+    }
+}
+
+// ── workflows update ──────────────────────────────────────────────────────────
+
+public class WorkflowUpdateSettings : CommandSettings
+{
+    [CommandArgument(0, "<ID>")]
+    [Description("Workflow ID")]
+    public int Id { get; set; }
+
+    [CommandOption("--name <NAME>")]
+    [Description("New workflow name")]
+    public string? Name { get; set; }
+
+    [CommandOption("--description <DESC>")]
+    [Description("New workflow description")]
+    public string? Description { get; set; }
+}
+
+public class WorkflowsUpdateCommand : BaseCommand<WorkflowUpdateSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, WorkflowUpdateSettings settings)
+    {
+        if (settings.Name is null && settings.Description is null)
+        {
+            Renderer.Error("Provide at least --name or --description to update.");
+            return 1;
+        }
+
+        try
+        {
+            var client = GetClient();
+            Workflow? wf = null;
+
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync($"Updating workflow {settings.Id}...", async _ =>
+                {
+                    wf = await client.UpdateWorkflowAsync(settings.Id, new UpdateWorkflowRequest(
+                        settings.Name,
+                        settings.Description
+                    ));
+                });
+
+            Renderer.Success($"Workflow [#F97316]{Markup.Escape(wf!.Name)}[/] updated.");
             return 0;
         }
         catch (Exception ex)
@@ -350,6 +700,88 @@ public class WorkflowsDeleteCommand : BaseCommand<WorkflowDeleteSettings>
                 });
 
             Renderer.Success($"Workflow [#F97316]{Markup.Escape(settings.Id.ToString())}[/] deleted.");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return 1;
+        }
+    }
+}
+
+// ── workflows steps link ─────────────────────────────────────────────────────
+
+public class WorkflowStepLinkSettings : CommandSettings
+{
+    [CommandArgument(0, "<WORKFLOW_ID>")]
+    [Description("Workflow ID")]
+    public int WorkflowId { get; set; }
+
+    [CommandArgument(1, "<STEP_ID>")]
+    [Description("Step ID to update")]
+    public int StepId { get; set; }
+
+    [CommandOption("--on-success <STEP_ID>")]
+    [Description("Step ID to execute on success")]
+    public int? OnSuccessStepId { get; set; }
+
+    [CommandOption("--on-failure <STEP_ID>")]
+    [Description("Step ID to execute on failure")]
+    public int? OnFailureStepId { get; set; }
+}
+
+public class WorkflowsStepLinkCommand : BaseCommand<WorkflowStepLinkSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, WorkflowStepLinkSettings settings)
+    {
+        try
+        {
+            var client = GetClient();
+
+            // First get the current step to preserve name and action
+            Workflow? wf = null;
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync("Fetching workflow...", async _ =>
+                {
+                    wf = await client.GetWorkflowAsync(settings.WorkflowId);
+                });
+
+            var step = wf!.Steps?.FirstOrDefault(s => s.Id == settings.StepId);
+            if (step == null)
+            {
+                Renderer.Error($"Step {settings.StepId} not found in workflow {settings.WorkflowId}.");
+                return 1;
+            }
+
+            WorkflowStep? updated = null;
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync($"Linking step {settings.StepId}...", async _ =>
+                {
+                    var body = new Dictionary<string, object?>
+                    {
+                        ["name"] = step.Name,
+                        ["action"] = step.Action,
+                        ["enabled"] = step.Enabled,
+                        ["is_start_step"] = step.IsStartStep,
+                        ["on_success_step_id"] = settings.OnSuccessStepId ?? step.OnSuccessStepId,
+                        ["on_failure_step_id"] = settings.OnFailureStepId ?? step.OnFailureStepId,
+                    };
+                    if (step.Parameters.HasValue)
+                        body["parameters"] = step.Parameters.Value;
+
+                    updated = await client.UpdateWorkflowStepFullAsync(settings.WorkflowId, settings.StepId, body);
+                });
+
+            var parts = new List<string>();
+            if (settings.OnSuccessStepId.HasValue)
+                parts.Add($"on_success → {settings.OnSuccessStepId}");
+            if (settings.OnFailureStepId.HasValue)
+                parts.Add($"on_failure → {settings.OnFailureStepId}");
+
+            Renderer.Success($"Step [#F97316]{settings.StepId}[/] linked: {string.Join(", ", parts)}.");
             return 0;
         }
         catch (Exception ex)

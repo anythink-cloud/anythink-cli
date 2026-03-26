@@ -73,6 +73,17 @@ public record CreateFieldRequest(
     [property: JsonPropertyName("relationship")] System.Text.Json.JsonElement? Relationship = null
 );
 
+public record UpdateFieldRequest(
+    [property: JsonPropertyName("display_type")] string DisplayType,
+    [property: JsonPropertyName("label")] string? Label = null,
+    [property: JsonPropertyName("description")] string? Description = null,
+    [property: JsonPropertyName("default_value")] string? DefaultValue = null,
+    [property: JsonPropertyName("is_required")] bool IsRequired = false,
+    [property: JsonPropertyName("is_searchable")] bool IsSearchable = false,
+    [property: JsonPropertyName("publicly_searchable")] bool PubliclySearchable = false,
+    [property: JsonPropertyName("is_indexed")] bool IsIndexed = false
+);
+
 public record Workflow(
     [property: JsonPropertyName("id")] int Id,
     [property: JsonPropertyName("name")] string Name,
@@ -80,7 +91,27 @@ public record Workflow(
     [property: JsonPropertyName("trigger")] string Trigger,
     [property: JsonPropertyName("enabled")] bool Enabled,
     [property: JsonPropertyName("steps")] List<WorkflowStep>? Steps,
-    [property: JsonPropertyName("options")] System.Text.Json.JsonElement? Options = null
+    [property: JsonPropertyName("options")] System.Text.Json.JsonElement? Options = null,
+    [property: JsonPropertyName("jobs")] List<WorkflowJob>? Jobs = null
+);
+
+public record WorkflowJob(
+    [property: JsonPropertyName("id")] int Id,
+    [property: JsonPropertyName("status")] string? Status,
+    [property: JsonPropertyName("started_at")] string? StartedAt,
+    [property: JsonPropertyName("completed_at")] string? CompletedAt,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage,
+    [property: JsonPropertyName("payload")] System.Text.Json.JsonElement? Payload = null,
+    [property: JsonPropertyName("job_steps")] List<WorkflowJobStep>? JobSteps = null
+);
+
+public record WorkflowJobStep(
+    [property: JsonPropertyName("id")] int Id,
+    [property: JsonPropertyName("step_key")] string? StepKey,
+    [property: JsonPropertyName("status")] string? Status,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage,
+    [property: JsonPropertyName("log")] string? Log,
+    [property: JsonPropertyName("output")] System.Text.Json.JsonElement? Output = null
 );
 
 public record WorkflowStep(
@@ -114,6 +145,11 @@ public record CreateWorkflowStepRequest(
     [property: JsonPropertyName("parameters")] System.Text.Json.JsonElement? Parameters = null
 );
 
+public record UpdateWorkflowRequest(
+    [property: JsonPropertyName("name")] string? Name = null,
+    [property: JsonPropertyName("description")] string? Description = null
+);
+
 public record UpdateWorkflowStepLinksRequest(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("action")] string Action,
@@ -136,7 +172,9 @@ public record ApiKey(
 
 public record PaginatedResult<T>(
     [property: JsonPropertyName("items")] List<T> Items,
-    [property: JsonPropertyName("total_count")] int? TotalCount,
+    [property: JsonPropertyName("total_items")] int? TotalCount,
+    [property: JsonPropertyName("total_pages")] int? TotalPages,
+    [property: JsonPropertyName("has_next_page")] bool HasNextPage,
     [property: JsonPropertyName("page")] int? Page,
     [property: JsonPropertyName("page_size")] int? PageSize
 );

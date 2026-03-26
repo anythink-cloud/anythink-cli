@@ -1,3 +1,4 @@
+using AnythinkCli.Models;
 using AnythinkCli.Output;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -30,6 +31,10 @@ public class DataListSettings : CommandSettings
     [CommandOption("--json")]
     [Description("Output raw JSON instead of table")]
     public bool Json { get; set; }
+
+    [CommandOption("--all")]
+    [Description("Fetch all pages automatically (ignores --page)")]
+    public bool All { get; set; }
 }
 
 public class DataListCommand : BaseCommand<DataListSettings>
@@ -39,22 +44,65 @@ public class DataListCommand : BaseCommand<DataListSettings>
         try
         {
             var client = GetClient();
-            var result = await AnsiConsole.Status()
-                .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Fetching {settings.Entity} items...", async _ =>
-                    await client.ListItemsAsync(settings.Entity, settings.Page, settings.Limit, settings.Filter));
-
-            var items = result.Items;
-            var total = result.TotalCount ?? items.Count;
 
             if (settings.Json)
             {
-                var json = JsonSerializer.Serialize(items, Renderer.PrettyJson);
-                Renderer.PrintJson(json);
+                // Skip spinner when outputting raw JSON — keeps stdout clean for piping
+                List<JsonObject> allItems;
+                if (settings.All)
+                {
+                    allItems = [];
+                    var page = 1;
+                    while (true)
+                    {
+                        var r = await client.ListItemsAsync(settings.Entity, page, settings.Limit, settings.Filter);
+                        allItems.AddRange(r.Items);
+                        if (!r.HasNextPage || r.Items.Count == 0) break;
+                        page++;
+                    }
+                }
+                else
+                {
+                    var r = await client.ListItemsAsync(settings.Entity, settings.Page, settings.Limit, settings.Filter);
+                    allItems = r.Items;
+                }
+                Console.WriteLine(JsonSerializer.Serialize(allItems, Renderer.PrettyJson));
                 return 0;
             }
 
-            Renderer.Header($"{settings.Entity} — page {settings.Page}, {items.Count}/{total} records");
+            PaginatedResult<JsonObject> result;
+            if (settings.All)
+            {
+                var allItems = new List<JsonObject>();
+                await AnsiConsole.Status().Spinner(Spinner.Known.Dots)
+                    .StartAsync($"Fetching all {settings.Entity} items...", async _ =>
+                    {
+                        var page = 1;
+                        while (true)
+                        {
+                            var r = await client.ListItemsAsync(settings.Entity, page, settings.Limit, settings.Filter);
+                            allItems.AddRange(r.Items);
+                            if (!r.HasNextPage || r.Items.Count == 0) break;
+                            page++;
+                        }
+                    });
+                result = new PaginatedResult<JsonObject>(allItems, allItems.Count, 1, false, 1, allItems.Count);
+            }
+            else
+            {
+                result = await AnsiConsole.Status()
+                    .Spinner(Spinner.Known.Dots)
+                    .StartAsync($"Fetching {settings.Entity} items...", async _ =>
+                        await client.ListItemsAsync(settings.Entity, settings.Page, settings.Limit, settings.Filter));
+            }
+
+            var items = result.Items;
+            var total = result.TotalCount ?? items.Count;
+            var totalPages = result.TotalPages ?? (int)Math.Ceiling((double)total / settings.Limit);
+
+            Renderer.Header(settings.All
+                ? $"{settings.Entity} — all {items.Count} records"
+                : $"{settings.Entity} — page {settings.Page}/{totalPages}, {items.Count}/{total} records");
 
             if (items.Count == 0)
             {
@@ -80,8 +128,8 @@ public class DataListCommand : BaseCommand<DataListSettings>
 
             AnsiConsole.Write(table);
 
-            if (total > settings.Limit)
-                Renderer.Info($"Showing page {settings.Page} of {(int)Math.Ceiling((double)total / settings.Limit)}. Use --page to navigate.");
+            if (!settings.All && result.HasNextPage)
+                Renderer.Info($"Showing page {settings.Page} of {totalPages}. Use --page N or --all to fetch more.");
 
             return 0;
         }
@@ -249,7 +297,7 @@ public class DataDeleteSettings : CommandSettings
     [Description("Record ID")]
     public int Id { get; set; }
 
-    [CommandOption("--yes")]
+    [CommandOption("-y|--yes")]
     [Description("Skip confirmation")]
     public bool Yes { get; set; }
 }
