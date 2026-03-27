@@ -1,0 +1,34 @@
+# Build output
+bin/
+obj/
+dist/
+
+# Test results and coverage reports
+TestResults*/
+*.coverage
+*.coveragexml
+
+# .NET tools
+*.user
+*.suo
+.vs/
+
+# Environment — never commit secrets or internal URLs
+.env
+.env.example
+
+# IDE config
+.idea/
+.claude/
+
+# publish.sh is replaced by .github/workflows/release.yml
+publish.sh
+
+# MCP config — contains absolute paths, generated per-machine
+.mcp.json
+
+# MCP debug logs
+mcp_stderr.txt
+
+# macOS
+.DS_Store

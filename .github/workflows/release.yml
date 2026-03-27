@@ -1,0 +1,111 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Release
+    runs-on: ubuntu-latest
+    environment: release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Extract version
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Build targets
+        run: |
+          for RID in osx-arm64 osx-x64 linux-x64 linux-arm64; do
+            dotnet publish src/AnythinkCli.csproj \
+              -c Release \
+              -r "$RID" \
+              -p:Version=${{ steps.version.outputs.VERSION }} \
+              --self-contained true \
+              -p:PublishSingleFile=true \
+              -p:EnableCompressionInSingleFile=true \
+              -p:IncludeNativeLibrariesForSelfExtract=true \
+              -p:PublishTrimmed=false \
+              -o "dist/cli/$RID"
+
+            BIN="dist/cli/$RID/anythink"
+            [[ -f "$BIN" ]] && cp "$BIN" "dist/anythink-$RID"
+
+            dotnet publish mcp/AnythinkMcp.csproj \
+              -c Release \
+              -r "$RID" \
+              -p:Version=${{ steps.version.outputs.VERSION }} \
+              --self-contained true \
+              -p:PublishSingleFile=true \
+              -p:EnableCompressionInSingleFile=true \
+              -p:IncludeNativeLibrariesForSelfExtract=true \
+              -p:PublishTrimmed=false \
+              -o "dist/mcp/$RID"
+
+            MCP_BIN="dist/mcp/$RID/anythink-mcp"
+            [[ -f "$MCP_BIN" ]] && cp "$MCP_BIN" "dist/anythink-mcp-$RID"
+          done
+
+      - name: Compute checksums
+        working-directory: dist
+        run: |
+          sha256sum anythink-osx-arm64 anythink-osx-x64 anythink-linux-x64 anythink-linux-arm64 \
+            anythink-mcp-osx-arm64 anythink-mcp-osx-x64 anythink-mcp-linux-x64 anythink-mcp-linux-arm64 \
+            > checksums.txt
+          cat checksums.txt
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: v${{ steps.version.outputs.VERSION }}
+          generate_release_notes: true
+          files: |
+            dist/anythink-osx-arm64
+            dist/anythink-osx-x64
+            dist/anythink-linux-x64
+            dist/anythink-linux-arm64
+            dist/anythink-mcp-osx-arm64
+            dist/anythink-mcp-osx-x64
+            dist/anythink-mcp-linux-x64
+            dist/anythink-mcp-linux-arm64
+            dist/checksums.txt
+
+      - name: Update Homebrew formula
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          SHA_OSX_ARM64=$(sha256sum dist/anythink-osx-arm64 | awk '{print $1}')
+          SHA_OSX_X64=$(sha256sum dist/anythink-osx-x64 | awk '{print $1}')
+          SHA_LINUX_X64=$(sha256sum dist/anythink-linux-x64 | awk '{print $1}')
+          SHA_LINUX_ARM64=$(sha256sum dist/anythink-linux-arm64 | awk '{print $1}')
+          SHA_MCP_OSX_ARM64=$(sha256sum dist/anythink-mcp-osx-arm64 | awk '{print $1}')
+          SHA_MCP_OSX_X64=$(sha256sum dist/anythink-mcp-osx-x64 | awk '{print $1}')
+          SHA_MCP_LINUX_X64=$(sha256sum dist/anythink-mcp-linux-x64 | awk '{print $1}')
+          SHA_MCP_LINUX_ARM64=$(sha256sum dist/anythink-mcp-linux-arm64 | awk '{print $1}')
+
+          git clone https://x-access-token:${TAP_TOKEN}@github.com/anythink-cloud/homebrew-tap.git tap
+
+          export VERSION SHA_OSX_ARM64 SHA_OSX_X64 SHA_LINUX_X64 SHA_LINUX_ARM64
+          export SHA_MCP_OSX_ARM64 SHA_MCP_OSX_X64 SHA_MCP_LINUX_X64 SHA_MCP_LINUX_ARM64
+          envsubst < .github/formula-template.rb > tap/Formula/anythink.rb
+
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/anythink.rb
+          git commit -m "Update anythink to v${VERSION}"
+          git push
