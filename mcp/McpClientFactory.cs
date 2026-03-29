@@ -4,14 +4,18 @@ using AnythinkCli.Config;
 namespace AnythinkMcp;
 
 /// <summary>
-/// Resolves a profile name (or the active default) into an authenticated
-/// <see cref="AnythinkClient"/>. Uses the same config files and token-refresh
-/// logic as the CLI — credentials stored by <c>anythink login</c> work here too.
+/// Resolves credentials into an authenticated <see cref="AnythinkClient"/>.
+///
+/// In stdio mode: uses CLI config files and saved profiles (same as the CLI).
+/// In HTTP mode: uses per-request credentials passed via <see cref="SetRequestCredentials"/>.
 /// </summary>
 public class McpClientFactory
 {
     private readonly string? _profileName;
     private readonly HttpMessageHandler? _httpHandler;
+
+    // Per-request credentials for HTTP mode — AsyncLocal flows correctly across async/await
+    private static readonly AsyncLocal<(string OrgId, string BaseUrl, string Token)?> _requestCredentials = new();
 
     public string? ProfileName => _profileName;
 
@@ -19,6 +23,24 @@ public class McpClientFactory
     {
         _profileName = profileName;
     }
+
+    /// <summary>
+    /// Sets per-request credentials for HTTP mode. Must be called before tool execution.
+    /// Thread-static so concurrent requests don't interfere.
+    /// </summary>
+    public static void SetRequestCredentials(string orgId, string baseUrl, string token)
+    {
+        _requestCredentials.Value = (orgId, baseUrl, token);
+    }
+
+    /// <summary>Clears per-request credentials after the request completes.</summary>
+    public static void ClearRequestCredentials()
+    {
+        _requestCredentials.Value = null;
+    }
+
+    /// <summary>Returns true if running in HTTP mode with per-request credentials.</summary>
+    public static bool IsHttpMode => _requestCredentials.Value.HasValue;
 
     /// <summary>Test-only constructor — injects a mock HTTP handler for all clients.</summary>
     internal McpClientFactory(string? profileName, HttpMessageHandler httpHandler)
@@ -49,11 +71,19 @@ public class McpClientFactory
     }
 
     /// <summary>
-    /// Returns an authenticated client for the configured profile.
-    /// Refreshes expired JWT tokens automatically (same logic as the CLI).
+    /// Returns an authenticated client. In HTTP mode, uses per-request credentials.
+    /// In stdio mode, uses CLI config files and refreshes expired tokens.
     /// </summary>
     public AnythinkClient GetClient()
     {
+        // HTTP mode: use per-request credentials (no config files)
+        if (_requestCredentials.Value.HasValue)
+        {
+            var creds = _requestCredentials.Value.Value;
+            return new AnythinkClient(creds.OrgId, creds.BaseUrl, creds.Token);
+        }
+
+        // Stdio mode: resolve from CLI config
         var profile = !string.IsNullOrEmpty(_profileName)
             ? ConfigService.GetProfile(_profileName)
               ?? throw new InvalidOperationException(
