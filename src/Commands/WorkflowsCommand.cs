@@ -311,7 +311,9 @@ public class WorkflowsStepUpdateCommand : BaseCommand<WorkflowStepUpdateSettings
 
             if (!string.IsNullOrEmpty(settings.Params))
             {
-                body["parameters"] = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(settings.Params);
+                var parsed = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(settings.Params);
+                var actionType = step.Action ?? "";
+                body["parameters"] = WorkflowStepParameterNormalizer.Normalize(actionType, parsed);
             }
             else if (step.Parameters.HasValue)
             {
@@ -386,7 +388,10 @@ public class WorkflowsStepAddCommand : BaseCommand<WorkflowStepAddSettings>
 
             System.Text.Json.JsonElement? parameters = null;
             if (!string.IsNullOrEmpty(settings.Params))
+            {
                 parameters = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(settings.Params);
+                parameters = WorkflowStepParameterNormalizer.Normalize(settings.Action, parameters.Value);
+            }
 
             WorkflowStep? step = null;
             await AnsiConsole.Status()
@@ -413,6 +418,53 @@ public class WorkflowsStepAddCommand : BaseCommand<WorkflowStepAddSettings>
             HandleError(ex);
             return 1;
         }
+    }
+}
+
+/// Normalizes workflow step parameters to the format the platform expects.
+/// Users can pass the intuitive "entity"/"data" format; this converts to
+/// "entity_name"/"payload" (JSON string) for CreateData/UpdateData actions.
+static class WorkflowStepParameterNormalizer
+{
+    public static System.Text.Json.JsonElement Normalize(string action, System.Text.Json.JsonElement parameters)
+    {
+        if (parameters.ValueKind != System.Text.Json.JsonValueKind.Object)
+            return parameters;
+
+        var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, System.Text.Json.JsonElement>>(parameters.GetRawText());
+        if (dict == null) return parameters;
+
+        bool changed = false;
+
+        // Normalize "entity" → "entity_name" for all data actions
+        if (dict.ContainsKey("entity") && !dict.ContainsKey("entity_name"))
+        {
+            dict["entity_name"] = dict["entity"];
+            dict.Remove("entity");
+            changed = true;
+        }
+
+        // For CreateData/UpdateData: normalize "data" → "payload" (as JSON string)
+        if ((action == "CreateData" || action == "UpdateData")
+            && dict.ContainsKey("data") && !dict.ContainsKey("payload"))
+        {
+            var dataElement = dict["data"];
+            var payloadStr = dataElement.GetRawText();
+            var escaped = payloadStr
+                .Replace("\\", "\\\\")
+                .Replace("\"", "\\\"")
+                .Replace("\n", "\\n")
+                .Replace("\r", "\\r")
+                .Replace("\t", "\\t");
+            dict["payload"] = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>($"\"{escaped}\"");
+            dict.Remove("data");
+            changed = true;
+        }
+
+        if (!changed) return parameters;
+
+        var normalized = System.Text.Json.JsonSerializer.Serialize(dict);
+        return System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(normalized);
     }
 }
 
