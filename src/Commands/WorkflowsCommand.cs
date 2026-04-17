@@ -450,13 +450,8 @@ static class WorkflowStepParameterNormalizer
         {
             var dataElement = dict["data"];
             var payloadStr = dataElement.GetRawText();
-            var escaped = payloadStr
-                .Replace("\\", "\\\\")
-                .Replace("\"", "\\\"")
-                .Replace("\n", "\\n")
-                .Replace("\r", "\\r")
-                .Replace("\t", "\\t");
-            dict["payload"] = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>($"\"{escaped}\"");
+            dict["payload"] = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(
+                System.Text.Json.JsonSerializer.Serialize(payloadStr));
             dict.Remove("data");
             changed = true;
         }
