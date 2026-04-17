@@ -174,7 +174,7 @@ public class BasicDataValidator : IDataValidator
         {
             try
             {
-                var regex = new System.Text.RegularExpressions.Regex(fieldDef.Pattern);
+                var regex = new System.Text.RegularExpressions.Regex(fieldDef.Pattern, default, TimeSpan.FromSeconds(1));
                 if (!regex.IsMatch(patternValue))
                 {
                     result.Errors.Add(new ValidationError
@@ -204,7 +204,7 @@ public class BasicDataValidator : IDataValidator
         // Allowed values validation
         if (fieldDef.AllowedValues.Count > 0)
         {
-            var valueString = value?.ToString();
+            var valueString = value?.ToString() ?? "";
             if (!fieldDef.AllowedValues.Contains(valueString))
             {
                 result.Errors.Add(new ValidationError
@@ -346,7 +346,18 @@ public class BasicDataValidator : IDataValidator
 
     private static object? GetFieldValue(JsonObject data, string fieldName)
     {
-        return data.ContainsKey(fieldName) ? data[fieldName]?.AsValue() : null;
+        if (!data.ContainsKey(fieldName)) return null;
+        var node = data[fieldName];
+        if (node is null) return null;
+        if (node is JsonValue jv)
+        {
+            if (jv.TryGetValue<bool>(out var b)) return b;
+            if (jv.TryGetValue<int>(out var i)) return (long)i;
+            if (jv.TryGetValue<long>(out var l)) return l;
+            if (jv.TryGetValue<double>(out var d)) return d;
+            if (jv.TryGetValue<string>(out var s)) return s;
+        }
+        return node;
     }
 
     private static bool IsNumeric(object value)

@@ -30,9 +30,8 @@ public class CsvDataReader : IDataReader
         _options = options ?? new CsvReaderOptions();
         Source = _options.Source ?? "stream";
 
-        // Read headers and estimate total records
         _headers = ReadHeaders();
-        EstimateTotalRecords();
+        EstimateFromFileSize();
     }
 
     public async IAsyncEnumerable<DataRecord> ReadRecordsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -64,7 +63,7 @@ public class CsvDataReader : IDataReader
         };
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
         if (!_disposed)
         {
@@ -72,6 +71,7 @@ public class CsvDataReader : IDataReader
             _stream.Dispose();
             _disposed = true;
         }
+        return ValueTask.CompletedTask;
     }
 
     private string[] ReadHeaders()
@@ -103,33 +103,19 @@ public class CsvDataReader : IDataReader
         return headers;
     }
 
-    private void EstimateTotalRecords()
+    private void EstimateFromFileSize()
     {
         try
         {
-            var originalPosition = _stream.Position;
-            var lineCount = 0;
-
-            while (_reader.ReadLine() != null)
-            {
-                lineCount++;
-            }
-
-            EstimatedTotalRecords = _options.HasHeaders ? Math.Max(0, lineCount - 1) : lineCount;
-
-            // Reset stream position
-            _stream.Position = 0;
-            _reader.DiscardBufferedData();
-
-            // Skip header row if present
-            if (_options.HasHeaders)
-            {
-                _reader.ReadLine();
-            }
+            if (!_stream.CanSeek) return;
+            var headerBytes = _stream.Position;
+            if (headerBytes <= 0) return;
+            var remainingBytes = _stream.Length - headerBytes;
+            // Rough estimate: remaining bytes / header line length gives approximate row count
+            EstimatedTotalRecords = Math.Max(1, remainingBytes / headerBytes);
         }
         catch
         {
-            // If we can't estimate, don't fail
             EstimatedTotalRecords = null;
         }
     }

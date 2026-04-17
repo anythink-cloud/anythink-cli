@@ -234,40 +234,20 @@ public class DataExportCommand : BaseCommand<DataExportSettings>
 
     private async Task<BulkResult> ExecuteExportAsync(DataExportSettings settings)
     {
-        var config = new BulkOperationConfig
-        {
-            BatchSize = settings.BatchSize,
-            MaxConcurrency = settings.MaxConcurrency,
-            ContinueOnError = true,
-            MaxRetries = 1,
-            OperationTimeout = TimeSpan.FromMinutes(settings.TimeoutMinutes)
-        };
-
-        // Create progress reporter
-        IBulkProgressReporter? progressReporter = null;
-        
-        progressReporter = await AnsiConsole.Progress()
-            .AutoClear(true)
-            .AutoRefresh(true)
-            .StartAsync(async ctx =>
-            {
-                return new ConsoleProgressReporter(ctx, "Data Export", 0);
-            });
+        var result = new BulkResult { Success = true };
+        var startTime = DateTime.UtcNow;
+        long exported = 0;
 
         try
         {
             var client = GetClient();
-            var processor = BulkProcessorFactory.CreateForExport(config, progressReporter);
 
-            // Get entity fields for headers
             var entity = await client.GetEntityAsync(settings.Entity);
-            var headers = entity?.Fields?.Select(f => f.Name).Where(n => !string.IsNullOrEmpty(n)).ToArray() 
+            var headers = entity?.Fields?.Select(f => f.Name).Where(n => !string.IsNullOrEmpty(n)).ToArray()
                          ?? new[] { "id" };
 
-            // Create output stream
             await using var outputStream = CreateOutputStream(settings.File, settings.Compress);
-            
-            // Create exporter
+
             IDataExporter exporter = settings.Format switch
             {
                 ExportFormat.Csv => new CsvDataExporter(outputStream, headers, new CsvExportOptions
@@ -285,34 +265,35 @@ public class DataExportCommand : BaseCommand<DataExportSettings>
                 _ => throw new NotSupportedException($"Format {settings.Format} not supported")
             };
 
-            // Stream data from API
             var records = StreamDataFromApiAsync(client, settings, null);
-            
-            // Convert to list for processor
+
             var recordList = new List<DataRecord>();
             await foreach (var record in records)
             {
                 recordList.Add(record);
             }
-            
-            // Process export
-            var result = await processor.ExecuteAsync<DataRecord>(
-                recordList,
-                async record => await ProcessExportRecordAsync(exporter, record),
-                config,
-                progressReporter
-            );
+            exported = recordList.Count;
 
+            await exporter.ExportAsync(recordList.ToAsyncEnumerable());
             await exporter.DisposeAsync();
-            return result;
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.ErrorDetails.Add(new BulkError
+            {
+                Message = $"Export failed: {ex.Message}",
+                Exception = ex
+            });
         }
         finally
         {
-            if (progressReporter is IDisposable disposableReporter)
-            {
-                disposableReporter.Dispose();
-            }
+            result.Duration = DateTime.UtcNow - startTime;
+            result.Total = exported;
+            result.Processed = exported;
         }
+
+        return result;
     }
 
     private async IAsyncEnumerable<DataRecord> StreamDataFromApiAsync(AnythinkClient client, DataExportSettings settings, long? totalCount)
@@ -361,13 +342,6 @@ public class DataExportCommand : BaseCommand<DataExportSettings>
 
             page++;
         }
-    }
-
-    private async Task ProcessExportRecordAsync(IDataExporter exporter, DataRecord record)
-    {
-        // This is a no-op since the exporter handles the actual writing
-        // The processor just tracks progress
-        await Task.CompletedTask;
     }
 
     private static Stream CreateOutputStream(string filePath, bool compress)
@@ -449,5 +423,14 @@ public static class StringExtensions
     {
         if (string.IsNullOrEmpty(value)) return value;
         return value.Length > maxLength ? value.Substring(0, maxLength) + "..." : value;
+    }
+
+    public static async IAsyncEnumerable<T> ToAsyncEnumerable<T>(this IEnumerable<T> source)
+    {
+        foreach (var item in source)
+        {
+            yield return item;
+        }
+        await Task.CompletedTask;
     }
 }

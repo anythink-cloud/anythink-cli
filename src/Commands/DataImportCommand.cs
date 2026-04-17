@@ -250,9 +250,9 @@ public class DataImportCommand : BaseCommand<DataImportSettings>
             progressReporter = await AnsiConsole.Progress()
                 .AutoClear(true)
                 .AutoRefresh(true)
-                .StartAsync(async ctx =>
+                .StartAsync(ctx =>
                 {
-                    return new ConsoleProgressReporter(ctx, "Data Import", 0);
+                    return Task.FromResult<IBulkProgressReporter>(new ConsoleProgressReporter(ctx, "Data Import", 0));
                 });
         }
         else
@@ -326,7 +326,7 @@ public class DataImportCommand : BaseCommand<DataImportSettings>
         }
     }
 
-    private async Task ShowImportResultsAsync(BulkResult result, DataImportSettings settings)
+    private Task ShowImportResultsAsync(BulkResult result, DataImportSettings settings)
     {
         Renderer.Header("Import Results");
 
@@ -383,6 +383,8 @@ public class DataImportCommand : BaseCommand<DataImportSettings>
         {
             Renderer.Success($"Import to '{settings.Entity}' completed successfully.");
         }
+
+        return Task.CompletedTask;
     }
 
     private static FileFormat DetectFileFormat(string filePath)

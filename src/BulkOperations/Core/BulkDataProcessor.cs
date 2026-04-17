@@ -21,6 +21,8 @@ public class BulkDataProcessor : IResilientBulkOperation
         _semaphore = new SemaphoreSlim(_config.MaxConcurrency);
     }
 
+    private DateTime _startTime;
+
     public async Task<BulkResult> ExecuteAsync<T>(
         IEnumerable<T> items,
         Func<T, Task> operation,
@@ -30,11 +32,11 @@ public class BulkDataProcessor : IResilientBulkOperation
     {
         var effectiveConfig = config ?? _config;
         var result = new BulkResult { Success = true };
-        var startTime = DateTime.UtcNow;
-        
+        _startTime = DateTime.UtcNow;
+
         var itemList = items.ToList();
         var totalItems = itemList.Count;
-        
+
         _progressReporter?.StartOperation("Bulk Operation", totalItems);
         
         try
@@ -59,7 +61,7 @@ public class BulkDataProcessor : IResilientBulkOperation
         }
         finally
         {
-            result.Duration = DateTime.UtcNow - startTime;
+            result.Duration = DateTime.UtcNow - _startTime;
             result.Total = totalItems;
             result.Processed = totalItems - result.Errors;
             
@@ -165,7 +167,7 @@ public class BulkDataProcessor : IResilientBulkOperation
             Total = total,
             Errors = result.Errors,
             Warnings = result.Warnings,
-            Elapsed = DateTime.UtcNow - DateTime.UtcNow.AddSeconds(-processed * 0.1) // Rough estimate
+            Elapsed = DateTime.UtcNow - _startTime
         };
 
         _progressReporter?.Report(progress);

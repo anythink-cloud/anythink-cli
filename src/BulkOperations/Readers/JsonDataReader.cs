@@ -24,7 +24,6 @@ public class JsonDataReader : IDataReader
         _options = options ?? new JsonReaderOptions();
         Source = _options.Source ?? "stream";
 
-        EstimateTotalRecords();
     }
 
     public async IAsyncEnumerable<DataRecord> ReadRecordsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -185,63 +184,8 @@ public class JsonDataReader : IDataReader
         }
     }
 
-    private void EstimateTotalRecords()
-    {
-        try
-        {
-            if (_options.Format == JsonFormat.LineDelimited)
-            {
-                EstimateLineDelimitedCount();
-            }
-            else
-            {
-                EstimateArrayCount();
-            }
-        }
-        catch
-        {
-            // If we can't estimate, don't fail
-            EstimatedTotalRecords = null;
-        }
-    }
-
-    private void EstimateLineDelimitedCount()
-    {
-        var originalPosition = _stream.Position;
-        var lineCount = 0;
-
-        using var reader = new StreamReader(_stream);
-        while (reader.ReadLine() != null)
-        {
-            lineCount++;
-        }
-
-        EstimatedTotalRecords = lineCount;
-
-        // Reset stream position
-        _stream.Position = 0;
-    }
-
-    private void EstimateArrayCount()
-    {
-        var originalPosition = _stream.Position;
-        
-        using var document = JsonDocument.Parse(_stream);
-        var root = document.RootElement;
-
-        if (root.ValueKind == JsonValueKind.Array)
-        {
-            EstimatedTotalRecords = root.GetArrayLength();
-        }
-
-        // Reset stream position
-        _stream.Position = 0;
-    }
 }
 
-/// <summary>
-/// JSON format options
-/// </summary>
 public enum JsonFormat
 {
     Array,
