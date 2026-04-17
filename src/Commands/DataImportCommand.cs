@@ -57,6 +57,10 @@ public class DataImportSettings : CommandSettings
     [Description("Show what would be imported without actually importing")]
     public bool DryRun { get; set; }
 
+    [CommandOption("-y|--yes")]
+    [Description("Skip confirmation prompt")]
+    public bool Yes { get; set; }
+
     [CommandOption("--delimiter")]
     [Description("CSV delimiter character")]
     [DefaultValue(',')]
@@ -106,7 +110,7 @@ public class DataImportCommand : BaseCommand<DataImportSettings>
             await ShowImportPlanAsync(settings, format);
 
             // Confirm unless dry-run or validate-only
-            if (!settings.DryRun && !settings.ValidateOnly)
+            if (!settings.DryRun && !settings.ValidateOnly && !settings.Yes)
             {
                 if (!AnsiConsole.Confirm($"Proceed with importing to [bold]{settings.Entity}[/]?"))
                 {

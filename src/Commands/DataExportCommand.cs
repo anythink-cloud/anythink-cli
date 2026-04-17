@@ -73,6 +73,10 @@ public class DataExportSettings : CommandSettings
     [CommandOption("--all")]
     [Description("Export all records (streaming)")]
     public bool All { get; set; }
+
+    [CommandOption("-y|--yes")]
+    [Description("Skip confirmation prompt")]
+    public bool Yes { get; set; }
 }
 
 public class DataExportCommand : BaseCommand<DataExportSettings>
@@ -98,7 +102,7 @@ public class DataExportCommand : BaseCommand<DataExportSettings>
             await ShowExportPlanAsync(settings);
 
             // Confirm export
-            if (!AnsiConsole.Confirm($"Proceed with exporting '{settings.Entity}' to [bold]{settings.File}[/]?"))
+            if (!settings.Yes && !AnsiConsole.Confirm($"Proceed with exporting '{settings.Entity}' to [bold]{settings.File}[/]?"))
             {
                 Renderer.Info("Export cancelled");
                 return 0;
@@ -280,11 +284,15 @@ public class DataExportCommand : BaseCommand<DataExportSettings>
         catch (Exception ex)
         {
             result.Success = false;
+            result.Errors = 1;
             result.ErrorDetails.Add(new BulkError
             {
                 Message = $"Export failed: {ex.Message}",
                 Exception = ex
             });
+            Renderer.Error($"Export error: {ex.Message}");
+            if (ex.InnerException != null)
+                Renderer.Error($"  Inner: {ex.InnerException.Message}");
         }
         finally
         {
@@ -323,10 +331,9 @@ public class DataExportCommand : BaseCommand<DataExportSettings>
                     }
                 };
                 
-                // Copy data from API response to JsonObject
                 foreach (var kvp in item)
                 {
-                    dataRecord.Data[kvp.Key] = kvp.Value != null ? JsonValue.Create(kvp.Value) : null;
+                    dataRecord.Data[kvp.Key] = kvp.Value?.DeepClone();
                 }
                 
                 yield return dataRecord;
