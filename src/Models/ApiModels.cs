@@ -164,11 +164,23 @@ public record EventWorkflowOptions(
     [property: JsonPropertyName("event_entity")] string EventEntity
 );
 
-public record ApiKey(
-    [property: JsonPropertyName("id")] int Id,
-    [property: JsonPropertyName("name")] string? Name,
-    [property: JsonPropertyName("key_prefix")] string? KeyPrefix,
-    [property: JsonPropertyName("created_at")] DateTime? CreatedAt
+// ── API Keys ─────────────────────────────────────────────────────────────────
+
+public record ApiKeyResponse(
+    [property: JsonPropertyName("id")]          int              Id,
+    [property: JsonPropertyName("user_id")]     int              UserId,
+    [property: JsonPropertyName("name")]        string           Name,
+    [property: JsonPropertyName("key")]         string           Key,
+    [property: JsonPropertyName("expires_at")]  DateTime         ExpiresAt,
+    [property: JsonPropertyName("revoked")]     bool             Revoked,
+    [property: JsonPropertyName("permissions")] List<Permission> Permissions,
+    [property: JsonPropertyName("created_at")]  DateTime?        CreatedAt = null
+);
+
+public record CreateApiKeyRequest(
+    [property: JsonPropertyName("name")]            string    Name,
+    [property: JsonPropertyName("expiresInDays")]   int       ExpiresInDays,
+    [property: JsonPropertyName("permissionIds")]   List<int> PermissionIds
 );
 
 public record PaginatedResult<T>(
