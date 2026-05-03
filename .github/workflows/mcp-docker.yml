@@ -56,7 +56,7 @@ jobs:
           file: mcp/Dockerfile
           push: true
           tags: |
-            ghcr.io/anythink-ltd/mcp-server:${{ steps.tag.outputs.tag }}
-            ghcr.io/anythink-ltd/mcp-server:latest
+            ghcr.io/anythink-cloud/mcp-server:${{ steps.tag.outputs.tag }}
+            ghcr.io/anythink-cloud/mcp-server:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
