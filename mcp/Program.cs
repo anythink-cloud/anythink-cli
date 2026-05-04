@@ -1,10 +1,5 @@
 using System.Text.Json;
 using AnythinkMcp;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using ModelContextProtocol.Server;
 
 // ── Anythink MCP Server ──────────────────────────────────────────────────────
 //
