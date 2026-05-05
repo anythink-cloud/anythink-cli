@@ -365,6 +365,20 @@ app.Configure(config =>
         });
     });
 
+    // ── Menus ─────────────────────────────────────────────────────────────────
+
+    config.AddBranch("menus", menus =>
+    {
+        menus.SetDescription("Manage dashboard menus in the active project");
+
+        menus.AddCommand<MenusListCommand>("list")
+            .WithDescription("List all menus and their items");
+
+        menus.AddCommand<MenuAddItemCommand>("add-item")
+            .WithDescription("Add a menu item for an entity")
+            .WithExample("menus", "add-item", "250", "badges", "--icon", "Award", "--parent", "168");
+    });
+
     // ── Pay ───────────────────────────────────────────────────────────────────
 
     config.AddBranch("pay", pay =>

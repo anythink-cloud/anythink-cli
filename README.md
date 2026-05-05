@@ -37,6 +37,7 @@ The official command-line interface for [Anythink](https://anythink.cloud) — t
   - [users](#users)
   - [files](#files)
   - [roles](#roles)
+  - [menus](#menus)
   - [pay](#pay)
   - [oauth](#oauth)
   - [api](#api)
@@ -412,6 +413,38 @@ anythink roles delete <id>             Delete a role
 anythink roles list
 anythink roles create editor --description "Can edit content"
 anythink roles delete 5 --yes
+```
+
+---
+
+### menus
+
+Manage dashboard sidebar menus in the active project. Menus control what entities appear in the Anythink dashboard and how they are grouped.
+
+```
+anythink menus list                              List all menus with tree structure
+anythink menus add-item <menu_id> <entity>       Add an entity to a dashboard menu
+```
+
+**Options — `menus add-item`**
+
+| Flag              | Description                                          |
+| ----------------- | ---------------------------------------------------- |
+| `--icon <name>`   | Lucide icon name (e.g. `MessageCircle`, `Target`)    |
+| `--name <text>`   | Display name (defaults to entity name, title-cased)  |
+| `--parent <id>`   | Parent menu item ID for nesting under a group        |
+
+**Examples**
+
+```bash
+# List all menus and their items
+anythink menus list
+
+# Add "Check-ins" under the Profiles group (parent 168) in admin menu (250)
+anythink menus add-item 250 check_ins --icon MessageCircle --parent 168
+
+# Add a top-level menu item
+anythink menus add-item 250 badges --icon Award
 ```
 
 ---

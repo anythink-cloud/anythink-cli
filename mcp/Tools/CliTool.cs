@@ -29,8 +29,10 @@ public class CliTool
      Description(
         "Run any Anythink CLI command and return its output. " +
         "Use this for commands not covered by dedicated tools (entities, fields, data, workflows, " +
-        "roles, secrets, users, files, pay, oauth, migrate, fetch, api, docs, etc.). " +
+        "roles, menus, secrets, users, files, pay, oauth, migrate, fetch, api, docs, etc.). " +
         "Pass the command exactly as you would after 'anythink', e.g. 'entities list' or 'data list posts'. " +
+        "Menu commands: 'menus list' shows dashboard menus with tree structure; " +
+        "'menus add-item <menu_id> <entity> --icon <Icon> --parent <parent_id>' adds an entity to a dashboard menu. " +
         "For destructive commands add '--yes' to skip confirmation prompts. " +
         "Add '--json' where supported for machine-readable output.")]
     public async Task<string> RunCli(
