@@ -250,6 +250,10 @@ app.Configure(config =>
         wf.AddCommand<WorkflowsStepLinkCommand>("step-link")
             .WithDescription("Link workflow steps together (set on-success/on-failure)")
             .WithExample("workflows", "step-link", "31", "8", "--on-success", "9");
+
+        wf.AddCommand<WorkflowsStepDeleteCommand>("step-delete")
+            .WithDescription("Delete a step from a workflow (warns if other steps link to it)")
+            .WithExample("workflows", "step-delete", "31", "8", "--yes");
     });
 
     // ── Data ──────────────────────────────────────────────────────────────────
@@ -416,6 +420,76 @@ app.Configure(config =>
         apiKeys.AddCommand<ApiKeysRevokeCommand>("revoke")
             .WithDescription("Revoke an API key by ID")
             .WithExample("api-keys", "revoke", "42");
+    });
+
+    // ── Integrations ──────────────────────────────────────────────────────────
+
+    config.AddBranch("integrations", integ =>
+    {
+        integ.SetDescription("Manage integrations (catalog and active connections)");
+
+        integ.AddCommand<IntegrationsListCommand>("list")
+            .WithDescription("List available integration providers");
+
+        integ.AddCommand<IntegrationsGetCommand>("get")
+            .WithDescription("Show details and operations for one provider")
+            .WithExample("integrations", "get", "claude");
+
+        integ.AddBranch("connections", conns =>
+        {
+            conns.SetDescription("Manage integration connections");
+
+            conns.AddCommand<IntegrationsConnectionsListCommand>("list")
+                .WithDescription("List your integration connections")
+                .WithExample("integrations", "connections", "list", "--provider", "claude");
+        });
+
+        integ.AddCommand<IntegrationsConnectCommand>("connect")
+            .WithDescription("Connect to a provider with an API key (prompts for the key if not given)")
+            .WithExample("integrations", "connect", "claude", "--name", "main")
+            .WithExample("integrations", "connect", "openai", "--user-connection");
+
+        integ.AddBranch("oauth", oauth =>
+        {
+            oauth.SetDescription("Manage OAuth provider configuration and connect via the browser");
+
+            oauth.AddCommand<IntegrationsOAuthStatusCommand>("status")
+                .WithDescription("Show OAuth client setup status for a provider")
+                .WithExample("integrations", "oauth", "status", "slack");
+
+            oauth.AddCommand<IntegrationsOAuthCallbackUrlCommand>("callback-url")
+                .WithDescription("Print the redirect URL to add to OAuth app configurations (same for every provider)")
+                .WithExample("integrations", "oauth", "callback-url");
+
+            oauth.AddCommand<IntegrationsOAuthConfigureCommand>("configure")
+                .WithDescription("Set the OAuth client ID + secret for a provider")
+                .WithExample("integrations", "oauth", "configure", "slack");
+
+            oauth.AddCommand<IntegrationsOAuthConnectCommand>("connect")
+                .WithDescription("Connect via the browser OAuth flow (starts a local listener)")
+                .WithExample("integrations", "oauth", "connect", "slack", "--name", "main");
+        });
+
+        integ.AddCommand<IntegrationsTestCommand>("test")
+            .WithDescription("Test a connection")
+            .WithExample("integrations", "test", "<connection-id>");
+
+        integ.AddCommand<IntegrationsEnableCommand>("enable")
+            .WithDescription("Enable a connection")
+            .WithExample("integrations", "enable", "<connection-id>");
+
+        integ.AddCommand<IntegrationsDisableCommand>("disable")
+            .WithDescription("Disable a connection")
+            .WithExample("integrations", "disable", "<connection-id>");
+
+        integ.AddCommand<IntegrationsDisconnectCommand>("disconnect")
+            .WithDescription("Delete a connection")
+            .WithExample("integrations", "disconnect", "<connection-id>", "--yes");
+
+        integ.AddCommand<IntegrationsExecuteCommand>("execute")
+            .WithDescription("Run an operation on a connected provider")
+            .WithExample("integrations", "execute", "claude", "generate-text", "--input", "prompt=Tell me a haiku")
+            .WithExample("integrations", "execute", "claude", "generate-text", "--inputs", "{\"prompt\":\"hi\",\"model\":\"claude-3-haiku-20240307\"}");
     });
 
     // ── Secrets ───────────────────────────────────────────────────────────────
