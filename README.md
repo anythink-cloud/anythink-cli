@@ -33,6 +33,7 @@ The official command-line interface for [Anythink](https://anythink.cloud) — t
   - [entities](#entities)
   - [fields](#fields)
   - [data](#data)
+  - [search](#search)
   - [workflows](#workflows)
   - [users](#users)
   - [files](#files)
@@ -291,6 +292,71 @@ anythink data get blog_posts 42
 anythink data create blog_posts --data '{"title":"Hello World","status":"draft"}'
 anythink data update blog_posts 42 --data '{"status":"approved"}'
 anythink data delete blog_posts 42 --yes
+```
+
+---
+
+### search
+
+Full-text search across your entities, plus index lifecycle management.
+
+```
+anythink search query <text>                          Run a search
+anythink search similar <entity> <id>                 Find similar documents
+anythink search rehydrate [<entity>]                  Rebuild the search index (admin)
+anythink search purge [<entity>]                      Wipe the search index (admin)
+anythink search audit <entity>                        Compare configured public-searchable fields
+                                                       with what public search actually returns
+```
+
+**Options — `search query`**
+
+| Flag                  | Description                                                                            |
+| --------------------- | -------------------------------------------------------------------------------------- |
+| `--entities <list>`   | Comma-separated entity names. Default: all indexed entities.                           |
+| `--filter <expr>`     | Filter expression, e.g. `"status=published AND category=news"`. Supports `_geoRadius`. |
+| `--sort <list>`       | Comma-separated sort fields, e.g. `"created_at:desc,id:asc"`.                          |
+| `--facet <fields>`    | Comma-separated fields to compute facet counts on.                                     |
+| `--highlight`         | Highlight matched terms in results.                                                    |
+| `--page N`            | Page number (default: 1).                                                              |
+| `--limit N`           | Results per page (1-100, default: 20).                                                 |
+| `--public`            | Use the unauthenticated `/search/public` endpoint (only public-marked fields).         |
+| `--json`              | Print the raw response JSON.                                                           |
+
+**Index lifecycle**
+
+`rehydrate` and `purge` are admin operations on the search index:
+
+- `search rehydrate` — rebuilds the index from the database (no data loss; just resyncs)
+- `search purge` — deletes the index (run `rehydrate` after to repopulate)
+
+Both confirm by default; pass `-y` / `--yes` to skip the prompt for automation.
+
+**`search audit` — public-search data leak check**
+
+Compares what the entity's schema *says* should be public-searchable (fields with `publicly_searchable=true` and the entity's own `is_public=true`) against what `/search/public` actually returns. Any field appearing in public results that isn't on the allowlist is reported as a leak.
+
+Exits with code 1 if a leak is detected — useful for CI/CD.
+
+**Examples**
+
+```bash
+# Browse everything
+anythink search query "*"
+
+# Filtered search with sorting
+anythink search query "anythink" --filter "status=published" --sort "created_at:desc"
+
+# Compare what public visitors see vs what's in the database
+anythink search audit posts
+anythink search audit users --query "alice" --sample 10
+
+# Reindex after a schema change
+anythink search rehydrate posts
+anythink search rehydrate --yes        # everything (admin)
+
+# Geo search (radius in metres)
+anythink search query "*" --filter "_geoRadius(51.5074,-0.1278,5000)"
 ```
 
 ---

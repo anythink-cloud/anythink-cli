@@ -286,6 +286,37 @@ app.Configure(config =>
 
     // ── Users ─────────────────────────────────────────────────────────────────
 
+    // ── Search ────────────────────────────────────────────────────────────────
+
+    config.AddBranch("search", search =>
+    {
+        search.SetDescription("Full-text search and index management");
+
+        search.AddCommand<SearchQueryCommand>("query")
+            .WithDescription("Run a search query")
+            .WithExample("search", "query", "anythink")
+            .WithExample("search", "query", "*", "--entities", "posts,users", "--filter", "status=published")
+            .WithExample("search", "query", "*", "--public", "--limit", "5");
+
+        search.AddCommand<SearchSimilarCommand>("similar")
+            .WithDescription("Find documents similar to a given record (vector search)")
+            .WithExample("search", "similar", "posts", "42");
+
+        search.AddCommand<SearchRehydrateCommand>("rehydrate")
+            .WithDescription("Rehydrate the search index. Omit ENTITY to rehydrate everything (admin only).")
+            .WithExample("search", "rehydrate", "posts")
+            .WithExample("search", "rehydrate", "--yes");
+
+        search.AddCommand<SearchPurgeCommand>("purge")
+            .WithDescription("Purge the search index. Omit ENTITY to purge everything (admin only).")
+            .WithExample("search", "purge", "posts", "--yes");
+
+        search.AddCommand<SearchAuditCommand>("audit")
+            .WithDescription("Compare configured public-searchable fields vs what public search actually returns. Flags any data leaks.")
+            .WithExample("search", "audit", "posts")
+            .WithExample("search", "audit", "users", "--sample", "10");
+    });
+
     config.AddBranch("users", users =>
     {
         users.SetDescription("Manage users in the active project");

@@ -180,6 +180,20 @@ public record PaginatedResult<T>(
     [property: JsonPropertyName("page_size")] int? PageSize
 );
 
+// ── Search ───────────────────────────────────────────────────────────────────
+
+public record SearchResult(
+    [property: JsonPropertyName("items")]               List<System.Text.Json.Nodes.JsonObject> Items,
+    [property: JsonPropertyName("page")]                int                                     Page,
+    [property: JsonPropertyName("page_size")]           int                                     PageSize,
+    [property: JsonPropertyName("total_items")]         int                                     TotalItems,
+    [property: JsonPropertyName("total_pages")]         int                                     TotalPages,
+    [property: JsonPropertyName("has_next_page")]       bool                                    HasNextPage,
+    [property: JsonPropertyName("has_previous_page")]   bool                                    HasPreviousPage,
+    [property: JsonPropertyName("retrieval_time")]      int?                                    RetrievalTime,
+    [property: JsonPropertyName("facet_distribution")]  System.Text.Json.JsonElement?           FacetDistribution
+);
+
 // ── Users ────────────────────────────────────────────────────────────────────
 
 public record UserResponse(
