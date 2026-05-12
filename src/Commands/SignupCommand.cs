@@ -30,8 +30,7 @@ public class SignupCommand : BasePlatformCommand<SignupSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, SignupSettings settings)
     {
-        AnsiConsole.Write(new FigletText("Anythink").Color(new Color(249, 115, 22)));
-        AnsiConsole.MarkupLine("[dim]The BaaS platform for builders[/]\n");
+        Renderer.PrintWelcomeBanner();
 
         var firstName = settings.FirstName ?? AnsiConsole.Ask<string>("[#F97316]First name:[/]");
         var lastName  = settings.LastName  ?? AnsiConsole.Ask<string>("[#F97316]Last name:[/]");
