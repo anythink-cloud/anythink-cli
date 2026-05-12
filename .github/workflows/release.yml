@@ -104,8 +104,22 @@ jobs:
           envsubst < .github/formula-template.rb > tap/Formula/anythink.rb
 
           cd tap
+          BRANCH="update-formula-v${VERSION}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "${BRANCH}"
           git add Formula/anythink.rb
           git commit -m "Update anythink to v${VERSION}"
-          git push
+          git push -u origin "${BRANCH}"
+
+          # Create PR using GitHub API
+          curl -s -X POST \
+            -H "Authorization: token ${TAP_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/anythink-cloud/homebrew-tap/pulls \
+            -d "{
+              \"title\": \"Update anythink to v${VERSION}\",
+              \"body\": \"Automated formula update from [release v${VERSION}](https://github.com/anythink-cloud/anythink-cli/releases/tag/v${VERSION})\",
+              \"head\": \"${BRANCH}\",
+              \"base\": \"main\"
+            }"

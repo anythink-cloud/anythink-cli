@@ -286,6 +286,9 @@ public class AnythinkClient : HttpApiClient
 
     public async Task<List<Permission>> GetPermissionsAsync()
         => (await GetAsync<List<Permission>>(_org + "/permissions")) ?? [];
+        
+    public Task<RoleResponse?> UpdateRoleWithPermissionsAsync(int roleId, UpdateRolePermissionsRequest req)
+        => PutAsync<RoleResponse>(_org + $"/roles/{roleId}", req);
 
     // ── Search ────────────────────────────────────────────────────────────────
 
@@ -320,9 +323,16 @@ public class AnythinkClient : HttpApiClient
 
     public Task PurgeSearchIndexAsync(string? entityName = null)
         => DeleteAsync(_org + "/search/purge" + (string.IsNullOrEmpty(entityName) ? "" : $"/{entityName}"));
+    // ── API Keys ──────────────────────────────────────────────────────────────
 
-    public Task<RoleResponse?> UpdateRoleWithPermissionsAsync(int roleId, UpdateRolePermissionsRequest req)
-        => PutAsync<RoleResponse>(_org + $"/roles/{roleId}", req);
+    public async Task<List<ApiKeyResponse>> GetApiKeysAsync()
+        => (await GetAsync<List<ApiKeyResponse>>(_org + "/api-keys")) ?? [];
+
+    public Task<ApiKeyResponse> CreateApiKeyAsync(CreateApiKeyRequest req)
+        => PostAsync<ApiKeyResponse>(_org + "/api-keys", req);
+
+    public Task RevokeApiKeyAsync(int apiKeyId)
+        => DeleteAsync(_org + $"/api-keys/{apiKeyId}");
 
     // ── Pay ───────────────────────────────────────────────────────────────────
 

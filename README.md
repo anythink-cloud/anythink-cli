@@ -38,6 +38,8 @@ The official command-line interface for [Anythink](https://anythink.cloud) — t
   - [users](#users)
   - [files](#files)
   - [roles](#roles)
+  - [api-keys](#api-keys)
+  - [menus](#menus)
   - [pay](#pay)
   - [oauth](#oauth)
   - [api](#api)
@@ -478,6 +480,88 @@ anythink roles delete <id>             Delete a role
 anythink roles list
 anythink roles create editor --description "Can edit content"
 anythink roles delete 5 --yes
+```
+
+---
+
+### api-keys
+
+Issue and manage API keys for non-interactive access (CI pipelines, scripts, integrations). Each key is scoped to a permission set, has an expiry, and is tied to the user that created it.
+
+The raw key is shown **once** on creation and never retrievable — save it immediately or use `--save-as` to write it directly into a CLI profile.
+
+```
+anythink api-keys list                              List your API keys
+anythink api-keys create <name> --permissions ...   Create a new key
+anythink api-keys revoke <id>                       Revoke a key
+```
+
+**Options — `api-keys create`**
+
+| Flag                    | Description                                                                  |
+| ----------------------- | ---------------------------------------------------------------------------- |
+| `--permissions <list>`  | Required. Comma-separated permission names, e.g. `data:read,data:create`     |
+| `--expires-in <days>`   | Days until expiry (default: 90, max: 365)                                    |
+| `--no-expiry-cap`       | Allow `--expires-in` greater than 365 days                                   |
+| `--save-as <profile>`   | Save the new key directly to a CLI profile instead of printing it            |
+| `--json`                | Print the response as JSON to stdout (the key is in this output — handle carefully) |
+| `-y, --yes`             | Skip the confirmation prompt                                                 |
+
+**Output behaviour**
+
+By default, the success message goes to **stdout** and the raw key goes to **stderr** on its own line. This makes it easy to capture only the key:
+
+```bash
+anythink api-keys create ci-deploy --permissions data:read --yes 2> key.txt
+```
+
+If the server drops any of the requested permissions because the current user does not hold them, the CLI surfaces a loud warning so you do not end up with a quietly under-scoped key.
+
+**Examples**
+
+```bash
+# Create a 90-day key for CI
+anythink api-keys create github-actions --permissions "data:read,data:create" --yes 2> key.txt
+
+# Create a key and save it directly into a profile (key never echoes)
+anythink api-keys create scraper --permissions data:read --save-as scraper-bot --yes
+anythink --profile scraper-bot data list posts
+
+# Revoke a key
+anythink api-keys revoke 42 --yes
+```
+
+---
+
+
+### menus
+
+Manage dashboard sidebar menus in the active project. Menus control what entities appear in the Anythink dashboard and how they are grouped.
+
+```
+anythink menus list                              List all menus with tree structure
+anythink menus add-item <menu_id> <entity>       Add an entity to a dashboard menu
+```
+
+**Options — `menus add-item`**
+
+| Flag              | Description                                          |
+| ----------------- | ---------------------------------------------------- |
+| `--icon <name>`   | Lucide icon name (e.g. `MessageCircle`, `Target`)    |
+| `--name <text>`   | Display name (defaults to entity name, title-cased)  |
+| `--parent <id>`   | Parent menu item ID for nesting under a group        |
+
+**Examples**
+
+```bash
+# List all menus and their items
+anythink menus list
+
+# Add "Check-ins" under the Profiles group (parent 168) in admin menu (250)
+anythink menus add-item 250 check_ins --icon MessageCircle --parent 168
+
+# Add a top-level menu item
+anythink menus add-item 250 badges --icon Award
 ```
 
 ---
