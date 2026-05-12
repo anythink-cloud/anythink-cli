@@ -178,27 +178,22 @@ public class FieldsAddCommand : BaseCommand<FieldAddSettings>
         var displayType = settings.DisplayType
             ?? DefaultDisplay.GetValueOrDefault(dbType, "input");
 
-        // Build relationship JSON if --target is provided or if type is relational.
-        // The "user" type is a special relation to the internal auth users entity.
         System.Text.Json.JsonElement? relationship = null;
         var isRelational = dbType is "many-to-one" or "one-to-many" or "many-to-many" or "one-to-one";
-        var isUserType = dbType is "user";
+        var isSystemRelation = dbType is "user" or "file";
 
-        if (isRelational || isUserType)
+        if (isRelational || isSystemRelation)
         {
-            var client = GetClient();
             var onDelete = settings.OnDelete ?? "CASCADE";
 
-            if (isUserType)
+            if (isSystemRelation)
             {
-                // "user" fields always target the internal auth users entity.
-                // Resolve its entity id by fetching the "users" system entity.
-                var usersEntity = await client.GetEntityAsync("users");
-                var relJson = $@"{{""target_entity_id"":{usersEntity.Id},""on_deletion"":""{onDelete}""}}";
+                var relJson = $@"{{""on_deletion"":""{onDelete}""}}";
                 relationship = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(relJson);
             }
             else
             {
+                var client = GetClient();
                 var targetName = settings.TargetEntity;
                 if (string.IsNullOrEmpty(targetName))
                     targetName = AnsiConsole.Ask<string>("[#F97316]Target entity name:[/]");
