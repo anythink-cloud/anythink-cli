@@ -264,6 +264,17 @@ public class AnythinkClient : HttpApiClient
     public async Task<List<Permission>> GetPermissionsAsync()
         => (await GetAsync<List<Permission>>(_org + "/permissions")) ?? [];
 
+    // ── API Keys ──────────────────────────────────────────────────────────────
+
+    public async Task<List<ApiKeyResponse>> GetApiKeysAsync()
+        => (await GetAsync<List<ApiKeyResponse>>(_org + "/api-keys")) ?? [];
+
+    public Task<ApiKeyResponse> CreateApiKeyAsync(CreateApiKeyRequest req)
+        => PostAsync<ApiKeyResponse>(_org + "/api-keys", req);
+
+    public Task RevokeApiKeyAsync(int apiKeyId)
+        => DeleteAsync(_org + $"/api-keys/{apiKeyId}");
+
     public Task<RoleResponse?> UpdateRoleWithPermissionsAsync(int roleId, UpdateRolePermissionsRequest req)
         => PutAsync<RoleResponse>(_org + $"/roles/{roleId}", req);
 

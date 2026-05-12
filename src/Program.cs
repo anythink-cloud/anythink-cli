@@ -399,6 +399,25 @@ app.Configure(config =>
             .WithDescription("List saved payment methods");
     });
 
+    // ── API Keys ──────────────────────────────────────────────────────────────
+
+    config.AddBranch("api-keys", apiKeys =>
+    {
+        apiKeys.SetDescription("Manage API keys for programmatic access (CI, scripts, integrations)");
+
+        apiKeys.AddCommand<ApiKeysListCommand>("list")
+            .WithDescription("List API keys for the current user");
+
+        apiKeys.AddCommand<ApiKeysCreateCommand>("create")
+            .WithDescription("Create an API key. The raw key is shown once and never retrievable.")
+            .WithExample("api-keys", "create", "ci-deploy", "--permissions", "data:read,data:create", "--expires-in", "90")
+            .WithExample("api-keys", "create", "scraper", "--permissions", "data:read", "--save-as", "scraper-bot");
+
+        apiKeys.AddCommand<ApiKeysRevokeCommand>("revoke")
+            .WithDescription("Revoke an API key by ID")
+            .WithExample("api-keys", "revoke", "42");
+    });
+
     // ── Secrets ───────────────────────────────────────────────────────────────
 
     config.AddBranch("secrets", secrets =>
