@@ -282,6 +282,20 @@ app.Configure(config =>
             .WithDescription("View or set RLS (row-level security) user access on a record")
             .WithExample("data", "rls", "completed_workouts", "3")
             .WithExample("data", "rls", "completed_workouts", "3", "--user", "72");
+
+        data.AddCommand<DataImportCommand>("import")
+            .WithDescription("Import data from CSV or JSON files")
+            .WithExample("data", "import", "users.csv", "users")
+            .WithExample("data", "import", "data.json", "orders", "--batch-size", "500")
+            .WithExample("data", "import", "data.csv", "products", "--validate-only")
+            .WithExample("data", "import", "large.json", "events", "--max-concurrency", "10", "--dry-run");
+
+        data.AddCommand<DataExportCommand>("export")
+            .WithDescription("Export data to CSV or JSON files")
+            .WithExample("data", "export", "users", "users.csv")
+            .WithExample("data", "export", "orders", "orders.json", "--format", "json", "--pretty")
+            .WithExample("data", "export", "products", "products.csv", "--filter", "{\"category\":\"electronics\"}")
+            .WithExample("data", "export", "events", "events.jsonl", "--all", "--compress");
     });
 
     // ── Users ─────────────────────────────────────────────────────────────────
