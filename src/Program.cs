@@ -156,9 +156,10 @@ app.Configure(config =>
         import.SetDescription("Import schema and data from another platform into the active Anythink project");
 
         import.AddCommand<ImportDirectusCommand>("directus")
-            .WithDescription("Import collections, fields, and (optionally) flows from a Directus instance")
+            .WithDescription("Import collections, fields, flows, and data from a Directus instance")
             .WithExample("import", "directus", "--url", "https://cms.myapp.com", "--token", "<token>", "--dry-run")
-            .WithExample("import", "directus", "--url", "https://cms.myapp.com", "--token", "<token>", "--include-flows");
+            .WithExample("import", "directus", "--url", "https://cms.myapp.com", "--token", "<token>", "--include-flows")
+            .WithExample("import", "directus", "--url", "https://cms.myapp.com", "--token", "<token>", "--include-data");
     });
 
     // ── Entities ──────────────────────────────────────────────────────────────

@@ -218,17 +218,23 @@ public class AnythinkClient : HttpApiClient
 
     /// <summary>
     /// Downloads a file from <paramref name="sourceUrl"/> (using <paramref name="sourceToken"/>
-    /// for auth if provided) and re-uploads it to this project.
+    /// for auth if provided) and re-uploads it to this project. Caps the
+    /// download at <paramref name="maxBytes"/> (default 100 MB) so a hostile
+    /// or accidentally huge source asset can't blow up the CLI process.
     /// </summary>
     public async Task<FileResponse> UploadFileFromUrlAsync(
-        string sourceUrl, string fileName, bool isPublic = false, string? sourceToken = null)
+        string sourceUrl, string fileName, bool isPublic = false, string? sourceToken = null,
+        long maxBytes = 100L * 1024 * 1024)
     {
-        using var downloader = new HttpClient();
+        using var downloader = new HttpClient { MaxResponseContentBufferSize = maxBytes };
         if (!string.IsNullOrEmpty(sourceToken))
             downloader.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", sourceToken);
 
         var bytes = await downloader.GetByteArrayAsync(sourceUrl);
+        if (bytes.LongLength > maxBytes)
+            throw new AnythinkException(
+                $"Source file '{fileName}' exceeds the {maxBytes / (1024 * 1024)} MB import cap.", 413);
 
         using var form = new MultipartFormDataContent();
         var fileContent = new ByteArrayContent(bytes);

@@ -39,6 +39,18 @@ public class ImportDirectusSettings : CommandSettings
     [CommandOption("--include-flows")]
     [Description("Also import Directus flows as Anythink workflows")]
     public bool IncludeFlows { get; set; }
+
+    [CommandOption("--include-data")]
+    [Description("Also import records from each collection (schema must already match)")]
+    public bool IncludeData { get; set; }
+
+    [CommandOption("--include-files")]
+    [Description("Also download files from Directus and re-upload to Anythink (runs before --include-data)")]
+    public bool IncludeFiles { get; set; }
+
+    [CommandOption("--include-roles")]
+    [Description("Also import Directus roles + permissions, and promote collections to is_public when the Public policy can read them")]
+    public bool IncludeRoles { get; set; }
 }
 
 public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
@@ -47,6 +59,9 @@ public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
     {
         if (string.IsNullOrWhiteSpace(settings.Url))
             throw new CliException("--url is required. Example: [bold #F97316]--url https://cms.example.com[/]");
+        if (!Uri.TryCreate(settings.Url, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+            throw new CliException("--url must be an http:// or https:// URL.");
         if (string.IsNullOrWhiteSpace(settings.Token))
             throw new CliException("--token is required. Provide a Directus static or admin token.");
 
@@ -56,7 +71,12 @@ public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
             var target   = settings.To is not null ? GetClientForProfile(settings.To) : GetClient();
 
             var runner = new ImportRunner(importer, target,
-                new ImportOptions(settings.DryRun, settings.IncludeFlows));
+                new ImportOptions(
+                    DryRun:       settings.DryRun,
+                    IncludeFlows: settings.IncludeFlows,
+                    IncludeData:  settings.IncludeData,
+                    IncludeFiles: settings.IncludeFiles,
+                    IncludeRoles: settings.IncludeRoles));
 
             var result = await runner.RunAsync();
             return result.Errors.Count > 0 ? 1 : 0;
