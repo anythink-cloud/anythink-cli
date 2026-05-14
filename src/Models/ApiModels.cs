@@ -128,12 +128,26 @@ public record WorkflowStep(
 );
 
 public record CreateWorkflowRequest(
-    [property: JsonPropertyName("name")] string Name,
-    [property: JsonPropertyName("description")] string? Description,
-    [property: JsonPropertyName("trigger")] string Trigger,
-    [property: JsonPropertyName("enabled")] bool Enabled,
-    [property: JsonPropertyName("options")] object Options,
-    [property: JsonPropertyName("api_route")] string? ApiRoute = null
+    [property: JsonPropertyName("name")]         string                       Name,
+    [property: JsonPropertyName("description")]  string?                      Description,
+    [property: JsonPropertyName("enabled")]      bool                         Enabled,
+    [property: JsonPropertyName("triggers")]     List<WorkflowTriggerRequest> Triggers
+);
+
+// One entry in CreateWorkflowRequest.Triggers. Anythink supports multiple
+// concurrent triggers on a workflow (Event / Timed / Manual / Api).
+public record WorkflowTriggerRequest(
+    [property: JsonPropertyName("type")]    string                 Type,    // Event | Timed | Manual | Api
+    [property: JsonPropertyName("enabled")] bool                   Enabled,
+    [property: JsonPropertyName("config")]  WorkflowTriggerConfig  Config
+);
+
+public record WorkflowTriggerConfig(
+    [property: JsonPropertyName("event")]           string?  Event           = null,   // EntityCreated/Updated/Deleted
+    [property: JsonPropertyName("event_entity")]    string?  EventEntity     = null,
+    [property: JsonPropertyName("manual_entities")] List<string>? ManualEntities = null,
+    [property: JsonPropertyName("cron_expression")] string?  CronExpression  = null,
+    [property: JsonPropertyName("api_route")]       string?  ApiRoute        = null
 );
 
 public record CreateWorkflowStepRequest(
