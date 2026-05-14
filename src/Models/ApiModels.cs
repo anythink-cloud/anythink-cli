@@ -183,6 +183,91 @@ public record CreateApiKeyRequest(
     [property: JsonPropertyName("permissionIds")]   List<int> PermissionIds
 );
 
+// ── Integrations ─────────────────────────────────────────────────────────────
+
+public record IntegrationOperation(
+    [property: JsonPropertyName("key")]           string                          Key,
+    [property: JsonPropertyName("display_name")]  string                          DisplayName,
+    [property: JsonPropertyName("description")]   string                          Description,
+    [property: JsonPropertyName("input_schema")]  System.Text.Json.JsonElement?   InputSchema = null,
+    [property: JsonPropertyName("output_schema")] System.Text.Json.JsonElement?   OutputSchema = null
+);
+
+public record IntegrationDefinition(
+    [property: JsonPropertyName("id")]              string                     Id,
+    [property: JsonPropertyName("provider")]        string                     Provider,
+    [property: JsonPropertyName("parent_provider")] string?                    ParentProvider,
+    [property: JsonPropertyName("display_name")]   string                     DisplayName,
+    [property: JsonPropertyName("description")]     string                     Description,
+    [property: JsonPropertyName("icon")]            string?                    Icon,
+    [property: JsonPropertyName("category")]        string                     Category,
+    [property: JsonPropertyName("operations")]      List<IntegrationOperation> Operations,
+    [property: JsonPropertyName("auth_type")]      string                     AuthType,
+    [property: JsonPropertyName("is_enabled")]     bool                       IsEnabled,
+    [property: JsonPropertyName("can_social_sign_in")] bool                   CanSocialSignIn
+);
+
+public record IntegrationConnection(
+    [property: JsonPropertyName("id")]                          string    Id,
+    [property: JsonPropertyName("tenant_id")]                   int       TenantId,
+    [property: JsonPropertyName("user_id")]                     int?      UserId,
+    [property: JsonPropertyName("integration_definition_id")]   string    IntegrationDefinitionId,
+    [property: JsonPropertyName("provider")]                    string?   Provider,
+    [property: JsonPropertyName("name")]                        string    Name,
+    [property: JsonPropertyName("display_name")]                string?   DisplayName,
+    [property: JsonPropertyName("is_enabled")]                  bool      IsEnabled,
+    [property: JsonPropertyName("connected_at")]                DateTime  ConnectedAt,
+    [property: JsonPropertyName("last_used_at")]                DateTime? LastUsedAt
+);
+
+public record CreateApiKeyConnectionRequest(
+    [property: JsonPropertyName("integration_definition_id")] string IntegrationDefinitionId,
+    [property: JsonPropertyName("name")]                      string Name,
+    [property: JsonPropertyName("api_key")]                   string ApiKey,
+    [property: JsonPropertyName("is_user_connection")]        bool   IsUserConnection
+);
+
+public record UpdateConnectionRequest(
+    [property: JsonPropertyName("name")]       string? Name      = null,
+    [property: JsonPropertyName("is_enabled")] bool?   IsEnabled = null
+);
+
+public record TestConnectionResult(
+    [property: JsonPropertyName("success")] bool   Success,
+    [property: JsonPropertyName("message")] string Message
+);
+
+public record IntegrationOAuthSettings(
+    [property: JsonPropertyName("has_client_id")]      bool HasClientId,
+    [property: JsonPropertyName("use_social_sign_in")] bool UseSocialSignIn,
+    [property: JsonPropertyName("is_enabled")]         bool IsEnabled
+);
+
+public record SetOAuthSettingsRequest(
+    [property: JsonPropertyName("client_id")]          string? ClientId,
+    [property: JsonPropertyName("client_secret")]      string? ClientSecret,
+    [property: JsonPropertyName("is_enabled")]         bool?   IsEnabled,
+    [property: JsonPropertyName("use_social_sign_in")] bool    UseSocialSignIn = false
+);
+
+public record OAuthUrlResponse(
+    [property: JsonPropertyName("url")] string Url
+);
+
+public record CreateConnectionRequest(
+    [property: JsonPropertyName("integration_definition_id")] string  IntegrationDefinitionId,
+    [property: JsonPropertyName("name")]                      string  Name,
+    [property: JsonPropertyName("auth_code")]                 string  AuthCode,
+    [property: JsonPropertyName("redirect_uri")]              string  RedirectUri,
+    [property: JsonPropertyName("state")]                     string? State,
+    [property: JsonPropertyName("is_user_connection")]        bool    IsUserConnection
+);
+
+public record ExecuteIntegrationRequest(
+    [property: JsonPropertyName("operation")] string                              Operation,
+    [property: JsonPropertyName("inputs")]    Dictionary<string, object>          Inputs
+);
+
 public record PaginatedResult<T>(
     [property: JsonPropertyName("items")] List<T> Items,
     [property: JsonPropertyName("total_items")] int? TotalCount,

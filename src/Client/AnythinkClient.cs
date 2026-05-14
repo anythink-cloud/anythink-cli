@@ -12,6 +12,20 @@ public class AnythinkClient : HttpApiClient
     public  string BaseUrl { get; }
     private string _org;
 
+    /// <summary>
+    /// Best-guess dashboard URL derived from the API URL. We assume the standard
+    /// cloud convention of "api.{host}" → "{host}". For non-standard setups the
+    /// caller should override this via --dashboard-url.
+    /// </summary>
+    public string DashboardUrl => BaseUrl.Replace("://api.", "://");
+
+    /// <summary>
+    /// Where the dashboard hosts the generic integrations OAuth callback. The
+    /// same URL is used for every provider — the dashboard differentiates by
+    /// state. Users add this to the OAuth app's "redirect URLs" list.
+    /// </summary>
+    public string IntegrationsCallbackUrl => $"{DashboardUrl}/org/{OrgId}/settings/integrations/callback";
+
     public AnythinkClient(string orgId, string baseUrl, string? token = null, string? apiKey = null)
         : base(token, apiKey)
     {
@@ -105,6 +119,9 @@ public class AnythinkClient : HttpApiClient
         => PostAsync<JsonObject>(_org + $"/workflows/{id}/trigger", payload ?? new { });
 
     public Task DeleteWorkflowAsync(int id) => DeleteAsync(_org + $"/workflows/{id}");
+
+    public Task DeleteWorkflowStepAsync(int workflowId, int stepId)
+        => DeleteAsync(_org + $"/workflows/{workflowId}/steps/{stepId}");
 
     public async Task<PaginatedResult<WorkflowJob>> GetWorkflowJobsAsync(int workflowId, int page = 1, int pageSize = 10)
         => (await GetAsync<PaginatedResult<WorkflowJob>>(_org + $"/workflows/{workflowId}/jobs?page={page}&pageSize={pageSize}"))
@@ -274,6 +291,48 @@ public class AnythinkClient : HttpApiClient
 
     public Task RevokeApiKeyAsync(int apiKeyId)
         => DeleteAsync(_org + $"/api-keys/{apiKeyId}");
+
+    // ── Integrations ──────────────────────────────────────────────────────────
+
+    public async Task<List<IntegrationDefinition>> GetIntegrationDefinitionsAsync()
+        => (await GetAsync<List<IntegrationDefinition>>(_org + "/integrations/definitions")) ?? [];
+
+    public async Task<IntegrationDefinition?> GetIntegrationDefinitionAsync(string provider)
+        => await GetAsync<IntegrationDefinition>(_org + $"/integrations/definitions/{provider}");
+
+    public async Task<List<IntegrationConnection>> GetIntegrationConnectionsAsync()
+        => (await GetAsync<List<IntegrationConnection>>(_org + "/integrations/connections")) ?? [];
+
+    public async Task<List<IntegrationConnection>> GetIntegrationConnectionsForProviderAsync(string provider)
+        => (await GetAsync<List<IntegrationConnection>>(_org + $"/integrations/definitions/{provider}/connections")) ?? [];
+
+    public Task<IntegrationConnection> CreateApiKeyConnectionAsync(CreateApiKeyConnectionRequest req)
+        => PostAsync<IntegrationConnection>(_org + "/integrations/connections/api-key", req);
+
+    public Task<IntegrationConnection?> UpdateIntegrationConnectionAsync(string connectionId, UpdateConnectionRequest req)
+        => PutAsync<IntegrationConnection>(_org + $"/integrations/connections/{connectionId}", req);
+
+    public Task DeleteIntegrationConnectionAsync(string connectionId)
+        => DeleteAsync(_org + $"/integrations/connections/{connectionId}");
+
+    public Task<TestConnectionResult> TestIntegrationConnectionAsync(string connectionId)
+        => PostAsync<TestConnectionResult>(_org + $"/integrations/connections/{connectionId}/test");
+
+    public Task<IntegrationOAuthSettings?> GetIntegrationOAuthSettingsAsync(string provider)
+        => GetAsync<IntegrationOAuthSettings>(_org + $"/integrations/definitions/{provider}/oauth");
+
+    public Task SetIntegrationOAuthSettingsAsync(string provider, SetOAuthSettingsRequest req)
+        => PutVoidAsync(_org + $"/integrations/definitions/{provider}/oauth", req);
+
+    public async Task<OAuthUrlResponse> GetIntegrationOAuthUrlAsync(string provider, string redirectUri)
+        => (await GetAsync<OAuthUrlResponse>(_org + $"/integrations/definitions/{provider}/oauth-url?redirectUri={Uri.EscapeDataString(redirectUri)}"))
+            ?? throw new AnythinkException("OAuth URL endpoint returned no response.", 0);
+
+    public Task<IntegrationConnection> CreateOAuthConnectionAsync(CreateConnectionRequest req)
+        => PostAsync<IntegrationConnection>(_org + "/integrations/connections", req);
+
+    public Task<JsonObject> ExecuteIntegrationAsync(string provider, ExecuteIntegrationRequest req)
+        => PostAsync<JsonObject>(_org + $"/integrations/definitions/{provider}/execute", req);
 
     public Task<RoleResponse?> UpdateRoleWithPermissionsAsync(int roleId, UpdateRolePermissionsRequest req)
         => PutAsync<RoleResponse>(_org + $"/roles/{roleId}", req);

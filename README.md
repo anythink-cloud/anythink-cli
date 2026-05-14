@@ -39,6 +39,7 @@ The official command-line interface for [Anythink](https://anythink.cloud) — t
   - [roles](#roles)
   - [api-keys](#api-keys)
   - [menus](#menus)
+  - [integrations](#integrations)
   - [pay](#pay)
   - [oauth](#oauth)
   - [api](#api)
@@ -467,7 +468,6 @@ anythink api-keys revoke 42 --yes
 
 ---
 
-
 ### menus
 
 Manage dashboard sidebar menus in the active project. Menus control what entities appear in the Anythink dashboard and how they are grouped.
@@ -496,6 +496,87 @@ anythink menus add-item 250 check_ins --icon MessageCircle --parent 168
 
 # Add a top-level menu item
 anythink menus add-item 250 badges --icon Award
+```
+
+---
+
+### integrations
+
+Manage integrations — both the catalog of available providers (Claude, OpenAI, Slack, Google, etc.) and the active connections that hold credentials for them.
+
+```
+anythink integrations list                                  List available providers
+anythink integrations get <provider>                        Show details and operations for one provider
+anythink integrations connections list [--provider <p>]     List your active connections
+
+anythink integrations connect <provider>                    Create an API-key connection (Claude, OpenAI, etc.)
+anythink integrations oauth status <provider>               Show OAuth client setup status
+anythink integrations oauth configure <provider>            Set the OAuth client ID + secret
+anythink integrations oauth connect <provider>              Connect via the browser OAuth flow
+
+anythink integrations test <connection-id>                  Test a connection
+anythink integrations enable <connection-id>                Enable a connection
+anythink integrations disable <connection-id>               Disable a connection
+anythink integrations disconnect <connection-id>            Delete a connection
+
+anythink integrations execute <provider> <operation>        Run an operation on a connected provider
+```
+
+**API-key providers — `integrations connect`**
+
+| Flag                 | Description                                                                              |
+| -------------------- | ---------------------------------------------------------------------------------------- |
+| `--api-key <key>`    | API key for the provider. If omitted, you'll be prompted (input is hidden).              |
+| `--name <name>`      | Friendly name for this connection (default: `<provider> connection`)                    |
+| `--user-connection`  | Make this a user-scoped connection (only the current user sees it). Default: tenant-wide. |
+
+**OAuth providers — `integrations oauth connect`**
+
+The CLI starts a local HTTP listener on `http://localhost:8745/callback`, opens your browser to the provider's authorisation URL, and exchanges the returned code for a connection — no copy/paste of auth codes required.
+
+| Flag                 | Description                                                              |
+| -------------------- | ------------------------------------------------------------------------ |
+| `--name <name>`      | Friendly name for this connection                                       |
+| `--user-connection`  | Make this a user-scoped connection                                       |
+| `--port <n>`         | Local callback port (default: `8745`)                                    |
+| `--no-open`          | Don't try to open the browser — just print the URL                       |
+| `--timeout <secs>`   | How long to wait for the callback (default: `300`)                       |
+
+OAuth credentials need to be set up once per provider before you can connect:
+
+```bash
+anythink integrations oauth configure slack          # prompts for client_id + secret (hidden)
+anythink integrations oauth connect slack --name main
+```
+
+**Running operations — `integrations execute`**
+
+| Flag                | Description                                                                         |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| `--input <k=v>`     | Input parameter as `key=value`. Repeatable.                                         |
+| `--inputs <json>`   | All inputs as a JSON object.                                                        |
+| `--json`            | Print the full JSON response (default: just the `content` field if present).        |
+
+**Examples**
+
+```bash
+# Browse what's available
+anythink integrations list
+anythink integrations get claude
+
+# API-key flow (Claude, OpenAI)
+anythink integrations connect claude --name "main"
+anythink integrations execute claude generate-text --input "prompt=Tell me a haiku"
+
+# OAuth flow (Slack, Google, GitHub)
+anythink integrations oauth configure slack
+anythink integrations oauth connect slack --name main
+
+# Manage connections
+anythink integrations connections list
+anythink integrations test <connection-id>
+anythink integrations disable <connection-id>
+anythink integrations disconnect <connection-id> --yes
 ```
 
 ---
