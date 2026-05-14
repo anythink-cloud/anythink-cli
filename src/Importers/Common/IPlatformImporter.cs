@@ -14,7 +14,25 @@ public interface IPlatformImporter
 
     /// <summary>
     /// Read the source schema and translate it into Anythink-vocabulary records.
-    /// May fetch flows too if <paramref name="includeFlows"/> is true.
+    /// Includes flows when <paramref name="includeFlows"/> is true, file
+    /// metadata when <paramref name="includeFiles"/> is true, and roles +
+    /// public-access info when <paramref name="includeRoles"/> is true.
     /// </summary>
-    Task<ImportSchema> FetchSchemaAsync(bool includeFlows);
+    Task<ImportSchema> FetchSchemaAsync(bool includeFlows, bool includeFiles, bool includeRoles);
+
+    /// <summary>
+    /// Fetch a single page of records from a source collection.
+    /// Records are raw <see cref="System.Text.Json.Nodes.JsonObject"/> so the
+    /// runner can apply field-level remapping (FK ids, file references).
+    /// </summary>
+    Task<ImportRecordPage> FetchRecordsAsync(string collectionName, int page, int pageSize);
+
+    /// <summary>URL the runner can use to fetch a file's raw bytes from source.</summary>
+    string GetFileDownloadUrl(string sourceFileId);
+
+    /// <summary>
+    /// Bearer token to send when downloading from <see cref="GetFileDownloadUrl"/>.
+    /// Null when the source doesn't require auth for file reads.
+    /// </summary>
+    string? SourceAuthToken { get; }
 }

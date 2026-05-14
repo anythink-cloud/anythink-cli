@@ -11,12 +11,37 @@ namespace AnythinkCli.Importers;
 
 public record ImportSchema(
     List<ImportCollection> Collections,
-    List<ImportFlow>       Flows
+    List<ImportFlow>       Flows,
+    List<ImportFile>       Files,
+    List<ImportRole>       Roles
+);
+
+// A file in the source platform — describes enough metadata for the runner to
+// download via the importer and re-upload to Anythink. The runner builds a
+// SourceId → Anythink file ID map that the data section uses to remap
+// file-typed fields in records.
+public record ImportFile(
+    string SourceId,        // platform-native file id (UUID for Directus, etc.)
+    string FileName,
+    bool   IsPublic
+);
+
+// A platform role with its effective collection-level permissions, already
+// reduced from whatever multi-table model the source uses (e.g. Directus'
+// role → access → policy → permission chain) and mapped to user collections
+// only. The runner turns each (collection, action) into an Anythink permission
+// named "<collection>:<action>".
+public record ImportRole(
+    string                                    Name,
+    string?                                   Description,
+    List<(string Collection, string Action)>  CollectionPermissions
 );
 
 public record ImportCollection(
-    string                  Name,
-    List<ImportFieldSpec>   Fields
+    string                Name,
+    List<ImportFieldSpec> Fields,
+    bool                  IsJunction = false,     // hidden in source; back m2m relationships
+    bool                  IsPublic   = false      // mapped onto Anythink entity.is_public
 );
 
 public record ImportFieldSpec(
@@ -26,14 +51,16 @@ public record ImportFieldSpec(
     string? Label,
     bool    IsRequired,
     bool    IsUnique,
-    bool    IsIndexed
+    bool    IsIndexed,
+    string? ForeignKeyCollection = null,   // set when this field references another collection
+    bool    IsFileField        = false,    // file-type fields need ID remap on data import
+    JsonElement? Relationship  = null      // populated for File / m2o etc. — passed to AnyAPI as-is
 );
 
 public record ImportFlow(
-    string             Name,
-    string             Trigger,           // already mapped to Anythink trigger string
-    object             TriggerOptions,
-    List<ImportStep>   Steps
+    string                                  Name,
+    List<AnythinkCli.Models.WorkflowTriggerRequest> Triggers,
+    List<ImportStep>                        Steps
 );
 
 public record ImportStep(
@@ -45,5 +72,14 @@ public record ImportStep(
     string?       Description,
     JsonElement?  Parameters,
     string?       OnSuccessSourceId,
-    string?       OnFailureSourceId
+    string?       OnFailureSourceId,
+    bool          NeedsManualReview = false,
+    string?       ReviewNote        = null
+);
+
+// A page of records from a source collection. The records are kept as raw
+// JsonObjects — the runner does the field-level remapping.
+public record ImportRecordPage(
+    List<System.Text.Json.Nodes.JsonObject> Records,
+    int?                                    TotalCount   // null when source doesn't report it
 );
