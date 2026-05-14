@@ -40,7 +40,22 @@ public record Field(
     [property: JsonPropertyName("is_indexed")] bool IsIndexed,
     [property: JsonPropertyName("default_value")] string? DefaultValue,
     [property: JsonPropertyName("locked")] bool Locked,
-    [property: JsonPropertyName("relationship")] System.Text.Json.JsonElement? Relationship = null
+    [property: JsonPropertyName("relationship")] System.Text.Json.JsonElement? Relationship = null,
+    [property: JsonPropertyName("options")] FieldOptionsRequest? Options = null
+);
+
+public record FieldOptionsRequest(
+    [property: JsonPropertyName("select")] SelectFieldOptions? Select = null
+);
+
+public record SelectFieldOptions(
+    [property: JsonPropertyName("options")] List<SelectOption>? Options = null,
+    [property: JsonPropertyName("multiple")] bool Multiple = false
+);
+
+public record SelectOption(
+    [property: JsonPropertyName("label")] string Label,
+    [property: JsonPropertyName("value")] string Value
 );
 
 public record CreateEntityRequest(
@@ -70,7 +85,8 @@ public record CreateFieldRequest(
     [property: JsonPropertyName("is_searchable")] bool IsSearchable = false,
     [property: JsonPropertyName("publicly_searchable")] bool PubliclySearchable = false,
     [property: JsonPropertyName("is_indexed")] bool IsIndexed = false,
-    [property: JsonPropertyName("relationship")] System.Text.Json.JsonElement? Relationship = null
+    [property: JsonPropertyName("relationship")] System.Text.Json.JsonElement? Relationship = null,
+    [property: JsonPropertyName("options")] FieldOptionsRequest? Options = null
 );
 
 public record UpdateFieldRequest(
@@ -81,7 +97,8 @@ public record UpdateFieldRequest(
     [property: JsonPropertyName("is_required")] bool IsRequired = false,
     [property: JsonPropertyName("is_searchable")] bool IsSearchable = false,
     [property: JsonPropertyName("publicly_searchable")] bool PubliclySearchable = false,
-    [property: JsonPropertyName("is_indexed")] bool IsIndexed = false
+    [property: JsonPropertyName("is_indexed")] bool IsIndexed = false,
+    [property: JsonPropertyName("options")] FieldOptionsRequest? Options = null
 );
 
 public record Workflow(
