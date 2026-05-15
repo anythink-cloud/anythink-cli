@@ -762,6 +762,372 @@ public class WorkflowsDeleteCommand : BaseCommand<WorkflowDeleteSettings>
     }
 }
 
+// ── workflows seed ───────────────────────────────────────────────────────────
+
+public class WorkflowsSeedSettings : CommandSettings
+{
+    [CommandArgument(0, "<FILE>")]
+    [Description("Path to a workflow JSON file (use `workflows export` to produce one)")]
+    public string File { get; set; } = "";
+
+    [CommandOption("--var <KEY=VALUE>")]
+    [Description("Substitute {{KEY}} placeholders in the JSON. Repeatable.")]
+    public string[] Vars { get; set; } = [];
+
+    [CommandOption("--enabled")]
+    [Description("Override the workflow's enabled flag to true")]
+    public bool? Enabled { get; set; }
+}
+
+public class WorkflowsSeedCommand : BaseCommand<WorkflowsSeedSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, WorkflowsSeedSettings settings)
+    {
+        if (!System.IO.File.Exists(settings.File))
+        {
+            Renderer.Error($"File not found: {settings.File}");
+            return 1;
+        }
+
+        var raw = await System.IO.File.ReadAllTextAsync(settings.File);
+
+        // {{var_name}} placeholder substitution. Leaves {{ $anythink... }} workflow
+        // template vars alone because they don't match the bare-word pattern.
+        var vars = new Dictionary<string, string>();
+        foreach (var v in settings.Vars)
+        {
+            var eq = v.IndexOf('=');
+            if (eq <= 0) { Renderer.Error($"Invalid --var '{v}', expected KEY=VALUE"); return 1; }
+            vars[v[..eq]] = v[(eq + 1)..];
+        }
+        var substituted = System.Text.RegularExpressions.Regex.Replace(
+            raw,
+            @"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}",
+            m =>
+            {
+                var key = m.Groups[1].Value;
+                return vars.TryGetValue(key, out var value) ? value : m.Value;
+            });
+
+        WorkflowSeedSpec? spec;
+        try
+        {
+            spec = System.Text.Json.JsonSerializer.Deserialize<WorkflowSeedSpec>(substituted,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (Exception ex)
+        {
+            Renderer.Error($"Invalid workflow JSON: {ex.Message}");
+            return 1;
+        }
+        if (spec is null || string.IsNullOrEmpty(spec.Name) || spec.Steps is null)
+        {
+            Renderer.Error("Workflow JSON must include name, trigger, and steps[].");
+            return 1;
+        }
+
+        // Warn on unresolved placeholders so the user knows to pass --var
+        var leftovers = System.Text.RegularExpressions.Regex.Matches(substituted, @"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}")
+            .Select(m => m.Groups[1].Value)
+            .Distinct()
+            .ToList();
+        if (leftovers.Count > 0)
+        {
+            Renderer.Error($"Unresolved placeholders: {string.Join(", ", leftovers)}. Pass --var {leftovers[0]}=...");
+            return 1;
+        }
+
+        var enabled = settings.Enabled ?? spec.Enabled;
+        var trigger = spec.Trigger ?? "Manual";
+        var options = spec.Options ?? (object)new { };
+
+        try
+        {
+            var client = GetClient();
+
+            Workflow? wf = null;
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync($"Creating workflow '{spec.Name}'...", async _ =>
+                {
+                    wf = await client.CreateWorkflowAsync(new CreateWorkflowRequest(
+                        spec.Name,
+                        spec.Description,
+                        trigger,
+                        enabled,
+                        options,
+                        trigger == "Api" ? spec.ApiRoute : null));
+                });
+            Renderer.Success($"Workflow [#F97316]{Markup.Escape(wf!.Name)}[/] created (id: {wf.Id}).");
+
+            // Add steps in order, recording the key→id mapping for link resolution.
+            var keyToId = new Dictionary<string, int>();
+            foreach (var s in spec.Steps)
+            {
+                System.Text.Json.JsonElement? parameters = null;
+                if (s.Parameters is not null)
+                {
+                    var paramJson = System.Text.Json.JsonSerializer.Serialize(s.Parameters);
+                    parameters = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(paramJson);
+                    parameters = WorkflowStepParameterNormalizer.Normalize(s.Action ?? "", parameters.Value);
+                }
+
+                WorkflowStep? step = null;
+                await AnsiConsole.Status()
+                    .Spinner(Spinner.Known.Dots)
+                    .StartAsync($"Adding step '{s.Key}'...", async _ =>
+                    {
+                        step = await client.AddWorkflowStepAsync(wf!.Id,
+                            new CreateWorkflowStepRequest(
+                                s.Key ?? "",
+                                s.Name ?? s.Key ?? "",
+                                s.Action ?? "RunScript",
+                                s.Enabled,
+                                s.IsStartStep,
+                                s.Description,
+                                parameters));
+                    });
+                keyToId[s.Key ?? ""] = step!.Id;
+                Renderer.Success($"  Step [#F97316]{Markup.Escape(step.Key)}[/] (id: {step.Id}) added.");
+            }
+
+            // Resolve key→id for on_success / on_failure and patch each step.
+            foreach (var s in spec.Steps)
+            {
+                if (string.IsNullOrEmpty(s.OnSuccess) && string.IsNullOrEmpty(s.OnFailure)) continue;
+                if (!keyToId.TryGetValue(s.Key ?? "", out var stepId)) continue;
+
+                int? successId = null, failureId = null;
+                if (!string.IsNullOrEmpty(s.OnSuccess))
+                {
+                    if (!keyToId.TryGetValue(s.OnSuccess, out var sid))
+                    {
+                        Renderer.Error($"Step '{s.Key}' references unknown on_success step '{s.OnSuccess}'");
+                        return 1;
+                    }
+                    successId = sid;
+                }
+                if (!string.IsNullOrEmpty(s.OnFailure))
+                {
+                    if (!keyToId.TryGetValue(s.OnFailure, out var fid))
+                    {
+                        Renderer.Error($"Step '{s.Key}' references unknown on_failure step '{s.OnFailure}'");
+                        return 1;
+                    }
+                    failureId = fid;
+                }
+
+                // Fetch the freshly-created step so we can preserve its parameters
+                // through the update (the API rejects updates with missing fields).
+                var fresh = await client.GetWorkflowAsync(wf!.Id);
+                var freshStep = fresh.Steps!.First(x => x.Id == stepId);
+                var body = new Dictionary<string, object?>
+                {
+                    ["name"] = freshStep.Name,
+                    ["action"] = freshStep.Action,
+                    ["enabled"] = freshStep.Enabled,
+                    ["is_start_step"] = freshStep.IsStartStep,
+                    ["on_success_step_id"] = successId ?? freshStep.OnSuccessStepId,
+                    ["on_failure_step_id"] = failureId ?? freshStep.OnFailureStepId,
+                };
+                if (freshStep.Parameters.HasValue)
+                    body["parameters"] = freshStep.Parameters.Value;
+
+                await client.UpdateWorkflowStepFullAsync(wf.Id, stepId, body);
+            }
+
+            Renderer.Success($"\nWorkflow seeded. Trigger with: anythink workflows trigger {wf.Id}");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return 1;
+        }
+    }
+}
+
+class WorkflowSeedSpec
+{
+    [System.Text.Json.Serialization.JsonPropertyName("schema_version")] public int SchemaVersion { get; set; } = 1;
+    [System.Text.Json.Serialization.JsonPropertyName("name")]           public string Name { get; set; } = "";
+    [System.Text.Json.Serialization.JsonPropertyName("description")]    public string? Description { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("trigger")]        public string? Trigger { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("enabled")]        public bool Enabled { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("options")]        public object? Options { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("api_route")]      public string? ApiRoute { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("steps")]          public List<WorkflowSeedStep>? Steps { get; set; }
+}
+
+class WorkflowSeedStep
+{
+    [System.Text.Json.Serialization.JsonPropertyName("key")]           public string? Key { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("name")]          public string? Name { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("description")]   public string? Description { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("action")]        public string? Action { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("enabled")]       public bool Enabled { get; set; } = true;
+    [System.Text.Json.Serialization.JsonPropertyName("is_start_step")] public bool IsStartStep { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("parameters")]    public object? Parameters { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("on_success")]    public string? OnSuccess { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("on_failure")]    public string? OnFailure { get; set; }
+}
+
+// ── workflows export ─────────────────────────────────────────────────────────
+
+public class WorkflowsExportSettings : CommandSettings
+{
+    [CommandArgument(0, "<ID>")]
+    [Description("Workflow ID to export")]
+    public int Id { get; set; }
+
+    [CommandOption("-o|--output <FILE>")]
+    [Description("Write to FILE instead of stdout")]
+    public string? Output { get; set; }
+}
+
+public class WorkflowsExportCommand : BaseCommand<WorkflowsExportSettings>
+{
+    // Workflow + step fields that are storage- or run-only and shouldn't
+    // round-trip. The server populates these; the seed side ignores them.
+    private static readonly HashSet<string> StripWorkflowFields = new()
+    {
+        "id", "tenant_id", "created_at", "updated_at", "editor_state",
+        "jobs", "last_run_at", "last_run_status",
+        "options_json",                              // stringified duplicate of options
+        "locked", "created_by", "updated_by",        // audit metadata, not definition
+    };
+    private static readonly HashSet<string> StripStepFields = new()
+    {
+        "id", "workflow_id", "tenant_id", "created_at", "updated_at",
+        "on_success_step_id", "on_failure_step_id",
+        "on_success_step", "on_failure_step",        // server-side nested expansion
+        "parameters_json",                            // re-emitted as parsed `parameters`
+        "locked", "created_by", "updated_by",        // audit metadata, not definition
+    };
+
+    public override async Task<int> ExecuteAsync(CommandContext context, WorkflowsExportSettings settings)
+    {
+        try
+        {
+            var client = GetClient();
+            string raw = "";
+            await AnsiConsole.Status().Spinner(Spinner.Known.Dots)
+                .StartAsync($"Fetching workflow {settings.Id}...", async _ =>
+                {
+                    raw = await client.FetchRawAsync($"{client.BaseUrl}/org/{client.OrgId}/workflows/{settings.Id}");
+                });
+
+            var json = TransformExport(raw);
+
+            if (string.IsNullOrEmpty(settings.Output))
+            {
+                Console.WriteLine(json);
+            }
+            else
+            {
+                await System.IO.File.WriteAllTextAsync(settings.Output, json);
+                Renderer.Success($"Wrote {Markup.Escape(settings.Output)} ({json.Length} bytes).");
+                AnsiConsole.MarkupLine($"Re-import with: [bold #F97316]anythink workflows seed {Markup.Escape(settings.Output)}[/]");
+            }
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return 1;
+        }
+    }
+
+    /// <summary>
+    /// Pure transform: server workflow JSON → exportable spec JSON.
+    /// Strips run/storage-only fields, parses parameters_json into parameters,
+    /// and replaces on_success/failure step IDs with their step keys.
+    /// </summary>
+    public static string TransformExport(string rawWorkflowJson)
+    {
+        using var doc = System.Text.Json.JsonDocument.Parse(rawWorkflowJson);
+        var root = doc.RootElement;
+
+        var idToKey = new Dictionary<int, string>();
+        if (root.TryGetProperty("steps", out var stepsArr) && stepsArr.ValueKind == System.Text.Json.JsonValueKind.Array)
+        {
+            foreach (var s in stepsArr.EnumerateArray())
+            {
+                if (s.TryGetProperty("id", out var idEl) && idEl.TryGetInt32(out var id)
+                    && s.TryGetProperty("key", out var keyEl) && keyEl.GetString() is { } k)
+                {
+                    idToKey[id] = k;
+                }
+            }
+        }
+
+        var exported = new Dictionary<string, object?> { ["schema_version"] = 1 };
+        foreach (var prop in root.EnumerateObject())
+        {
+            if (StripWorkflowFields.Contains(prop.Name)) continue;
+            if (prop.Name == "steps") continue;
+            exported[prop.Name] = JsonValueOf(prop.Value);
+        }
+
+        var exportedSteps = new List<Dictionary<string, object?>>();
+        if (root.TryGetProperty("steps", out var steps2) && steps2.ValueKind == System.Text.Json.JsonValueKind.Array)
+        {
+            foreach (var s in steps2.EnumerateArray())
+            {
+                var step = new Dictionary<string, object?>();
+                foreach (var prop in s.EnumerateObject())
+                {
+                    if (StripStepFields.Contains(prop.Name)) continue;
+                    step[prop.Name] = JsonValueOf(prop.Value);
+                }
+
+                if (s.TryGetProperty("parameters_json", out var pj) && pj.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    var pjStr = pj.GetString();
+                    if (!string.IsNullOrEmpty(pjStr))
+                    {
+                        using var pdoc = System.Text.Json.JsonDocument.Parse(pjStr);
+                        step["parameters"] = JsonValueOf(pdoc.RootElement);
+                    }
+                }
+
+                if (s.TryGetProperty("on_success_step_id", out var ss)
+                    && ss.ValueKind == System.Text.Json.JsonValueKind.Number
+                    && ss.TryGetInt32(out var ssi)
+                    && idToKey.TryGetValue(ssi, out var ssKey))
+                    step["on_success"] = ssKey;
+                if (s.TryGetProperty("on_failure_step_id", out var fs)
+                    && fs.ValueKind == System.Text.Json.JsonValueKind.Number
+                    && fs.TryGetInt32(out var fsi)
+                    && idToKey.TryGetValue(fsi, out var fsKey))
+                    step["on_failure"] = fsKey;
+
+                exportedSteps.Add(step);
+            }
+        }
+        exported["steps"] = exportedSteps;
+
+        return System.Text.Json.JsonSerializer.Serialize(exported, new System.Text.Json.JsonSerializerOptions
+        {
+            WriteIndented          = true,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+        });
+    }
+
+    // Convert a JsonElement into a plain object tree (Dictionary / List / primitives)
+    // so the outer Serializer emits proper JSON instead of escaped raw text.
+    private static object? JsonValueOf(System.Text.Json.JsonElement e) => e.ValueKind switch
+    {
+        System.Text.Json.JsonValueKind.Object => e.EnumerateObject().ToDictionary(p => p.Name, p => JsonValueOf(p.Value)),
+        System.Text.Json.JsonValueKind.Array  => e.EnumerateArray().Select(JsonValueOf).ToList(),
+        System.Text.Json.JsonValueKind.String => e.GetString(),
+        System.Text.Json.JsonValueKind.Number => e.TryGetInt64(out var l) ? l : e.GetDouble(),
+        System.Text.Json.JsonValueKind.True   => true,
+        System.Text.Json.JsonValueKind.False  => false,
+        _                                      => null,
+    };
+}
+
 // ── workflows steps link ─────────────────────────────────────────────────────
 
 public class WorkflowStepLinkSettings : CommandSettings
