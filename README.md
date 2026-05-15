@@ -688,19 +688,6 @@ dotnet run -- projects list
 dotnet run -- entities list
 ```
 
-### Environment variables
-
-The CLI targets production (`https://api.my.anythink.cloud`) by default. You can override platform and API settings via environment variables (e.g. in your shell or a `.env` file in the current working directory):
-
-| Variable                 | Description                                           |
-| ------------------------ | ----------------------------------------------------- |
-| `MYANYTHINK_API_URL`     | Platform management API base URL                      |
-| `MYANYTHINK_ORG_ID`      | Platform organization/tenant ID                       |
-| `BILLING_API_URL`        | Billing API base URL                                  |
-| `ANYTHINK_PLATFORM_TOKEN`| JWT access token for platform commands                |
-| `ANYTHINK_ACCOUNT_ID`    | UUID of the active billing account                    |
-
-These variables take precedence over the saved configuration in `~/.anythink/config.json`. Overrides are applied at runtime by the configuration resolution logic.
 
 ### Releases
 

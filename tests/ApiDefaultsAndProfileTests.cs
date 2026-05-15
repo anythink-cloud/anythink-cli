@@ -34,10 +34,13 @@ public class ApiDefaultsTests
 public class ProfileTests
 {
     [Fact]
-    public void IsTokenExpired_WhenApiKeySet_ReturnsFalse()
+    public void IsTokenExpired_WhenApiKeySetAndNoAccessToken_ReturnsTrue()
     {
+        // IsTokenExpired is purely about the access token now. ApiKey-only
+        // profiles still have no access token, so this reports true. Callers
+        // gate usability by checking ApiKey first (see BaseCommand.GetClient).
         var profile = new Profile { ApiKey = "ak_test123" };
-        profile.IsTokenExpired.Should().BeFalse();
+        profile.IsTokenExpired.Should().BeTrue();
     }
 
     [Fact]
@@ -78,16 +81,18 @@ public class ProfileTests
     }
 
     [Fact]
-    public void IsTokenExpired_ApiKeyIgnoresExpiredToken()
+    public void IsTokenExpired_ReportsTokenStateEvenWhenApiKeyPresent()
     {
-        // API key auth should never be considered expired regardless of token state
+        // ApiKey no longer short-circuits — the property is about the access
+        // token itself. Prevents masking an expired bearer that happens to
+        // coexist with a (potentially stale) ApiKey.
         var profile = new Profile
         {
             ApiKey         = "ak_test123",
             AccessToken    = "eyJtest.token.here",
             TokenExpiresAt = DateTime.UtcNow.AddHours(-1)
         };
-        profile.IsTokenExpired.Should().BeFalse();
+        profile.IsTokenExpired.Should().BeTrue();
     }
 
     // ── JWT exp-claim based expiry ────────────────────────────────────────────
