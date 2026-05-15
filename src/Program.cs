@@ -250,6 +250,15 @@ app.Configure(config =>
         wf.AddCommand<WorkflowsStepLinkCommand>("step-link")
             .WithDescription("Link workflow steps together (set on-success/on-failure)")
             .WithExample("workflows", "step-link", "31", "8", "--on-success", "9");
+
+        wf.AddCommand<WorkflowsSeedCommand>("seed")
+            .WithDescription("Create a workflow and its steps from a JSON file")
+            .WithExample("workflows", "seed", "workflow.json",
+                "--var", "connection_id=abc-123");
+
+        wf.AddCommand<WorkflowsExportCommand>("export")
+            .WithDescription("Export an existing workflow to JSON (round-trippable with seed)")
+            .WithExample("workflows", "export", "31", "--output", "workflow.json");
     });
 
     // ── Data ──────────────────────────────────────────────────────────────────
