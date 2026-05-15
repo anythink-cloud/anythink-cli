@@ -45,8 +45,10 @@ public class ConfigToolsTests : McpTestBase
         var result = await tools.ConfigShow();
 
         var doc = JsonDocument.Parse(result);
-        var platform = doc.RootElement.GetProperty("Platform");
-        platform.GetProperty("LoggedIn").GetBoolean().Should().BeTrue();
+        var platforms = doc.RootElement.GetProperty("Platforms");
+        platforms.GetArrayLength().Should().BeGreaterThan(0);
+        platforms[0].GetProperty("LoggedIn").GetBoolean().Should().BeTrue();
+        platforms[0].GetProperty("AccountId").GetString().Should().Be("acct-123");
     }
 
     [Fact]

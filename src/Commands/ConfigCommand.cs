@@ -14,27 +14,49 @@ public class ConfigShowCommand : Command<EmptySettings>
     {
         var config = ConfigService.Load();
 
+        if (config.Platforms.Count > 0)
+        {
+            Renderer.Header("Platform sessions");
+            var platTable = Renderer.BuildTable("Platform", "myanythink URL", "Billing URL", "Token", "Account", "Active");
+            foreach (var (key, p) in config.Platforms)
+            {
+                var hasToken = string.IsNullOrEmpty(p.Token)
+                    ? "—"
+                    : (p.IsTokenExpired ? "[yellow]expired[/]" : "[green]valid[/]");
+                var marker = key == config.ActivePlatform ? "[green]●[/]" : "";
+                platTable.AddRow(
+                    key == config.ActivePlatform ? $"[bold]{Markup.Escape(key)}[/]" : Markup.Escape(key),
+                    Markup.Escape(p.MyAnythinkUrl),
+                    Markup.Escape(p.BillingUrl),
+                    hasToken,
+                    Markup.Escape(p.AccountId?[..Math.Min(8, p.AccountId.Length)] ?? "—"),
+                    marker);
+            }
+            AnsiConsole.Write(platTable);
+            AnsiConsole.WriteLine();
+        }
+
         if (!config.Profiles.Any())
         {
-            Renderer.Warn("No profiles configured. Run [bold]anythink login[/].");
+            Renderer.Warn("No project profiles configured. Run [bold]anythink projects use[/] to connect to one.");
+            AnsiConsole.MarkupLine($"\n[dim]Config file: {Markup.Escape(ConfigService.ConfigFilePath)}[/]");
             return 0;
         }
 
-        Renderer.Header("Anythink CLI Profiles");
-
-        var table = Renderer.BuildTable("Profile", "Org ID", "Auth", "Instance API URL", "Active");
+        Renderer.Header("Project profiles");
+        var table = Renderer.BuildTable("Profile", "Org ID", "Auth", "Platform", "Instance API URL", "Active");
 
         foreach (var (key, p) in config.Profiles)
         {
-            var auth = !string.IsNullOrEmpty(p.ApiKey) ? "api-key" : "token";
+            var auth      = !string.IsNullOrEmpty(p.ApiKey) ? "api-key" : "token";
             var isDefault = key == config.DefaultProfile ? "[green]●[/]" : "";
             table.AddRow(
                 key == config.DefaultProfile ? $"[bold]{Markup.Escape(key)}[/]" : Markup.Escape(key),
                 Markup.Escape(p.OrgId ?? "—"),
                 auth,
+                string.IsNullOrEmpty(p.PlatformKey) ? "[dim]untagged[/]" : Markup.Escape(p.PlatformKey),
                 Markup.Escape(p.InstanceApiUrl ?? "—"),
-                isDefault
-            );
+                isDefault);
         }
 
         AnsiConsole.Write(table);

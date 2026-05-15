@@ -44,9 +44,9 @@ public class SignupCommand : BasePlatformCommand<SignupSettings>
             if (password != confirm) { Renderer.Error("Passwords do not match."); return 1; }
         }
 
-        var platform = ResolvePlatform();
-        
-        var client = new BillingClient(platform);
+        var (platformKey, platform) = ResolvePlatformContext();
+
+        var client = new BillingClient(ConfigService.ApplyRuntimeOverrides(platform));
         try
         {
             await AnsiConsole.Status().Spinner(Spinner.Known.Dots)
@@ -58,7 +58,7 @@ public class SignupCommand : BasePlatformCommand<SignupSettings>
             AnsiConsole.MarkupLine("\n[yellow]Check your email for a confirmation link before logging in.[/]");
             AnsiConsole.MarkupLine($"\nOnce confirmed, run:\n  [bold #F97316]anythink login --email {email}[/]");
 
-            SavePlatform(platform);   // save URLs, no token yet
+            SaveAndActivatePlatform(platformKey, platform);
             return 0;
         }
         catch (AnythinkException ex)
@@ -109,8 +109,8 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
         // ── Google OAuth path ──────────────────────────────────────────────────
         if (settings.Google)
             return await GoogleLogin();
-        
-        var platform = ResolvePlatform();
+
+        var (platformKey, platform) = ResolvePlatformContext();
 
         // ── Direct credential path: --org-id + (--token or --api-key) ──────────
         // Bypasses the billing API entirely — useful when you already have a JWT
@@ -122,25 +122,30 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
 
             ConfigService.SaveProfile(profileKey, new CliProfile
             {
-                OrgId       = settings.OrgId,
-                AccessToken = settings.Token,
-                ApiKey      = settings.ApiKey,
-                InstanceApiUrl     = platform.MyAnythinkUrl,
-                Alias       = profileKey
+                OrgId          = settings.OrgId,
+                AccessToken    = settings.Token,
+                ApiKey          = settings.ApiKey,
+                InstanceApiUrl = platform.MyAnythinkUrl,
+                Alias          = profileKey,
+                PlatformKey    = platformKey,
             });
             ConfigService.SetDefault(profileKey);
 
             Renderer.Success($"Profile [#F97316]{Markup.Escape(profileKey)}[/] saved and set as active.");
-            Renderer.Info($"Org ID: {settings.OrgId}");
-            Renderer.Info($"URL:    {platform.MyAnythinkUrl}");
+            Renderer.Info($"Org ID:   {settings.OrgId}");
+            Renderer.Info($"URL:      {platform.MyAnythinkUrl}");
+            Renderer.Info($"Platform: {platformKey}");
             AnsiConsole.MarkupLine("\nRun [bold #F97316]anythink entities list[/] to explore the project.");
             return 0;
         }
 
         // ── Platform (billing) login path: email + password ────────────────────
+        if (string.IsNullOrEmpty(settings.Email))
+            AnsiConsole.MarkupLine("[dim]Tip: run [bold]anythink login --google[/] to sign in with Google.[/]\n");
+
         var email    = settings.Email    ?? AnsiConsole.Ask<string>("[#F97316]Email:[/]");
         var password = settings.Password ?? AnsiConsole.Prompt(new TextPrompt<string>("[#F97316]Password:[/]").Secret());
-        var client   = new BillingClient(platform);
+        var client   = new BillingClient(ConfigService.ApplyRuntimeOverrides(platform));
         try
         {
             LoginResponse? resp = null;
@@ -152,7 +157,7 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
             platform.TokenExpiresAt = resp.ExpiresIn.HasValue
                 ? DateTime.UtcNow.AddSeconds(resp.ExpiresIn.Value - 30)  // 30s buffer
                 : DateTime.UtcNow.AddHours(1);
-            SavePlatform(platform);
+            SaveAndActivatePlatform(platformKey, platform);
 
             Renderer.PrintWelcomeBanner(Renderer.NameFromJwt(resp!.AccessToken));
 
@@ -163,10 +168,11 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
                 var profileKey = settings.Profile ?? settings.OrgId;
                 ConfigService.SaveProfile(profileKey, new CliProfile
                 {
-                    OrgId       = settings.OrgId,
-                    AccessToken = resp!.AccessToken,
-                    InstanceApiUrl     = platform.MyAnythinkUrl,
-                    Alias       = profileKey
+                    OrgId          = settings.OrgId,
+                    AccessToken    = resp!.AccessToken,
+                    InstanceApiUrl = platform.MyAnythinkUrl,
+                    Alias          = profileKey,
+                    PlatformKey    = platformKey,
                 });
                 ConfigService.SetDefault(profileKey);
                 AnsiConsole.MarkupLine($"Project profile [bold #F97316]{Markup.Escape(profileKey)}[/] saved (org: {settings.OrgId}).");
@@ -190,9 +196,14 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
 
     private async Task<int> GoogleLogin()
     {
-        var platform = ResolvePlatform();
-        
-        // Start a local listener on a free port
+        var (platformKey, platform) = ResolvePlatformContext();
+        var eff = ConfigService.ApplyRuntimeOverrides(platform);
+
+        // Start a local listener on a free port. The redirect URI is matched
+        // strictly against what's registered in Google Console (and via the
+        // Anythink server), so we can't add a per-session secret to the path.
+        // CSRF defense is the OAuth `state` parameter, generated and validated
+        // by the Anythink server.
         var port        = FindFreePort();
         var callbackUrl = $"http://localhost:{port}/callback";
         var listener    = new HttpListener();
@@ -205,7 +216,7 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
         {
             using var http = new HttpClient();
             var json = await http.GetStringAsync(
-                $"{platform.MyAnythinkUrl.TrimEnd('/')}/org/{platform.MyAnythinkOrgId}/auth/v1/google/authorize" +
+                $"{eff.MyAnythinkUrl.TrimEnd('/')}/org/{eff.MyAnythinkOrgId}/auth/v1/google/authorize" +
                 $"?redirectUri={Uri.EscapeDataString(callbackUrl)}");
             var doc = JsonDocument.Parse(json);
             authUrl = doc.RootElement.GetProperty("authorization_url").GetString()
@@ -223,13 +234,22 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
         AnsiConsole.MarkupLine($"[dim]If it doesn't open automatically, visit:[/]\n{authUrl}\n");
         OpenBrowser(authUrl);
 
-        // 3. Wait for Google to redirect back (3 min timeout)
+        // 3. Wait for Google to redirect back (3 min timeout). Drop any
+        // requests whose path isn't /callback so a noisy tab can't inject.
         AnsiConsole.MarkupLine("[dim]Waiting for sign-in...[/]");
         HttpListenerContext ctx;
         try
         {
             var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
-            ctx = await listener.GetContextAsync().WaitAsync(cts.Token);
+            while (true)
+            {
+                ctx = await listener.GetContextAsync().WaitAsync(cts.Token);
+                var path = ctx.Request.Url?.AbsolutePath ?? "";
+                if (string.Equals(path, "/callback", StringComparison.Ordinal)) break;
+
+                ctx.Response.StatusCode = 404;
+                ctx.Response.Close();
+            }
         }
         catch (OperationCanceledException)
         {
@@ -253,7 +273,7 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
 
         if (string.IsNullOrEmpty(code))
         {
-            Renderer.Error($"Google sign-in failed: {qs["error"] ?? "unknown error"}");
+            Renderer.Error($"Google sign-in failed: {Markup.Escape(qs["error"] ?? "unknown error")}");
             return 1;
         }
 
@@ -264,7 +284,7 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
             {
                 using var http = new HttpClient();
                 var resp = await http.GetStringAsync(
-                    $"{platform.MyAnythinkUrl.TrimEnd('/')}/org/{platform.MyAnythinkOrgId}/auth/v1/google/callback" +
+                    $"{eff.MyAnythinkUrl.TrimEnd('/')}/org/{eff.MyAnythinkOrgId}/auth/v1/google/callback" +
                     $"?code={Uri.EscapeDataString(code)}" +
                     (state != null ? $"&state={Uri.EscapeDataString(state)}" : ""));
                 tokens = JsonSerializer.Deserialize<LoginResponse>(resp,
@@ -283,7 +303,8 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
             ? DateTime.UtcNow.AddSeconds(tokens.ExpiresIn.Value - 30)
             : DateTime.UtcNow.AddHours(1);
 
-        // Fetch billing accounts to auto-select
+        // Fetch billing accounts to auto-select — use the fresh token + the
+        // platform we just authed against (env overrides would change the org).
         var billingClient = new BillingClient(platform);
         List<BillingAccount> accounts = [];
         try
@@ -295,7 +316,7 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
         catch (AnythinkException ex)
         {
             Renderer.Error($"Logged in but could not load accounts: {ex.Message}");
-            SavePlatform(platform);
+            SaveAndActivatePlatform(platformKey, platform);
             return 1;
         }
 
@@ -312,7 +333,7 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
             platform.AccountId = accounts[choices.IndexOf(picked)].Id.ToString();
         }
 
-        ConfigService.SavePlatform(platform);
+        SaveAndActivatePlatform(platformKey, platform);
         Renderer.PrintWelcomeBanner();
         AnsiConsole.MarkupLine("Run [bold #F97316]anythink accounts use[/] to select a billing account, then [bold #F97316]anythink projects use[/] to connect to a project.");
         return 0;
