@@ -178,9 +178,9 @@ public record ApiKeyResponse(
 );
 
 public record CreateApiKeyRequest(
-    [property: JsonPropertyName("name")]            string    Name,
-    [property: JsonPropertyName("expiresInDays")]   int       ExpiresInDays,
-    [property: JsonPropertyName("permissionIds")]   List<int> PermissionIds
+    [property: JsonPropertyName("name")]              string    Name,
+    [property: JsonPropertyName("expires_in_days")]   int       ExpiresInDays,
+    [property: JsonPropertyName("permission_ids")]    List<int> PermissionIds
 );
 
 public record PaginatedResult<T>(
