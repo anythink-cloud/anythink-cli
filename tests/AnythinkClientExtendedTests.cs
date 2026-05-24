@@ -198,6 +198,34 @@ public class AnythinkClientExtendedTests
         await act.Should().NotThrowAsync();
     }
 
+    [Fact]
+    public async Task DeleteWorkflowStepAsync_Success_DoesNotThrow()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.Expect(HttpMethod.Delete, $"{OrgPath}/workflows/43/steps/121")
+               .Respond(HttpStatusCode.NoContent);
+
+        await BuildClient(handler).DeleteWorkflowStepAsync(43, 121);
+
+        handler.VerifyNoOutstandingExpectation();
+    }
+
+    [Fact]
+    public async Task DeleteWorkflowStepAsync_FkViolation_PropagatesAs500()
+    {
+        // The API returns 500 with an EF Core error message when another step's
+        // on_success_step_id still references the step being deleted. We just want
+        // to verify the exception propagates with the right status code so the CLI
+        // can surface it (improving the message is a follow-up).
+        var handler = new MockHttpMessageHandler();
+        handler.When(HttpMethod.Delete, $"{OrgPath}/workflows/43/steps/121")
+               .Respond(HttpStatusCode.InternalServerError, "application/json",
+                   """{"error":"An error occurred while saving the entity changes."}""");
+
+        var act = async () => await BuildClient(handler).DeleteWorkflowStepAsync(43, 121);
+        await act.Should().ThrowAsync<AnythinkException>().Where(ex => ex.StatusCode == 500);
+    }
+
     // ── Fields – Update ───────────────────────────────────────────────────────
 
     [Fact]
