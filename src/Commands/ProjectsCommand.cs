@@ -280,17 +280,17 @@ public class ProjectsUseCommand : BasePlatformCommand<ProjectsUseSettings>
                 return 1;
             }
 
-            var platform = ResolvePlatform();
-            var baseUrl = match.ApiUrl?.TrimEnd('/') ?? platform.MyAnythinkUrl;
+            var (platformKey, platform) = ResolvePlatformContext();
+            var baseUrl    = match.ApiUrl?.TrimEnd('/') ?? platform.MyAnythinkUrl;
             var profileKey = match.Name.ToLower().Replace(" ", "-");
 
-            // Save profile — no AccessToken yet if no API key provided
             var profile = new CliProfile
             {
-                OrgId = match.TenantId.Value.ToString(),
-                ApiKey = settings.ApiKey,
+                OrgId          = match.TenantId.Value.ToString(),
+                ApiKey         = settings.ApiKey,
                 InstanceApiUrl = baseUrl,
-                Alias = match.Name
+                Alias          = match.Name,
+                PlatformKey    = platformKey,
             };
             ConfigService.SaveProfile(profileKey, profile);
             ConfigService.SetDefault(profileKey);
