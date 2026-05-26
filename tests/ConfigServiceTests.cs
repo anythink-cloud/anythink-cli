@@ -36,7 +36,8 @@ public class ConfigServiceTests : IDisposable
         config.Should().NotBeNull();
         config.Profiles.Should().BeEmpty();
         config.DefaultProfile.Should().BeEmpty();
-        config.Platform?.Token.Should().BeNull(); // Platform is initialised with defaults but has no token
+        config.Platforms.Should().BeEmpty();    // Fresh config has no platform sessions yet
+        config.ActivePlatform.Should().Be("production"); // Default key
     }
 
     // ── Save + Load round-trip ────────────────────────────────────────────────
