@@ -267,6 +267,20 @@ app.Configure(config =>
         wf.AddCommand<WorkflowsExportCommand>("export")
             .WithDescription("Export an existing workflow to JSON (round-trippable with seed)")
             .WithExample("workflows", "export", "31", "--output", "workflow.json");
+
+        wf.AddCommand<WorkflowsFileHandlerAddCommand>("file-handler-add")
+            .WithDescription("Add a FileHandler step with named flags (no hand-written params JSON)")
+            .WithExample("workflows", "file-handler-add", "31", "fetch_photo",
+                "--operation", "fetch_and_link",
+                "--source-url", "{{ $anythink.steps.fetch_detail.data.images[0].uri }}",
+                "--entity", "artists",
+                "--record-id", "{{ $anythink.trigger.id }}",
+                "--field", "primary_image",
+                "--is-public",
+                "--enabled");
+
+        wf.AddCommand<WorkflowsFileHandlerExampleCommand>("file-handler-example")
+            .WithDescription("Print a copy-paste-ready FileHandler params JSON");
     });
 
     // ── Data ──────────────────────────────────────────────────────────────────
