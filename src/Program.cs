@@ -183,6 +183,10 @@ app.Configure(config =>
             .WithDescription("List fields on an entity")
             .WithExample("fields", "list", "customers");
 
+        fields.AddCommand<FieldsGetCommand>("get")
+            .WithDescription("Get the full definition of one field (including relationship config)")
+            .WithExample("fields", "get", "artists", "members");
+
         fields.AddCommand<FieldsAddCommand>("add")
             .WithDescription("Add a field to an entity")
             .WithExample("fields", "add", "customers", "email", "--type", "varchar", "--unique", "--required");

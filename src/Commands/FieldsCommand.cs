@@ -66,6 +66,62 @@ public class FieldsListCommand : BaseCommand<FieldsEntitySettings>
     }
 }
 
+// ── fields get ────────────────────────────────────────────────────────────────
+
+public class FieldsGetSettings : CommandSettings
+{
+    [CommandArgument(0, "<ENTITY>")]
+    [Description("Entity name")]
+    public string Entity { get; set; } = "";
+
+    [CommandArgument(1, "<FIELD_NAME>")]
+    [Description("Field name")]
+    public string FieldName { get; set; } = "";
+}
+
+public class FieldsGetCommand : BaseCommand<FieldsGetSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, FieldsGetSettings settings)
+    {
+        try
+        {
+            var client = GetClient();
+            List<Field> fields = [];
+
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync($"Fetching field '{settings.FieldName}' on '{settings.Entity}'...", async _ =>
+                {
+                    fields = await client.GetFieldsAsync(settings.Entity);
+                });
+
+            var field = fields.FirstOrDefault(f =>
+                string.Equals(f.Name, settings.FieldName, StringComparison.OrdinalIgnoreCase));
+
+            if (field is null)
+            {
+                Renderer.Error($"Field '{settings.FieldName}' not found on entity '{settings.Entity}'.");
+                return 1;
+            }
+
+            var json = System.Text.Json.JsonSerializer.Serialize(field, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true,
+                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never,
+            });
+
+            Renderer.Header($"{settings.Entity} → {field.Name}");
+            AnsiConsole.WriteLine(json);
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return 1;
+        }
+    }
+}
+
 // ── fields add ────────────────────────────────────────────────────────────────
 
 public class FieldAddSettings : CommandSettings
