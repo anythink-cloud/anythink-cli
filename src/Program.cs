@@ -254,6 +254,15 @@ app.Configure(config =>
         wf.AddCommand<WorkflowsStepDeleteCommand>("step-delete")
             .WithDescription("Delete a step from a workflow (warns if other steps link to it)")
             .WithExample("workflows", "step-delete", "31", "8", "--yes");
+
+        wf.AddCommand<WorkflowsSeedCommand>("seed")
+            .WithDescription("Create a workflow and its steps from a JSON file")
+            .WithExample("workflows", "seed", "workflow.json",
+                "--var", "connection_id=abc-123");
+
+        wf.AddCommand<WorkflowsExportCommand>("export")
+            .WithDescription("Export an existing workflow to JSON (round-trippable with seed)")
+            .WithExample("workflows", "export", "31", "--output", "workflow.json");
     });
 
     // ── Data ──────────────────────────────────────────────────────────────────
