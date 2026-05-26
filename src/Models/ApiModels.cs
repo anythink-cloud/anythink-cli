@@ -178,7 +178,8 @@ public record UpdateWorkflowStepLinksRequest(
 // Used internally to avoid C# 'event' keyword conflict in anonymous types
 public record EventWorkflowOptions(
     [property: JsonPropertyName("event")] string Event,
-    [property: JsonPropertyName("event_entity")] string EventEntity
+    [property: JsonPropertyName("event_entity")] string EventEntity,
+    [property: JsonPropertyName("filter")] System.Text.Json.JsonElement? Filter = null
 );
 
 // ── API Keys ─────────────────────────────────────────────────────────────────
@@ -195,9 +196,9 @@ public record ApiKeyResponse(
 );
 
 public record CreateApiKeyRequest(
-    [property: JsonPropertyName("name")]            string    Name,
-    [property: JsonPropertyName("expiresInDays")]   int       ExpiresInDays,
-    [property: JsonPropertyName("permissionIds")]   List<int> PermissionIds
+    [property: JsonPropertyName("name")]              string    Name,
+    [property: JsonPropertyName("expires_in_days")]   int       ExpiresInDays,
+    [property: JsonPropertyName("permission_ids")]    List<int> PermissionIds
 );
 
 // ── Integrations ─────────────────────────────────────────────────────────────
@@ -292,6 +293,20 @@ public record PaginatedResult<T>(
     [property: JsonPropertyName("has_next_page")] bool HasNextPage,
     [property: JsonPropertyName("page")] int? Page,
     [property: JsonPropertyName("page_size")] int? PageSize
+);
+
+// ── Search ───────────────────────────────────────────────────────────────────
+
+public record SearchResult(
+    [property: JsonPropertyName("items")]               List<System.Text.Json.Nodes.JsonObject> Items,
+    [property: JsonPropertyName("page")]                int                                     Page,
+    [property: JsonPropertyName("page_size")]           int                                     PageSize,
+    [property: JsonPropertyName("total_items")]         int                                     TotalItems,
+    [property: JsonPropertyName("total_pages")]         int                                     TotalPages,
+    [property: JsonPropertyName("has_next_page")]       bool                                    HasNextPage,
+    [property: JsonPropertyName("has_previous_page")]   bool                                    HasPreviousPage,
+    [property: JsonPropertyName("retrieval_time")]      int?                                    RetrievalTime,
+    [property: JsonPropertyName("facet_distribution")]  System.Text.Json.JsonElement?           FacetDistribution
 );
 
 // ── Users ────────────────────────────────────────────────────────────────────

@@ -183,6 +183,10 @@ app.Configure(config =>
             .WithDescription("List fields on an entity")
             .WithExample("fields", "list", "customers");
 
+        fields.AddCommand<FieldsGetCommand>("get")
+            .WithDescription("Get the full definition of one field (including relationship config)")
+            .WithExample("fields", "get", "artists", "members");
+
         fields.AddCommand<FieldsAddCommand>("add")
             .WithDescription("Add a field to an entity")
             .WithExample("fields", "add", "customers", "email", "--type", "varchar", "--unique", "--required");
@@ -255,6 +259,15 @@ app.Configure(config =>
             .WithDescription("Delete a step from a workflow (warns if other steps link to it)")
             .WithExample("workflows", "step-delete", "31", "8", "--yes");
 
+        wf.AddCommand<WorkflowsSeedCommand>("seed")
+            .WithDescription("Create a workflow and its steps from a JSON file")
+            .WithExample("workflows", "seed", "workflow.json",
+                "--var", "connection_id=abc-123");
+
+        wf.AddCommand<WorkflowsExportCommand>("export")
+            .WithDescription("Export an existing workflow to JSON (round-trippable with seed)")
+            .WithExample("workflows", "export", "31", "--output", "workflow.json");
+
         wf.AddCommand<WorkflowsFileHandlerAddCommand>("file-handler-add")
             .WithDescription("Add a FileHandler step with named flags (no hand-written params JSON)")
             .WithExample("workflows", "file-handler-add", "31", "fetch_photo",
@@ -303,6 +316,37 @@ app.Configure(config =>
     });
 
     // ── Users ─────────────────────────────────────────────────────────────────
+
+    // ── Search ────────────────────────────────────────────────────────────────
+
+    config.AddBranch("search", search =>
+    {
+        search.SetDescription("Full-text search and index management");
+
+        search.AddCommand<SearchQueryCommand>("query")
+            .WithDescription("Run a search query")
+            .WithExample("search", "query", "anythink")
+            .WithExample("search", "query", "*", "--entities", "posts,users", "--filter", "status=published")
+            .WithExample("search", "query", "*", "--public", "--limit", "5");
+
+        search.AddCommand<SearchSimilarCommand>("similar")
+            .WithDescription("Find documents similar to a given record (vector search)")
+            .WithExample("search", "similar", "posts", "42");
+
+        search.AddCommand<SearchRehydrateCommand>("rehydrate")
+            .WithDescription("Rehydrate the search index. Omit ENTITY to rehydrate everything (admin only).")
+            .WithExample("search", "rehydrate", "posts")
+            .WithExample("search", "rehydrate", "--yes");
+
+        search.AddCommand<SearchPurgeCommand>("purge")
+            .WithDescription("Purge the search index. Omit ENTITY to purge everything (admin only).")
+            .WithExample("search", "purge", "posts", "--yes");
+
+        search.AddCommand<SearchAuditCommand>("audit")
+            .WithDescription("Compare configured public-searchable fields vs what public search actually returns. Flags any data leaks.")
+            .WithExample("search", "audit", "posts")
+            .WithExample("search", "audit", "users", "--sample", "10");
+    });
 
     config.AddBranch("users", users =>
     {
