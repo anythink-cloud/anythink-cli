@@ -236,7 +236,12 @@ public class WorkflowsStepGetCommand : BaseCommand<WorkflowStepGetSettings>
             AnsiConsole.WriteLine();
             AnsiConsole.MarkupLine("[bold]Parameters:[/]");
             if (step.Parameters.HasValue)
-                Renderer.PrintJson(step.Parameters.Value.GetRawText());
+            {
+                if (step.Action == "FileHandler")
+                    FileHandlerParamsRenderer.Render(step.Parameters.Value);
+                else
+                    Renderer.PrintJson(step.Parameters.Value.GetRawText());
+            }
             else
                 AnsiConsole.MarkupLine("[dim]  (none)[/]");
 
@@ -247,6 +252,47 @@ public class WorkflowsStepGetCommand : BaseCommand<WorkflowStepGetSettings>
             HandleError(ex);
             return 1;
         }
+    }
+}
+
+static class FileHandlerParamsRenderer
+{
+    public static void Render(System.Text.Json.JsonElement parameters)
+    {
+        if (parameters.ValueKind != System.Text.Json.JsonValueKind.Object)
+        {
+            Renderer.PrintJson(parameters.GetRawText());
+            return;
+        }
+
+        void Row(string label, string key)
+        {
+            if (parameters.TryGetProperty(key, out var v)
+                && v.ValueKind != System.Text.Json.JsonValueKind.Null
+                && v.ValueKind != System.Text.Json.JsonValueKind.Undefined)
+            {
+                var text = v.ValueKind switch
+                {
+                    System.Text.Json.JsonValueKind.String => v.GetString() ?? "",
+                    System.Text.Json.JsonValueKind.True => "true",
+                    System.Text.Json.JsonValueKind.False => "false",
+                    _ => v.GetRawText()
+                };
+                Renderer.KeyValue(label, text);
+            }
+        }
+
+        Row("Operation", "operation");
+        Row("Source URL", "source_url");
+        Row("Entity", "entity_name");
+        Row("Record ID", "record_id");
+        Row("Field", "field_name");
+        Row("File Name", "file_name");
+        Row("Folder ID", "folder_id");
+        Row("Existing File ID", "existing_file_id");
+        Row("Is Public", "is_public");
+        Row("Link Mode", "link_mode");
+        Row("Overwrite", "overwrite_if_present");
     }
 }
 
@@ -953,5 +999,238 @@ public class WorkflowsStepDeleteCommand : BaseCommand<WorkflowStepDeleteSettings
         if (link.OnSuccessStepId == targetId) via.Add("on_success");
         if (link.OnFailureStepId == targetId) via.Add("on_failure");
         return string.Join(" + ", via);
+    }
+}
+
+// ── workflows file-handler-add ────────────────────────────────────────────────
+
+public class WorkflowFileHandlerAddSettings : CommandSettings
+{
+    [CommandArgument(0, "<WORKFLOW_ID>")]
+    [Description("Workflow ID")]
+    public int WorkflowId { get; set; }
+
+    [CommandArgument(1, "<STEP_KEY>")]
+    [Description("Step key (unique identifier, snake_case)")]
+    public string Key { get; set; } = "";
+
+    [CommandOption("--operation <OP>")]
+    [Description("FileHandler operation: fetch_and_link, link_existing, detach")]
+    public string Operation { get; set; } = "fetch_and_link";
+
+    [CommandOption("--source-url <URL>")]
+    [Description("URL to fetch the file from (required for fetch_and_link; supports templating)")]
+    public string? SourceUrl { get; set; }
+
+    [CommandOption("--file-name <NAME>")]
+    [Description("Filename to store the uploaded file as (templatable)")]
+    public string? FileName { get; set; }
+
+    [CommandOption("--entity <NAME>")]
+    [Description("Target entity name (required)")]
+    public string? Entity { get; set; }
+
+    [CommandOption("--record-id <TEMPLATE>")]
+    [Description("Target record ID, typically '{{ $anythink.trigger.id }}' (required)")]
+    public string? RecordId { get; set; }
+
+    [CommandOption("--field <NAME>")]
+    [Description("Field name on the record to link the file to (required, snake_case)")]
+    public string? Field { get; set; }
+
+    [CommandOption("--folder-id <TEMPLATE>")]
+    [Description("Folder ID to upload the file into (optional, templatable)")]
+    public string? FolderId { get; set; }
+
+    [CommandOption("--is-public")]
+    [Description("Mark the uploaded file as public")]
+    public bool IsPublic { get; set; }
+
+    [CommandOption("--link-mode <MODE>")]
+    [Description("How to link to the field: set (single value) or add (append to multi-value). Default: set")]
+    public string LinkMode { get; set; } = "set";
+
+    [CommandOption("--existing-file-id <TEMPLATE>")]
+    [Description("Existing file ID (required for link_existing operation; templatable)")]
+    public string? ExistingFileId { get; set; }
+
+    [CommandOption("--overwrite-if-present")]
+    [Description("Re-process even if the field already has a value (idempotency override)")]
+    public bool OverwriteIfPresent { get; set; }
+
+    [CommandOption("--name <NAME>")]
+    [Description("Step display name (defaults to the step key)")]
+    public string? Name { get; set; }
+
+    [CommandOption("--start")]
+    [Description("Set as start step")]
+    public bool IsStartStep { get; set; }
+
+    [CommandOption("--enabled")]
+    [Description("Enable step immediately")]
+    public bool Enabled { get; set; }
+
+    [CommandOption("--on-success <STEP_ID>")]
+    [Description("Step ID to execute on success")]
+    public int? OnSuccessStepId { get; set; }
+
+    [CommandOption("--on-failure <STEP_ID>")]
+    [Description("Step ID to execute on failure")]
+    public int? OnFailureStepId { get; set; }
+}
+
+public class WorkflowsFileHandlerAddCommand : BaseCommand<WorkflowFileHandlerAddSettings>
+{
+    static readonly HashSet<string> ValidOperations = new(StringComparer.Ordinal)
+    {
+        "fetch_and_link", "link_existing", "detach"
+    };
+
+    static readonly HashSet<string> ValidLinkModes = new(StringComparer.Ordinal)
+    {
+        "set", "add"
+    };
+
+    public override async Task<int> ExecuteAsync(CommandContext context, WorkflowFileHandlerAddSettings settings)
+    {
+        if (!ValidOperations.Contains(settings.Operation))
+        {
+            Renderer.Error($"--operation must be one of: fetch_and_link, link_existing, detach (got '{settings.Operation}').");
+            return 1;
+        }
+
+        if (!ValidLinkModes.Contains(settings.LinkMode))
+        {
+            Renderer.Error($"--link-mode must be 'set' or 'add' (got '{settings.LinkMode}').");
+            return 1;
+        }
+
+        if (string.IsNullOrWhiteSpace(settings.Entity))
+        {
+            Renderer.Error("--entity is required.");
+            return 1;
+        }
+        if (string.IsNullOrWhiteSpace(settings.RecordId))
+        {
+            Renderer.Error("--record-id is required.");
+            return 1;
+        }
+        if (string.IsNullOrWhiteSpace(settings.Field))
+        {
+            Renderer.Error("--field is required.");
+            return 1;
+        }
+
+        if (settings.Operation == "fetch_and_link" && string.IsNullOrWhiteSpace(settings.SourceUrl))
+        {
+            Renderer.Error("--source-url is required when --operation is fetch_and_link.");
+            return 1;
+        }
+        if (settings.Operation == "link_existing" && string.IsNullOrWhiteSpace(settings.ExistingFileId))
+        {
+            Renderer.Error("--existing-file-id is required when --operation is link_existing.");
+            return 1;
+        }
+
+        var paramsDict = new Dictionary<string, object?>
+        {
+            ["operation"] = settings.Operation,
+            ["entity_name"] = settings.Entity,
+            ["record_id"] = settings.RecordId,
+            ["field_name"] = settings.Field,
+            ["link_mode"] = settings.LinkMode,
+        };
+
+        if (!string.IsNullOrEmpty(settings.SourceUrl))
+            paramsDict["source_url"] = settings.SourceUrl;
+        if (!string.IsNullOrEmpty(settings.FileName))
+            paramsDict["file_name"] = settings.FileName;
+        if (!string.IsNullOrEmpty(settings.FolderId))
+            paramsDict["folder_id"] = settings.FolderId;
+        if (!string.IsNullOrEmpty(settings.ExistingFileId))
+            paramsDict["existing_file_id"] = settings.ExistingFileId;
+        if (settings.IsPublic)
+            paramsDict["is_public"] = true;
+        if (settings.OverwriteIfPresent)
+            paramsDict["overwrite_if_present"] = true;
+
+        var paramsJson = System.Text.Json.JsonSerializer.Serialize(paramsDict);
+        var parameters = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(paramsJson);
+
+        try
+        {
+            var client = GetClient();
+            WorkflowStep? step = null;
+
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync($"Adding FileHandler step '{settings.Key}'...", async _ =>
+                {
+                    step = await client.AddWorkflowStepAsync(settings.WorkflowId,
+                        new CreateWorkflowStepRequest(
+                            settings.Key,
+                            settings.Name ?? settings.Key,
+                            "FileHandler",
+                            settings.Enabled,
+                            settings.IsStartStep,
+                            null,
+                            parameters
+                        ));
+                });
+
+            if (settings.OnSuccessStepId.HasValue || settings.OnFailureStepId.HasValue)
+            {
+                await AnsiConsole.Status()
+                    .Spinner(Spinner.Known.Dots)
+                    .StartAsync($"Linking step {step!.Id}...", async _ =>
+                    {
+                        var body = new Dictionary<string, object?>
+                        {
+                            ["name"] = step.Name,
+                            ["action"] = step.Action,
+                            ["enabled"] = step.Enabled,
+                            ["is_start_step"] = step.IsStartStep,
+                            ["on_success_step_id"] = settings.OnSuccessStepId,
+                            ["on_failure_step_id"] = settings.OnFailureStepId,
+                            ["parameters"] = parameters,
+                        };
+                        await client.UpdateWorkflowStepFullAsync(settings.WorkflowId, step.Id, body);
+                    });
+            }
+
+            Renderer.Success($"Step [#F97316]{Markup.Escape(step!.Key)}[/] (id: {step.Id}) added to workflow {settings.WorkflowId}.");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return 1;
+        }
+    }
+}
+
+// ── workflows file-handler-example ────────────────────────────────────────────
+
+public class WorkflowsFileHandlerExampleCommand : BaseCommand<EmptySettings>
+{
+    public override Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
+    {
+        var example = new Dictionary<string, object?>
+        {
+            ["operation"] = "fetch_and_link",
+            ["source_url"] = "{{ $anythink.steps.fetch_detail.data.images[0].uri }}",
+            ["entity_name"] = "artists",
+            ["record_id"] = "{{ $anythink.trigger.id }}",
+            ["field_name"] = "primary_image",
+            ["file_name"] = "{{ $anythink.trigger.data.name }}",
+            ["folder_id"] = "{{ $anythink.secrets.artist_photos_folder }}",
+            ["is_public"] = true,
+            ["link_mode"] = "set",
+            ["overwrite_if_present"] = true,
+        };
+        var json = System.Text.Json.JsonSerializer.Serialize(example,
+            new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        Renderer.PrintJson(json);
+        return Task.FromResult(0);
     }
 }
