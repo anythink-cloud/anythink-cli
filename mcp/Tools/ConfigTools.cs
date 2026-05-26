@@ -22,18 +22,26 @@ public class ConfigTools
             IsActive = kv.Key == config.DefaultProfile,
             OrgId = kv.Value.OrgId,
             Auth = !string.IsNullOrEmpty(kv.Value.ApiKey) ? "api-key" : "token",
-            Alias = kv.Value.Alias
+            Alias = kv.Value.Alias,
+            PlatformKey = kv.Value.PlatformKey,
+        });
+
+        var platforms = config.Platforms.Select(kv => new
+        {
+            Key = kv.Key,
+            IsActive = kv.Key == config.ActivePlatform,
+            kv.Value.MyAnythinkUrl,
+            kv.Value.BillingUrl,
+            kv.Value.AccountId,
+            LoggedIn = !kv.Value.IsTokenExpired,
         });
 
         return Task.FromResult(JsonSerializer.Serialize(new
         {
-            ActiveProfile = config.DefaultProfile,
-            Profiles = profiles,
-            Platform = config.Platform is not null ? new
-            {
-                config.Platform.AccountId,
-                LoggedIn = !config.Platform.IsTokenExpired
-            } : null
+            ActiveProfile  = config.DefaultProfile,
+            ActivePlatform = config.ActivePlatform,
+            Profiles       = profiles,
+            Platforms      = platforms,
         }));
     }
 

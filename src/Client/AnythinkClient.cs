@@ -12,12 +12,35 @@ public class AnythinkClient : HttpApiClient
     public  string BaseUrl { get; }
     private string _org;
 
+    /// <summary>
+    /// Best-guess dashboard URL derived from the API URL. We assume the standard
+    /// cloud convention of "api.{host}" → "{host}". For non-standard setups the
+    /// caller should override this via --dashboard-url.
+    /// </summary>
+    public string DashboardUrl => BaseUrl.Replace("://api.", "://");
+
+    /// <summary>
+    /// Where the dashboard hosts the generic integrations OAuth callback. The
+    /// same URL is used for every provider — the dashboard differentiates by
+    /// state. Users add this to the OAuth app's "redirect URLs" list.
+    /// </summary>
+    public string IntegrationsCallbackUrl => $"{DashboardUrl}/org/{OrgId}/settings/integrations/callback";
+
+    /// <summary>
+    /// HttpClient with no auth headers, for genuinely anonymous calls (e.g. /search/public).
+    /// Without this, the user's bearer token would leak into supposedly-public requests
+    /// and skew the results — defeating the audit's whole purpose. In tests we share the
+    /// mocked client so URL/body assertions still work.
+    /// </summary>
+    private readonly HttpClient _anonymousHttp;
+
     public AnythinkClient(string orgId, string baseUrl, string? token = null, string? apiKey = null)
         : base(token, apiKey)
     {
         OrgId   = orgId;
         BaseUrl = baseUrl.TrimEnd('/');
         _org    = $"{BaseUrl}/org/{OrgId}";
+        _anonymousHttp = new HttpClient();
     }
 
     public AnythinkClient(Profile p) : this(p.OrgId, p.InstanceApiUrl, p.AccessToken, p.ApiKey) { }
@@ -28,6 +51,20 @@ public class AnythinkClient : HttpApiClient
         OrgId   = orgId;
         BaseUrl = baseUrl.TrimEnd('/');
         _org    = $"{BaseUrl}/org/{OrgId}";
+        _anonymousHttp = http;
+    }
+
+    private async Task<T?> GetAnonymousAsync<T>(string url)
+    {
+        var response = await _anonymousHttp.GetAsync(url);
+        var raw = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+            throw new AnythinkException(raw, (int)response.StatusCode);
+        if (string.IsNullOrWhiteSpace(raw)) return default;
+        return JsonSerializer.Deserialize<T>(raw, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
     }
 
     // ── Raw fetch (for CLI `fetch` command) ────────────────────────────────────
@@ -105,6 +142,9 @@ public class AnythinkClient : HttpApiClient
         => PostAsync<JsonObject>(_org + $"/workflows/{id}/trigger", payload ?? new { });
 
     public Task DeleteWorkflowAsync(int id) => DeleteAsync(_org + $"/workflows/{id}");
+
+    public Task DeleteWorkflowStepAsync(int workflowId, int stepId)
+        => DeleteAsync(_org + $"/workflows/{workflowId}/steps/{stepId}");
 
     public async Task<PaginatedResult<WorkflowJob>> GetWorkflowJobsAsync(int workflowId, int page = 1, int pageSize = 10)
         => (await GetAsync<PaginatedResult<WorkflowJob>>(_org + $"/workflows/{workflowId}/jobs?page={page}&pageSize={pageSize}"))
@@ -269,9 +309,95 @@ public class AnythinkClient : HttpApiClient
 
     public async Task<List<Permission>> GetPermissionsAsync()
         => (await GetAsync<List<Permission>>(_org + "/permissions")) ?? [];
-
+        
     public Task<RoleResponse?> UpdateRoleWithPermissionsAsync(int roleId, UpdateRolePermissionsRequest req)
         => PutAsync<RoleResponse>(_org + $"/roles/{roleId}", req);
+
+    // ── Search ────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Run a search. When isPublic=true the request is sent anonymously (no bearer
+    /// token) — matters for the audit use case, otherwise the response would reflect
+    /// what the authenticated user can see, not what an unauthenticated visitor sees.
+    /// Caller assembles the query-string parameters externally.
+    /// </summary>
+    public async Task<SearchResult> SearchAsync(string queryString, bool isPublic = false)
+    {
+        var path = isPublic ? "/search/public" : "/search";
+        var url = _org + path + (string.IsNullOrEmpty(queryString) ? "" : "?" + queryString);
+        var result = isPublic
+            ? await GetAnonymousAsync<SearchResult>(url)
+            : await GetAsync<SearchResult>(url);
+        return result ?? new SearchResult([], 1, 0, 0, 0, false, false, null, null);
+    }
+
+    public async Task<List<JsonObject>> SearchSimilarAsync(string entityName, int id, int limit = 10, bool isPublic = false)
+    {
+        var path = isPublic ? "/search/public/similar" : "/search/similar";
+        var url = _org + path + $"?e={Uri.EscapeDataString(entityName)}&id={id}&limit={limit}";
+        var result = isPublic
+            ? await GetAnonymousAsync<List<JsonObject>>(url)
+            : await GetAsync<List<JsonObject>>(url);
+        return result ?? [];
+    }
+
+    public Task RehydrateSearchIndexAsync(string? entityName = null)
+        => PostVoidAsync(_org + "/search/rehydrate" + (string.IsNullOrEmpty(entityName) ? "" : $"/{entityName}"));
+
+    public Task PurgeSearchIndexAsync(string? entityName = null)
+        => DeleteAsync(_org + "/search/purge" + (string.IsNullOrEmpty(entityName) ? "" : $"/{entityName}"));
+    // ── API Keys ──────────────────────────────────────────────────────────────
+
+    public async Task<List<ApiKeyResponse>> GetApiKeysAsync()
+        => (await GetAsync<List<ApiKeyResponse>>(_org + "/api-keys")) ?? [];
+
+    public Task<ApiKeyResponse> CreateApiKeyAsync(CreateApiKeyRequest req)
+        => PostAsync<ApiKeyResponse>(_org + "/api-keys", req);
+
+    public Task RevokeApiKeyAsync(int apiKeyId)
+        => DeleteAsync(_org + $"/api-keys/{apiKeyId}");
+
+    // ── Integrations ──────────────────────────────────────────────────────────
+
+    public async Task<List<IntegrationDefinition>> GetIntegrationDefinitionsAsync()
+        => (await GetAsync<List<IntegrationDefinition>>(_org + "/integrations/definitions")) ?? [];
+
+    public async Task<IntegrationDefinition?> GetIntegrationDefinitionAsync(string provider)
+        => await GetAsync<IntegrationDefinition>(_org + $"/integrations/definitions/{provider}");
+
+    public async Task<List<IntegrationConnection>> GetIntegrationConnectionsAsync()
+        => (await GetAsync<List<IntegrationConnection>>(_org + "/integrations/connections")) ?? [];
+
+    public async Task<List<IntegrationConnection>> GetIntegrationConnectionsForProviderAsync(string provider)
+        => (await GetAsync<List<IntegrationConnection>>(_org + $"/integrations/definitions/{provider}/connections")) ?? [];
+
+    public Task<IntegrationConnection> CreateApiKeyConnectionAsync(CreateApiKeyConnectionRequest req)
+        => PostAsync<IntegrationConnection>(_org + "/integrations/connections/api-key", req);
+
+    public Task<IntegrationConnection?> UpdateIntegrationConnectionAsync(string connectionId, UpdateConnectionRequest req)
+        => PutAsync<IntegrationConnection>(_org + $"/integrations/connections/{connectionId}", req);
+
+    public Task DeleteIntegrationConnectionAsync(string connectionId)
+        => DeleteAsync(_org + $"/integrations/connections/{connectionId}");
+
+    public Task<TestConnectionResult> TestIntegrationConnectionAsync(string connectionId)
+        => PostAsync<TestConnectionResult>(_org + $"/integrations/connections/{connectionId}/test");
+
+    public Task<IntegrationOAuthSettings?> GetIntegrationOAuthSettingsAsync(string provider)
+        => GetAsync<IntegrationOAuthSettings>(_org + $"/integrations/definitions/{provider}/oauth");
+
+    public Task SetIntegrationOAuthSettingsAsync(string provider, SetOAuthSettingsRequest req)
+        => PutVoidAsync(_org + $"/integrations/definitions/{provider}/oauth", req);
+
+    public async Task<OAuthUrlResponse> GetIntegrationOAuthUrlAsync(string provider, string redirectUri)
+        => (await GetAsync<OAuthUrlResponse>(_org + $"/integrations/definitions/{provider}/oauth-url?redirectUri={Uri.EscapeDataString(redirectUri)}"))
+            ?? throw new AnythinkException("OAuth URL endpoint returned no response.", 0);
+
+    public Task<IntegrationConnection> CreateOAuthConnectionAsync(CreateConnectionRequest req)
+        => PostAsync<IntegrationConnection>(_org + "/integrations/connections", req);
+
+    public Task<JsonObject> ExecuteIntegrationAsync(string provider, ExecuteIntegrationRequest req)
+        => PostAsync<JsonObject>(_org + $"/integrations/definitions/{provider}/execute", req);
 
     // ── Pay ───────────────────────────────────────────────────────────────────
 

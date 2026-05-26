@@ -66,6 +66,62 @@ public class FieldsListCommand : BaseCommand<FieldsEntitySettings>
     }
 }
 
+// ── fields get ────────────────────────────────────────────────────────────────
+
+public class FieldsGetSettings : CommandSettings
+{
+    [CommandArgument(0, "<ENTITY>")]
+    [Description("Entity name")]
+    public string Entity { get; set; } = "";
+
+    [CommandArgument(1, "<FIELD_NAME>")]
+    [Description("Field name")]
+    public string FieldName { get; set; } = "";
+}
+
+public class FieldsGetCommand : BaseCommand<FieldsGetSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, FieldsGetSettings settings)
+    {
+        try
+        {
+            var client = GetClient();
+            List<Field> fields = [];
+
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync($"Fetching field '{settings.FieldName}' on '{settings.Entity}'...", async _ =>
+                {
+                    fields = await client.GetFieldsAsync(settings.Entity);
+                });
+
+            var field = fields.FirstOrDefault(f =>
+                string.Equals(f.Name, settings.FieldName, StringComparison.OrdinalIgnoreCase));
+
+            if (field is null)
+            {
+                Renderer.Error($"Field '{settings.FieldName}' not found on entity '{settings.Entity}'.");
+                return 1;
+            }
+
+            var json = System.Text.Json.JsonSerializer.Serialize(field, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true,
+                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never,
+            });
+
+            Renderer.Header($"{settings.Entity} → {field.Name}");
+            AnsiConsole.WriteLine(json);
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return 1;
+        }
+    }
+}
+
 // ── fields add ────────────────────────────────────────────────────────────────
 
 public class FieldAddSettings : CommandSettings
@@ -127,8 +183,46 @@ public class FieldAddSettings : CommandSettings
     public string? TargetEntity { get; set; }
 
     [CommandOption("--on-delete <ACTION>")]
-    [Description("Deletion behavior: CASCADE, SET_NULL, SET_DEFAULT, RESTRICT (default: CASCADE)")]
+    [Description("Deletion behavior: CASCADE, SET NULL, SET DEFAULT, RESTRICT (default: CASCADE). Underscores are accepted (SET_NULL, SET_DEFAULT) and normalised.")]
     public string? OnDelete { get; set; }
+
+    [CommandOption("--options <OPTIONS>")]
+    [Description("Comma-separated option list for select display, e.g. \"Running,Cycling,Rugby\". Use label=value to split, e.g. \"Running=running,Cycling=cycling\"")]
+    public string? Options { get; set; }
+
+    [CommandOption("--multiple")]
+    [Description("Allow multiple values on a select field")]
+    public bool Multiple { get; set; }
+}
+
+internal static class SelectOptionsParser
+{
+    public static List<SelectOption> Parse(string raw)
+    {
+        return raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(item =>
+            {
+                var eq = item.IndexOf('=');
+                if (eq < 0) return new SelectOption(item, item);
+                return new SelectOption(item[..eq].Trim(), item[(eq + 1)..].Trim());
+            })
+            .ToList();
+    }
+}
+
+internal static class FieldHelpers
+{
+    // API expects "SET NULL" / "SET DEFAULT" with spaces; accept underscored aliases.
+    public static string NormalizeOnDelete(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return "CASCADE";
+        var v = raw.Trim().ToUpperInvariant().Replace('_', ' ');
+        return v switch
+        {
+            "SET NULL" or "SET DEFAULT" or "CASCADE" or "RESTRICT" => v,
+            _ => raw,
+        };
+    }
 }
 
 public class FieldsAddCommand : BaseCommand<FieldAddSettings>
@@ -178,27 +272,24 @@ public class FieldsAddCommand : BaseCommand<FieldAddSettings>
         var displayType = settings.DisplayType
             ?? DefaultDisplay.GetValueOrDefault(dbType, "input");
 
-        // Build relationship JSON if --target is provided or if type is relational.
-        // The "user" type is a special relation to the internal auth users entity.
         System.Text.Json.JsonElement? relationship = null;
-        var isRelational = dbType is "many-to-one" or "one-to-many" or "many-to-many" or "one-to-one";
-        var isUserType = dbType is "user";
+        var isRelational     = dbType is "many-to-one" or "one-to-many" or "many-to-many" or "one-to-one";
+        var isSystemRelation = dbType is "user" or "file";
 
-        if (isRelational || isUserType)
+        if (isRelational || isSystemRelation)
         {
-            var client = GetClient();
-            var onDelete = settings.OnDelete ?? "CASCADE";
+            var onDelete = FieldHelpers.NormalizeOnDelete(settings.OnDelete);
 
-            if (isUserType)
+            if (isSystemRelation)
             {
-                // "user" fields always target the internal auth users entity.
-                // Resolve its entity id by fetching the "users" system entity.
-                var usersEntity = await client.GetEntityAsync("users");
-                var relJson = $@"{{""target_entity_id"":{usersEntity.Id},""on_deletion"":""{onDelete}""}}";
+                // user / file fields only need on_deletion — Anythink fills
+                // the target entity itself (anythink_users / anythink_files).
+                var relJson = $@"{{""on_deletion"":""{onDelete}""}}";
                 relationship = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(relJson);
             }
             else
             {
+                var client = GetClient();
                 var targetName = settings.TargetEntity;
                 if (string.IsNullOrEmpty(targetName))
                     targetName = AnsiConsole.Ask<string>("[#F97316]Target entity name:[/]");
@@ -218,6 +309,16 @@ public class FieldsAddCommand : BaseCommand<FieldAddSettings>
                 .Spinner(Spinner.Known.Dots)
                 .StartAsync($"Adding field '{settings.Name}' to '{settings.Entity}'...", async _ =>
                 {
+                    FieldOptionsRequest? fieldOptions = null;
+                    if (!string.IsNullOrWhiteSpace(settings.Options) || settings.Multiple)
+                    {
+                        var parsed = string.IsNullOrWhiteSpace(settings.Options)
+                            ? null
+                            : SelectOptionsParser.Parse(settings.Options);
+                        fieldOptions = new FieldOptionsRequest(
+                            new SelectFieldOptions(parsed, settings.Multiple));
+                    }
+
                     field = await client.AddFieldAsync(settings.Entity, new CreateFieldRequest(
                         settings.Name,
                         dbType,
@@ -231,7 +332,8 @@ public class FieldsAddCommand : BaseCommand<FieldAddSettings>
                         settings.IsSearchable,
                         settings.PubliclySearchable,
                         settings.IsIndexed,
-                        relationship
+                        relationship,
+                        fieldOptions
                     ));
                 });
 
@@ -305,6 +407,18 @@ public class FieldUpdateSettings : CommandSettings
     [CommandOption("--no-indexed")]
     [Description("Remove database index")]
     public bool NoIndexed { get; set; }
+
+    [CommandOption("--options <OPTIONS>")]
+    [Description("Comma-separated option list for select display, e.g. \"Running,Cycling,Rugby\". Use label=value to split, e.g. \"Running=running,Cycling=cycling\"")]
+    public string? Options { get; set; }
+
+    [CommandOption("--multiple")]
+    [Description("Allow multiple values on a select field")]
+    public bool? Multiple { get; set; }
+
+    [CommandOption("--no-multiple")]
+    [Description("Restrict to a single value on a select field")]
+    public bool NoMultiple { get; set; }
 }
 
 public class FieldsUpdateCommand : BaseCommand<FieldUpdateSettings>
@@ -327,6 +441,23 @@ public class FieldsUpdateCommand : BaseCommand<FieldUpdateSettings>
                     if (field.Locked)
                         throw new Exception($"Field '{settings.FieldName}' is locked and cannot be updated.");
 
+                    FieldOptionsRequest? fieldOptions = null;
+                    var optionsTouched = !string.IsNullOrWhiteSpace(settings.Options)
+                        || settings.Multiple.HasValue
+                        || settings.NoMultiple;
+                    if (optionsTouched)
+                    {
+                        var existing = field.Options?.Select;
+                        var parsed = !string.IsNullOrWhiteSpace(settings.Options)
+                            ? SelectOptionsParser.Parse(settings.Options)
+                            : existing?.Options;
+                        var multiple = settings.NoMultiple
+                            ? false
+                            : (settings.Multiple ?? existing?.Multiple ?? false);
+                        fieldOptions = new FieldOptionsRequest(
+                            new SelectFieldOptions(parsed, multiple));
+                    }
+
                     var req = new UpdateFieldRequest(
                         DisplayType:        settings.DisplayType    ?? field.DisplayType,
                         Label:              settings.Label          ?? field.Label,
@@ -335,7 +466,8 @@ public class FieldsUpdateCommand : BaseCommand<FieldUpdateSettings>
                         IsRequired:         settings.NoRequired     ? false : (settings.IsRequired    ?? field.IsRequired),
                         IsSearchable:       settings.NoSearchable   ? false : (settings.IsSearchable  ?? field.IsSearchable),
                         PubliclySearchable: settings.NoPublic       ? false : (settings.PubliclySearchable ?? field.PubliclySearchable),
-                        IsIndexed:          settings.NoIndexed      ? false : (settings.IsIndexed     ?? field.IsIndexed)
+                        IsIndexed:          settings.NoIndexed      ? false : (settings.IsIndexed     ?? field.IsIndexed),
+                        Options:            fieldOptions
                     );
 
                     updated = await client.UpdateFieldAsync(settings.Entity, field.Id, req);

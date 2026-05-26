@@ -197,6 +197,10 @@ app.Configure(config =>
             .WithDescription("List fields on an entity")
             .WithExample("fields", "list", "customers");
 
+        fields.AddCommand<FieldsGetCommand>("get")
+            .WithDescription("Get the full definition of one field (including relationship config)")
+            .WithExample("fields", "get", "artists", "members");
+
         fields.AddCommand<FieldsAddCommand>("add")
             .WithDescription("Add a field to an entity")
             .WithExample("fields", "add", "customers", "email", "--type", "varchar", "--unique", "--required");
@@ -264,6 +268,19 @@ app.Configure(config =>
         wf.AddCommand<WorkflowsStepLinkCommand>("step-link")
             .WithDescription("Link workflow steps together (set on-success/on-failure)")
             .WithExample("workflows", "step-link", "31", "8", "--on-success", "9");
+
+        wf.AddCommand<WorkflowsStepDeleteCommand>("step-delete")
+            .WithDescription("Delete a step from a workflow (warns if other steps link to it)")
+            .WithExample("workflows", "step-delete", "31", "8", "--yes");
+
+        wf.AddCommand<WorkflowsSeedCommand>("seed")
+            .WithDescription("Create a workflow and its steps from a JSON file")
+            .WithExample("workflows", "seed", "workflow.json",
+                "--var", "connection_id=abc-123");
+
+        wf.AddCommand<WorkflowsExportCommand>("export")
+            .WithDescription("Export an existing workflow to JSON (round-trippable with seed)")
+            .WithExample("workflows", "export", "31", "--output", "workflow.json");
     });
 
     // ── Data ──────────────────────────────────────────────────────────────────
@@ -299,6 +316,37 @@ app.Configure(config =>
     });
 
     // ── Users ─────────────────────────────────────────────────────────────────
+
+    // ── Search ────────────────────────────────────────────────────────────────
+
+    config.AddBranch("search", search =>
+    {
+        search.SetDescription("Full-text search and index management");
+
+        search.AddCommand<SearchQueryCommand>("query")
+            .WithDescription("Run a search query")
+            .WithExample("search", "query", "anythink")
+            .WithExample("search", "query", "*", "--entities", "posts,users", "--filter", "status=published")
+            .WithExample("search", "query", "*", "--public", "--limit", "5");
+
+        search.AddCommand<SearchSimilarCommand>("similar")
+            .WithDescription("Find documents similar to a given record (vector search)")
+            .WithExample("search", "similar", "posts", "42");
+
+        search.AddCommand<SearchRehydrateCommand>("rehydrate")
+            .WithDescription("Rehydrate the search index. Omit ENTITY to rehydrate everything (admin only).")
+            .WithExample("search", "rehydrate", "posts")
+            .WithExample("search", "rehydrate", "--yes");
+
+        search.AddCommand<SearchPurgeCommand>("purge")
+            .WithDescription("Purge the search index. Omit ENTITY to purge everything (admin only).")
+            .WithExample("search", "purge", "posts", "--yes");
+
+        search.AddCommand<SearchAuditCommand>("audit")
+            .WithDescription("Compare configured public-searchable fields vs what public search actually returns. Flags any data leaks.")
+            .WithExample("search", "audit", "posts")
+            .WithExample("search", "audit", "users", "--sample", "10");
+    });
 
     config.AddBranch("users", users =>
     {
@@ -411,6 +459,95 @@ app.Configure(config =>
 
         pay.AddCommand<PayMethodsCommand>("methods")
             .WithDescription("List saved payment methods");
+    });
+
+    // ── API Keys ──────────────────────────────────────────────────────────────
+
+    config.AddBranch("api-keys", apiKeys =>
+    {
+        apiKeys.SetDescription("Manage API keys for programmatic access (CI, scripts, integrations)");
+
+        apiKeys.AddCommand<ApiKeysListCommand>("list")
+            .WithDescription("List API keys for the current user");
+
+        apiKeys.AddCommand<ApiKeysCreateCommand>("create")
+            .WithDescription("Create an API key. The raw key is shown once and never retrievable.")
+            .WithExample("api-keys", "create", "ci-deploy", "--permissions", "data:read,data:create", "--expires-in", "90")
+            .WithExample("api-keys", "create", "scraper", "--permissions", "data:read", "--save-as", "scraper-bot");
+
+        apiKeys.AddCommand<ApiKeysRevokeCommand>("revoke")
+            .WithDescription("Revoke an API key by ID")
+            .WithExample("api-keys", "revoke", "42");
+    });
+
+    // ── Integrations ──────────────────────────────────────────────────────────
+
+    config.AddBranch("integrations", integ =>
+    {
+        integ.SetDescription("Manage integrations (catalog and active connections)");
+
+        integ.AddCommand<IntegrationsListCommand>("list")
+            .WithDescription("List available integration providers");
+
+        integ.AddCommand<IntegrationsGetCommand>("get")
+            .WithDescription("Show details and operations for one provider")
+            .WithExample("integrations", "get", "claude");
+
+        integ.AddBranch("connections", conns =>
+        {
+            conns.SetDescription("Manage integration connections");
+
+            conns.AddCommand<IntegrationsConnectionsListCommand>("list")
+                .WithDescription("List your integration connections")
+                .WithExample("integrations", "connections", "list", "--provider", "claude");
+        });
+
+        integ.AddCommand<IntegrationsConnectCommand>("connect")
+            .WithDescription("Connect to a provider with an API key (prompts for the key if not given)")
+            .WithExample("integrations", "connect", "claude", "--name", "main")
+            .WithExample("integrations", "connect", "openai", "--user-connection");
+
+        integ.AddBranch("oauth", oauth =>
+        {
+            oauth.SetDescription("Manage OAuth provider configuration and connect via the browser");
+
+            oauth.AddCommand<IntegrationsOAuthStatusCommand>("status")
+                .WithDescription("Show OAuth client setup status for a provider")
+                .WithExample("integrations", "oauth", "status", "slack");
+
+            oauth.AddCommand<IntegrationsOAuthCallbackUrlCommand>("callback-url")
+                .WithDescription("Print the redirect URL to add to OAuth app configurations (same for every provider)")
+                .WithExample("integrations", "oauth", "callback-url");
+
+            oauth.AddCommand<IntegrationsOAuthConfigureCommand>("configure")
+                .WithDescription("Set the OAuth client ID + secret for a provider")
+                .WithExample("integrations", "oauth", "configure", "slack");
+
+            oauth.AddCommand<IntegrationsOAuthConnectCommand>("connect")
+                .WithDescription("Connect via the browser OAuth flow (starts a local listener)")
+                .WithExample("integrations", "oauth", "connect", "slack", "--name", "main");
+        });
+
+        integ.AddCommand<IntegrationsTestCommand>("test")
+            .WithDescription("Test a connection")
+            .WithExample("integrations", "test", "<connection-id>");
+
+        integ.AddCommand<IntegrationsEnableCommand>("enable")
+            .WithDescription("Enable a connection")
+            .WithExample("integrations", "enable", "<connection-id>");
+
+        integ.AddCommand<IntegrationsDisableCommand>("disable")
+            .WithDescription("Disable a connection")
+            .WithExample("integrations", "disable", "<connection-id>");
+
+        integ.AddCommand<IntegrationsDisconnectCommand>("disconnect")
+            .WithDescription("Delete a connection")
+            .WithExample("integrations", "disconnect", "<connection-id>", "--yes");
+
+        integ.AddCommand<IntegrationsExecuteCommand>("execute")
+            .WithDescription("Run an operation on a connected provider")
+            .WithExample("integrations", "execute", "claude", "generate-text", "--input", "prompt=Tell me a haiku")
+            .WithExample("integrations", "execute", "claude", "generate-text", "--inputs", "{\"prompt\":\"hi\",\"model\":\"claude-3-haiku-20240307\"}");
     });
 
     // ── Secrets ───────────────────────────────────────────────────────────────

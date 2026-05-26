@@ -33,11 +33,14 @@ The official command-line interface for [Anythink](https://anythink.cloud) — t
   - [entities](#entities)
   - [fields](#fields)
   - [data](#data)
+  - [search](#search)
   - [workflows](#workflows)
   - [users](#users)
   - [files](#files)
   - [roles](#roles)
+  - [api-keys](#api-keys)
   - [menus](#menus)
+  - [integrations](#integrations)
   - [pay](#pay)
   - [oauth](#oauth)
   - [api](#api)
@@ -296,6 +299,71 @@ anythink data delete blog_posts 42 --yes
 
 ---
 
+### search
+
+Full-text search across your entities, plus index lifecycle management.
+
+```
+anythink search query <text>                          Run a search
+anythink search similar <entity> <id>                 Find similar documents
+anythink search rehydrate [<entity>]                  Rebuild the search index (admin)
+anythink search purge [<entity>]                      Wipe the search index (admin)
+anythink search audit <entity>                        Compare configured public-searchable fields
+                                                       with what public search actually returns
+```
+
+**Options — `search query`**
+
+| Flag                  | Description                                                                            |
+| --------------------- | -------------------------------------------------------------------------------------- |
+| `--entities <list>`   | Comma-separated entity names. Default: all indexed entities.                           |
+| `--filter <expr>`     | Filter expression, e.g. `"status=published AND category=news"`. Supports `_geoRadius`. |
+| `--sort <list>`       | Comma-separated sort fields, e.g. `"created_at:desc,id:asc"`.                          |
+| `--facet <fields>`    | Comma-separated fields to compute facet counts on.                                     |
+| `--highlight`         | Highlight matched terms in results.                                                    |
+| `--page N`            | Page number (default: 1).                                                              |
+| `--limit N`           | Results per page (1-100, default: 20).                                                 |
+| `--public`            | Use the unauthenticated `/search/public` endpoint (only public-marked fields).         |
+| `--json`              | Print the raw response JSON.                                                           |
+
+**Index lifecycle**
+
+`rehydrate` and `purge` are admin operations on the search index:
+
+- `search rehydrate` — rebuilds the index from the database (no data loss; just resyncs)
+- `search purge` — deletes the index (run `rehydrate` after to repopulate)
+
+Both confirm by default; pass `-y` / `--yes` to skip the prompt for automation.
+
+**`search audit` — public-search data leak check**
+
+Compares what the entity's schema *says* should be public-searchable (fields with `publicly_searchable=true` and the entity's own `is_public=true`) against what `/search/public` actually returns. Any field appearing in public results that isn't on the allowlist is reported as a leak.
+
+Exits with code 1 if a leak is detected — useful for CI/CD.
+
+**Examples**
+
+```bash
+# Browse everything
+anythink search query "*"
+
+# Filtered search with sorting
+anythink search query "anythink" --filter "status=published" --sort "created_at:desc"
+
+# Compare what public visitors see vs what's in the database
+anythink search audit posts
+anythink search audit users --query "alice" --sample 10
+
+# Reindex after a schema change
+anythink search rehydrate posts
+anythink search rehydrate --yes        # everything (admin)
+
+# Geo search (radius in metres)
+anythink search query "*" --filter "_geoRadius(51.5074,-0.1278,5000)"
+```
+
+---
+
 ### workflows
 
 Manage automation workflows. Workflows can be triggered on a cron schedule, when entities are created or updated, or manually.
@@ -417,6 +485,55 @@ anythink roles delete 5 --yes
 
 ---
 
+### api-keys
+
+Issue and manage API keys for non-interactive access (CI pipelines, scripts, integrations). Each key is scoped to a permission set, has an expiry, and is tied to the user that created it.
+
+The raw key is shown **once** on creation and never retrievable — save it immediately or use `--save-as` to write it directly into a CLI profile.
+
+```
+anythink api-keys list                              List your API keys
+anythink api-keys create <name> --permissions ...   Create a new key
+anythink api-keys revoke <id>                       Revoke a key
+```
+
+**Options — `api-keys create`**
+
+| Flag                    | Description                                                                  |
+| ----------------------- | ---------------------------------------------------------------------------- |
+| `--permissions <list>`  | Required. Comma-separated permission names, e.g. `data:read,data:create`     |
+| `--expires-in <days>`   | Days until expiry (default: 90, max: 365)                                    |
+| `--no-expiry-cap`       | Allow `--expires-in` greater than 365 days                                   |
+| `--save-as <profile>`   | Save the new key directly to a CLI profile instead of printing it            |
+| `--json`                | Print the response as JSON to stdout (the key is in this output — handle carefully) |
+| `-y, --yes`             | Skip the confirmation prompt                                                 |
+
+**Output behaviour**
+
+By default, the success message goes to **stdout** and the raw key goes to **stderr** on its own line. This makes it easy to capture only the key:
+
+```bash
+anythink api-keys create ci-deploy --permissions data:read --yes 2> key.txt
+```
+
+If the server drops any of the requested permissions because the current user does not hold them, the CLI surfaces a loud warning so you do not end up with a quietly under-scoped key.
+
+**Examples**
+
+```bash
+# Create a 90-day key for CI
+anythink api-keys create github-actions --permissions "data:read,data:create" --yes 2> key.txt
+
+# Create a key and save it directly into a profile (key never echoes)
+anythink api-keys create scraper --permissions data:read --save-as scraper-bot --yes
+anythink --profile scraper-bot data list posts
+
+# Revoke a key
+anythink api-keys revoke 42 --yes
+```
+
+---
+
 ### menus
 
 Manage dashboard sidebar menus in the active project. Menus control what entities appear in the Anythink dashboard and how they are grouped.
@@ -445,6 +562,87 @@ anythink menus add-item 250 check_ins --icon MessageCircle --parent 168
 
 # Add a top-level menu item
 anythink menus add-item 250 badges --icon Award
+```
+
+---
+
+### integrations
+
+Manage integrations — both the catalog of available providers (Claude, OpenAI, Slack, Google, etc.) and the active connections that hold credentials for them.
+
+```
+anythink integrations list                                  List available providers
+anythink integrations get <provider>                        Show details and operations for one provider
+anythink integrations connections list [--provider <p>]     List your active connections
+
+anythink integrations connect <provider>                    Create an API-key connection (Claude, OpenAI, etc.)
+anythink integrations oauth status <provider>               Show OAuth client setup status
+anythink integrations oauth configure <provider>            Set the OAuth client ID + secret
+anythink integrations oauth connect <provider>              Connect via the browser OAuth flow
+
+anythink integrations test <connection-id>                  Test a connection
+anythink integrations enable <connection-id>                Enable a connection
+anythink integrations disable <connection-id>               Disable a connection
+anythink integrations disconnect <connection-id>            Delete a connection
+
+anythink integrations execute <provider> <operation>        Run an operation on a connected provider
+```
+
+**API-key providers — `integrations connect`**
+
+| Flag                 | Description                                                                              |
+| -------------------- | ---------------------------------------------------------------------------------------- |
+| `--api-key <key>`    | API key for the provider. If omitted, you'll be prompted (input is hidden).              |
+| `--name <name>`      | Friendly name for this connection (default: `<provider> connection`)                    |
+| `--user-connection`  | Make this a user-scoped connection (only the current user sees it). Default: tenant-wide. |
+
+**OAuth providers — `integrations oauth connect`**
+
+The CLI starts a local HTTP listener on `http://localhost:8745/callback`, opens your browser to the provider's authorisation URL, and exchanges the returned code for a connection — no copy/paste of auth codes required.
+
+| Flag                 | Description                                                              |
+| -------------------- | ------------------------------------------------------------------------ |
+| `--name <name>`      | Friendly name for this connection                                       |
+| `--user-connection`  | Make this a user-scoped connection                                       |
+| `--port <n>`         | Local callback port (default: `8745`)                                    |
+| `--no-open`          | Don't try to open the browser — just print the URL                       |
+| `--timeout <secs>`   | How long to wait for the callback (default: `300`)                       |
+
+OAuth credentials need to be set up once per provider before you can connect:
+
+```bash
+anythink integrations oauth configure slack          # prompts for client_id + secret (hidden)
+anythink integrations oauth connect slack --name main
+```
+
+**Running operations — `integrations execute`**
+
+| Flag                | Description                                                                         |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| `--input <k=v>`     | Input parameter as `key=value`. Repeatable.                                         |
+| `--inputs <json>`   | All inputs as a JSON object.                                                        |
+| `--json`            | Print the full JSON response (default: just the `content` field if present).        |
+
+**Examples**
+
+```bash
+# Browse what's available
+anythink integrations list
+anythink integrations get claude
+
+# API-key flow (Claude, OpenAI)
+anythink integrations connect claude --name "main"
+anythink integrations execute claude generate-text --input "prompt=Tell me a haiku"
+
+# OAuth flow (Slack, Google, GitHub)
+anythink integrations oauth configure slack
+anythink integrations oauth connect slack --name main
+
+# Manage connections
+anythink integrations connections list
+anythink integrations test <connection-id>
+anythink integrations disable <connection-id>
+anythink integrations disconnect <connection-id> --yes
 ```
 
 ---
@@ -637,19 +835,6 @@ dotnet run -- projects list
 dotnet run -- entities list
 ```
 
-### Environment variables
-
-The CLI targets production (`https://api.my.anythink.cloud`) by default. You can override platform and API settings via environment variables (e.g. in your shell or a `.env` file in the current working directory):
-
-| Variable                 | Description                                           |
-| ------------------------ | ----------------------------------------------------- |
-| `MYANYTHINK_API_URL`     | Platform management API base URL                      |
-| `MYANYTHINK_ORG_ID`      | Platform organization/tenant ID                       |
-| `BILLING_API_URL`        | Billing API base URL                                  |
-| `ANYTHINK_PLATFORM_TOKEN`| JWT access token for platform commands                |
-| `ANYTHINK_ACCOUNT_ID`    | UUID of the active billing account                    |
-
-These variables take precedence over the saved configuration in `~/.anythink/config.json`. Overrides are applied at runtime by the configuration resolution logic.
 
 ### Releases
 
