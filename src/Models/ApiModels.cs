@@ -178,7 +178,8 @@ public record UpdateWorkflowStepLinksRequest(
 // Used internally to avoid C# 'event' keyword conflict in anonymous types
 public record EventWorkflowOptions(
     [property: JsonPropertyName("event")] string Event,
-    [property: JsonPropertyName("event_entity")] string EventEntity
+    [property: JsonPropertyName("event_entity")] string EventEntity,
+    [property: JsonPropertyName("filter")] System.Text.Json.JsonElement? Filter = null
 );
 
 // ── API Keys ─────────────────────────────────────────────────────────────────

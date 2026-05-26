@@ -89,6 +89,23 @@ public class WorkflowsGetCommand : BaseCommand<WorkflowIdSettings>
             if (!string.IsNullOrEmpty(wf.Description))
                 Renderer.KeyValue("Description", wf.Description);
 
+            if (wf.Options is System.Text.Json.JsonElement opts
+                && opts.ValueKind == System.Text.Json.JsonValueKind.Object)
+            {
+                if (opts.TryGetProperty("event", out var evt))
+                    Renderer.KeyValue("Event", evt.GetString() ?? "");
+                if (opts.TryGetProperty("event_entity", out var ent))
+                    Renderer.KeyValue("Entity", ent.GetString() ?? "");
+                if (opts.TryGetProperty("filter", out var f)
+                    && f.ValueKind != System.Text.Json.JsonValueKind.Null
+                    && f.ValueKind != System.Text.Json.JsonValueKind.Undefined)
+                {
+                    var pretty = System.Text.Json.JsonSerializer.Serialize(f,
+                        new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                    Renderer.KeyValue("Filter", pretty);
+                }
+            }
+
             var steps = wf.Steps ?? [];
             if (steps.Count > 0)
             {
@@ -499,6 +516,14 @@ public class WorkflowCreateSettings : CommandSettings
     [CommandOption("--enabled")]
     [Description("Enable workflow immediately after creation")]
     public bool Enabled { get; set; }
+
+    [CommandOption("--filter <JSON>")]
+    [Description("Filter expression JSON for Event trigger (fires only when predicate matches the row)")]
+    public string? Filter { get; set; }
+
+    [CommandOption("--filter-file <PATH>")]
+    [Description("Path to a file containing the filter expression JSON")]
+    public string? FilterFile { get; set; }
 }
 
 public class WorkflowsCreateCommand : BaseCommand<WorkflowCreateSettings>
@@ -514,6 +539,27 @@ public class WorkflowsCreateCommand : BaseCommand<WorkflowCreateSettings>
                     .AddChoices("Manual", "Timed", "Event", "Api"));
         }
 
+        System.Text.Json.JsonElement? filter = null;
+        var filterJson = settings.Filter;
+        if (string.IsNullOrEmpty(filterJson) && !string.IsNullOrEmpty(settings.FilterFile))
+        {
+            try { filterJson = await File.ReadAllTextAsync(settings.FilterFile); }
+            catch (Exception ex)
+            {
+                Renderer.Error($"Could not read --filter-file '{settings.FilterFile}': {ex.Message}");
+                return 1;
+            }
+        }
+        if (!string.IsNullOrEmpty(filterJson))
+        {
+            try { filter = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(filterJson); }
+            catch (System.Text.Json.JsonException ex)
+            {
+                Renderer.Error($"Invalid filter JSON: {ex.Message}");
+                return 1;
+            }
+        }
+
         object options = trigger switch
         {
             "Timed" => new
@@ -523,7 +569,8 @@ public class WorkflowsCreateCommand : BaseCommand<WorkflowCreateSettings>
             },
             "Event" => (object)new EventWorkflowOptions(
                 settings.Event ?? "EntityCreated",
-                settings.EventEntity ?? ""
+                settings.EventEntity ?? "",
+                filter
             ),
             "Api" => new { api_route = settings.ApiRoute ?? "", event_entity = settings.EventEntity ?? "" },
             _ => new { }
