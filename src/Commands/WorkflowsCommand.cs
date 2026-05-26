@@ -1,3 +1,4 @@
+using AnythinkCli.Client;
 using AnythinkCli.Models;
 using AnythinkCli.Output;
 using Spectre.Console;
@@ -841,5 +842,116 @@ public class WorkflowsStepLinkCommand : BaseCommand<WorkflowStepLinkSettings>
             HandleError(ex);
             return 1;
         }
+    }
+}
+
+// ── workflows step delete ────────────────────────────────────────────────────
+
+public class WorkflowStepDeleteSettings : CommandSettings
+{
+    [CommandArgument(0, "<WORKFLOW_ID>")]
+    [Description("Workflow ID")]
+    public int WorkflowId { get; set; }
+
+    [CommandArgument(1, "<STEP_ID>")]
+    [Description("Step ID to delete")]
+    public int StepId { get; set; }
+
+    [CommandOption("-y|--yes")]
+    [Description("Skip confirmation")]
+    public bool Yes { get; set; }
+}
+
+public class WorkflowsStepDeleteCommand : BaseCommand<WorkflowStepDeleteSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, WorkflowStepDeleteSettings settings)
+    {
+        var client = GetClient();
+        Workflow? wf = null;
+        WorkflowStep? step = null;
+        var inboundLinks = new List<WorkflowStep>();
+
+        try
+        {
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync("Fetching workflow...", async _ =>
+                {
+                    wf = await client.GetWorkflowAsync(settings.WorkflowId);
+                });
+
+            step = wf!.Steps?.FirstOrDefault(s => s.Id == settings.StepId);
+            if (step == null)
+            {
+                Renderer.Error($"Step {settings.StepId} not found in workflow {settings.WorkflowId}.");
+                return 1;
+            }
+
+            // Steps that link TO the one we're deleting. The API rejects the delete with a
+            // FK violation if any of these exist — re-link them (or delete them) first.
+            inboundLinks = (wf.Steps ?? [])
+                .Where(s => s.OnSuccessStepId == settings.StepId || s.OnFailureStepId == settings.StepId)
+                .ToList();
+
+            if (!settings.Yes)
+            {
+                Renderer.Header($"Delete step {settings.StepId} ({Markup.Escape(step.Key)})");
+                var summary = Renderer.BuildTable("Property", "Value");
+                Renderer.AddRow(summary, "Action", step.Action);
+                Renderer.AddRow(summary, "Inbound links", inboundLinks.Count.ToString());
+                if (step.IsStartStep) Renderer.AddRow(summary, "Start step", "yes — deleting will detach the workflow's entry point");
+                AnsiConsole.Write(summary);
+
+                if (inboundLinks.Count > 0)
+                {
+                    AnsiConsole.MarkupLine("[yellow]Warning:[/] these steps link to this one and the API will reject the delete until they are re-linked:");
+                    foreach (var link in inboundLinks)
+                        AnsiConsole.MarkupLine($"  [yellow]•[/] step [bold]{link.Id}[/] ({Markup.Escape(link.Key)}) — {DescribeLink(link, settings.StepId)}");
+                }
+
+                if (!AnsiConsole.Confirm("[red]Delete this step?[/]", defaultValue: false))
+                {
+                    Renderer.Info("Cancelled.");
+                    return 0;
+                }
+            }
+
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync($"Deleting step {settings.StepId}...", async _ =>
+                {
+                    await client.DeleteWorkflowStepAsync(settings.WorkflowId, settings.StepId);
+                });
+
+            Renderer.Success($"Step [#F97316]{settings.StepId}[/] ({Markup.Escape(step.Key)}) deleted.");
+            return 0;
+        }
+        catch (AnythinkException ex) when (ex.StatusCode == 500 && inboundLinks.Count > 0)
+        {
+            // The API surfaces FK constraint failures as a generic 500. Translate it
+            // into a clear list of what the user needs to fix and how.
+            Renderer.Error($"Cannot delete step {settings.StepId}: still referenced by {inboundLinks.Count} other step(s).");
+            AnsiConsole.WriteLine();
+            AnsiConsole.MarkupLine("Re-link or delete each of these first, then re-run:");
+            foreach (var link in inboundLinks)
+            {
+                var which = link.OnSuccessStepId == settings.StepId ? "--on-success" : "--on-failure";
+                AnsiConsole.MarkupLine($"  [dim]anythink workflows step-link {settings.WorkflowId} {link.Id} {which} <NEW_TARGET>[/]");
+            }
+            return 1;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return 1;
+        }
+    }
+
+    private static string DescribeLink(WorkflowStep link, int targetId)
+    {
+        var via = new List<string>();
+        if (link.OnSuccessStepId == targetId) via.Add("on_success");
+        if (link.OnFailureStepId == targetId) via.Add("on_failure");
+        return string.Join(" + ", via);
     }
 }

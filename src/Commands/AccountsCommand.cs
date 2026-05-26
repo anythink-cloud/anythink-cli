@@ -111,10 +111,9 @@ public class AccountsCreateCommand : BasePlatformCommand<AccountsCreateSettings>
             Renderer.Success($"Billing account [#F97316]{Markup.Escape(account!.OrganizationName)}[/] created.");
             Renderer.Info($"ID: {Markup.Escape(account.Id.ToString())}");
 
-            // Auto-set as active account
-            var platform = ResolvePlatform();
+            var (platformKey, platform) = ResolvePlatformContext();
             platform.AccountId = account.Id.ToString();
-            SavePlatform(platform);
+            SaveAndActivatePlatform(platformKey, platform);
             Renderer.Success("Set as active account.");
             AnsiConsole.MarkupLine("\nRun [bold #F97316]anythink projects create \"My Project\"[/] to create your first project.");
             return 0;
@@ -183,9 +182,9 @@ public class AccountsUseCommand : BasePlatformCommand<AccountsUseSettings>
                 }
             }
 
-            var platform = ResolvePlatform();
+            var (platformKey, platform) = ResolvePlatformContext();
             platform.AccountId = match.Id.ToString();
-            SavePlatform(platform);
+            SaveAndActivatePlatform(platformKey, platform);
 
             AnsiConsole.MarkupLine($"[green]✓[/] Active account: [bold #F97316]{Markup.Escape(match.OrganizationName)}[/] [dim]({match.Id})[/]");
             AnsiConsole.MarkupLine("\nRun [bold #F97316]anythink projects list[/] to see your projects.");
