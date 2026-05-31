@@ -432,6 +432,217 @@ public record PaymentMethodResponse(
     [property: JsonPropertyName("exp_year")]  int?    ExpYear
 );
 
+// ── Pay › Subscription plans ─────────────────────────────────────────────────
+
+public record SubscriptionPlanResponse(
+    [property: JsonPropertyName("id")]                  int      Id,
+    [property: JsonPropertyName("plan_name")]           string   PlanName,
+    [property: JsonPropertyName("name")]                string   Name,
+    [property: JsonPropertyName("description")]         string   Description,
+    [property: JsonPropertyName("type")]                string   Type,
+    [property: JsonPropertyName("amount")]              decimal  Amount,
+    [property: JsonPropertyName("currency")]            string   Currency,
+    [property: JsonPropertyName("billing_interval")]    string   BillingInterval,
+    [property: JsonPropertyName("interval_count")]      int      IntervalCount,
+    [property: JsonPropertyName("trial_period_days")]   int?     TrialPeriodDays,
+    [property: JsonPropertyName("product_name")]        string?  ProductName,
+    [property: JsonPropertyName("product_description")] string?  ProductDescription,
+    [property: JsonPropertyName("reference")]           string?  Reference,
+    [property: JsonPropertyName("is_active")]           bool     IsActive,
+    [property: JsonPropertyName("apple_product_id")]            string? AppleProductId = null,
+    [property: JsonPropertyName("apple_subscription_group_id")] string? AppleSubscriptionGroupId = null
+);
+
+public record CreateSubscriptionPlanRequest(
+    [property: JsonPropertyName("plan_name")]           string  PlanName,
+    [property: JsonPropertyName("name")]                string  Name,
+    [property: JsonPropertyName("description")]         string  Description,
+    [property: JsonPropertyName("type")]                string  Type,
+    [property: JsonPropertyName("amount")]              decimal Amount,
+    [property: JsonPropertyName("currency")]            string  Currency,
+    [property: JsonPropertyName("billing_interval")]    string  BillingInterval,
+    [property: JsonPropertyName("interval_count")]      int     IntervalCount,
+    [property: JsonPropertyName("trial_period_days")]   int?    TrialPeriodDays,
+    [property: JsonPropertyName("product_name")]        string? ProductName,
+    [property: JsonPropertyName("product_description")] string? ProductDescription,
+    [property: JsonPropertyName("reference")]           string? Reference,
+    [property: JsonPropertyName("is_active")]           bool    IsActive,
+    [property: JsonPropertyName("apple_product_id")]            string? AppleProductId = null,
+    [property: JsonPropertyName("apple_subscription_group_id")] string? AppleSubscriptionGroupId = null
+);
+
+public record UpdateSubscriptionPlanRequest(
+    [property: JsonPropertyName("plan_name")]           string  PlanName,
+    [property: JsonPropertyName("name")]                string  Name,
+    [property: JsonPropertyName("description")]         string  Description,
+    [property: JsonPropertyName("type")]                string  Type,
+    [property: JsonPropertyName("amount")]              decimal Amount,
+    [property: JsonPropertyName("currency")]            string  Currency,
+    [property: JsonPropertyName("billing_interval")]    string  BillingInterval,
+    [property: JsonPropertyName("interval_count")]      int     IntervalCount,
+    [property: JsonPropertyName("trial_period_days")]   int?    TrialPeriodDays,
+    [property: JsonPropertyName("product_name")]        string? ProductName,
+    [property: JsonPropertyName("product_description")] string? ProductDescription,
+    [property: JsonPropertyName("reference")]           string? Reference,
+    [property: JsonPropertyName("is_active")]           bool    IsActive,
+    [property: JsonPropertyName("apple_product_id")]            string? AppleProductId = null,
+    [property: JsonPropertyName("apple_subscription_group_id")] string? AppleSubscriptionGroupId = null
+);
+
+// ── Pay › Subscriptions ──────────────────────────────────────────────────────
+
+public record SubscriptionResponse(
+    [property: JsonPropertyName("id")]                       Guid      Id,
+    [property: JsonPropertyName("type")]                     string    Type,
+    [property: JsonPropertyName("name")]                     string    Name,
+    [property: JsonPropertyName("description")]              string?   Description,
+    [property: JsonPropertyName("amount")]                   decimal   Amount,
+    [property: JsonPropertyName("currency")]                 string    Currency,
+    [property: JsonPropertyName("billing_interval")]         string    BillingInterval,
+    [property: JsonPropertyName("interval_count")]           int       IntervalCount,
+    [property: JsonPropertyName("current_period_starts_at")] DateTime? CurrentPeriodStartsAt,
+    [property: JsonPropertyName("current_period_ends_at")]   DateTime? CurrentPeriodEndsAt,
+    [property: JsonPropertyName("trial_period_days")]        int?      TrialPeriodDays,
+    [property: JsonPropertyName("trial_ends_at")]            DateTime? TrialEndsAt,
+    [property: JsonPropertyName("status")]                   string    Status,
+    [property: JsonPropertyName("auto_cancel_at")]           DateTime? AutoCancelAt,
+    [property: JsonPropertyName("cancelled_at")]             DateTime? CancelledAt,
+    [property: JsonPropertyName("reference")]                string?   Reference,
+    [property: JsonPropertyName("checkout_url")]             string?   CheckoutUrl,
+    [property: JsonPropertyName("last_synced_at")]           DateTime? LastSyncedAt,
+    [property: JsonPropertyName("created_at")]               DateTime  CreatedAt,
+    [property: JsonPropertyName("updated_at")]               DateTime  UpdatedAt,
+    [property: JsonPropertyName("customer_email")]           string?   CustomerEmail,
+    [property: JsonPropertyName("customer_name")]            string?   CustomerName
+);
+
+public record CreateSubscriptionRequest(
+    [property: JsonPropertyName("name")]                  string  Name,
+    [property: JsonPropertyName("description")]           string  Description,
+    [property: JsonPropertyName("type")]                  string  Type,
+    [property: JsonPropertyName("amount")]                decimal Amount,
+    [property: JsonPropertyName("currency")]              string  Currency,
+    [property: JsonPropertyName("billing_interval")]      string  BillingInterval,
+    [property: JsonPropertyName("interval_count")]        int     IntervalCount,
+    [property: JsonPropertyName("trial_period_days")]     int?    TrialPeriodDays,
+    [property: JsonPropertyName("product_name")]          string? ProductName,
+    [property: JsonPropertyName("product_description")]   string? ProductDescription,
+    [property: JsonPropertyName("reference")]             string? Reference,
+    [property: JsonPropertyName("customer_email")]        string  CustomerEmail,
+    [property: JsonPropertyName("customer_name")]         string? CustomerName       = null,
+    [property: JsonPropertyName("customer_phone")]        string? CustomerPhone      = null,
+    [property: JsonPropertyName("subscriber_entity_id")]  long?   SubscriberEntityId = null,
+    [property: JsonPropertyName("subscriber_id")]         long?   SubscriberId       = null,
+    [property: JsonPropertyName("success_url")]           string? SuccessUrl         = null,
+    [property: JsonPropertyName("cancel_url")]            string? CancelUrl          = null
+);
+
+public record CreateSubscriptionResponse(
+    [property: JsonPropertyName("anythink_pay_id")] Guid    AnythinkPayId,
+    [property: JsonPropertyName("checkout_url")]    string? CheckoutUrl,
+    [property: JsonPropertyName("session_id")]      string? SessionId
+);
+
+public record CheckSubscriptionAccessResponse(
+    [property: JsonPropertyName("has_access")]   bool                          HasAccess,
+    [property: JsonPropertyName("subscription")] SubscriptionCheckAccessItem? Subscription
+);
+
+public record SubscriptionCheckAccessItem(
+    [property: JsonPropertyName("id")]     Guid   Id,
+    [property: JsonPropertyName("name")]   string Name,
+    [property: JsonPropertyName("status")] string Status
+);
+
+public record SubscriptionUserResponse(
+    [property: JsonPropertyName("user_id")]         int    UserId,
+    [property: JsonPropertyName("subscription_id")] Guid   SubscriptionId,
+    [property: JsonPropertyName("readonly")]        bool   Readonly
+);
+
+public record UpdateSubscriptionUserRequest(
+    [property: JsonPropertyName("user_id")]  int  UserId,
+    [property: JsonPropertyName("readonly")] bool Readonly
+);
+
+// ── Pay › Apple IAP credentials ──────────────────────────────────────────────
+
+public record AppleIapCredentialsResponse(
+    [property: JsonPropertyName("bundle_id")]        string? BundleId,
+    [property: JsonPropertyName("environment")]      string? Environment,
+    [property: JsonPropertyName("asc_issuer_id")]    string? AscIssuerId,
+    [property: JsonPropertyName("asc_key_id")]       string? AscKeyId,
+    [property: JsonPropertyName("has_private_key")]  bool    HasPrivateKey,
+    [property: JsonPropertyName("is_configured")]    bool    IsConfigured,
+    [property: JsonPropertyName("notification_url")] string? NotificationUrl
+);
+
+// A null asc_private_key_pem leaves the stored key untouched; an empty string clears it.
+public record UpdateAppleIapCredentialsRequest(
+    [property: JsonPropertyName("bundle_id")]          string? BundleId          = null,
+    [property: JsonPropertyName("environment")]        string? Environment        = null,
+    [property: JsonPropertyName("asc_issuer_id")]      string? AscIssuerId        = null,
+    [property: JsonPropertyName("asc_key_id")]         string? AscKeyId           = null,
+    [property: JsonPropertyName("asc_private_key_pem")] string? AscPrivateKeyPem  = null
+);
+
+// ── Pay › Entitlement ────────────────────────────────────────────────────────
+
+public record SubscriptionEntitlementResponse(
+    [property: JsonPropertyName("has_access")]            bool      HasAccess,
+    [property: JsonPropertyName("subscription_id")]       Guid?     SubscriptionId,
+    [property: JsonPropertyName("provider")]              string?   Provider,
+    [property: JsonPropertyName("product_id")]            string?   ProductId,
+    [property: JsonPropertyName("status")]                string?   Status,
+    [property: JsonPropertyName("expires_at")]            DateTime? ExpiresAt,
+    [property: JsonPropertyName("auto_cancel_at")]        DateTime? AutoCancelAt,
+    [property: JsonPropertyName("cancelled_at")]          DateTime? CancelledAt,
+    [property: JsonPropertyName("is_trial")]              bool      IsTrial,
+    [property: JsonPropertyName("trial_ends_at")]         DateTime? TrialEndsAt,
+    [property: JsonPropertyName("trial_days_remaining")]  int?      TrialDaysRemaining
+);
+
+// ── Pay › Apple receipt verify ───────────────────────────────────────────────
+
+public record AppleVerifyRequest(
+    [property: JsonPropertyName("signed_transaction")]      string? SignedTransaction     = null,
+    [property: JsonPropertyName("original_transaction_id")] string? OriginalTransactionId = null
+);
+
+public record AppleVerifyResponse(
+    [property: JsonPropertyName("subscription_id")]    Guid      SubscriptionId,
+    [property: JsonPropertyName("bound_user_id")]      int       BoundUserId,
+    [property: JsonPropertyName("provider")]           string?   Provider,
+    [property: JsonPropertyName("product_id")]         string?   ProductId,
+    [property: JsonPropertyName("plan_name")]          string?   PlanName,
+    [property: JsonPropertyName("plan_id")]            int?      PlanId,
+    [property: JsonPropertyName("status")]             string?   Status,
+    [property: JsonPropertyName("expires_at")]         DateTime? ExpiresAt,
+    [property: JsonPropertyName("has_access")]         bool      HasAccess,
+    [property: JsonPropertyName("matched_known_plan")] bool      MatchedKnownPlan
+);
+
+// ── Pay › Subscription history + admin recovery ──────────────────────────────
+
+public record SubscriptionEventResponse(
+    [property: JsonPropertyName("id")]            Guid     Id,
+    [property: JsonPropertyName("event_type")]    string   EventType,
+    [property: JsonPropertyName("source")]        string?  Source,
+    [property: JsonPropertyName("prior_status")]  string?  PriorStatus,
+    [property: JsonPropertyName("new_status")]    string?  NewStatus,
+    [property: JsonPropertyName("summary")]       string?  Summary,
+    [property: JsonPropertyName("occurred_at")]   DateTime OccurredAt
+);
+
+public record AdminRelinkRequest(
+    [property: JsonPropertyName("user_id")] int UserId
+);
+
+public record AdminSetStatusRequest(
+    [property: JsonPropertyName("status")]       string Status,
+    [property: JsonPropertyName("clear_period")] bool   ClearPeriod
+);
+
 // ── Secrets ──────────────────────────────────────────────────────────────────
 
 public record SecretUserResponse(
@@ -514,7 +725,8 @@ public record TenantSettingsDto(
     [property: JsonPropertyName("default_role_id")]        int?          DefaultRoleId,
     [property: JsonPropertyName("allowed_application_urls")] List<string> AllowedApplicationUrls,
     [property: JsonPropertyName("payment_success_url")]    string?       PaymentSuccessUrl,
-    [property: JsonPropertyName("payment_cancel_url")]     string?       PaymentCancelUrl
+    [property: JsonPropertyName("payment_cancel_url")]     string?       PaymentCancelUrl,
+    [property: JsonPropertyName("app_engagement_trial_enabled")] bool    AppEngagementTrialEnabled = false
 );
 
 public record ThemeSettingsDto(
