@@ -525,6 +525,38 @@ public class AnythinkClient : HttpApiClient
     public Task<JsonObject> AdminResyncSubscriptionAsync(Guid id)
         => PostAsync<JsonObject>(_pay + $"/subscriptions/{id}/admin/resync", new { });
 
+    // ── Pay › Offers (admin) ──────────────────────────────────────────────────
+
+    public async Task<List<OfferResponse>> GetOffersAsync()
+        => (await GetAsync<List<OfferResponse>>(_pay + "/offers")) ?? [];
+
+    public Task<OfferResponse?> GetOfferAsync(Guid id)
+        => GetAsync<OfferResponse>(_pay + $"/offers/{id}");
+
+    public Task<OfferResponse> CreateOfferAsync(CreateOfferRequest req)
+        => PostAsync<OfferResponse>(_pay + "/offers", req);
+
+    public Task<OfferResponse?> UpdateOfferAsync(Guid id, UpdateOfferRequest req)
+        => PutAsync<OfferResponse>(_pay + $"/offers/{id}", req);
+
+    /// <summary>No dedicated route — status changes go through the offer PUT.</summary>
+    public Task<OfferResponse?> SetOfferStatusAsync(Guid id, string status)
+        => UpdateOfferAsync(id, new UpdateOfferRequest(Status: status));
+
+    public async Task<List<OfferCodeResponse>> GetOfferCodesAsync(Guid id)
+        => (await GetAsync<List<OfferCodeResponse>>(_pay + $"/offers/{id}/codes")) ?? [];
+
+    public Task<OfferCodeResponse> CreateOfferCodeAsync(Guid id, CreateOfferCodeRequest req)
+        => PostAsync<OfferCodeResponse>(_pay + $"/offers/{id}/codes", req);
+
+    public async Task<List<OfferRedemptionResponse>> GetOfferRedemptionsAsync(Guid id, int page = 1, int pageSize = 50)
+        => (await GetAsync<List<OfferRedemptionResponse>>(
+                _pay + $"/offers/{id}/redemptions?page={page}&pageSize={pageSize}")) ?? [];
+
+    /// <summary>Admin lookup of a user's personal/referral code (lazily generated server-side).</summary>
+    public Task<PersonalCodeResponse?> GetUserCodeAsync(int userId)
+        => GetAsync<PersonalCodeResponse>(_pay + $"/offers/users/{userId}/code");
+
     // ── Token refresh (unauthenticated — called before building a client) ─────
 
     /// <summary>

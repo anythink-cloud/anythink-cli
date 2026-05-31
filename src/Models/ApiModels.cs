@@ -643,6 +643,124 @@ public record AdminSetStatusRequest(
     [property: JsonPropertyName("clear_period")] bool   ClearPeriod
 );
 
+// ── Pay › Offers (admin) ──────────────────────────────────────────────────────
+// Rewards and eligibility are stored and transported as opaque JSON STRINGS — the
+// reward processor lives in PayApi (a separate service), so AnyApi forwards them
+// verbatim. The CLI's primary input is raw JSON; OfferRewardDto below is a
+// client-only helper used to build that JSON from convenience flags and to render a
+// short summary. `central_tenant_id` is NOT sent — the server sets it.
+
+public record OfferResponse(
+    [property: JsonPropertyName("id")]                      Guid              Id,
+    [property: JsonPropertyName("name")]                    string            Name,
+    [property: JsonPropertyName("description")]             string?           Description,
+    [property: JsonPropertyName("kind")]                    string            Kind,
+    [property: JsonPropertyName("redeemer_reward_json")]    string?           RedeemerRewardJson,
+    [property: JsonPropertyName("referrer_reward_json")]    string?           ReferrerRewardJson,
+    [property: JsonPropertyName("eligibility_json")]        string?           EligibilityJson,
+    [property: JsonPropertyName("valid_from")]             DateTime?         ValidFrom,
+    [property: JsonPropertyName("valid_until")]            DateTime?         ValidUntil,
+    [property: JsonPropertyName("total_redemption_cap")]    int?              TotalRedemptionCap,
+    [property: JsonPropertyName("per_user_redemption_cap")] int              PerUserRedemptionCap,
+    [property: JsonPropertyName("status")]                  string            Status,
+    [property: JsonPropertyName("stripe_coupon_id")]        string?           StripeCouponId,
+    [property: JsonPropertyName("created_at")]              DateTime          CreatedAt,
+    [property: JsonPropertyName("updated_at")]              DateTime          UpdatedAt,
+    [property: JsonPropertyName("primary_code")]            OfferCodeResponse? PrimaryCode
+);
+
+public record OfferCodeResponse(
+    [property: JsonPropertyName("id")]               Guid     Id,
+    [property: JsonPropertyName("offer_id")]         Guid     OfferId,
+    [property: JsonPropertyName("slug")]             string   Slug,
+    [property: JsonPropertyName("owner_user_id")]    int?     OwnerUserId,
+    [property: JsonPropertyName("redemption_count")] int      RedemptionCount,
+    [property: JsonPropertyName("created_at")]        DateTime CreatedAt,
+    [property: JsonPropertyName("owner")]             UserRef? Owner
+);
+
+public record UserRef(
+    [property: JsonPropertyName("id")]         int     Id,
+    [property: JsonPropertyName("first_name")] string  FirstName,
+    [property: JsonPropertyName("last_name")]  string  LastName,
+    [property: JsonPropertyName("email")]      string? Email
+);
+
+public record OfferRedemptionResponse(
+    [property: JsonPropertyName("id")]                          Guid      Id,
+    [property: JsonPropertyName("offer_id")]                    Guid      OfferId,
+    [property: JsonPropertyName("code_id")]                     Guid      CodeId,
+    [property: JsonPropertyName("redeemer_user_id")]            int       RedeemerUserId,
+    [property: JsonPropertyName("redeemer_subscription_id")]    Guid?     RedeemerSubscriptionId,
+    [property: JsonPropertyName("redeemer_reward_status")]      string    RedeemerRewardStatus,
+    [property: JsonPropertyName("referrer_user_id")]            int?      ReferrerUserId,
+    [property: JsonPropertyName("referrer_reward_status")]      string?   ReferrerRewardStatus,
+    [property: JsonPropertyName("referrer_reward_snapshot_json")] string? ReferrerRewardSnapshotJson,
+    [property: JsonPropertyName("redeemed_at")]                 DateTime  RedeemedAt,
+    [property: JsonPropertyName("applied_at")]                  DateTime? AppliedAt,
+    [property: JsonPropertyName("reversed_at")]                 DateTime? ReversedAt,
+    [property: JsonPropertyName("redeemer")]                    UserRef?  Redeemer,
+    [property: JsonPropertyName("referrer")]                    UserRef?  Referrer
+);
+
+public record PersonalCodeResponse(
+    [property: JsonPropertyName("slug")]             string  Slug,
+    [property: JsonPropertyName("offer_id")]         Guid    OfferId,
+    [property: JsonPropertyName("redemption_count")] int     RedemptionCount,
+    [property: JsonPropertyName("offer_name")]        string? OfferName
+);
+
+public record CreateOfferRequest(
+    [property: JsonPropertyName("name")]                    string  Name,
+    [property: JsonPropertyName("kind")]                    string  Kind,
+    [property: JsonPropertyName("redeemer_reward_json")]    string  RedeemerRewardJson,
+    [property: JsonPropertyName("description")]             string? Description          = null,
+    [property: JsonPropertyName("referrer_reward_json")]    string? ReferrerRewardJson   = null,
+    [property: JsonPropertyName("eligibility_json")]        string? EligibilityJson      = null,
+    [property: JsonPropertyName("valid_from")]             DateTime? ValidFrom          = null,
+    [property: JsonPropertyName("valid_until")]            DateTime? ValidUntil         = null,
+    [property: JsonPropertyName("total_redemption_cap")]    int?    TotalRedemptionCap   = null,
+    [property: JsonPropertyName("per_user_redemption_cap")] int     PerUserRedemptionCap = 1,
+    [property: JsonPropertyName("status")]                  string  Status               = "active"
+);
+
+// Patch semantics — only non-null fields are applied server-side; `kind` is immutable.
+public record UpdateOfferRequest(
+    [property: JsonPropertyName("name")]                    string?   Name                 = null,
+    [property: JsonPropertyName("description")]             string?   Description          = null,
+    [property: JsonPropertyName("redeemer_reward_json")]    string?   RedeemerRewardJson   = null,
+    [property: JsonPropertyName("referrer_reward_json")]    string?   ReferrerRewardJson   = null,
+    [property: JsonPropertyName("eligibility_json")]        string?   EligibilityJson      = null,
+    [property: JsonPropertyName("valid_from")]             DateTime? ValidFrom            = null,
+    [property: JsonPropertyName("valid_until")]            DateTime? ValidUntil           = null,
+    [property: JsonPropertyName("total_redemption_cap")]    int?      TotalRedemptionCap   = null,
+    [property: JsonPropertyName("per_user_redemption_cap")] int?      PerUserRedemptionCap = null,
+    [property: JsonPropertyName("status")]                  string?   Status               = null
+);
+
+public record CreateOfferCodeRequest(
+    [property: JsonPropertyName("slug")]          string Slug,
+    [property: JsonPropertyName("owner_user_id")] int?   OwnerUserId = null
+);
+
+// Client-only helper for the convenience flags and the display summary — never sent
+// or received directly (the wire field is the *_reward_json string). The documented
+// reward vocabulary is type-discriminated; unknown shapes pass through as raw JSON.
+public record OfferRewardDto(
+    [property: JsonPropertyName("type")]            string   Type,
+    [property: JsonPropertyName("days")]            int?     Days        = null,
+    [property: JsonPropertyName("percent_off")]     decimal? PercentOff  = null,
+    [property: JsonPropertyName("duration")]        string?  Duration    = null,
+    [property: JsonPropertyName("amount")]          decimal? Amount      = null,
+    [property: JsonPropertyName("currency")]        string?  Currency    = null,
+    [property: JsonPropertyName("tiers")]           List<OfferTierDto>? Tiers = null
+);
+
+public record OfferTierDto(
+    [property: JsonPropertyName("at")]     int            At,
+    [property: JsonPropertyName("reward")] OfferRewardDto Reward
+);
+
 // ── Secrets ──────────────────────────────────────────────────────────────────
 
 public record SecretUserResponse(
