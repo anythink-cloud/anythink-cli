@@ -424,6 +424,10 @@ app.Configure(config =>
             perms.AddCommand<RolesPermissionsAddCommand>("add")
                 .WithDescription("Add entity permissions to a role")
                 .WithExample("roles", "permissions", "add", "239", "badges", "--actions", "read,create");
+
+            perms.AddCommand<RolesPermissionsRemoveCommand>("remove")
+                .WithDescription("Remove entity permissions from a role")
+                .WithExample("roles", "permissions", "remove", "239", "badges", "--actions", "create");
         });
     });
 

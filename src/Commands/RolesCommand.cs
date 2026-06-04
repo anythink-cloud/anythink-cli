@@ -183,7 +183,7 @@ public class RolesPermissionsListCommand : BaseCommand<RolePermissionsListSettin
 
             var perms = role.Permissions ?? [];
             var entityPerms = new Dictionary<string, List<string>>();
-            foreach (var p in perms.Where(p => p.EntityId.HasValue))
+            foreach (var p in perms)
             {
                 var parts = p.Name.Split(':');
                 if (parts.Length == 2)
@@ -236,7 +236,7 @@ public class RolesPermissionsAddCommand : BaseCommand<RolePermissionsAddSettings
         {
             var client = GetClient();
 
-            var entity = await client.GetEntityAsync(settings.Entity);
+            int? entityId = await TryResolveEntityIdAsync(client, settings.Entity);
 
             var role = await client.GetRoleAsync(settings.RoleId)
                 ?? throw new AnythinkCli.Client.AnythinkException($"Role {settings.RoleId} not found.", 404);
@@ -250,7 +250,7 @@ public class RolesPermissionsAddCommand : BaseCommand<RolePermissionsAddSettings
             foreach (var action in actions)
             {
                 var permName = $"{settings.Entity}:{action}";
-                var existing = allPerms.FirstOrDefault(p => p.Name == permName && p.EntityId == entity.Id);
+                var existing = FindPermission(allPerms, permName, entityId);
 
                 if (existing != null)
                 {
@@ -282,6 +282,99 @@ public class RolesPermissionsAddCommand : BaseCommand<RolePermissionsAddSettings
                 });
 
             Renderer.Success($"Added {Markup.Escape(string.Join(", ", added))} on [#F97316]{Markup.Escape(settings.Entity)}[/] to role {settings.RoleId}.");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return 1;
+        }
+    }
+
+    internal static async Task<int?> TryResolveEntityIdAsync(AnythinkCli.Client.AnythinkClient client, string entityName)
+    {
+        try
+        {
+            var entity = await client.GetEntityAsync(entityName);
+            return entity.Id;
+        }
+        catch (AnythinkCli.Client.AnythinkException ex) when (ex.StatusCode == 404)
+        {
+            return null;
+        }
+    }
+
+    internal static Permission? FindPermission(List<Permission> allPerms, string permName, int? entityId)
+    {
+        return allPerms.FirstOrDefault(p =>
+            p.Name == permName &&
+            (entityId.HasValue ? p.EntityId == entityId.Value : p.EntityId == null));
+    }
+}
+
+// ── roles permissions remove ─────────────────────────────────────────────────
+
+public class RolePermissionsRemoveSettings : CommandSettings
+{
+    [CommandArgument(0, "<ROLE_ID>")]
+    [Description("Role ID")]
+    public int RoleId { get; set; }
+
+    [CommandArgument(1, "<ENTITY>")]
+    [Description("Entity name")]
+    public string Entity { get; set; } = "";
+
+    [CommandOption("--actions <ACTIONS>")]
+    [Description("Comma-separated actions: read,create,update,delete (default: read)")]
+    public string Actions { get; set; } = "read";
+}
+
+public class RolesPermissionsRemoveCommand : BaseCommand<RolePermissionsRemoveSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, RolePermissionsRemoveSettings settings)
+    {
+        try
+        {
+            var client = GetClient();
+
+            int? entityId = await RolesPermissionsAddCommand.TryResolveEntityIdAsync(client, settings.Entity);
+
+            var role = await client.GetRoleAsync(settings.RoleId)
+                ?? throw new AnythinkCli.Client.AnythinkException($"Role {settings.RoleId} not found.", 404);
+
+            var permIds = (role.Permissions ?? []).Select(p => p.Id).ToList();
+
+            var allPerms = await client.GetPermissionsAsync();
+            var actions = settings.Actions.Split(',').Select(a => a.Trim().ToLower()).ToList();
+
+            var removed = new List<string>();
+            foreach (var action in actions)
+            {
+                var permName = $"{settings.Entity}:{action}";
+                var existing = RolesPermissionsAddCommand.FindPermission(allPerms, permName, entityId);
+
+                if (existing != null && permIds.Remove(existing.Id))
+                {
+                    removed.Add(action);
+                }
+            }
+
+            if (removed.Count == 0)
+            {
+                Renderer.Info("No matching permissions to remove (not assigned or not found).");
+                return 0;
+            }
+
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync("Updating role permissions...", async _ =>
+                {
+                    await client.UpdateRoleWithPermissionsAsync(settings.RoleId,
+                        new UpdateRolePermissionsRequest(
+                            role.Name, role.Description, role.IsActive, role.AnyApiAccess, permIds));
+                });
+
+            Renderer.Success($"Removed {Markup.Escape(string.Join(", ", removed))} on [#F97316]{Markup.Escape(settings.Entity)}[/] from role {settings.RoleId}.");
             return 0;
         }
         catch (Exception ex)
