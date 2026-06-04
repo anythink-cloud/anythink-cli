@@ -445,7 +445,7 @@ app.Configure(config =>
 
     config.AddBranch("pay", pay =>
     {
-        pay.SetDescription("Manage Anythink Pay (Stripe Connect, payments, methods)");
+        pay.SetDescription("Manage AnythinkPay (Stripe Connect, Apple IAP, payments, plans, subscriptions)");
 
         pay.AddCommand<PayStatusCommand>("status")
             .WithDescription("Show Stripe Connect account status");
@@ -453,12 +453,194 @@ app.Configure(config =>
         pay.AddCommand<PayConnectCommand>("connect")
             .WithDescription("Set up a Stripe Connect account and start onboarding");
 
+        pay.AddCommand<PaySetupCommand>("setup")
+            .WithDescription("Guided setup: Stripe Connect, Apple IAP credentials, and a first plan");
+
         pay.AddCommand<PayPaymentsCommand>("payments")
             .WithDescription("List recent payments")
             .WithExample("pay", "payments", "--page", "1", "--limit", "50");
 
         pay.AddCommand<PayMethodsCommand>("methods")
             .WithDescription("List saved payment methods");
+
+        pay.AddCommand<PayEntitlementCommand>("entitlement")
+            .WithDescription("Show the current user's access / trial entitlement");
+
+        pay.AddCommand<PayPaymentOptionsCommand>("payment-options")
+            .WithDescription("Show available payment providers for a platform/storefront")
+            .WithExample("pay", "payment-options", "--platform", "ios", "--storefront", "GBR");
+
+        pay.AddBranch("trial", trial =>
+        {
+            trial.SetDescription("Manage the app engagement trial (free app access without a subscription)");
+
+            trial.AddCommand<PayTrialStatusCommand>("status")
+                .WithDescription("Show whether the trial is enabled and its derived length");
+
+            trial.AddCommand<PayTrialEnableCommand>("enable")
+                .WithDescription("Enable the app engagement trial");
+
+            trial.AddCommand<PayTrialDisableCommand>("disable")
+                .WithDescription("Disable the app engagement trial");
+        });
+
+        pay.AddBranch("apple", apple =>
+        {
+            apple.SetDescription("Manage Apple in-app purchase configuration");
+
+            apple.AddBranch("credentials", creds =>
+            {
+                creds.SetDescription("Manage Apple App Store Connect API credentials (tenant admin)");
+
+                creds.AddCommand<PayAppleCredentialsSetCommand>("set")
+                    .WithDescription("Set Apple IAP credentials (reads the .p8 private key from a file)")
+                    .WithExample("pay", "apple", "credentials", "set",
+                        "--issuer-id", "<uuid>", "--key-id", "<keyid>",
+                        "--bundle-id", "com.example.app", "--private-key-file", "./AuthKey.p8");
+
+                creds.AddCommand<PayAppleCredentialsShowCommand>("show")
+                    .WithDescription("Show Apple IAP credentials (identifiers masked)");
+
+                creds.AddCommand<PayAppleCredentialsNotificationUrlCommand>("notification-url")
+                    .WithDescription("Print the App Store Server Notifications URL to register in App Store Connect");
+            });
+
+            apple.AddCommand<PayAppleVerifyCommand>("verify")
+                .WithDescription("Verify an Apple transaction (testing) and bind it to the current user")
+                .WithExample("pay", "apple", "verify", "--signed-transaction", "<JWS>");
+        });
+
+        pay.AddBranch("plans", plans =>
+        {
+            plans.SetDescription("Manage subscription plans");
+
+            plans.AddCommand<PayPlansListCommand>("list")
+                .WithDescription("List subscription plans");
+
+            plans.AddCommand<PayPlansGetCommand>("get")
+                .WithDescription("Show one plan by id");
+
+            plans.AddCommand<PayPlansCreateCommand>("create")
+                .WithDescription("Create a subscription plan (prompts for missing fields)")
+                .WithExample("pay", "plans", "create",
+                    "--plan-name", "monthly", "--name", "Monthly", "--description", "Monthly plan",
+                    "--amount", "9.99", "--currency", "gbp", "--interval", "month",
+                    "--apple-product-id", "monthly_002");
+
+            plans.AddCommand<PayPlansUpdateCommand>("update")
+                .WithDescription("Update a subscription plan (any --flag overrides; unset = keep)");
+
+            plans.AddCommand<PayPlansDeleteCommand>("delete")
+                .WithDescription("Delete a subscription plan");
+        });
+
+        pay.AddBranch("subscriptions", subs =>
+        {
+            subs.SetDescription("Manage live subscriptions, history, and user access");
+
+            subs.AddCommand<PaySubscriptionsListCommand>("list")
+                .WithDescription("List subscriptions (paginated, optionally filtered by --status)")
+                .WithExample("pay", "subscriptions", "list", "--status", "active");
+
+            subs.AddCommand<PaySubscriptionsGetCommand>("get")
+                .WithDescription("Show one subscription by id (guid)");
+
+            subs.AddCommand<PaySubscriptionsEventsCommand>("events")
+                .WithDescription("Show the lifecycle history of a subscription")
+                .WithExample("pay", "subscriptions", "events", "<subId>");
+
+            subs.AddCommand<PaySubscriptionsByUserCommand>("by-user")
+                .WithDescription("List subscriptions accessible to a user");
+
+            subs.AddCommand<PaySubscriptionsCheckAccessCommand>("check-access")
+                .WithDescription("Check whether the current user has access to a subscription by name");
+
+            subs.AddCommand<PaySubscriptionsCancelCommand>("cancel")
+                .WithDescription("Cancel a subscription");
+
+            subs.AddCommand<PaySubscriptionsResumeCommand>("resume")
+                .WithDescription("Resume a cancelled subscription");
+
+            subs.AddCommand<PaySubscriptionsDeleteCommand>("delete")
+                .WithDescription("Hard-delete a subscription (tenant admin)")
+                .WithExample("pay", "subscriptions", "delete", "<subId>", "--yes");
+
+            subs.AddCommand<PaySubscriptionsForceExpireCommand>("force-expire")
+                .WithDescription("Force-expire a subscription immediately (tenant admin)");
+
+            subs.AddCommand<PaySubscriptionsRelinkCommand>("relink")
+                .WithDescription("Move a subscription to another user (tenant admin)")
+                .WithExample("pay", "subscriptions", "relink", "<subId>", "--to-user-id", "42");
+
+            subs.AddCommand<PaySubscriptionsResyncCommand>("resync")
+                .WithDescription("Re-sync a subscription from the provider (tenant admin)");
+
+            subs.AddBranch("users", users =>
+            {
+                users.SetDescription("Manage user access to a subscription");
+
+                users.AddCommand<PaySubscriptionsUsersListCommand>("list")
+                    .WithDescription("List users with access to a subscription");
+
+                users.AddCommand<PaySubscriptionsUsersSetCommand>("set")
+                    .WithDescription("Grant or update a user's access to a subscription")
+                    .WithExample("pay", "subscriptions", "users", "set",
+                        "<subId>", "42", "--readonly");
+
+                users.AddCommand<PaySubscriptionsUsersRemoveCommand>("remove")
+                    .WithDescription("Remove a user's access to a subscription");
+            });
+        });
+
+        pay.AddBranch("offers", offers =>
+        {
+            offers.SetDescription("Configure offers, promo/referral codes, and view redemptions");
+
+            offers.AddCommand<PayOffersListCommand>("list")
+                .WithDescription("List offers");
+
+            offers.AddCommand<PayOffersGetCommand>("get")
+                .WithDescription("Show one offer by id (guid)");
+
+            offers.AddCommand<PayOffersCreateCommand>("create")
+                .WithDescription("Create an offer (rewards via convenience flags or raw JSON)")
+                .WithExample("pay", "offers", "create",
+                    "--name", "Launch 50", "--kind", "discount", "--discount-percent", "50")
+                .WithExample("pay", "offers", "create",
+                    "--name", "Referral", "--kind", "referral",
+                    "--redeemer-trial-days", "14", "--referrer-subscription-days", "30");
+
+            offers.AddCommand<PayOffersUpdateCommand>("update")
+                .WithDescription("Update an offer (patch — only supplied fields change; kind is immutable)")
+                .WithExample("pay", "offers", "update", "<offerId>", "--referrer-trial-days", "30");
+
+            offers.AddCommand<PayOffersPauseCommand>("pause")
+                .WithDescription("Pause an offer");
+
+            offers.AddCommand<PayOffersActivateCommand>("activate")
+                .WithDescription("Activate a paused offer");
+
+            offers.AddCommand<PayOffersDeleteCommand>("delete")
+                .WithDescription("Permanently delete an offer and all its codes + redemptions (history is lost; trial bonuses already granted are preserved)")
+                .WithExample("pay", "offers", "delete", "<offerId>")
+                .WithExample("pay", "offers", "delete", "<offerId>", "--yes");
+
+            offers.AddCommand<PayOffersCodesCommand>("codes")
+                .WithDescription("List the promo/referral codes attached to an offer")
+                .WithExample("pay", "offers", "codes", "<offerId>");
+
+            offers.AddCommand<PayOffersAddCodeCommand>("add-code")
+                .WithDescription("Add a promo/referral code to an offer")
+                .WithExample("pay", "offers", "add-code", "<offerId>", "--slug", "LAUNCH50");
+
+            offers.AddCommand<PayOffersRedemptionsCommand>("redemptions")
+                .WithDescription("List redemptions for an offer")
+                .WithExample("pay", "offers", "redemptions", "<offerId>");
+
+            offers.AddCommand<PayOffersUserCodeCommand>("user-code")
+                .WithDescription("Look up a user's personal referral code")
+                .WithExample("pay", "offers", "user-code", "42");
+        });
     });
 
     // ── API Keys ──────────────────────────────────────────────────────────────

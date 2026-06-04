@@ -55,6 +55,33 @@ The official command-line interface for [Anythink](https://anythink.cloud) — t
 
 ## Installation
 
+### Homebrew (macOS / Linux)
+
+The quickest way to install and stay up to date:
+
+```bash
+brew install anythink-cloud/tap/anythink
+```
+
+Or tap first, then install:
+
+```bash
+brew tap anythink-cloud/tap
+brew install anythink
+```
+
+Update to the latest release:
+
+```bash
+brew upgrade anythink
+```
+
+Uninstall:
+
+```bash
+brew uninstall anythink
+```
+
 ### macOS / Linux — download binary
 
 Grab the latest release for your platform from the [Releases](https://github.com/anythink-cloud/anythink-cli/releases/latest) page:
@@ -649,13 +676,30 @@ anythink integrations disconnect <connection-id> --yes
 
 ### pay
 
-Configure and manage Anythink Pay — the built-in Stripe Connect integration for accepting payments in your project.
+Manage **AnythinkPay** — Stripe Connect, Apple in-app purchases, payments, subscription plans, and live subscriptions.
 
 ```
 anythink pay status                    Show Stripe Connect account status
 anythink pay connect                   Set up a Stripe Connect account and start onboarding
+anythink pay setup                     Guided setup: Stripe Connect, Apple IAP, and a first plan
 anythink pay payments                  List recent payments
 anythink pay methods                   List saved payment methods
+anythink pay entitlement               Show the current user's access / trial entitlement
+anythink pay payment-options           Show available payment providers for a platform/storefront
+
+anythink pay trial status|enable|disable          Manage the app engagement trial
+
+anythink pay apple credentials set                Set Apple IAP credentials (.p8 from a file)
+anythink pay apple credentials show               Show Apple IAP credentials (identifiers masked)
+anythink pay apple credentials notification-url   Print the URL to register in App Store Connect
+anythink pay apple verify                         Verify an Apple transaction (testing)
+
+anythink pay plans list|get|create|update|delete  Manage subscription plans
+
+anythink pay subscriptions list|get|events        Inspect subscriptions and history
+anythink pay subscriptions cancel|resume          Standard lifecycle actions
+anythink pay subscriptions delete|force-expire|relink|resync   Admin recovery (tenant admin)
+anythink pay subscriptions users list|set|remove  Manage per-user access
 ```
 
 **Options — `pay payments`**
@@ -665,14 +709,28 @@ anythink pay methods                   List saved payment methods
 | `--page <n>`  | Page number                     |
 | `--limit <n>` | Payments per page (default: 25) |
 
-`pay connect` is interactive — it prompts for business type, country, and contact email, creates a Stripe Connect account, then opens the Stripe onboarding URL in your browser.
+`pay connect` is interactive — it prompts for business type, country, and contact email, creates a Stripe Connect account, then opens the Stripe onboarding URL in your browser. `pay setup` chains Stripe Connect, Apple IAP credentials, and a first plan; each step is optional.
+
+Subscription plans can carry an `--apple-product-id` (and optional `--apple-subscription-group-id`) so one plan covers both Stripe and Apple. `pay apple credentials set` reads the App Store Connect `.p8` private key from a file and stores it encrypted — it is never printed or logged.
+
+**Required permissions**
+
+| Command surface | Permission |
+| --- | --- |
+| Plan / subscription reads, entitlement, payment-options | `anythink_subscription_plans:read` |
+| Plan writes | `anythink_subscription_plans:create` / `:update` / `:delete` |
+| Payment reads/writes | `anythink_payments:read` / `:create` |
+| Apple credentials, admin recovery (`delete`/`force-expire`/`relink`/`resync`) | tenant administrator |
 
 **Examples**
 
 ```bash
-anythink pay status
-anythink pay connect
-anythink pay payments --limit 50
+anythink pay setup
+anythink pay plans create --plan-name monthly --name Monthly --amount 9.99 --currency gbp --interval month --apple-product-id monthly_002
+anythink pay apple credentials set --issuer-id <uuid> --key-id <id> --bundle-id com.example.app --private-key-file ./AuthKey.p8
+anythink pay apple verify --signed-transaction <JWS>
+anythink pay subscriptions events <subId>
+anythink pay entitlement
 ```
 
 ---
