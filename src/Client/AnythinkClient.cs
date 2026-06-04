@@ -543,6 +543,9 @@ public class AnythinkClient : HttpApiClient
     public Task<OfferResponse?> SetOfferStatusAsync(Guid id, string status)
         => UpdateOfferAsync(id, new UpdateOfferRequest(Status: status));
 
+    public Task<DeleteOfferResponse?> DeleteOfferAsync(Guid id)
+        => DeleteAsync<DeleteOfferResponse>(_pay + $"/offers/{id}");
+
     public async Task<List<OfferCodeResponse>> GetOfferCodesAsync(Guid id)
         => (await GetAsync<List<OfferCodeResponse>>(_pay + $"/offers/{id}/codes")) ?? [];
 

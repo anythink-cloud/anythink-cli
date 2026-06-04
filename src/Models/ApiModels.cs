@@ -669,6 +669,13 @@ public record OfferResponse(
     [property: JsonPropertyName("primary_code")]            OfferCodeResponse? PrimaryCode
 );
 
+public record DeleteOfferResponse(
+    [property: JsonPropertyName("offer_id")]              Guid OfferId,
+    [property: JsonPropertyName("codes_deleted")]         int  CodesDeleted,
+    [property: JsonPropertyName("redemptions_deleted")]   int  RedemptionsDeleted,
+    [property: JsonPropertyName("trial_bonuses_preserved")] int TrialBonusesPreserved
+);
+
 public record OfferCodeResponse(
     [property: JsonPropertyName("id")]               Guid     Id,
     [property: JsonPropertyName("offer_id")]         Guid     OfferId,

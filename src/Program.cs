@@ -606,6 +606,11 @@ app.Configure(config =>
             offers.AddCommand<PayOffersActivateCommand>("activate")
                 .WithDescription("Activate a paused offer");
 
+            offers.AddCommand<PayOffersDeleteCommand>("delete")
+                .WithDescription("Permanently delete an offer and all its codes + redemptions (history is lost; trial bonuses already granted are preserved)")
+                .WithExample("pay", "offers", "delete", "<offerId>")
+                .WithExample("pay", "offers", "delete", "<offerId>", "--yes");
+
             offers.AddCommand<PayOffersCodesCommand>("codes")
                 .WithDescription("List the promo/referral codes attached to an offer")
                 .WithExample("pay", "offers", "codes", "<offerId>");

@@ -354,6 +354,55 @@ public abstract class PayOffersStatusCommand(string status) : BaseCommand<PayOff
 public class PayOffersPauseCommand()    : PayOffersStatusCommand("paused");
 public class PayOffersActivateCommand() : PayOffersStatusCommand("active");
 
+// ── pay offers delete ────────────────────────────────────────────────────────
+
+public class PayOffersDeleteSettings : PayOffersIdSettings
+{
+    [CommandOption("-y|--yes|--force")]
+    [Description("Skip confirmation prompt")]
+    public bool Yes { get; set; }
+}
+
+public class PayOffersDeleteCommand : BaseCommand<PayOffersDeleteSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, PayOffersDeleteSettings settings)
+    {
+        try
+        {
+            if (!Guid.TryParse(settings.Id, out var id))
+            { Renderer.Warn("Offer id must be a guid."); return 1; }
+
+            var client = GetClient();
+
+            var offer = await client.GetOfferAsync(id);
+            if (offer is null) { Renderer.Warn("Offer not found."); return 1; }
+
+            if (!settings.Yes)
+            {
+                AnsiConsole.MarkupLine($"[yellow]About to permanently delete[/] [bold]{Markup.Escape(offer.Name)}[/] [dim]({id})[/].");
+                AnsiConsole.MarkupLine("[yellow]This will also delete every shareable code, personal/referral code, and redemption record tied to the offer.[/]");
+                AnsiConsole.MarkupLine("[dim]User trial bonuses sourced from this offer are kept but disassociated.[/]");
+                AnsiConsole.MarkupLine("[red]This cannot be undone.[/]");
+                var confirm = AnsiConsole.Confirm("Continue?", defaultValue: false);
+                if (!confirm) { Renderer.Info("Cancelled."); return 0; }
+            }
+
+            DeleteOfferResponse? outcome = null;
+            await AnsiConsole.Status().Spinner(Spinner.Known.Dots)
+                .StartAsync("Deleting offer...", async _ => outcome = await client.DeleteOfferAsync(id));
+
+            if (outcome is null) { Renderer.Warn("Delete returned empty payload."); return 1; }
+
+            Renderer.Success($"Offer '{Markup.Escape(offer.Name)}' deleted.");
+            Renderer.KeyValue("Codes deleted", outcome.CodesDeleted.ToString());
+            Renderer.KeyValue("Redemptions deleted", outcome.RedemptionsDeleted.ToString());
+            Renderer.KeyValue("Trial bonuses preserved", outcome.TrialBonusesPreserved.ToString());
+            return 0;
+        }
+        catch (Exception ex) { if (!PayHelpers.HandleAdminError(ex)) HandleError(ex); return 1; }
+    }
+}
+
 // ── pay offers codes ────────────────────────────────────────────────────────────
 
 public class PayOffersCodesCommand : BaseCommand<PayOffersIdSettings>
