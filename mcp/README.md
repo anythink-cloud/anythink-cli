@@ -2,10 +2,15 @@
 
 # Anythink MCP Server
 
-`anythink-mcp` exposes the [Anythink](https://anythink.cloud) Backend-as-a-Service
-platform to AI assistants over the [Model Context Protocol](https://modelcontextprotocol.io).
+**Sick of Frankenstein's monster?** [Anythink](https://anythink.cloud) replaces
+stitched-together services with a streamlined, all-in-one backend — giving you more
+time to create a killer product. All configured with a little help from AI, when
+you need it.
 
-It ships as a .NET global tool and runs as a stdio MCP server.
+`anythink-mcp` exposes that Backend-as-a-Service platform — databases, auth, data,
+files, workflows, integrations, payments, and REST APIs — to AI assistants over the
+[Model Context Protocol](https://modelcontextprotocol.io). It ships as a .NET global
+tool and runs as a stdio MCP server.
 
 ## Install
 
