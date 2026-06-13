@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_call:
+    inputs:
+      version:
+        description: "Version to release, without leading v (e.g. 1.2.3). Provided when called by auto-tag.yml."
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -25,7 +31,15 @@ jobs:
 
       - name: Extract version
         id: version
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+        run: |
+          # When called by auto-tag.yml the version arrives as an input;
+          # on a manual tag push it comes from the tag ref.
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Build targets
         run: |
@@ -70,6 +84,9 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          # Pin the tag explicitly: when called from a main push the ref is
+          # the branch, not the tag, so the action can't infer it.
+          tag_name: v${{ steps.version.outputs.VERSION }}
           name: v${{ steps.version.outputs.VERSION }}
           generate_release_notes: true
           files: |
