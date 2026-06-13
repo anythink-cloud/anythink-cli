@@ -1,0 +1,73 @@
+name: Release on merge to main
+
+# On every push to main, bump the latest v*.*.* tag's patch, push it, and run
+# the release pipelines (release.yml + mcp-publish.yml) as reusable workflows.
+# Add "[skip release]" to a commit message to skip a release.
+
+on:
+  push:
+    branches: [main]
+
+# Serialize so two quick merges can't race on the next tag number.
+concurrency:
+  group: release-on-merge
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # push the tag + let release.yml create the GitHub Release
+  id-token: write   # let mcp-publish.yml mint a NuGet OIDC token
+
+jobs:
+  version:
+    name: Compute & push next tag
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.head_commit.message, '[skip release]') }}
+    outputs:
+      tag: ${{ steps.ver.outputs.tag }}
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Compute next patch version
+        id: ver
+        run: |
+          git fetch --tags --force
+          LATEST="$(git tag -l 'v*.*.*' --sort=-v:refname | head -n 1)"
+          if [ -z "$LATEST" ]; then
+            TAG="v0.0.1"
+          else
+            base="${LATEST#v}"
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$base"
+            TAG="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "Latest tag: ${LATEST:-none}  →  Next: ${TAG}"
+
+      - name: Create & push tag
+        run: |
+          TAG="${{ steps.ver.outputs.tag }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${TAG}" -m "Release ${TAG}"
+          git push origin "${TAG}"
+
+  release:
+    name: Build binaries & Homebrew
+    needs: version
+    uses: ./.github/workflows/release.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+    secrets: inherit
+
+  publish:
+    name: Publish to NuGet & MCP registry
+    needs: version
+    uses: ./.github/workflows/mcp-publish.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+    secrets: inherit
