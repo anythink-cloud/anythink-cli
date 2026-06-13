@@ -55,6 +55,21 @@ The official command-line interface for [Anythink](https://anythink.cloud) — t
 
 ## Installation
 
+Both the `anythink` CLI and the `anythink-mcp` server are distributed together. The quickest way to get both is Homebrew.
+
+### Homebrew (macOS / Linux) — recommended
+
+```bash
+brew install anythink-cloud/tap/anythink
+```
+
+This installs **both** commands onto your `PATH`:
+
+- `anythink` — the CLI
+- `anythink-mcp` — the MCP server (see [MCP server](#mcp-server))
+
+Upgrade later with `brew upgrade anythink`.
+
 ### macOS / Linux — download binary
 
 Grab the latest release for your platform from the [Releases](https://github.com/anythink-cloud/anythink-cli/releases/latest) page:
@@ -72,6 +87,8 @@ curl -Lo anythink https://github.com/anythink-cloud/anythink-cli/releases/latest
 chmod +x anythink
 sudo mv anythink /usr/local/bin/
 ```
+
+The MCP server ships as a matching `anythink-mcp-<platform>` binary on the same release — download and install it the same way (e.g. `anythink-mcp-osx-arm64`).
 
 Verify the download against `checksums.txt` in the release assets:
 
@@ -767,14 +784,27 @@ The Anythink MCP server exposes the platform to AI assistants (Claude, Cursor, e
 
 ### Install
 
+The `anythink-mcp` server is self-contained — you don't need the CLI installed separately. Pick one:
+
 ```bash
-dotnet tool install -g anythink-cli
+# Homebrew (bundled with the CLI — see Installation above)
+brew install anythink-cloud/tap/anythink
+
+# .NET global tool (requires the .NET 8 SDK)
 dotnet tool install -g anythink-mcp
+
+# Or download the anythink-mcp-<platform> binary from the Releases page
 ```
 
 ### Configure
 
-Add to your MCP client config (e.g. `.mcp.json` for Claude Code):
+For **Claude Code**, register it in one command:
+
+```bash
+claude mcp add anythink anythink-mcp
+```
+
+Or add it to your MCP client config manually (e.g. `.mcp.json`):
 
 ```json
 {
@@ -787,6 +817,8 @@ Add to your MCP client config (e.g. `.mcp.json` for Claude Code):
 ```
 
 To use a specific profile: `"args": ["--profile", "my-project"]`
+
+Once connected, run the `login` tool, then `accounts_use` / `projects_use` to pick your working context.
 
 ### Available tools
 
