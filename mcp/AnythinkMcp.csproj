@@ -8,11 +8,24 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackAsTool>true</PackAsTool>
+    <!-- Web SDK disables packaging by default; re-enable it so the tool can be packed -->
+    <IsPackable>true</IsPackable>
     <ToolCommandName>anythink-mcp</ToolCommandName>
     <PackageId>anythink-mcp</PackageId>
     <Version>1.0.0</Version>
     <Description>Anythink MCP server — exposes the Anythink BaaS platform to AI assistants via the Model Context Protocol</Description>
+    <Authors>Anythink</Authors>
+    <PackageProjectUrl>https://github.com/anythink-cloud/anythink-cli</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/anythink-cloud/anythink-cli</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <!-- Pack the README so the MCP registry can verify ownership via its mcp-name marker -->
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <!-- MCP SDK — stdio-based server with DI hosting -->
   <ItemGroup>
