@@ -121,22 +121,17 @@ jobs:
           envsubst < .github/formula-template.rb > tap/Formula/anythink.rb
 
           cd tap
-          BRANCH="update-formula-v${VERSION}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b "${BRANCH}"
           git add Formula/anythink.rb
+          if git diff --cached --quiet; then
+            echo "Formula already current for v${VERSION}; nothing to push."
+            exit 0
+          fi
           git commit -m "Update anythink to v${VERSION}"
-          git push -u origin "${BRANCH}"
-
-          # Create PR using GitHub API
-          curl -s -X POST \
-            -H "Authorization: token ${TAP_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/anythink-cloud/homebrew-tap/pulls \
-            -d "{
-              \"title\": \"Update anythink to v${VERSION}\",
-              \"body\": \"Automated formula update from [release v${VERSION}](https://github.com/anythink-cloud/anythink-cli/releases/tag/v${VERSION})\",
-              \"head\": \"${BRANCH}\",
-              \"base\": \"main\"
-            }"
+          # Commit straight to the tap's main so `brew upgrade` serves the new
+          # version immediately — no PR/merge step. The tap's branch protection
+          # exempts admins (enforce_admins is off) and TAP_TOKEN has
+          # contents:write, so this push lands. `set -eo pipefail` (the default
+          # for Actions bash) means a rejected push fails the job loudly.
+          git push origin HEAD:main
