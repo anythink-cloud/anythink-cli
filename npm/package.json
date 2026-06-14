@@ -1,0 +1,48 @@
+{
+  "name": "@anythink-cloud/mcp",
+  "version": "0.0.0-dev",
+  "description": "Anythink MCP server — manage the Anythink all-in-one backend (data, auth, search, files, workflows, payments) from AI assistants and agents. Runs the native binary via npx; no .NET required.",
+  "bin": {
+    "anythink-mcp": "bin/anythink-mcp.js"
+  },
+  "scripts": {
+    "postinstall": "node ./install.js"
+  },
+  "files": [
+    "bin/anythink-mcp.js",
+    "install.js",
+    "README.md"
+  ],
+  "keywords": [
+    "anythink",
+    "mcp",
+    "model-context-protocol",
+    "backend",
+    "baas",
+    "backend-as-a-service",
+    "ai",
+    "agent",
+    "llm",
+    "database",
+    "cli"
+  ],
+  "homepage": "https://anythink.cloud",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anythink-cloud/anythink-cli.git"
+  },
+  "license": "MIT",
+  "author": "Anythink",
+  "engines": {
+    "node": ">=16"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ]
+}

@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write   # npm Trusted Publishing (OIDC)
 
 jobs:
   build:
@@ -43,7 +44,11 @@ jobs:
 
       - name: Build targets
         run: |
-          for RID in osx-arm64 osx-x64 linux-x64 linux-arm64; do
+          for RID in osx-arm64 osx-x64 linux-x64 linux-arm64 win-x64 win-arm64; do
+            # Windows RIDs produce .exe; keep that suffix on the release asset.
+            EXT=""
+            [[ "$RID" == win-* ]] && EXT=".exe"
+
             dotnet publish src/AnythinkCli.csproj \
               -c Release \
               -r "$RID" \
@@ -55,8 +60,8 @@ jobs:
               -p:PublishTrimmed=false \
               -o "dist/cli/$RID"
 
-            BIN="dist/cli/$RID/anythink"
-            [[ -f "$BIN" ]] && cp "$BIN" "dist/anythink-$RID"
+            BIN="dist/cli/$RID/anythink$EXT"
+            [[ -f "$BIN" ]] && cp "$BIN" "dist/anythink-$RID$EXT"
 
             dotnet publish mcp/AnythinkMcp.csproj \
               -c Release \
@@ -69,15 +74,17 @@ jobs:
               -p:PublishTrimmed=false \
               -o "dist/mcp/$RID"
 
-            MCP_BIN="dist/mcp/$RID/anythink-mcp"
-            [[ -f "$MCP_BIN" ]] && cp "$MCP_BIN" "dist/anythink-mcp-$RID"
+            MCP_BIN="dist/mcp/$RID/anythink-mcp$EXT"
+            [[ -f "$MCP_BIN" ]] && cp "$MCP_BIN" "dist/anythink-mcp-$RID$EXT"
           done
 
       - name: Compute checksums
         working-directory: dist
         run: |
           sha256sum anythink-osx-arm64 anythink-osx-x64 anythink-linux-x64 anythink-linux-arm64 \
+            anythink-win-x64.exe anythink-win-arm64.exe \
             anythink-mcp-osx-arm64 anythink-mcp-osx-x64 anythink-mcp-linux-x64 anythink-mcp-linux-arm64 \
+            anythink-mcp-win-x64.exe anythink-mcp-win-arm64.exe \
             > checksums.txt
           cat checksums.txt
 
@@ -94,11 +101,32 @@ jobs:
             dist/anythink-osx-x64
             dist/anythink-linux-x64
             dist/anythink-linux-arm64
+            dist/anythink-win-x64.exe
+            dist/anythink-win-arm64.exe
             dist/anythink-mcp-osx-arm64
             dist/anythink-mcp-osx-x64
             dist/anythink-mcp-linux-x64
             dist/anythink-mcp-linux-arm64
+            dist/anythink-mcp-win-x64.exe
+            dist/anythink-mcp-win-arm64.exe
             dist/checksums.txt
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Publish npm wrapper (@anythink-cloud/mcp, Trusted Publishing)
+        # Publishes via npm Trusted Publishing (OIDC) — no NPM_TOKEN. Requires
+        # npm >= 11.5.1 (newer than the npm bundled with Node 22), so upgrade
+        # first. npm auto-attaches provenance. Runs after the GitHub release
+        # exists, since the wrapper downloads that release's binary at install.
+        working-directory: npm
+        run: |
+          npm install -g npm@latest
+          npm version "${{ steps.version.outputs.VERSION }}" --no-git-tag-version --allow-same-version
+          npm publish --access public
 
       - name: Update Homebrew formula
         env:
