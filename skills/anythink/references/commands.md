@@ -1,70 +1,75 @@
-# Anythink command reference
+# Anythink command map
 
-The authoritative, always-current source is `anythink <group> --help` (or the MCP
-`cli` tool with `<group> --help`). This file is a map of the surface so you know
-what exists and where to look. Run it the same way through MCP: call the `cli`
-tool with the command string (e.g. `entities create posts`).
+The **authoritative, always-current** source is the platform itself — run
+`docs --json` (full reference for AI tooling) or `<group> --help` (exact flags)
+through the `cli` tool. This file is a map of what exists so you know where to
+look; run any of it via the MCP `cli` tool with the string after `anythink`
+(e.g. `data list posts --json`). Add `--yes` to destructive commands and
+`--json` where you need to parse output.
 
-## Auth & context
+## Auth & context (dedicated MCP tools + CLI)
 | Command | Purpose |
 | --- | --- |
 | `signup` / `login` / `logout` | Create account, log in, remove a saved profile |
-| `login_direct` (MCP) | Authenticate with org id + API key/JWT (non-interactive) |
-| `config show` | List profiles and show the active account/project |
-| `config use <profile>` | Switch the active profile |
-| `config remove <profile>` | Remove a saved profile |
+| `config show` | Profiles + the active account/project |
+| `config use <profile>` / `config remove <profile>` | Switch / remove a profile |
+| `accounts list` / `accounts create` / `accounts use <id>` | Billing accounts |
+| `projects list` / `projects create <name>` / `projects use <id>` / `projects delete <id>` | Projects (most commands act on the active one) |
 
-## Accounts & projects (set context before building)
-| Command | Purpose |
-| --- | --- |
-| `accounts list` / `accounts create` | List or create billing accounts |
-| `accounts use <id>` | Set the active billing account |
-| `projects list` / `projects create <name>` | List or create projects |
-| `projects use <id>` | **Connect to a project** — most commands act on the active one |
-| `projects delete <id>` | Delete a project (irreversible — confirm with user) |
+`projects create` flags: `--region <id>` (e.g. `lon1`), `--plan <id>`.
 
 ## Schema
 | Command | Purpose |
 | --- | --- |
-| `entities list` / `entities create <name>` | Collections/tables in the active project |
-| `entities delete <name>` | Drop an entity (irreversible) |
-| `fields list <entity>` | Fields on an entity |
-| `fields create <entity> <name> --type <type>` | Add a field (text, number, boolean, date, etc.) |
+| `entities list` / `entities get <name>` / `entities create <name>` / `entities update <name>` / `entities delete <name>` | Collections/tables |
+| `fields list <entity>` / `fields add <entity> <name> --type <type> [--required --unique]` / `fields delete <entity> <id>` | Columns |
+
+`entities create` flags: `--rls` (row-level security), `--public` (publicly
+readable), `--lock` (block direct record creation), `--junction` (many-to-many
+join table). See `references/data-modeling.md`.
 
 ## Data & search
 | Command | Purpose |
 | --- | --- |
-| `data list <entity>` | List records |
-| `data create <entity> --data '<json>'` | Create a record |
-| `data update <entity> <id> --data '<json>'` | Update a record |
-| `data delete <entity> <id>` | Delete a record |
-| `search <entity> --query "<q>"` | Full-text/filtered search; supports sorting & geo radius |
+| `data list <entity> [--limit N --json]` / `data get <entity> <id>` | Read records |
+| `data create <entity> --data '<json>'` / `data update <entity> <id> --data '<json>'` / `data delete <entity> <id>` | Write records |
+| `search query "<text>" [--filter ... --sort ...]` | Full-text/filtered search; `_geoRadius(lat,lng,m)` for geo |
+| `search similar <entity> <id>` | Semantic / vector similarity |
+| `search rehydrate [<entity>]` / `search purge [<entity>]` / `search audit <entity>` | Index admin |
 
 ## Access control
 | Command | Purpose |
 | --- | --- |
-| `roles list` / `roles ...` | Manage roles and their permissions |
-| `users list` / `users ...` | Manage end-users of the project |
-| `api-keys create --name <n> [--expires <days>]` | Issue an API key (don't echo the value) |
-| `api-keys revoke <id>` | Revoke a key |
+| `roles list` / `roles create <name> [--description ...]` / `roles delete <id>` | Roles |
+| `users list` / `users me` / `users get <id>` / `users invite <email> <first> <last> [--role-id N]` / `users delete <id>` | End-users |
+| `api-keys list` / `api-keys create <name> --permissions "<e>:<a>,..." [--save-as <profile>]` / `api-keys revoke <id>` | API keys (value prints to **stderr**) |
 
-## Features
+Permissions are `{entity}:{action}` — see `references/access-control.md`.
+
+## Automation & integrations
 | Command | Purpose |
 | --- | --- |
-| `workflows ...` | Automations / triggers |
-| `files ...` | File storage |
-| `integrations ...` | Connect external providers (Claude, OpenAI, Slack, Google, etc.) |
-| `pay ...` | Payments / plans / subscriptions |
-| `oauth ...` | OAuth connection flows |
-| `email ...` | Email templates |
-| `menus ...` | Navigation menus |
-| `plans ...` | Billing plans |
-| `migrate ...` | Data/schema migration |
-| `api ...` | Low-level API access |
-| `docs ...` | Built-in documentation |
+| `workflows list` / `get <id>` / `create <name> [--trigger Event\|Timed\|Manual\|Api --cron ...]` / `enable\|disable\|trigger <id>` / `delete <id>` | Workflow engine |
+| `integrations list` / `get <provider>` / `connect <provider> [--name ...]` / `execute <provider> <operation> --input "k=v"` | Connect & call providers (Claude, OpenAI, Slack, Google, GitHub…) |
+| `integrations oauth status\|configure\|connect <provider>` · `integrations connections list` · `test\|enable\|disable\|disconnect <connection-id>` | OAuth provider connections |
+| `secrets ...` | Encrypted secrets for workflows/integrations |
+
+## Content & platform
+| Command | Purpose |
+| --- | --- |
+| `files list` / `get <id>` / `upload <path> [--public]` / `delete <id>` | File storage |
+| `menus list` / `menus add-item <menu_id> <entity> [--icon <Icon> --parent <id>]` | Dashboard navigation |
+| `pay status` / `connect` / `payments` / `methods` | Payments (Stripe Connect) |
+| `oauth google status\|configure` | First-party OAuth provider config |
+| `plans` | List plans |
+| `migrate --from <profile> --to <profile> [--dry-run]` | Move schema/data between projects |
+| `api [--json]` | List REST endpoints |
+| `fetch <path>` | Raw API request |
+| `docs [--json]` | Full reference (markdown / JSON) |
 
 ## Conventions
-- Most commands act on the **active project** — always `projects use` first.
-- JSON payloads go via `--data '<json>'`.
-- Prefer `--help` over guessing flags; the surface evolves.
-- Treat key/secret output as sensitive — let the user copy values.
+- Most commands act on the **active project** — `projects use` first.
+- JSON payloads via `--data '<json>'`; machine-readable output via `--json`.
+- `--yes` skips confirmation on destructive commands.
+- Don't pass `--profile` through the MCP (injected automatically).
+- Prefer `<group> --help` / `docs --json` over guessing — the surface evolves.

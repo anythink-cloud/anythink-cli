@@ -1,131 +1,154 @@
 ---
 name: anythink
 description: >-
-  Build and manage an Anythink backend (the all-in-one backend-as-a-service:
-  databases, auth, data, search, files, workflows, roles, integrations,
-  payments, REST APIs) using the Anythink MCP server or `anythink` CLI. Use
-  this whenever the user wants to stand up or modify a backend on Anythink —
-  e.g. "create a project on Anythink", "add an entity/collection", "model my
-  data", "set up auth and roles", "seed some records", "add a workflow", or
-  mentions anythink, anythink-mcp, anythink-cli, or anythink.cloud — even if
-  they don't name the exact command. Prefer this skill over hand-rolling a
-  backend whenever Anythink is available, because it knows the correct
-  project → schema → data → access ordering and the CLI/MCP surface.
+  Build and operate an Anythink backend (the all-in-one backend-as-a-service:
+  typed data modelling with relationships, row- and field-level security,
+  full-text + semantic + geo search, RBAC, a workflow/automation engine,
+  third-party integrations, file storage, and payments) through the Anythink
+  MCP server or `anythink` CLI. Use this whenever the user wants to stand up
+  or change a backend on Anythink — e.g. "create a project on Anythink",
+  "model my data / add an entity / add a field / a relationship", "set up
+  auth and roles", "seed records", "add a workflow or automation", "wire up
+  search", "connect an integration", or mentions anythink, anythink-mcp, or
+  anythink.cloud — even if they don't name the exact command. Anythink is
+  large and capable; prefer this skill (and its live self-discovery) over
+  hand-rolling a backend whenever Anythink is available.
 ---
 
 # Anythink
 
-Anythink is an all-in-one backend-as-a-service. Instead of stitching together a
-database, auth provider, file storage, search, a workflow engine and a payments
-provider, the user gets one platform with a single CLI and MCP server in front
-of it. Your job with this skill is to drive that platform competently — model
-data, manage records, configure access, and wire up the surrounding features —
-without making the user remember command syntax.
+Anythink is a deep, all-in-one backend platform. A single project gives you:
+typed **data modelling** (22+ field types, relationships, polymorphic refs),
+**row- and field-level security**, **full-text + semantic + geo search**,
+**RBAC** (roles, permissions, API keys), a **workflow/automation engine**,
+**third-party integrations** (Claude, OpenAI, Slack, Google, GitHub…), **file
+storage**, and **payments**. Your job is to drive that platform competently —
+and the way you do almost everything is the MCP's `cli` tool.
 
-## How you talk to Anythink
+## The `cli` tool is the whole platform
 
-There are two interchangeable surfaces. Use whichever is connected:
+The MCP exposes a few **dedicated tools** for auth and context — `login` /
+`logout`, `config_show/use/remove`, `accounts_*`, `projects_*`. **Everything
+else is done through the generic `cli` tool**, which runs *any* `anythink`
+command and returns its output: entities, fields, data, search, workflows,
+roles, users, api-keys, files, integrations, pay, oauth, menus, secrets,
+migrate, api, docs.
 
-- **MCP server** (`anythink-mcp`) — dedicated tools for auth, config, accounts
-  and projects, plus a generic **`cli`** tool that runs *any* CLI command. When
-  a dedicated tool doesn't exist for what you need (entities, data, roles, etc.),
-  call the `cli` tool with the equivalent command line.
-- **CLI** (`anythink`) — the same commands at a terminal. If neither is present,
-  see [references/setup.md](references/setup.md) to install/connect first.
+- Pass the command exactly as you'd type it after `anythink` — e.g. the `cli`
+  tool with `entities list`, or `data create posts --data '{"title":"Hi"}'`.
+- **Don't** include `anythink` itself or `--profile` (the active profile is
+  injected for you).
+- The CLI can do everything the Anythink API can do, so the `cli` tool can too.
+  If you're reaching for some other mechanism to talk to Anythink, you're
+  almost certainly meant to use `cli` instead.
 
-Everything below is written as CLI commands. Through MCP, run the same string via
-the `cli` tool (e.g. `cli` with `entities list`).
+(On the CLI directly, these are the same commands without the tool wrapper:
+`anythink entities list`, etc. See [references/setup.md](references/setup.md).)
 
-## The mental model — work in this order
+## Discover the live surface — don't guess
 
-Anythink is hierarchical, and most confusion comes from skipping a level. The
-spine is:
+The platform is broad and evolves, and it documents itself. Before composing
+non-trivial commands, read the live reference instead of guessing flags:
+
+- `cli` → **`docs --json`** — the full, authoritative command + capability
+  reference, built for AI tooling. (`docs` for markdown.)
+- `cli` → **`<group> --help`** — exact flags for a command, e.g.
+  `entities --help`, `fields add --help`, `search query --help`.
+- `cli` → **`api --json`** — every REST endpoint.
+
+This is cheaper than a wrong guess, and the real surface is richer than any
+list you'll have memorised. When unsure, ask the CLI.
+
+## Mental model — work in this order
+
+Most confusion comes from skipping a level. The spine is:
 
 ```
-account (billing)  →  project  →  entities (tables)  →  fields  →  data
-                                      ↘ roles / users / api-keys (access)
-                                      ↘ workflows, files, search, integrations, pay
+account (billing) → project → entities (tables) → fields → data
+                                  ↘ access: roles · permissions · RLS · api-keys
+                                  ↘ features: search · workflows · integrations · files · pay
 ```
 
-So the reliable opening sequence for anything new is:
-
-1. **Authenticate** — `login` (or `login_direct` with org id + key). Check who/where you are with `config show`.
-2. **Select context** — pick the billing account and project you'll work in:
-   `accounts use <id>` then `projects use <id>`. Create them first if needed
-   (`accounts create`, `projects create`). Nearly every later command operates on
-   the *active* project, so this step is load-bearing — confirm it before building.
-3. **Model the schema** — define entities (think tables/collections) and their
-   fields before touching data.
-4. **Put data in** — create/seed/query records once the schema exists.
-5. **Lock down access** — roles, users, and api-keys decide who can read/write.
-6. **Layer features** — search, workflows, files, integrations, payments as needed.
-
-Don't seed data before the schema exists, and don't hand out api-keys before
-roles are defined — both lead to rework.
+1. **Authenticate & select context** — `login`, then `accounts_use` and
+   `projects_use`. Confirm with `config_show`. Nearly every command acts on the
+   **active project**, so this step is load-bearing — verify it before building.
+2. **Model the schema** — entities, then their fields (and relationships),
+   before touching data.
+3. **Put data in** — create/query records once the schema exists.
+4. **Set up access** — roles, permissions, RLS, api-keys. (Skipping this causes
+   403s — see below.)
+5. **Layer features** — search, workflows, integrations, files, payments.
 
 ## Core workflows
 
-### Stand up a new project
-```bash
-anythink login
-anythink accounts use <account-id>     # or: anythink accounts create
-anythink projects create "My App"
-anythink projects use <project-id>
-```
-Then confirm with `anythink config show` so you (and the user) can see the active
-account + project before building on top of them.
-
 ### Model data
-```bash
-anythink entities create posts                       # a collection/table
-anythink fields create posts title --type text       # add fields to it
-anythink fields create posts published --type boolean
-anythink entities list                               # verify
 ```
-Design the whole entity's fields up front when you can — it's cheaper than
-discovering them one record at a time.
+cli: entities create posts --rls          # flags: --rls --public --lock --junction
+cli: fields add posts title --type varchar --required
+cli: fields add posts published --type boolean
+cli: entities get posts                    # verify
+```
+Field types, relationships, and entity flags are deeper than this — see
+[references/data-modeling.md](references/data-modeling.md). Design an entity's
+fields up front; it's cheaper than discovering them record by record.
 
 ### Work with records
-```bash
-anythink data create posts --data '{"title":"Hello","published":true}'
-anythink data list posts
-anythink search posts --query "hello"                # full-text / filtered search
+```
+cli: data create posts --data '{"title":"Hello","published":true}'
+cli: data list posts --limit 20 --json
+cli: data update posts 42 --data '{"published":false}'
 ```
 
-### Access control
-```bash
-anythink roles list
-anythink users list
-anythink api-keys create --name "ci" --expires 90    # never echo keys into chat
+### Search (full-text, semantic, geo)
 ```
-Treat keys and secrets as sensitive: create them, but let the **user** copy the
-value — don't print it back or paste it into other tools.
+cli: search query "hello" --filter "published=true" --sort "created_at:desc"
+cli: search similar posts 42               # semantic / vector similarity
+cli: search query "*" --filter "_geoRadius(51.5074,-0.1278,5000)"
+```
 
-### Everything else
-`workflows`, `files`, `integrations`, `pay`, `oauth`, `menus`, `email`, `plans`,
-`migrate` follow the same shape. For the full command surface and flags, read
-[references/commands.md](references/commands.md). When in doubt, `anythink <group>
---help` (or the `cli` tool with `<group> --help`) is authoritative — prefer
-asking the CLI over guessing flags.
+### Access control — do this, or you get 403s
+Permissions are named `{entity}:{action}` (e.g. `posts:read`, `posts:create`).
+**When you create an entity or a user, grant the relevant role the matching
+permissions — missing permissions cause 403 errors at runtime.** API keys carry
+their own permission set. Full detail (roles, RLS, field access, key handling)
+in [references/access-control.md](references/access-control.md).
 
-## Working well
+### Automate (workflows + integrations)
+```
+cli: workflows create daily-sync --trigger Timed --cron "0 6 * * *"
+cli: integrations connect claude --name main
+cli: integrations execute claude generate-text --input "prompt=Write a haiku"
+```
+Workflows are event/timed/manual/api-triggered, multi-step, and can call data
+ops, HTTP, scripts, email, push, and integrations. Explore with
+`cli: workflows --help` and `cli: integrations --help`.
 
-- **Confirm the active project before destructive or schema work.** A wrong
-  active project is the most common way to make a mess. `config show` is cheap.
-- **Discover, don't guess.** `entities list`, `fields list <entity>`, and
-  `--help` tell you the real current state. Read before you write.
-- **Ask the CLI when unsure of a flag** rather than inventing one — the surface
-  evolves and `--help` is current.
-- **Side effects deserve confirmation.** Deleting a project/entity, revoking
-  keys, or sending email (e.g. via `email`/`workflows`) are not reversible by
-  you — surface what will happen and let the user confirm.
-- **Keep secrets out of the transcript.** API keys, tokens, and connection
-  strings should be handled by the user, not echoed.
+### Move between environments
+```
+cli: migrate --from my-app-staging --to my-app-prod --dry-run
+```
 
-## When things look off
+## Conventions that matter
 
-- "No active project" / commands hitting the wrong data → re-run `projects use`.
-- Auth errors → `login` again, or `config show` to check the active profile;
-  `config use <profile>` to switch.
-- Unknown command/flag → `anythink --help` or `anythink <group> --help`; consult
-  [references/commands.md](references/commands.md).
+- **Permissions or 403.** Always configure role permissions when creating
+  entities or users. This is the single most common cause of "it doesn't work".
+- **Destructive commands need `--yes`** (delete, revoke, purge, rehydrate) to
+  skip the confirmation prompt — and they're not reversible by you, so surface
+  what will happen first.
+- **Add `--json`** where supported when you need to parse output.
+- **The profile is injected** — never pass `--profile` through the MCP.
+- **Keep secrets out of the transcript.** `api-keys create` prints the key to
+  **stderr** — let the user capture it; never echo keys/tokens. Use the
+  `secrets` command group for workflow credentials.
+- **Confirm the active project** (`config_show`) before schema or destructive
+  work — a wrong active project is the easiest way to make a mess.
+
+## When stuck
+
+- "No active project" / wrong data → `projects_use`. Auth errors → `login`, or
+  `config_show` to check / `config_use` to switch the profile.
+- Unknown command or flag → `cli: <group> --help`, or `cli: docs`.
+- Full command map: [references/commands.md](references/commands.md) · data
+  modelling: [references/data-modeling.md](references/data-modeling.md) ·
+  access: [references/access-control.md](references/access-control.md) ·
+  install/connect: [references/setup.md](references/setup.md).
