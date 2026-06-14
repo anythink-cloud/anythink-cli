@@ -1,11 +1,11 @@
-# anythink-mcp
+# @anythink-cloud/mcp
 
 **Sick of Frankenstein's monster?** [Anythink](https://anythink.cloud) replaces
 stitched-together services with a streamlined, all-in-one backend — giving you
 more time to create a killer product. All configured with a little help from AI,
 when you need it.
 
-`anythink-mcp` is the [Anythink](https://anythink.cloud) MCP server. It exposes
+`@anythink-cloud/mcp` is the [Anythink](https://anythink.cloud) MCP server. It exposes
 the Backend-as-a-Service platform — databases, auth, data and search, files,
 workflows, integrations, and payments — to AI assistants and agents over the
 [Model Context Protocol](https://modelcontextprotocol.io).
@@ -16,7 +16,7 @@ runtime required**.
 ## Use with Claude Code
 
 ```bash
-claude mcp add anythink -- npx -y anythink-mcp
+claude mcp add anythink -- npx -y @anythink-cloud/mcp
 ```
 
 ## Use with any MCP client
@@ -28,7 +28,7 @@ Add this server entry to the client's MCP config:
   "mcpServers": {
     "anythink": {
       "command": "npx",
-      "args": ["-y", "anythink-mcp"]
+      "args": ["-y", "@anythink-cloud/mcp"]
     }
   }
 }

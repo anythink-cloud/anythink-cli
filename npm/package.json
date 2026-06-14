@@ -1,5 +1,5 @@
 {
-  "name": "anythink-mcp",
+  "name": "@anythink-cloud/mcp",
   "version": "0.0.0-dev",
   "description": "Anythink MCP server — manage the Anythink all-in-one backend (data, auth, search, files, workflows, payments) from AI assistants and agents. Runs the native binary via npx; no .NET required.",
   "bin": {
