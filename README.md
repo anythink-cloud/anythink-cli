@@ -790,7 +790,13 @@ The Anythink MCP server exposes the platform to AI assistants (Claude, Cursor, e
 
 ### Install
 
-The `anythink-mcp` server is self-contained — you don't need the CLI installed separately. Pick one:
+No install needed — the recommended way is to run it on demand with `npx`:
+
+```bash
+npx -y @anythink-cloud/mcp
+```
+
+Prefer a native binary on your `PATH`? Any of:
 
 ```bash
 # Homebrew (bundled with the CLI — see Installation above)
@@ -804,13 +810,13 @@ dotnet tool install -g anythink-mcp
 
 ### Configure
 
-[![Add to Cursor](https://img.shields.io/badge/Add_to-Cursor-000000?logo=cursor&logoColor=white)](cursor://anysphere.cursor-deeplink/mcp/install?name=anythink&config=eyJjb21tYW5kIjoiYW55dGhpbmstbWNwIn0=)
-[![Install in VS Code](https://img.shields.io/badge/Install-VS_Code-007ACC?logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=anythink&config=%7B%22command%22%3A%22anythink-mcp%22%7D)
+[![Add to Cursor](https://img.shields.io/badge/Add_to-Cursor-000000?logo=cursor&logoColor=white)](cursor://anysphere.cursor-deeplink/mcp/install?name=anythink&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBhbnl0aGluay1jbG91ZC9tY3AiXX0=)
+[![Install in VS Code](https://img.shields.io/badge/Install-VS_Code-007ACC?logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=anythink&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40anythink-cloud%2Fmcp%22%5D%7D)
 
 For **Claude Code**, register it in one command:
 
 ```bash
-claude mcp add anythink anythink-mcp
+claude mcp add anythink -- npx -y @anythink-cloud/mcp
 ```
 
 Or add it to your MCP client config manually (e.g. `.mcp.json`):
@@ -819,23 +825,26 @@ Or add it to your MCP client config manually (e.g. `.mcp.json`):
 {
   "mcpServers": {
     "anythink": {
-      "command": "anythink-mcp"
+      "command": "npx",
+      "args": ["-y", "@anythink-cloud/mcp"]
     }
   }
 }
 ```
 
-To use a specific profile: `"args": ["--profile", "my-project"]`
+To pin a profile, add it to `args`: `["-y", "@anythink-cloud/mcp", "--profile", "my-project"]`
 
-Works in any MCP client — add the same `{ "command": "anythink-mcp" }` server entry to its config:
+Works in any MCP client — add the same server entry to its config:
 
 | Client | Where to add it |
 | --- | --- |
-| Claude Code | `claude mcp add anythink anythink-mcp` |
+| Claude Code | `claude mcp add anythink -- npx -y @anythink-cloud/mcp` |
 | Cursor | `~/.cursor/mcp.json` (or the **Add to Cursor** button above) |
 | VS Code | `.vscode/mcp.json` (or the **Install in VS Code** button above) |
 | Windsurf | `~/.codeium/windsurf/mcp_config.json` |
 | Cline / Continue / Zed | their MCP settings |
+
+(Using a native binary instead of `npx`? Use `"command": "anythink-mcp"` with no `args`.)
 
 Once connected, run the `login` tool, then `accounts_use` / `projects_use` to pick your working context.
 
