@@ -15,12 +15,15 @@ permissions:
   contents: write
   id-token: write   # npm Trusted Publishing (OIDC)
 
+# build runs first; homebrew and npm then run independently — a failure in one
+# (e.g. npm before its trusted-publisher bootstrap) must not block the other.
 jobs:
   build:
     name: Build & Release
     runs-on: ubuntu-latest
     environment: release
-
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -111,28 +114,35 @@ jobs:
             dist/anythink-mcp-win-arm64.exe
             dist/checksums.txt
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Upload binaries for downstream jobs
+        uses: actions/upload-artifact@v4
         with:
-          node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
+          name: dist
+          path: dist/
+          retention-days: 1
 
-      - name: Publish npm wrapper (@anythink-cloud/mcp, Trusted Publishing)
-        # Publishes via npm Trusted Publishing (OIDC) — no NPM_TOKEN. Requires
-        # npm >= 11.5.1 (newer than the npm bundled with Node 22), so upgrade
-        # first. npm auto-attaches provenance. Runs after the GitHub release
-        # exists, since the wrapper downloads that release's binary at install.
-        working-directory: npm
-        run: |
-          npm install -g npm@latest
-          npm version "${{ steps.version.outputs.VERSION }}" --no-git-tag-version --allow-same-version
-          npm publish --access public
+  homebrew:
+    name: Update Homebrew formula
+    needs: build
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
 
       - name: Update Homebrew formula
         env:
           TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+          VERSION: ${{ needs.build.outputs.version }}
         run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
           SHA_OSX_ARM64=$(sha256sum dist/anythink-osx-arm64 | awk '{print $1}')
           SHA_OSX_X64=$(sha256sum dist/anythink-osx-x64 | awk '{print $1}')
           SHA_LINUX_X64=$(sha256sum dist/anythink-linux-x64 | awk '{print $1}')
@@ -158,8 +168,35 @@ jobs:
           fi
           git commit -m "Update anythink to v${VERSION}"
           # Commit straight to the tap's main so `brew upgrade` serves the new
-          # version immediately — no PR/merge step. The tap's branch protection
-          # exempts admins (enforce_admins is off) and TAP_TOKEN has
-          # contents:write, so this push lands. `set -eo pipefail` (the default
-          # for Actions bash) means a rejected push fails the job loudly.
+          # version immediately. The tap exempts admins (enforce_admins off) and
+          # TAP_TOKEN has contents:write, so this push lands.
           git push origin HEAD:main
+
+  npm:
+    name: Publish npm wrapper (@anythink-cloud/mcp)
+    needs: build
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write   # Trusted Publishing (OIDC)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Publish (Trusted Publishing / OIDC)
+        # No NPM_TOKEN — OIDC. Requires npm >= 11.5.1 (newer than the npm
+        # bundled with Node 22), so upgrade first; provenance is automatic.
+        # One-time bootstrap: @anythink-cloud/mcp must be created by a manual
+        # first publish before OIDC can publish to it.
+        working-directory: npm
+        run: |
+          npm install -g npm@latest
+          npm version "${{ needs.build.outputs.version }}" --no-git-tag-version --allow-same-version
+          npm publish --access public
