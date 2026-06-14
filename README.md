@@ -7,6 +7,12 @@
 
 The official command-line interface for [Anythink](https://anythink.cloud) — the headless backend platform for developers and founders. Manage your projects, entities, data, workflows, users, files, and payments without leaving the terminal.
 
+[![NuGet](https://img.shields.io/nuget/v/anythink-mcp?logo=nuget&label=anythink-mcp)](https://www.nuget.org/packages/anythink-mcp)
+[![Release](https://img.shields.io/github/v/release/anythink-cloud/anythink-cli?logo=github&label=release)](https://github.com/anythink-cloud/anythink-cli/releases/latest)
+[![Homebrew](https://img.shields.io/badge/homebrew-anythink--cloud%2Ftap-F9A825?logo=homebrew&logoColor=white)](https://github.com/anythink-cloud/homebrew-tap)
+[![MCP Registry](https://img.shields.io/badge/MCP_registry-cloud.anythink%2Fanythink-0098FF)](https://registry.modelcontextprotocol.io)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 ```
    ░███                             ░██    ░██        ░██           ░██
   ░██░██                            ░██    ░██                      ░██
@@ -798,6 +804,9 @@ dotnet tool install -g anythink-mcp
 
 ### Configure
 
+[![Add to Cursor](https://img.shields.io/badge/Add_to-Cursor-000000?logo=cursor&logoColor=white)](cursor://anysphere.cursor-deeplink/mcp/install?name=anythink&config=eyJjb21tYW5kIjoiYW55dGhpbmstbWNwIn0=)
+[![Install in VS Code](https://img.shields.io/badge/Install-VS_Code-007ACC?logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=anythink&config=%7B%22command%22%3A%22anythink-mcp%22%7D)
+
 For **Claude Code**, register it in one command:
 
 ```bash
@@ -817,6 +826,16 @@ Or add it to your MCP client config manually (e.g. `.mcp.json`):
 ```
 
 To use a specific profile: `"args": ["--profile", "my-project"]`
+
+Works in any MCP client — add the same `{ "command": "anythink-mcp" }` server entry to its config:
+
+| Client | Where to add it |
+| --- | --- |
+| Claude Code | `claude mcp add anythink anythink-mcp` |
+| Cursor | `~/.cursor/mcp.json` (or the **Add to Cursor** button above) |
+| VS Code | `.vscode/mcp.json` (or the **Install in VS Code** button above) |
+| Windsurf | `~/.codeium/windsurf/mcp_config.json` |
+| Cline / Continue / Zed | their MCP settings |
 
 Once connected, run the `login` tool, then `accounts_use` / `projects_use` to pick your working context.
 
