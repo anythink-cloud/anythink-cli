@@ -13,7 +13,9 @@
     <ToolCommandName>anythink-mcp</ToolCommandName>
     <PackageId>anythink-mcp</PackageId>
     <Version>1.0.0</Version>
-    <Description>Anythink MCP server — exposes the Anythink BaaS platform to AI assistants via the Model Context Protocol</Description>
+    <Title>Anythink — all-in-one backend (MCP server)</Title>
+    <Description>Anythink MCP server — manage the Anythink all-in-one backend (databases, authentication, data and search, users and roles, files, workflows, integrations, payments, and REST APIs) from AI assistants and agents. Replace stitched-together services with one streamlined backend-as-a-service, configured with a little help from AI.</Description>
+    <PackageTags>anythink;baas;backend;backend-as-a-service;mcp;model-context-protocol;ai;ai-agent;llm;agent;database;rest-api;cli;workflows;authentication;files;payments</PackageTags>
     <Authors>Anythink</Authors>
     <PackageProjectUrl>https://github.com/anythink-cloud/anythink-cli</PackageProjectUrl>
     <RepositoryUrl>https://github.com/anythink-cloud/anythink-cli</RepositoryUrl>
