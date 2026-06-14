@@ -3,6 +3,13 @@ bin/
 obj/
 dist/
 
+# The npm wrapper's launcher is a source file living under bin/ — keep it tracked
+# (the `bin/` rule above would otherwise ignore it). Downloaded native binaries
+# in npm/bin/ stay ignored.
+!npm/bin/
+npm/bin/*
+!npm/bin/anythink-mcp.js
+
 # Test results and coverage reports
 TestResults*/
 *.coverage
