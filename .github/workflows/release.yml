@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write   # npm Trusted Publishing (OIDC)
 
 jobs:
   build:
@@ -113,17 +114,17 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Publish npm wrapper
-        # Publishes `anythink-mcp` so `npx -y anythink-mcp` runs the native
-        # binary. Runs after the GitHub release exists, since the wrapper
-        # downloads the matching binary from that release at install time.
+      - name: Publish npm wrapper (@anythink-cloud/mcp, Trusted Publishing)
+        # Publishes via npm Trusted Publishing (OIDC) — no NPM_TOKEN. Requires
+        # npm >= 11.5.1 (newer than the npm bundled with Node 22), so upgrade
+        # first. npm auto-attaches provenance. Runs after the GitHub release
+        # exists, since the wrapper downloads that release's binary at install.
         working-directory: npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          npm install -g npm@latest
           npm version "${{ steps.version.outputs.VERSION }}" --no-git-tag-version --allow-same-version
           npm publish --access public
 
