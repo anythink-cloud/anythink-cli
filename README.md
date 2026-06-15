@@ -932,7 +932,7 @@ anythink-cli/
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). This covers the Anythink CLI and MCP server source in this repository; it does not grant rights to the Anythink platform, APIs, or services, which are governed by separate terms at [anythink.cloud](https://anythink.cloud).
 
 ---
 
