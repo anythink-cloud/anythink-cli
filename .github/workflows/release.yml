@@ -179,7 +179,6 @@ jobs:
     environment: release
     permissions:
       contents: read
-      id-token: write   # Trusted Publishing (OIDC)
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -190,13 +189,10 @@ jobs:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Publish (Trusted Publishing / OIDC)
-        # No NPM_TOKEN — OIDC. Requires npm >= 11.5.1 (newer than the npm
-        # bundled with Node 22), so upgrade first; provenance is automatic.
-        # One-time bootstrap: @anythink-cloud/mcp must be created by a manual
-        # first publish before OIDC can publish to it.
+      - name: Publish
         working-directory: npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          npm install -g npm@latest
           npm version "${{ needs.build.outputs.version }}" --no-git-tag-version --allow-same-version
           npm publish --access public
