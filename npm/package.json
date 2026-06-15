@@ -11,7 +11,8 @@
   "files": [
     "bin/anythink-mcp.js",
     "install.js",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "keywords": [
     "anythink",
