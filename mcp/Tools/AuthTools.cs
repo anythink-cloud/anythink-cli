@@ -18,13 +18,18 @@ public class AuthTools
     public AuthTools(McpClientFactory factory) => _factory = factory;
 
     [McpServerTool(Name = "signup"),
-     Description("Create a new Anythink account")]
+     Description(
+        "Register a brand-new Anythink platform account with email and password. " +
+        "Use this only when the user has no account yet; if they already have one, use 'login' instead. " +
+        "This creates the top-level user identity — it does not create a billing account or project " +
+        "(do that with 'accounts_create' and 'projects_create' after logging in). " +
+        "On success, follow up with the 'login' tool to obtain a session.")]
     public async Task<string> Signup(
-        [Description("First name")] string firstName,
-        [Description("Last name")] string lastName,
-        [Description("Email address")] string email,
-        [Description("Password")] string password,
-        [Description("Referral code (optional)")] string? referralCode = null)
+        [Description("User's first name")] string firstName,
+        [Description("User's last name")] string lastName,
+        [Description("Email address — becomes the login identifier and must be unique")] string email,
+        [Description("Password for the new account; choose a strong value")] string password,
+        [Description("Optional referral code, if the user was invited by another customer")] string? referralCode = null)
     {
         var client = _factory.GetUnauthenticatedBillingClient();
         await client.RegisterAsync(new RegisterRequest(firstName, lastName, email, password, referralCode));
@@ -93,9 +98,13 @@ public class AuthTools
     }
 
     [McpServerTool(Name = "logout"),
-     Description("Remove saved credentials for a project profile")]
+     Description(
+        "Remove the saved credentials for a project profile from local CLI config. " +
+        "Use this to disconnect from a project or clear a stale token; it deletes only the " +
+        "stored profile locally and does not revoke the token server-side or affect the project. " +
+        "Omit the profile to remove the currently active one. Run 'config_show' to see profile names.")]
     public Task<string> Logout(
-        [Description("Profile name to remove (uses active profile if omitted)")] string? profile = null)
+        [Description("Name of the profile to remove. Defaults to the active profile. See 'config_show' for names.")] string? profile = null)
     {
         var config = ConfigService.Load();
         var key = profile ?? config.DefaultProfile;

@@ -17,7 +17,13 @@ public class AccountTools
     public AccountTools(McpClientFactory factory) => _factory = factory;
 
     [McpServerTool(Name = "accounts_list"),
-     Description("List all billing accounts for the logged-in user")]
+     Description(
+        "List the billing accounts (organizations) the logged-in user belongs to. " +
+        "Requires a prior platform login (use the 'login' tool first). " +
+        "Returns each account's id, organization name, billing email, currency, and status " +
+        "(Active/Suspended/Canceled), and flags which one is currently active. " +
+        "A billing account holds your projects and payment details — pick one with 'accounts_use' " +
+        "before creating or listing projects.")]
     public async Task<string> AccountsList()
     {
         var client = _factory.GetBillingClient();
@@ -35,11 +41,17 @@ public class AccountTools
     }
 
     [McpServerTool(Name = "accounts_create"),
-     Description("Create a new billing account")]
+     Description(
+        "Create a new billing account (organization) to hold projects and payment details. " +
+        "Requires a prior platform login (use the 'login' tool first). " +
+        "The new account is automatically set as the active account, so subsequent " +
+        "'projects_create' / 'projects_list' calls target it without further setup. " +
+        "Returns the new account's id and name. Most users need only one account — call " +
+        "'accounts_list' first to check whether a suitable one already exists.")]
     public async Task<string> AccountsCreate(
-        [Description("Organization name")] string name,
-        [Description("Billing email address")] string email,
-        [Description("Currency: gbp, usd, or eur (default: gbp)")] string currency = "gbp")
+        [Description("Organization name, e.g. 'Acme Inc' — shown on invoices and in the dashboard")] string name,
+        [Description("Billing email address that receives invoices and receipts")] string email,
+        [Description("ISO currency for billing: 'gbp', 'usd', or 'eur'. Defaults to 'gbp'. Cannot be changed later.")] string currency = "gbp")
     {
         var client = _factory.GetBillingClient();
         var account = await client.CreateAccountAsync(
@@ -59,9 +71,14 @@ public class AccountTools
     }
 
     [McpServerTool(Name = "accounts_use"),
-     Description("Set the active billing account (used for project management)")]
+     Description(
+        "Set the active billing account that project commands operate on. " +
+        "Call this after 'login' when you belong to more than one account, before using " +
+        "'projects_list', 'projects_create', or 'projects_use'. " +
+        "Accepts a full account UUID or a unique prefix; run 'accounts_list' to see valid ids. " +
+        "Returns the resolved account name and id, or an error if no account matches.")]
     public async Task<string> AccountsUse(
-        [Description("Billing account ID (full UUID or prefix)")] string id)
+        [Description("Billing account id — full UUID or a unique leading prefix. Get ids from 'accounts_list'.")] string id)
     {
         var client = _factory.GetBillingClient();
         var accounts = await client.GetAccountsAsync();
