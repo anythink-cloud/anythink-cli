@@ -408,9 +408,17 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                         Workflow? created = null;
                         try
                         {
+                            // Convert the source workflow's legacy trigger+options shape
+                            // into the Triggers array AnyAPI now requires.
+                            var triggerConfig = wf.Options.HasValue
+                                ? JsonSerializer.Deserialize<WorkflowTriggerConfig>(
+                                      wf.Options.Value.GetRawText()) ?? new WorkflowTriggerConfig()
+                                : new WorkflowTriggerConfig();
                             created = await dstClient.CreateWorkflowAsync(new CreateWorkflowRequest(
-                                wf.Name, wf.Description, wf.Trigger, false,
-                                wf.Options.HasValue ? (object)wf.Options.Value : new { }));
+                                Name:        wf.Name,
+                                Description: wf.Description,
+                                Enabled:     false,
+                                Triggers:    [new WorkflowTriggerRequest(wf.Trigger, true, triggerConfig)]));
                         }
                         catch (AnythinkException ex)
                         {

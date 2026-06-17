@@ -606,20 +606,15 @@ public class WorkflowsCreateCommand : BaseCommand<WorkflowCreateSettings>
             }
         }
 
-        object options = trigger switch
+        var config = trigger switch
         {
-            "Timed" => new
-            {
-                cron_expression = settings.Cron ?? "0 9 * * *",
-                event_entity = ""
-            },
-            "Event" => (object)new EventWorkflowOptions(
-                settings.Event ?? "EntityCreated",
-                settings.EventEntity ?? "",
-                filter
-            ),
-            "Api" => new { api_route = settings.ApiRoute ?? "", event_entity = settings.EventEntity ?? "" },
-            _ => new { }
+            "Timed" => new WorkflowTriggerConfig(CronExpression: settings.Cron ?? "0 9 * * *"),
+            "Event" => new WorkflowTriggerConfig(
+                          Event:       settings.Event       ?? "EntityCreated",
+                          EventEntity: settings.EventEntity ?? "",
+                          Filter:      filter),
+            "Api"   => new WorkflowTriggerConfig(ApiRoute: settings.ApiRoute ?? ""),
+            _       => new WorkflowTriggerConfig()
         };
 
         try
@@ -632,13 +627,10 @@ public class WorkflowsCreateCommand : BaseCommand<WorkflowCreateSettings>
                 .StartAsync($"Creating workflow '{settings.Name}'...", async _ =>
                 {
                     wf = await client.CreateWorkflowAsync(new CreateWorkflowRequest(
-                        settings.Name,
-                        settings.Description,
-                        trigger,
-                        settings.Enabled,
-                        options,
-                        trigger == "Api" ? settings.ApiRoute : null
-                    ));
+                        Name:        settings.Name,
+                        Description: settings.Description,
+                        Enabled:     settings.Enabled,
+                        Triggers:    [new WorkflowTriggerRequest(trigger, true, config)]));
                 });
 
             Renderer.Success($"Workflow [#F97316]{Markup.Escape(wf!.Name)}[/] created (id: {Markup.Escape(wf.Id.ToString())}).");
@@ -933,7 +925,25 @@ public class WorkflowsSeedCommand : BaseCommand<WorkflowsSeedSettings>
 
         var enabled = settings.Enabled ?? spec.Enabled;
         var trigger = spec.Trigger ?? "Manual";
-        var options = spec.Options ?? (object)new { };
+
+        // Convert the legacy single-trigger seed shape into the multi-trigger
+        // request shape the API now expects. spec.Options may be a JsonElement
+        // (event/event_entity/cron_expression/etc.); deserialise into a typed
+        // config and tack on the api_route when present.
+        WorkflowTriggerConfig config;
+        if (spec.Options is System.Text.Json.JsonElement opts && opts.ValueKind == System.Text.Json.JsonValueKind.Object)
+        {
+            config = System.Text.Json.JsonSerializer.Deserialize<WorkflowTriggerConfig>(
+                         opts.GetRawText(), new System.Text.Json.JsonSerializerOptions
+                         { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower })
+                     ?? new WorkflowTriggerConfig();
+        }
+        else
+        {
+            config = new WorkflowTriggerConfig();
+        }
+        if (trigger == "Api" && !string.IsNullOrEmpty(spec.ApiRoute))
+            config = config with { ApiRoute = spec.ApiRoute };
 
         try
         {
@@ -945,12 +955,10 @@ public class WorkflowsSeedCommand : BaseCommand<WorkflowsSeedSettings>
                 .StartAsync($"Creating workflow '{spec.Name}'...", async _ =>
                 {
                     wf = await client.CreateWorkflowAsync(new CreateWorkflowRequest(
-                        spec.Name,
-                        spec.Description,
-                        trigger,
-                        enabled,
-                        options,
-                        trigger == "Api" ? spec.ApiRoute : null));
+                        Name:        spec.Name,
+                        Description: spec.Description,
+                        Enabled:     enabled,
+                        Triggers:    [new WorkflowTriggerRequest(trigger, true, config)]));
                 });
             Renderer.Success($"Workflow [#F97316]{Markup.Escape(wf!.Name)}[/] created (id: {wf.Id}).");
 
