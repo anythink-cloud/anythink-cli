@@ -199,16 +199,17 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
         var (platformKey, platform) = ResolvePlatformContext();
         var eff = ConfigService.ApplyRuntimeOverrides(platform);
 
-        // Start a local listener on a free port. The redirect URI is matched
-        // strictly against what's registered in Google Console (and via the
-        // Anythink server), so we can't add a per-session secret to the path.
-        // CSRF defense is the OAuth `state` parameter, generated and validated
-        // by the Anythink server.
-        var port        = FindFreePort();
+        // Google matches the redirect URI exactly, so the callback must use a
+        // fixed, pre-registered port rather than a random one.
+        var (listener, port) = BindLoopbackListener();
+        if (listener is null)
+        {
+            Renderer.Error(
+                $"Could not start the Google sign-in listener — ports {string.Join(", ", CallbackPorts)} are all in use. " +
+                "Free one and retry, or sign in with 'anythink login' (email and password).");
+            return 1;
+        }
         var callbackUrl = $"http://localhost:{port}/callback";
-        var listener    = new HttpListener();
-        listener.Prefixes.Add($"http://localhost:{port}/");
-        listener.Start();
 
         // 1. Get the Google authorization URL from the server
         string authUrl;
@@ -339,13 +340,26 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
         return 0;
     }
 
-    private static int FindFreePort()
+    // Registered as http://localhost:<port>/callback on the Google OAuth client.
+    private static readonly int[] CallbackPorts = [8976, 8977, 8978];
+
+    private static (HttpListener? listener, int port) BindLoopbackListener()
     {
-        var l = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
-        l.Start();
-        var port = ((IPEndPoint)l.LocalEndpoint).Port;
-        l.Stop();
-        return port;
+        foreach (var port in CallbackPorts)
+        {
+            var listener = new HttpListener();
+            listener.Prefixes.Add($"http://localhost:{port}/");
+            try
+            {
+                listener.Start();
+                return (listener, port);
+            }
+            catch (HttpListenerException)
+            {
+                listener.Close();
+            }
+        }
+        return (null, 0);
     }
 
     private static void OpenBrowser(string url)
