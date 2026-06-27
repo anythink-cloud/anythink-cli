@@ -810,7 +810,7 @@ dotnet tool install -g anythink-mcp
 
 ### Configure
 
-[![Add to Cursor](https://img.shields.io/badge/Add_to-Cursor-000000?logo=cursor&logoColor=white)](cursor://anysphere.cursor-deeplink/mcp/install?name=anythink&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBhbnl0aGluay1jbG91ZC9tY3AiXX0=)
+[![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=anythink&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBhbnl0aGluay1jbG91ZC9tY3AiXX0%3D)
 [![Install in VS Code](https://img.shields.io/badge/Install-VS_Code-007ACC?logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=anythink&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40anythink-cloud%2Fmcp%22%5D%7D)
 
 For **Claude Code**, register it in one command:
@@ -834,15 +834,47 @@ Or add it to your MCP client config manually (e.g. `.mcp.json`):
 
 To pin a profile, add it to `args`: `["-y", "@anythink-cloud/mcp", "--profile", "my-project"]`
 
-Works in any MCP client — add the same server entry to its config:
+Works in any MCP client. Most use the same `mcpServers` JSON shown above — just add it to the client's config file:
 
-| Client | Where to add it |
+| Client | Config file |
 | --- | --- |
-| Claude Code | `claude mcp add anythink -- npx -y @anythink-cloud/mcp` |
+| Claude Code | `claude mcp add anythink -- npx -y @anythink-cloud/mcp` (or `.mcp.json`) |
+| Claude Desktop | `claude_desktop_config.json` (Settings → Developer → Edit Config) |
 | Cursor | `~/.cursor/mcp.json` (or the **Add to Cursor** button above) |
 | VS Code | `.vscode/mcp.json` (or the **Install in VS Code** button above) |
+| Cline | `cline_mcp_settings.json` (MCP Servers → Configure) |
 | Windsurf | `~/.codeium/windsurf/mcp_config.json` |
-| Cline / Continue / Zed | their MCP settings |
+
+A couple of clients use a different config shape:
+
+<details>
+<summary><strong>Continue</strong> (YAML — <code>mcpServers</code> is a list)</summary>
+
+```yaml
+mcpServers:
+  - name: anythink
+    command: npx
+    args:
+      - -y
+      - "@anythink-cloud/mcp"
+```
+</details>
+
+<details>
+<summary><strong>Zed</strong> (uses <code>context_servers</code>, not <code>mcpServers</code>)</summary>
+
+```json
+{
+  "context_servers": {
+    "anythink": {
+      "source": "custom",
+      "command": "npx",
+      "args": ["-y", "@anythink-cloud/mcp"]
+    }
+  }
+}
+```
+</details>
 
 (Using a native binary instead of `npx`? Use `"command": "anythink-mcp"` with no `args`.)
 
