@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "anythink",
+  "description": "Build and operate an Anythink backend — the all-in-one backend-as-a-service (typed data modelling with relationships, row/field-level security, full-text + semantic + geo search, RBAC, a workflow/automation engine, third-party integrations, file storage, and payments) — through the Anythink MCP server or `anythink` CLI.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Anythink",
+    "url": "https://anythink.cloud"
+  },
+  "homepage": "https://anythink.cloud",
+  "repository": "https://github.com/anythink-cloud/anythink-cli",
+  "license": "MIT",
+  "keywords": ["anythink", "backend", "baas", "mcp", "cli", "database", "rbac", "search", "workflows"]
+}
