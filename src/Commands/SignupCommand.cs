@@ -239,6 +239,7 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
         // requests whose path isn't /callback so a noisy tab can't inject.
         AnsiConsole.MarkupLine("[dim]Waiting for sign-in...[/]");
         HttpListenerContext ctx;
+        string? code = null, state = null, error = null;
         try
         {
             var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
@@ -251,30 +252,31 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
                 ctx.Response.StatusCode = 404;
                 ctx.Response.Close();
             }
+
+            var qs = System.Web.HttpUtility.ParseQueryString(ctx.Request.Url?.Query ?? "");
+            code  = qs["code"];
+            state = qs["state"];
+            error = qs["error"];
+
+            try
+            {
+                ctx.Response.ContentType = "text/html; charset=utf-8";
+                ctx.Response.ContentLength64 = SuccessPageHtml.Length;
+                await ctx.Response.OutputStream.WriteAsync(SuccessPageHtml);
+                ctx.Response.Close();
+            }
+            catch { /* browser tab already closed — ignore */ }
         }
         catch (OperationCanceledException)
         {
-            listener.Stop();
             Renderer.Error("Timed out waiting for Google sign-in.");
             return 1;
         }
         finally { listener.Stop(); }
 
-        // Respond to the browser tab
-        var html = "<html><body style='font-family:sans-serif;padding:2rem'><h2>Signed in — you can close this tab.</h2></body></html>"u8.ToArray();
-        ctx.Response.ContentType = "text/html";
-        ctx.Response.ContentLength64 = html.Length;
-        await ctx.Response.OutputStream.WriteAsync(html);
-        ctx.Response.Close();
-
-        // 4. Extract code + state
-        var qs   = System.Web.HttpUtility.ParseQueryString(ctx.Request.Url?.Query ?? "");
-        var code = qs["code"];
-        var state = qs["state"];
-
         if (string.IsNullOrEmpty(code))
         {
-            Renderer.Error($"Google sign-in failed: {Markup.Escape(qs["error"] ?? "unknown error")}");
+            Renderer.Error($"Google sign-in failed: {Markup.Escape(error ?? "unknown error")}");
             return 1;
         }
 
@@ -342,6 +344,19 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
 
     // Registered as http://localhost:<port>/callback on the Google OAuth client.
     private static readonly int[] CallbackPorts = [8976, 8977, 8978];
+
+    // Branded success page (src/Resources/google-success.html, embedded at build time).
+    private static readonly byte[] SuccessPageHtml = LoadSuccessPage();
+
+    private static byte[] LoadSuccessPage()
+    {
+        var asm = typeof(PlatformLoginCommand).Assembly;
+        var name = Array.Find(asm.GetManifestResourceNames(), n => n.EndsWith("google-success.html"))!;
+        using var stream = asm.GetManifestResourceStream(name)!;
+        using var ms = new MemoryStream();
+        stream.CopyTo(ms);
+        return ms.ToArray();
+    }
 
     private static (HttpListener? listener, int port) BindLoopbackListener()
     {
