@@ -1,3 +1,4 @@
+using AnythinkCli.Auth;
 using AnythinkCli.Client;
 using AnythinkCli.Config;
 using AnythinkCli.Models;
@@ -199,188 +200,63 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
         var (platformKey, platform) = ResolvePlatformContext();
         var eff = ConfigService.ApplyRuntimeOverrides(platform);
 
-        // Google matches the redirect URI exactly, so the callback must use a
-        // fixed, pre-registered port rather than a random one.
-        var (listener, port) = BindLoopbackListener();
-        if (listener is null)
-        {
-            Renderer.Error(
-                $"Could not start the Google sign-in listener — ports {string.Join(", ", CallbackPorts)} are all in use. " +
-                "Free one and retry, or sign in with 'anythink login' (email and password).");
-            return 1;
-        }
-        var callbackUrl = $"http://localhost:{port}/callback";
-
-        // 1. Get the Google authorization URL from the server
-        string authUrl;
+        LoginResponse tokens;
         try
         {
-            using var http = new HttpClient();
-            var json = await http.GetStringAsync(
-                $"{eff.MyAnythinkUrl.TrimEnd('/')}/org/{eff.MyAnythinkOrgId}/auth/v1/google/authorize" +
-                $"?redirectUri={Uri.EscapeDataString(callbackUrl)}");
-            var doc = JsonDocument.Parse(json);
-            authUrl = doc.RootElement.GetProperty("authorization_url").GetString()
-                ?? throw new Exception("No authorization_url in response.");
+            AnsiConsole.MarkupLine("\n[#F97316]Opening browser for Google sign-in...[/]");
+            tokens = await GoogleAuthFlow.RunAsync(eff, url =>
+            {
+                AnsiConsole.MarkupLine($"[dim]If it doesn't open automatically, visit:[/]\n{url}\n");
+                AnsiConsole.MarkupLine("[dim]Waiting for sign-in...[/]");
+            });
         }
         catch (Exception ex)
         {
-            listener.Stop();
-            Renderer.Error($"Could not start Google login: {ex.Message}");
+            Renderer.Error(ex.Message);
             return 1;
         }
 
-        // 2. Open browser
-        AnsiConsole.MarkupLine("\n[#F97316]Opening browser for Google sign-in...[/]");
-        AnsiConsole.MarkupLine($"[dim]If it doesn't open automatically, visit:[/]\n{authUrl}\n");
-        OpenBrowser(authUrl);
-
-        // 3. Wait for Google to redirect back (3 min timeout). Drop any
-        // requests whose path isn't /callback so a noisy tab can't inject.
-        AnsiConsole.MarkupLine("[dim]Waiting for sign-in...[/]");
-        HttpListenerContext ctx;
-        string? code = null, state = null, error = null;
-        try
-        {
-            var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
-            while (true)
-            {
-                ctx = await listener.GetContextAsync().WaitAsync(cts.Token);
-                var path = ctx.Request.Url?.AbsolutePath ?? "";
-                if (string.Equals(path, "/callback", StringComparison.Ordinal)) break;
-
-                ctx.Response.StatusCode = 404;
-                ctx.Response.Close();
-            }
-
-            var qs = System.Web.HttpUtility.ParseQueryString(ctx.Request.Url?.Query ?? "");
-            code  = qs["code"];
-            state = qs["state"];
-            error = qs["error"];
-
-            try
-            {
-                ctx.Response.ContentType = "text/html; charset=utf-8";
-                ctx.Response.ContentLength64 = SuccessPageHtml.Length;
-                await ctx.Response.OutputStream.WriteAsync(SuccessPageHtml);
-                ctx.Response.Close();
-            }
-            catch { /* browser tab already closed — ignore */ }
-        }
-        catch (OperationCanceledException)
-        {
-            Renderer.Error("Timed out waiting for Google sign-in.");
-            return 1;
-        }
-        finally { listener.Stop(); }
-
-        if (string.IsNullOrEmpty(code))
-        {
-            Renderer.Error($"Google sign-in failed: {Markup.Escape(error ?? "unknown error")}");
-            return 1;
-        }
-
-        // 5. Forward to Anythink callback to exchange code for tokens
-        LoginResponse? tokens = null;
-        await AnsiConsole.Status().Spinner(Spinner.Known.Dots)
-            .StartAsync("Completing sign-in...", async _ =>
-            {
-                using var http = new HttpClient();
-                var resp = await http.GetStringAsync(
-                    $"{eff.MyAnythinkUrl.TrimEnd('/')}/org/{eff.MyAnythinkOrgId}/auth/v1/google/callback" +
-                    $"?code={Uri.EscapeDataString(code)}" +
-                    (state != null ? $"&state={Uri.EscapeDataString(state)}" : ""));
-                tokens = JsonSerializer.Deserialize<LoginResponse>(resp,
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            });
-
-        if (tokens == null || string.IsNullOrEmpty(tokens.AccessToken))
-        {
-            Renderer.Error("No token received from server.");
-            return 1;
-        }
-
-        // 6. Save platform config
+        // Persist the token straight away so login sticks even when account
+        // selection is skipped (e.g. a non-interactive / agent session).
         platform.Token = tokens.AccessToken;
         platform.TokenExpiresAt = tokens.ExpiresIn.HasValue
             ? DateTime.UtcNow.AddSeconds(tokens.ExpiresIn.Value - 30)
             : DateTime.UtcNow.AddHours(1);
+        SaveAndActivatePlatform(platformKey, platform);
 
-        // Fetch billing accounts to auto-select — use the fresh token + the
-        // platform we just authed against (env overrides would change the org).
-        var billingClient = new BillingClient(platform);
-        List<BillingAccount> accounts = [];
         try
         {
+            List<BillingAccount> accounts = [];
             await AnsiConsole.Status().Spinner(Spinner.Known.Dots)
-                .StartAsync("Loading accounts...", async _ =>
-                    accounts = await billingClient.GetAccountsAsync());
+                .StartAsync("Loading accounts...", async _ => accounts = await new BillingClient(platform).GetAccountsAsync());
+
+            if (accounts.Count == 1)
+            {
+                platform.AccountId = accounts[0].Id.ToString();
+                SaveAndActivatePlatform(platformKey, platform);
+                Renderer.Info($"Account: [#F97316]{Markup.Escape(accounts[0].OrganizationName)}[/]");
+            }
+            else if (accounts.Count > 1 && AnsiConsole.Profile.Capabilities.Interactive)
+            {
+                var choices = accounts.Select(a => $"{a.OrganizationName}  ({a.BillingEmail})").ToList();
+                var picked = AnsiConsole.Prompt(
+                    Renderer.Prompt<string>().Title("[#F97316]Select billing account:[/]").AddChoices(choices));
+                platform.AccountId = accounts[choices.IndexOf(picked)].Id.ToString();
+                SaveAndActivatePlatform(platformKey, platform);
+            }
+            else if (accounts.Count > 1)
+            {
+                Renderer.Info($"{accounts.Count} billing accounts found — run 'anythink accounts use <id>' to choose one.");
+            }
         }
         catch (AnythinkException ex)
         {
-            Renderer.Error($"Logged in but could not load accounts: {ex.Message}");
-            SaveAndActivatePlatform(platformKey, platform);
-            return 1;
+            Renderer.Error($"Signed in, but could not load accounts: {ex.Message}");
         }
 
-        if (accounts.Count == 1)
-        {
-            platform.AccountId = accounts[0].Id.ToString();
-            Renderer.Info($"Account: [#F97316]{Markup.Escape(accounts[0].OrganizationName)}[/]");
-        }
-        else if (accounts.Count > 1)
-        {
-            var choices = accounts.Select(a => $"{a.OrganizationName}  ({a.BillingEmail})").ToList();
-            var picked  = AnsiConsole.Prompt(
-                Renderer.Prompt<string>().Title("[#F97316]Select billing account:[/]").AddChoices(choices));
-            platform.AccountId = accounts[choices.IndexOf(picked)].Id.ToString();
-        }
-
-        SaveAndActivatePlatform(platformKey, platform);
         Renderer.PrintWelcomeBanner();
         AnsiConsole.MarkupLine("Run [bold #F97316]anythink accounts use[/] to select a billing account, then [bold #F97316]anythink projects use[/] to connect to a project.");
         return 0;
-    }
-
-    // Registered as http://localhost:<port>/callback on the Google OAuth client.
-    private static readonly int[] CallbackPorts = [8976, 8977, 8978];
-
-    // Branded success page (src/Resources/google-success.html, embedded at build time).
-    private static readonly byte[] SuccessPageHtml = LoadSuccessPage();
-
-    private static byte[] LoadSuccessPage()
-    {
-        var asm = typeof(PlatformLoginCommand).Assembly;
-        var name = Array.Find(asm.GetManifestResourceNames(), n => n.EndsWith("google-success.html"))!;
-        using var stream = asm.GetManifestResourceStream(name)!;
-        using var ms = new MemoryStream();
-        stream.CopyTo(ms);
-        return ms.ToArray();
-    }
-
-    private static (HttpListener? listener, int port) BindLoopbackListener()
-    {
-        foreach (var port in CallbackPorts)
-        {
-            var listener = new HttpListener();
-            listener.Prefixes.Add($"http://localhost:{port}/");
-            try
-            {
-                listener.Start();
-                return (listener, port);
-            }
-            catch (HttpListenerException)
-            {
-                listener.Close();
-            }
-        }
-        return (null, 0);
-    }
-
-    private static void OpenBrowser(string url)
-    {
-        try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
-        catch { /* user can open manually from the printed URL */ }
     }
 }
 
