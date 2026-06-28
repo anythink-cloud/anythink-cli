@@ -1,6 +1,6 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://anythink.cloud/images/logo-dark.png">
-  <img alt="Anythink" src="https://anythink.cloud/images/logo.png" height="40">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/anythink-logo-dark.svg">
+  <img alt="Anythink" src="assets/anythink-logo.svg" height="40">
 </picture>
 
 # Anythink CLI
