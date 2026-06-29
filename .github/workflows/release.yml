@@ -200,3 +200,22 @@ jobs:
         run: |
           npm version "${{ needs.build.outputs.version }}" --no-git-tag-version --allow-same-version
           npm publish --access public
+
+  winget:
+    name: Submit to WinGet
+    needs: build
+    runs-on: ubuntu-latest
+    # Dormant until the one-time first submission is done, the WINGET_TOKEN
+    # secret is added, and repo variable ENABLE_WINGET is set to 'true'.
+    if: ${{ vars.ENABLE_WINGET == 'true' }}
+    permissions:
+      contents: read
+    steps:
+      - uses: vedantmgoyal9/winget-releaser@4ffc7888bffd451b357355dc214d43bb9f23917e # v2
+        with:
+          identifier: Anythink.CLI
+          version: ${{ needs.build.outputs.version }}
+          release-tag: v${{ needs.build.outputs.version }}
+          installers-regex: 'anythink-win-(x64|arm64)\.exe$'
+          max-versions-to-keep: 5
+          token: ${{ secrets.WINGET_TOKEN }}
