@@ -768,8 +768,16 @@ public class WorkflowTriggerSettings : CommandSettings
     public int Id { get; set; }
 
     [CommandOption("--payload <JSON>")]
-    [Description("Optional JSON payload to pass to the workflow")]
+    [Description("Optional JSON record to pass to the workflow (available as $anythink.trigger.data)")]
     public string? Payload { get; set; }
+
+    [CommandOption("--entity <NAME>")]
+    [Description("Entity name for the trigger (required for Manual-trigger workflows)")]
+    public string? Entity { get; set; }
+
+    [CommandOption("--entity-id <ID>")]
+    [Description("Optional entity/record id to associate with the trigger")]
+    public int? EntityId { get; set; }
 }
 
 public class WorkflowsTriggerCommand : BaseCommand<WorkflowTriggerSettings>
@@ -777,14 +785,27 @@ public class WorkflowsTriggerCommand : BaseCommand<WorkflowTriggerSettings>
     public override async Task<int> ExecuteAsync(CommandContext context, WorkflowTriggerSettings settings)
     {
         object? payload = null;
-        if (!string.IsNullOrEmpty(settings.Payload))
+        if (!string.IsNullOrEmpty(settings.Payload) || !string.IsNullOrEmpty(settings.Entity) || settings.EntityId.HasValue)
         {
-            try
+            // The trigger endpoint's Data field is a *string* (the record is re-parsed
+            // server-side into $anythink.trigger.data), so stringify the payload rather
+            // than nesting the object.
+            string? dataStr = null;
+            if (!string.IsNullOrEmpty(settings.Payload))
             {
-                var parsed = System.Text.Json.JsonSerializer.Deserialize<JsonObject>(settings.Payload);
-                payload = new { data = parsed };
+                try
+                {
+                    dataStr = JsonNode.Parse(settings.Payload)?.ToJsonString();
+                }
+                catch { Renderer.Error("Invalid JSON payload."); return 1; }
             }
-            catch { Renderer.Error("Invalid JSON payload."); return 1; }
+
+            payload = new
+            {
+                entityName = settings.Entity,
+                entityId = settings.EntityId,
+                data = dataStr
+            };
         }
 
         try
