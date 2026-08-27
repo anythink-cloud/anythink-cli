@@ -426,7 +426,7 @@ public class WorkflowStepAddSettings : CommandSettings
     public string? Name { get; set; }
 
     [CommandOption("--action <ACTION>")]
-    [Description("Action type: ReadData, CreateData, UpdateData, DeleteData, CallAnApi, RunScript, Condition, SendAnEmail")]
+    [Description("Action type: ReadData, CreateData, UpdateData, UpsertData, DeleteData, CallAnApi, RunScript, Condition, SendAnEmail, SendACommand, SendPushNotification, FileHandler, Integration (for Integration, prefer 'integration-add')")]
     public string Action { get; set; } = "RunScript";
 
     [CommandOption("--params <JSON>")]
@@ -1584,6 +1584,202 @@ public class WorkflowsFileHandlerAddCommand : BaseCommand<WorkflowFileHandlerAdd
                             settings.Key,
                             settings.Name ?? settings.Key,
                             "FileHandler",
+                            settings.Enabled,
+                            settings.IsStartStep,
+                            null,
+                            parameters
+                        ));
+                });
+
+            if (settings.OnSuccessStepId.HasValue || settings.OnFailureStepId.HasValue)
+            {
+                await AnsiConsole.Status()
+                    .Spinner(Spinner.Known.Dots)
+                    .StartAsync($"Linking step {step!.Id}...", async _ =>
+                    {
+                        var body = new Dictionary<string, object?>
+                        {
+                            ["name"] = step.Name,
+                            ["action"] = step.Action,
+                            ["enabled"] = step.Enabled,
+                            ["is_start_step"] = step.IsStartStep,
+                            ["on_success_step_id"] = settings.OnSuccessStepId,
+                            ["on_failure_step_id"] = settings.OnFailureStepId,
+                            ["parameters"] = parameters,
+                        };
+                        await client.UpdateWorkflowStepFullAsync(settings.WorkflowId, step.Id, body);
+                    });
+            }
+
+            Renderer.Success($"Step [#F97316]{Markup.Escape(step!.Key)}[/] (id: {step.Id}) added to workflow {settings.WorkflowId}.");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return 1;
+        }
+    }
+}
+
+// ── workflows integration-add ─────────────────────────────────────────────────
+
+public class WorkflowIntegrationAddSettings : CommandSettings
+{
+    [CommandArgument(0, "<WORKFLOW_ID>")]
+    [Description("Workflow ID")]
+    public int WorkflowId { get; set; }
+
+    [CommandArgument(1, "<STEP_KEY>")]
+    [Description("Step key (unique identifier, snake_case)")]
+    public string Key { get; set; } = "";
+
+    [CommandOption("--provider <PROVIDER>")]
+    [Description("Integration provider key (e.g. claude, openai, slack). Required.")]
+    public string? Provider { get; set; }
+
+    [CommandOption("--operation <OP>")]
+    [Description("Operation key (see 'integrations get <provider>'). Required.")]
+    public string? Operation { get; set; }
+
+    [CommandOption("--credential-source <SOURCE>")]
+    [Description("system | current_user | connection | entity_field (default: system)")]
+    public string CredentialSource { get; set; } = "system";
+
+    [CommandOption("--connection-id <ID>")]
+    [Description("Connection ID (required when --credential-source is 'connection'; templatable)")]
+    public string? ConnectionId { get; set; }
+
+    [CommandOption("--credential-field <TEMPLATE>")]
+    [Description("Credential field path (required when --credential-source is 'entity_field')")]
+    public string? CredentialField { get; set; }
+
+    [CommandOption("--input <KEY=VALUE>")]
+    [Description("Operation input as key=value (repeatable; values support {{templating}})")]
+    public string[] Inputs { get; set; } = [];
+
+    [CommandOption("--inputs <JSON>")]
+    [Description("Operation inputs as a JSON object (merged with --input flags)")]
+    public string? InputsJson { get; set; }
+
+    [CommandOption("--model <MODEL>")]
+    [Description("Convenience shortcut for the 'model' input (AI providers)")]
+    public string? Model { get; set; }
+
+    [CommandOption("--name <NAME>")]
+    [Description("Step display name (defaults to the step key)")]
+    public string? Name { get; set; }
+
+    [CommandOption("--start")]
+    [Description("Set as start step")]
+    public bool IsStartStep { get; set; }
+
+    [CommandOption("--enabled")]
+    [Description("Enable step immediately")]
+    public bool Enabled { get; set; }
+
+    [CommandOption("--on-success <STEP_ID>")]
+    [Description("Step ID to execute on success")]
+    public int? OnSuccessStepId { get; set; }
+
+    [CommandOption("--on-failure <STEP_ID>")]
+    [Description("Step ID to execute on failure")]
+    public int? OnFailureStepId { get; set; }
+}
+
+public class WorkflowsIntegrationAddCommand : BaseCommand<WorkflowIntegrationAddSettings>
+{
+    static readonly HashSet<string> ValidSources = new(StringComparer.Ordinal)
+    {
+        "system", "current_user", "connection", "entity_field"
+    };
+
+    public override async Task<int> ExecuteAsync(CommandContext context, WorkflowIntegrationAddSettings settings)
+    {
+        if (string.IsNullOrWhiteSpace(settings.Provider))
+        {
+            Renderer.Error("--provider is required.");
+            return 1;
+        }
+        if (string.IsNullOrWhiteSpace(settings.Operation))
+        {
+            Renderer.Error("--operation is required.");
+            return 1;
+        }
+        if (!ValidSources.Contains(settings.CredentialSource))
+        {
+            Renderer.Error("--credential-source must be one of: system, current_user, connection, entity_field.");
+            return 1;
+        }
+        if (settings.CredentialSource == "connection" && string.IsNullOrWhiteSpace(settings.ConnectionId))
+        {
+            Renderer.Error("--connection-id is required when --credential-source is 'connection'.");
+            return 1;
+        }
+        if (settings.CredentialSource == "entity_field" && string.IsNullOrWhiteSpace(settings.CredentialField))
+        {
+            Renderer.Error("--credential-field is required when --credential-source is 'entity_field'.");
+            return 1;
+        }
+
+        // Build the inputs map: --inputs JSON first, then --input key=value, then --model.
+        var inputs = new Dictionary<string, object?>();
+        if (!string.IsNullOrWhiteSpace(settings.InputsJson))
+        {
+            try
+            {
+                if (JsonNode.Parse(settings.InputsJson) is not JsonObject parsed)
+                {
+                    Renderer.Error("--inputs must be a JSON object.");
+                    return 1;
+                }
+                foreach (var kv in parsed)
+                    inputs[kv.Key] = kv.Value?.DeepClone();
+            }
+            catch { Renderer.Error("--inputs is not valid JSON."); return 1; }
+        }
+        foreach (var pair in settings.Inputs)
+        {
+            var idx = pair.IndexOf('=');
+            if (idx < 1)
+            {
+                Renderer.Error($"--input '{pair}' is not key=value.");
+                return 1;
+            }
+            inputs[pair[..idx]] = pair[(idx + 1)..];
+        }
+        if (!string.IsNullOrWhiteSpace(settings.Model))
+            inputs["model"] = settings.Model;
+
+        var paramsDict = new Dictionary<string, object?>
+        {
+            ["provider"] = settings.Provider,
+            ["operation"] = settings.Operation,
+            ["credential_source"] = settings.CredentialSource,
+            ["inputs"] = inputs,
+        };
+        if (!string.IsNullOrEmpty(settings.ConnectionId))
+            paramsDict["connection_id"] = settings.ConnectionId;
+        if (!string.IsNullOrEmpty(settings.CredentialField))
+            paramsDict["credential_field"] = settings.CredentialField;
+
+        var paramsJson = System.Text.Json.JsonSerializer.Serialize(paramsDict);
+        var parameters = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(paramsJson);
+
+        try
+        {
+            var client = GetClient();
+            WorkflowStep? step = null;
+
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync($"Adding Integration step '{settings.Key}'...", async _ =>
+                {
+                    step = await client.AddWorkflowStepAsync(settings.WorkflowId,
+                        new CreateWorkflowStepRequest(
+                            settings.Key,
+                            settings.Name ?? settings.Key,
+                            "Integration",
                             settings.Enabled,
                             settings.IsStartStep,
                             null,

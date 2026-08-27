@@ -281,6 +281,18 @@ app.Configure(config =>
 
         wf.AddCommand<WorkflowsFileHandlerExampleCommand>("file-handler-example")
             .WithDescription("Print a copy-paste-ready FileHandler params JSON");
+
+        wf.AddCommand<WorkflowsIntegrationAddCommand>("integration-add")
+            .WithDescription("Add an Integration step (Claude, OpenAI, Slack…) with named flags (no hand-written params JSON)")
+            .WithExample("workflows", "integration-add", "154", "analyze_ai",
+                "--provider", "claude",
+                "--operation", "generate-text",
+                "--credential-source", "system",
+                "--model", "claude-sonnet-4-5-20250929",
+                "--input", "system_prompt={{ $anythink.steps.guard.data[0].system_prompt }}",
+                "--input", "prompt={{ $anythink.steps.guard.data[0].prompt }}",
+                "--on-success", "381",
+                "--enabled");
     });
 
     // ── Data ──────────────────────────────────────────────────────────────────
