@@ -40,7 +40,7 @@ public class WorkflowsListCommand : BaseCommand<EmptySettings>
                 table.AddRow(
                     Markup.Escape(w.Id.ToString()),
                     Markup.Escape(w.Name),
-                    Markup.Escape(w.Trigger),
+                    Markup.Escape(w.TriggerLabel()),
                     Markup.Escape((w.Steps?.Count ?? 0).ToString()),
                     w.Enabled ? "[green]yes[/]" : "[red]no[/]"
                 );
@@ -84,7 +84,7 @@ public class WorkflowsGetCommand : BaseCommand<WorkflowIdSettings>
 
             Renderer.Header($"Workflow: {wf!.Name}");
             Renderer.KeyValue("ID", wf.Id.ToString());
-            Renderer.KeyValue("Trigger", wf.Trigger);
+            Renderer.KeyValue("Trigger", wf.TriggerLabel());
             Renderer.KeyValue("Enabled", wf.Enabled ? "yes" : "no", wf.Enabled ? "green" : "red");
             if (!string.IsNullOrEmpty(wf.Description))
                 Renderer.KeyValue("Description", wf.Description);

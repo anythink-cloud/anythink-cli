@@ -552,3 +552,25 @@ public record UpdateTenantRequest(
     [property: JsonPropertyName("tenant_settings")]   TenantSettingsDto? TenantSettings,
     [property: JsonPropertyName("theme_settings")]    ThemeSettingsDto?  ThemeSettings
 );
+
+public static class WorkflowTriggerExtensions
+{
+    // Newer APIs return a triggers list and leave the legacy "trigger" null.
+    public static IReadOnlyList<string> TriggerTypes(this Workflow w)
+    {
+        if (w.Triggers is { ValueKind: System.Text.Json.JsonValueKind.Array } list)
+        {
+            var types = list.EnumerateArray()
+                .Select(t => t.TryGetProperty("type", out var ty) && ty.ValueKind == System.Text.Json.JsonValueKind.String
+                    ? ty.GetString() : null)
+                .OfType<string>()
+                .Where(t => t.Length > 0)
+                .ToList();
+            if (types.Count > 0) return types;
+        }
+        return string.IsNullOrEmpty(w.Trigger) ? [] : [w.Trigger];
+    }
+
+    public static string TriggerLabel(this Workflow w) =>
+        w.TriggerTypes() is { Count: > 0 } types ? string.Join(", ", types) : "—";
+}

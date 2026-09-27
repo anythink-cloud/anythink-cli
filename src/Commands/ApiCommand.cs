@@ -1,3 +1,4 @@
+using AnythinkCli.Models;
 using AnythinkCli.Output;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -79,7 +80,7 @@ public class ApiListCommand : BaseCommand<ApiListSettings>
             AnsiConsole.Write(dynTable);
 
             // Workflow API routes
-            var apiWorkflows = workflows.Where(w => w.Trigger == "Api" && !string.IsNullOrEmpty(w.Trigger)).ToList();
+            var apiWorkflows = workflows.Where(w => w.TriggerTypes().Contains("Api")).ToList();
             if (apiWorkflows.Count > 0)
             {
                 AnsiConsole.WriteLine();
