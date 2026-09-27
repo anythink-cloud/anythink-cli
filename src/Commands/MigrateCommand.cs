@@ -72,6 +72,14 @@ public class MigrateSettings : CommandSettings
     [CommandOption("--force-data-entities <ENTITIES>")]
     [Description("Comma-separated entity names to force-migrate (e.g. mental_edge_questions,profiles). Implies --force-data.")]
     public string? ForceDataEntities { get; set; }
+
+    [CommandOption("--data-entities <ENTITIES>")]
+    [Description("Comma-separated entity names: copy data ONLY for these entities (e.g. resources,mental_edge_questions). Implies --include-data.")]
+    public string? DataEntities { get; set; }
+
+    [CommandOption("--repair-workflows")]
+    [Description("For workflows that already exist on the target (by name), re-sync triggers and steps from the source. Leaves them disabled.")]
+    public bool RepairWorkflows { get; set; }
 }
 
 public class MigrateCommand : BaseCommand<MigrateSettings>
@@ -131,7 +139,8 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         bool anyFlagSet = settings.IncludeWorkflows || settings.IncludeRoles ||
                           settings.IncludeSettings  || settings.IncludeMenus ||
                           settings.IncludeFiles      || settings.IncludeData  ||
-                          settings.ForceData         || settings.ForceDataEntities != null;
+                          settings.ForceData         || settings.ForceDataEntities != null ||
+                          settings.DataEntities != null;
 
         HashSet<string> scope;
         if (anyFlagSet)
@@ -142,7 +151,8 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
             if (settings.IncludeSettings)  scope.Add(ScopeSettings);
             if (settings.IncludeMenus)     scope.Add(ScopeMenus);
             if (settings.IncludeFiles)     scope.Add(ScopeFiles);
-            if (settings.IncludeData || settings.ForceData || settings.ForceDataEntities != null) scope.Add(ScopeData);
+            if (settings.IncludeData || settings.ForceData || settings.ForceDataEntities != null ||
+                settings.DataEntities != null) scope.Add(ScopeData);
         }
         else
         {
@@ -201,8 +211,8 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
 
         // Build source entity ID → name map for relationship remapping
         var srcIdToName = srcEntities
-            .Where(e => e.Id.HasValue)
-            .ToDictionary(e => e.Id!.Value, e => e.Name);
+            .Where(e => EntityIdOf(e).HasValue)
+            .ToDictionary(e => EntityIdOf(e)!.Value, e => e.Name);
 
         // ── Fetch existing target data ────────────────────────────────────────
         List<Entity>       dstEntities    = [];
@@ -229,8 +239,8 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
 
         // Target: entity name → internal ID (populated as entities are created)
         var dstNameToId = dstEntities
-            .Where(e => e.Id.HasValue)
-            .ToDictionary(e => e.Name, e => e.Id!.Value, StringComparer.OrdinalIgnoreCase);
+            .Where(e => EntityIdOf(e).HasValue)
+            .ToDictionary(e => e.Name, e => EntityIdOf(e)!.Value, StringComparer.OrdinalIgnoreCase);
 
         // Source role ID → name, target role name → ID (populated as roles are created)
         var srcRoleIdToName = srcRoles.ToDictionary(r => r.Id, r => r.Name);
@@ -240,7 +250,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         // Counters — written by progress tasks, read for summary
         var entitiesCreated  = new Counter(); var entitiesSkipped = new Counter();
         var fieldsCreated    = new Counter(); var fieldsSkipped   = new Counter(); var fieldsFailed = new Counter();
-        var workflowsCreated = new Counter();
+        var workflowsCreated = new Counter(); var workflowsRepaired = new Counter();
         var rolesCreated     = new Counter(); var rolesSkipped    = new Counter();
         var settingsDone     = new Counter();
         var menusCreated     = new Counter(); var menuItemsCreated = new Counter();
@@ -313,15 +323,29 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                                     entity.Name, entity.EnableRls, entity.IsPublic,
                                     entity.LockNewRecords, entity.IsJunction));
                                 dstEntityNames.Add(entity.Name);
-                                if (created.Id.HasValue)
-                                    dstNameToId[entity.Name] = created.Id.Value;
+                                if (EntityIdOf(created) is int createdEntityId)
+                                    dstNameToId[entity.Name] = createdEntityId;
                                 entitiesCreated.Value++;
                             }
                             catch (AnythinkException ex)
                             {
-                                errors.Add($"Entity '{entity.Name}': {ex.Message}");
-                                entityTask.Increment(1);
-                                continue;
+                                // The entity may have been created server-side even
+                                // though the response errored (empty/benign error).
+                                // Verify before giving up — otherwise we skip ALL of
+                                // its fields, leaving a field-less entity behind.
+                                Entity? recovered = null;
+                                try { recovered = await dstClient.GetEntityAsync(entity.Name); }
+                                catch { /* genuinely absent */ }
+                                if (recovered is null)
+                                {
+                                    errors.Add($"Entity '{entity.Name}': {ex.Message}");
+                                    entityTask.Increment(1);
+                                    continue;
+                                }
+                                dstEntityNames.Add(entity.Name);
+                                if (EntityIdOf(recovered) is int recoveredEntityId)
+                                    dstNameToId[entity.Name] = recoveredEntityId;
+                                entitiesCreated.Value++;
                             }
                         }
                         else
@@ -398,6 +422,30 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
 
                     foreach (var wf in srcFull.OrderBy(w => w.Name))
                     {
+                        if (settings.RepairWorkflows && !settings.DryRun && dstWfNames.Contains(wf.Name))
+                        {
+                            var dstWfId = dstWorkflows.First(w => w.Name.Equals(wf.Name, StringComparison.OrdinalIgnoreCase)).Id;
+                            try
+                            {
+                                var dstWf = await dstClient.GetWorkflowAsync(dstWfId);
+                                var triggers = TriggerRequests(wf.Triggers);
+                                if (triggers != null)
+                                    await dstClient.UpdateWorkflowFullAsync(dstWfId, new JsonObject
+                                    {
+                                        ["name"] = wf.Name, ["description"] = wf.Description, ["group"] = wf.Group,
+                                        ["enabled"] = dstWf.Enabled, ["triggers"] = triggers,
+                                    });
+                                await SyncWorkflowSteps(dstClient, dstWfId, wf, dstWf.Steps ?? [], errors);
+                                workflowsRepaired.Value++;
+                            }
+                            catch (AnythinkException ex)
+                            {
+                                errors.Add($"Repair workflow '{wf.Name}': {ex.Message}");
+                            }
+                            wfTask.Increment(1);
+                            continue;
+                        }
+
                         if (dstWfNames.Contains(wf.Name) || settings.DryRun)
                         {
                             workflowsCreated.Value++;
@@ -410,7 +458,8 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                         {
                             created = await dstClient.CreateWorkflowAsync(new CreateWorkflowRequest(
                                 wf.Name, wf.Description, wf.Trigger, false,
-                                wf.Options.HasValue ? (object)wf.Options.Value : new { }));
+                                wf.Options.HasValue ? (object)wf.Options.Value : new { },
+                                Triggers: TriggerRequests(wf.Triggers), Group: wf.Group));
                         }
                         catch (AnythinkException ex)
                         {
@@ -421,44 +470,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
 
                         workflowsCreated.Value++;
 
-                        var steps = wf.Steps ?? [];
-                        if (steps.Count > 0)
-                        {
-                            var stepIdMap = new Dictionary<int, int>();
-                            var ordered   = steps.OrderByDescending(s => s.IsStartStep).ToList();
-
-                            foreach (var step in ordered)
-                            {
-                                try
-                                {
-                                    var cs = await dstClient.AddWorkflowStepAsync(created.Id,
-                                        new CreateWorkflowStepRequest(step.Key, step.Name, step.Action,
-                                            step.Enabled, step.IsStartStep, step.Description, step.Parameters));
-                                    stepIdMap[step.Id] = cs.Id;
-                                }
-                                catch (AnythinkException ex)
-                                {
-                                    errors.Add($"Step '{step.Name}' in workflow '{wf.Name}': {ex.Message}");
-                                }
-                            }
-
-                            foreach (var step in ordered)
-                            {
-                                if (step.OnSuccessStepId == null && step.OnFailureStepId == null) continue;
-                                if (!stepIdMap.TryGetValue(step.Id, out var dstStepId)) continue;
-                                int? dstSuccess = step.OnSuccessStepId.HasValue && stepIdMap.TryGetValue(step.OnSuccessStepId.Value, out var s) ? s : null;
-                                int? dstFailure = step.OnFailureStepId.HasValue && stepIdMap.TryGetValue(step.OnFailureStepId.Value, out var f) ? f : null;
-                                try
-                                {
-                                    await dstClient.UpdateWorkflowStepAsync(created.Id, dstStepId,
-                                        new UpdateWorkflowStepLinksRequest(step.Name, step.Action, dstSuccess, dstFailure));
-                                }
-                                catch (AnythinkException ex)
-                                {
-                                    errors.Add($"Step link '{step.Name}': {ex.Message}");
-                                }
-                            }
-                        }
+                        await SyncWorkflowSteps(dstClient, created.Id, wf, [], errors);
 
                         wfTask.Increment(1);
                     }
@@ -804,7 +816,11 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                             if (!field.Relationship.HasValue) continue;
                             var rel = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
                                 field.Relationship.Value.GetRawText())!;
-                            if (rel.TryGetValue("target_entity_id", out var tEl) &&
+                            if (rel.TryGetValue("target_entity_name", out var tnEl) &&
+                                tnEl.ValueKind == JsonValueKind.String &&
+                                tnEl.GetString() is { Length: > 0 } namedTarget)
+                                fks.Add((field.Name, namedTarget));
+                            else if (rel.TryGetValue("target_entity_id", out var tEl) &&
                                 tEl.ValueKind == JsonValueKind.Number &&
                                 srcIdToName.TryGetValue(tEl.GetInt32(), out var targetName))
                                 fks.Add((field.Name, targetName));
@@ -859,8 +875,15 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                         .ThenBy(e => e.Name)
                         .ToList();
 
+                    var dataOnly = string.IsNullOrEmpty(settings.DataEntities)
+                        ? null
+                        : new HashSet<string>(
+                            settings.DataEntities.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+                            StringComparer.OrdinalIgnoreCase);
+
                     foreach (var entity in dataOrder)
                     {
+                        if (dataOnly != null && !dataOnly.Contains(entity.Name)) continue;
                         var srcCount = srcRecordCounts.GetValueOrDefault(entity.Name, 0);
                         if (srcCount == 0) continue;
 
@@ -1024,7 +1047,8 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                                 dataTask.Increment(1);
                             }
 
-                            if (result.Items.Count < pageSize) break;
+                            // The API may cap page size below what we ask for, so follow has_next_page.
+                            if (!result.HasNextPage || result.Items.Count == 0) break;
                             page++;
                         }
 
@@ -1049,7 +1073,8 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                                    (fieldsFailed.Value > 0 ? $"  [red]failed {fieldsFailed.Value}[/]" : ""));
         }
         if (scope.Contains(ScopeWorkflows))
-            AnsiConsole.MarkupLine($"  Workflows             [green]+{workflowsCreated.Value}[/]");
+            AnsiConsole.MarkupLine($"  Workflows             [green]+{workflowsCreated.Value}[/]" +
+                (workflowsRepaired.Value > 0 ? $"  [yellow]repaired {workflowsRepaired.Value}[/]" : ""));
         if (scope.Contains(ScopeRoles))
             AnsiConsole.MarkupLine($"  Roles                 [green]+{rolesCreated.Value}[/]  skipped [dim]{rolesSkipped.Value}[/]");
         if (scope.Contains(ScopeSettings))
@@ -1109,7 +1134,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         // TotalCount not in response — paginate to count
         var total = first.Items.Count;
         var page  = 2;
-        while (first.Items.Count == 100)
+        while (first.HasNextPage && first.Items.Count > 0)
         {
             var next = await client.ListItemsAsync(entityName, page++, 100);
             total += next.Items.Count;
@@ -1131,7 +1156,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                 await client.AddFieldAsync(entityName, new CreateFieldRequest(
                     field.Name, field.DatabaseType, field.DisplayType, field.Label,
                     null, field.DefaultValue, field.IsRequired, field.IsNameField, field.IsUnique,
-                    field.IsSearchable, field.PubliclySearchable, field.IsIndexed, remapped));
+                    field.IsSearchable, field.PubliclySearchable && field.IsSearchable, field.IsIndexed, remapped));
             }
             catch (AnythinkException ex)
             {
@@ -1257,6 +1282,71 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
     internal static int CountItems(List<MenuItemResponse> items) =>
         items.Sum(i => 1 + CountItems(i.Items));
 
+    // Creates any missing steps (matched by key), then sends every step in full with
+    // remapped links: the server replaces the whole step on update.
+    private static async Task SyncWorkflowSteps(
+        AnythinkClient dstClient, int dstWorkflowId, Workflow src, List<WorkflowStep> existing, List<string> errors)
+    {
+        var steps = src.Steps ?? [];
+        if (steps.Count == 0) return;
+        var byKey = existing.ToDictionary(s => s.Key, s => s.Id, StringComparer.OrdinalIgnoreCase);
+        var stepIdMap = new Dictionary<int, int>();
+
+        foreach (var step in steps.OrderByDescending(s => s.IsStartStep))
+        {
+            if (byKey.TryGetValue(step.Key, out var existingId)) { stepIdMap[step.Id] = existingId; continue; }
+            try
+            {
+                var cs = await dstClient.AddWorkflowStepAsync(dstWorkflowId,
+                    new CreateWorkflowStepRequest(step.Key, step.Name, step.Action,
+                        step.Enabled, step.IsStartStep, step.Description, step.Parameters));
+                stepIdMap[step.Id] = cs.Id;
+            }
+            catch (AnythinkException ex)
+            {
+                errors.Add($"Step '{step.Name}' in workflow '{src.Name}': {ex.Message}");
+            }
+        }
+
+        foreach (var step in steps)
+        {
+            if (!stepIdMap.TryGetValue(step.Id, out var dstStepId)) continue;
+            int? dstSuccess = step.OnSuccessStepId is int so && stepIdMap.TryGetValue(so, out var s) ? s : null;
+            int? dstFailure = step.OnFailureStepId is int fo && stepIdMap.TryGetValue(fo, out var f) ? f : null;
+            try
+            {
+                await dstClient.UpdateWorkflowStepAsync(dstWorkflowId, dstStepId,
+                    new UpdateWorkflowStepLinksRequest(step.Name, step.Action, dstSuccess, dstFailure,
+                        step.Description, step.Enabled, step.IsStartStep, step.Parameters));
+            }
+            catch (AnythinkException ex)
+            {
+                errors.Add($"Step '{step.Name}' in workflow '{src.Name}': {ex.Message}");
+            }
+        }
+    }
+
+    // Newer APIs return a triggers list (legacy "trigger" is null); send type/enabled/config only.
+    internal static JsonArray? TriggerRequests(JsonElement? triggers)
+    {
+        if (triggers is not { ValueKind: JsonValueKind.Array } list) return null;
+        var result = new JsonArray();
+        foreach (var t in list.EnumerateArray())
+        {
+            var request = new JsonObject();
+            if (t.TryGetProperty("type", out var type)) request["type"] = JsonNode.Parse(type.GetRawText());
+            request["enabled"] = !t.TryGetProperty("enabled", out var en) || en.ValueKind != JsonValueKind.False;
+            if (t.TryGetProperty("config", out var cfg) && cfg.ValueKind == JsonValueKind.Object)
+                request["config"] = JsonNode.Parse(cfg.GetRawText());
+            result.Add(request);
+        }
+        return result.Count > 0 ? result : null;
+    }
+
+    // Newer APIs omit an entity's own id; its fields still carry entity_id.
+    internal static int? EntityIdOf(Entity e) =>
+        e.Id ?? e.Fields?.Select(f => f.EntityId).FirstOrDefault(id => id.HasValue);
+
     private static JsonElement? RemapRelationship(
         JsonElement? rel,
         Dictionary<int, string> srcIdToName,
@@ -1266,9 +1356,16 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
 
         var dict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(rel.Value.GetRawText())!;
 
-        RemapEntityId(dict, "source_entity_id", srcIdToName, dstNameToId);
-        RemapEntityId(dict, "target_entity_id", srcIdToName, dstNameToId);
-        RemapEntityId(dict, "junction_entity_id", srcIdToName, dstNameToId);
+        foreach (var prefix in new[] { "source", "target", "junction" })
+        {
+            if (dict.TryGetValue($"{prefix}_entity_name", out var nameEl) &&
+                nameEl.ValueKind == JsonValueKind.String &&
+                nameEl.GetString() is { Length: > 0 } name &&
+                dstNameToId.TryGetValue(name, out var dstId))
+                dict[$"{prefix}_entity_id"] = JsonSerializer.SerializeToElement(dstId);
+            else
+                RemapEntityId(dict, $"{prefix}_entity_id", srcIdToName, dstNameToId);
+        }
 
         foreach (var key in new[] { "id", "tenant_id", "locked", "created_at", "created_by", "updated_at", "updated_by" })
             dict.Remove(key);

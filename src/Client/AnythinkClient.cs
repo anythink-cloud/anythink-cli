@@ -135,6 +135,9 @@ public class AnythinkClient : HttpApiClient
     public async Task<Workflow> UpdateWorkflowAsync(int id, UpdateWorkflowRequest req)
         => (await PutAsync<Workflow>(_org + $"/workflows/{id}", req))!;
 
+    public Task<Workflow?> UpdateWorkflowFullAsync(int id, object body)
+        => PutAsync<Workflow>(_org + $"/workflows/{id}", body);
+
     public Task EnableWorkflowAsync(int id)  => PostAsync<JsonObject>(_org + $"/workflows/{id}/enable");
     public Task DisableWorkflowAsync(int id) => PostAsync<JsonObject>(_org + $"/workflows/{id}/disable");
 

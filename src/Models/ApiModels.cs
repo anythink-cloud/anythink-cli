@@ -41,7 +41,8 @@ public record Field(
     [property: JsonPropertyName("default_value")] string? DefaultValue,
     [property: JsonPropertyName("locked")] bool Locked,
     [property: JsonPropertyName("relationship")] System.Text.Json.JsonElement? Relationship = null,
-    [property: JsonPropertyName("options")] FieldOptionsRequest? Options = null
+    [property: JsonPropertyName("options")] FieldOptionsRequest? Options = null,
+    [property: JsonPropertyName("entity_id")] int? EntityId = null
 );
 
 public record FieldOptionsRequest(
@@ -105,11 +106,13 @@ public record Workflow(
     [property: JsonPropertyName("id")] int Id,
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("description")] string? Description,
-    [property: JsonPropertyName("trigger")] string Trigger,
+    [property: JsonPropertyName("trigger")] string? Trigger,
     [property: JsonPropertyName("enabled")] bool Enabled,
     [property: JsonPropertyName("steps")] List<WorkflowStep>? Steps,
     [property: JsonPropertyName("options")] System.Text.Json.JsonElement? Options = null,
-    [property: JsonPropertyName("jobs")] List<WorkflowJob>? Jobs = null
+    [property: JsonPropertyName("jobs")] List<WorkflowJob>? Jobs = null,
+    [property: JsonPropertyName("triggers")] System.Text.Json.JsonElement? Triggers = null,
+    [property: JsonPropertyName("group")] string? Group = null
 );
 
 public record WorkflowJob(
@@ -147,10 +150,12 @@ public record WorkflowStep(
 public record CreateWorkflowRequest(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("description")] string? Description,
-    [property: JsonPropertyName("trigger")] string Trigger,
+    [property: JsonPropertyName("trigger")] string? Trigger,
     [property: JsonPropertyName("enabled")] bool Enabled,
     [property: JsonPropertyName("options")] object Options,
-    [property: JsonPropertyName("api_route")] string? ApiRoute = null
+    [property: JsonPropertyName("api_route")] string? ApiRoute = null,
+    [property: JsonPropertyName("triggers")] object? Triggers = null,
+    [property: JsonPropertyName("group")] string? Group = null
 );
 
 public record CreateWorkflowStepRequest(
@@ -168,11 +173,16 @@ public record UpdateWorkflowRequest(
     [property: JsonPropertyName("description")] string? Description = null
 );
 
+// Step updates are a full replace server-side, so every field must be sent.
 public record UpdateWorkflowStepLinksRequest(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("action")] string Action,
     [property: JsonPropertyName("on_success_step_id")] int? OnSuccessStepId,
-    [property: JsonPropertyName("on_failure_step_id")] int? OnFailureStepId
+    [property: JsonPropertyName("on_failure_step_id")] int? OnFailureStepId,
+    [property: JsonPropertyName("description")] string? Description = null,
+    [property: JsonPropertyName("enabled")] bool Enabled = true,
+    [property: JsonPropertyName("is_start_step")] bool IsStartStep = false,
+    [property: JsonPropertyName("parameters")] System.Text.Json.JsonElement? Parameters = null
 );
 
 // Used internally to avoid C# 'event' keyword conflict in anonymous types
