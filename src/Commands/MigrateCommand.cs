@@ -333,9 +333,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                                 // though the response errored (empty/benign error).
                                 // Verify before giving up — otherwise we skip ALL of
                                 // its fields, leaving a field-less entity behind.
-                                Entity? recovered = null;
-                                try { recovered = await dstClient.GetEntityAsync(entity.Name); }
-                                catch { /* genuinely absent */ }
+                                var recovered = await RecoverCreatedEntity(() => dstClient.GetEntityAsync(entity.Name));
                                 if (recovered is null)
                                 {
                                     errors.Add($"Entity '{entity.Name}': {ex.Message}");
@@ -875,15 +873,11 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                         .ThenBy(e => e.Name)
                         .ToList();
 
-                    var dataOnly = string.IsNullOrEmpty(settings.DataEntities)
-                        ? null
-                        : new HashSet<string>(
-                            settings.DataEntities.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
-                            StringComparer.OrdinalIgnoreCase);
+                    var dataOnly = DataEntitiesFilter(settings.DataEntities);
 
                     foreach (var entity in dataOrder)
                     {
-                        if (dataOnly != null && !dataOnly.Contains(entity.Name)) continue;
+                        if (!CopiesDataFor(entity.Name, dataOnly)) continue;
                         var srcCount = srcRecordCounts.GetValueOrDefault(entity.Name, 0);
                         if (srcCount == 0) continue;
 
@@ -1048,7 +1042,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                             }
 
                             // The API may cap page size below what we ask for, so follow has_next_page.
-                            if (!result.HasNextPage || result.Items.Count == 0) break;
+                            if (!HasMorePages(result)) break;
                             page++;
                         }
 
@@ -1134,7 +1128,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         // TotalCount not in response — paginate to count
         var total = first.Items.Count;
         var page  = 2;
-        while (first.HasNextPage && first.Items.Count > 0)
+        while (HasMorePages(first))
         {
             var next = await client.ListItemsAsync(entityName, page++, 100);
             total += next.Items.Count;
@@ -1156,7 +1150,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                 await client.AddFieldAsync(entityName, new CreateFieldRequest(
                     field.Name, field.DatabaseType, field.DisplayType, field.Label,
                     null, field.DefaultValue, field.IsRequired, field.IsNameField, field.IsUnique,
-                    field.IsSearchable, field.PubliclySearchable && field.IsSearchable, field.IsIndexed, remapped));
+                    field.IsSearchable, PublicSearchFlag(field), field.IsIndexed, remapped));
             }
             catch (AnythinkException ex)
             {
@@ -1282,6 +1276,37 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
     internal static int CountItems(List<MenuItemResponse> items) =>
         items.Sum(i => 1 + CountItems(i.Items));
 
+    // null = no whitelist (copy every entity); a given-but-empty list copies nothing.
+    internal static HashSet<string>? DataEntitiesFilter(string? setting) =>
+        setting is null
+            ? null
+            : new HashSet<string>(
+                setting.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+                StringComparer.OrdinalIgnoreCase);
+
+    internal static bool CopiesDataFor(string entityName, HashSet<string>? filter) =>
+        filter is null || filter.Contains(entityName);
+
+    // The API may cap page size below what was asked for, so only has_next_page says there's more.
+    internal static bool HasMorePages<T>(PaginatedResult<T> page) =>
+        page.HasNextPage && page.Items.Count > 0;
+
+    // The API rejects public search on a field that isn't searchable.
+    internal static bool PublicSearchFlag(Field field) =>
+        field.PubliclySearchable && field.IsSearchable;
+
+    // Step updates replace the whole step server-side, so carry every field, not just the links.
+    internal static UpdateWorkflowStepLinksRequest StepUpdate(WorkflowStep step, int? onSuccess, int? onFailure) =>
+        new(step.Name, step.Action, onSuccess, onFailure,
+            step.Description, step.Enabled, step.IsStartStep, step.Parameters);
+
+    // An entity create can error with an empty response yet still succeed; null means it really is absent.
+    internal static async Task<Entity?> RecoverCreatedEntity(Func<Task<Entity>> getEntity)
+    {
+        try { return await getEntity(); }
+        catch { return null; }
+    }
+
     // Creates any missing steps (matched by key), then sends every step in full with
     // remapped links: the server replaces the whole step on update.
     private static async Task SyncWorkflowSteps(
@@ -1315,9 +1340,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
             int? dstFailure = step.OnFailureStepId is int fo && stepIdMap.TryGetValue(fo, out var f) ? f : null;
             try
             {
-                await dstClient.UpdateWorkflowStepAsync(dstWorkflowId, dstStepId,
-                    new UpdateWorkflowStepLinksRequest(step.Name, step.Action, dstSuccess, dstFailure,
-                        step.Description, step.Enabled, step.IsStartStep, step.Parameters));
+                await dstClient.UpdateWorkflowStepAsync(dstWorkflowId, dstStepId, StepUpdate(step, dstSuccess, dstFailure));
             }
             catch (AnythinkException ex)
             {
