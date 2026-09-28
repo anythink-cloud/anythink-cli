@@ -71,6 +71,21 @@ public class McpClientFactory
     }
 
     /// <summary>
+    /// Returns an authenticated client for hosted mode, built from this request's resolved
+    /// <see cref="HostedCredentials"/> — the token's own tid/instance_url claims, never headers.
+    /// </summary>
+    public AnythinkClient GetClient(HostedCredentials credentials)
+    {
+        if (string.IsNullOrEmpty(credentials.OrgId) || string.IsNullOrEmpty(credentials.InstanceUrl)
+            || string.IsNullOrEmpty(credentials.Token))
+            throw new InvalidOperationException("Hosted request has no resolved Anythink credentials.");
+
+        return _httpHandler is not null
+            ? new AnythinkClient(credentials.OrgId, credentials.InstanceUrl, new HttpClient(_httpHandler))
+            : new AnythinkClient(credentials.OrgId, credentials.InstanceUrl, credentials.Token);
+    }
+
+    /// <summary>
     /// Returns an authenticated client. In HTTP mode, uses per-request credentials.
     /// In stdio mode, uses CLI config files and refreshes expired tokens.
     /// </summary>
@@ -80,7 +95,9 @@ public class McpClientFactory
         if (_requestCredentials.Value.HasValue)
         {
             var creds = _requestCredentials.Value.Value;
-            return new AnythinkClient(creds.OrgId, creds.BaseUrl, creds.Token);
+            return _httpHandler is not null
+                ? new AnythinkClient(creds.OrgId, creds.BaseUrl, new HttpClient(_httpHandler))
+                : new AnythinkClient(creds.OrgId, creds.BaseUrl, creds.Token);
         }
 
         // Stdio mode: resolve from CLI config

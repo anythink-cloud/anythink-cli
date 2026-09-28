@@ -3,24 +3,33 @@ using AnythinkMcp;
 
 // ── Anythink MCP Server ──────────────────────────────────────────────────────
 //
-// A thin MCP wrapper around the Anythink CLI client library.
-// Supports two transport modes:
+// Supports three transports:
 //
 //   stdio (default):  Claude Code launches it and talks over stdin/stdout.
 //     anythink-mcp
 //     anythink-mcp --profile my-project
 //
-//   http:  Runs as an HTTP server for the AI sidebar and multi-tenant services.
+//   http:  Runs the internal REST API used by the AI sidebar. Callers pass
+//     Authorization, X-Org-Id and X-Instance-Url headers on every request.
 //     anythink-mcp --http
 //     anythink-mcp --http --port 5300
-//     Requires Authorization, X-Org-Id, and X-Instance-Url headers on every request.
 //     Set MCP_CORS_ORIGINS env var to configure allowed origins (comma-separated).
+//
+//   hosted:  Speaks MCP over Streamable HTTP, OAuth-protected, for Claude and
+//     other remote connectors. The internal REST API keeps running alongside it
+//     on its own port, for the AI sidebar.
+//     anythink-mcp --hosted
+//     Configuration is via environment variables — see mcp/README.md.
 
 var profile = ResolveFlag(args, "--profile", "-p");
+var hostedMode = args.Contains("--hosted");
 var httpMode = args.Contains("--http");
-var port = int.TryParse(ResolveFlag(args, "--port"), out var p) ? p : 5300;
+var port = ResolveIntFlag(args, "--port", "MCP_PORT", 5300);
+var internalPort = ResolveIntFlag(args, "--internal-port", "MCP_INTERNAL_PORT", 5301);
 
-if (httpMode)
+if (hostedMode)
+    await RunHostedServer(profile, port, internalPort);
+else if (httpMode)
     await RunHttpServer(profile, port);
 else
     await RunStdioServer(profile);
@@ -46,9 +55,43 @@ static async Task RunStdioServer(string? profile)
     await builder.Build().RunAsync();
 }
 
-// ── HTTP mode (for AI sidebar / multi-tenant) ────────────────────────────────
+// ── Hosted mode (Claude and other remote MCP connectors) ────────────────────
+
+static async Task RunHostedServer(string? profile, int port, int internalPort)
+{
+    var publicUrl = Environment.GetEnvironmentVariable("MCP_PUBLIC_URL")
+        ?? throw new InvalidOperationException(
+            "MCP_PUBLIC_URL must be set in --hosted mode, e.g. https://mcp.anythink.dev/mcp");
+    var issuer = Environment.GetEnvironmentVariable("MCP_AUTH_ISSUER")
+        ?? throw new InvalidOperationException("MCP_AUTH_ISSUER must be set in --hosted mode.");
+    var audience = Environment.GetEnvironmentVariable("MCP_AUTH_AUDIENCE") ?? publicUrl;
+
+    var options = new HostedMode.Options { PublicUrl = publicUrl, Issuer = issuer, Audience = audience };
+    var publicApp = HostedMode.BuildPublicApp(
+        WebApplication.CreateBuilder(), options, new McpClientFactory(profile));
+
+    var internalApp = BuildRestApp(profile, ResolveCorsOrigins());
+
+    var logger = publicApp.Services.GetRequiredService<ILogger<Program>>();
+    logger.LogInformation(
+        "Hosted MCP server on port {Port}, resource {Resource}, issuer {Issuer}", port, publicUrl, issuer);
+    logger.LogInformation(
+        "Internal REST server (AI sidebar) on port {InternalPort}", internalPort);
+
+    await Task.WhenAll(
+        publicApp.RunAsync($"http://0.0.0.0:{port}"),
+        internalApp.RunAsync($"http://0.0.0.0:{internalPort}"));
+}
+
+// ── HTTP mode (internal REST API for the AI sidebar) ─────────────────────────
 
 static async Task RunHttpServer(string? profile, int port)
+{
+    var app = BuildRestApp(profile, ResolveCorsOrigins());
+    await app.RunAsync($"http://0.0.0.0:{port}");
+}
+
+static WebApplication BuildRestApp(string? profile, string[] corsOrigins)
 {
     var builder = WebApplication.CreateBuilder();
     builder.Logging.AddConsole();
@@ -64,8 +107,6 @@ static async Task RunHttpServer(string? profile, int port)
         })
         .WithToolsFromAssembly();
 
-    var corsOrigins = Environment.GetEnvironmentVariable("MCP_CORS_ORIGINS")?.Split(',')
-        ?? ["http://localhost:5200"];
     builder.Services.AddCors(options =>
     {
         options.AddDefaultPolicy(policy =>
@@ -76,8 +117,8 @@ static async Task RunHttpServer(string? profile, int port)
     app.UseCors();
 
     var logger = app.Services.GetRequiredService<ILogger<Program>>();
-    logger.LogInformation("MCP HTTP server starting on port {Port} with CORS origins: {Origins}",
-        port, string.Join(", ", corsOrigins));
+    logger.LogInformation("MCP internal REST server starting with CORS origins: {Origins}",
+        string.Join(", ", corsOrigins));
 
     // Health check (unauthenticated — standard for K8s probes)
     app.MapGet("/health", () => new { status = "healthy", timestamp = DateTime.UtcNow });
@@ -153,8 +194,11 @@ static async Task RunHttpServer(string? profile, int port)
         }
     });
 
-    app.Run($"http://0.0.0.0:{port}");
+    return app;
 }
+
+static string[] ResolveCorsOrigins() =>
+    Environment.GetEnvironmentVariable("MCP_CORS_ORIGINS")?.Split(',') ?? ["http://localhost:5200"];
 
 // ── Auth extraction helper ───────────────────────────────────────────────────
 
@@ -202,4 +246,10 @@ static string? ResolveFlag(string[] args, string flag, string? shortFlag = null)
             return args[i + 1];
     }
     return null;
+}
+
+static int ResolveIntFlag(string[] args, string flag, string envVar, int defaultValue)
+{
+    var raw = ResolveFlag(args, flag) ?? Environment.GetEnvironmentVariable(envVar);
+    return int.TryParse(raw, out var value) ? value : defaultValue;
 }
