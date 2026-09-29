@@ -246,16 +246,16 @@ public class CliTool
             var apiRoute = GetFlag(args, "--api-route");
             var enabled = args.Contains("--enabled");
 
-            object options = trigger switch
+            var config = trigger switch
             {
-                "Timed" => new { cron_expression = cron ?? "0 9 * * *", event_entity = eventEntity ?? "" },
-                "Event" => (object)new EventWorkflowOptions(eventType ?? "EntityCreated", eventEntity ?? ""),
-                "Api" => new { api_route = apiRoute ?? "", event_entity = eventEntity ?? "" },
-                _ => new { event_entity = eventEntity ?? "", manual_entities = eventEntity != null ? new[] { eventEntity } : Array.Empty<string>() }
+                "Timed" => new WorkflowTriggerConfig(CronExpression: cron ?? "0 9 * * *"),
+                "Event" => new WorkflowTriggerConfig(Event: eventType ?? "EntityCreated", EventEntity: eventEntity ?? ""),
+                "Api" => new WorkflowTriggerConfig(ApiRoute: apiRoute ?? ""),
+                _ => new WorkflowTriggerConfig(ManualEntities: eventEntity != null ? [eventEntity] : [])
             };
 
             var wf = await client.CreateWorkflowAsync(new CreateWorkflowRequest(
-                name, description, trigger, enabled, options, trigger == "Api" ? apiRoute : null));
+                name, description, enabled, [new WorkflowTriggerRequest(trigger, true, config)]));
             return Serialize(wf);
         }
         if (args[0] == "update" && args.Count > 1 && (await ResolveWorkflowId(client, args[1])) is { } updateId)
