@@ -1696,75 +1696,9 @@ public class WorkflowsIntegrationAddCommand : BaseCommand<WorkflowIntegrationAdd
 
     public override async Task<int> ExecuteAsync(CommandContext context, WorkflowIntegrationAddSettings settings)
     {
-        if (string.IsNullOrWhiteSpace(settings.Provider))
-        {
-            Renderer.Error("--provider is required.");
-            return 1;
-        }
-        if (string.IsNullOrWhiteSpace(settings.Operation))
-        {
-            Renderer.Error("--operation is required.");
-            return 1;
-        }
-        if (!ValidSources.Contains(settings.CredentialSource))
-        {
-            Renderer.Error("--credential-source must be one of: system, current_user, connection, entity_field.");
-            return 1;
-        }
-        if (settings.CredentialSource == "connection" && string.IsNullOrWhiteSpace(settings.ConnectionId))
-        {
-            Renderer.Error("--connection-id is required when --credential-source is 'connection'.");
-            return 1;
-        }
-        if (settings.CredentialSource == "entity_field" && string.IsNullOrWhiteSpace(settings.CredentialField))
-        {
-            Renderer.Error("--credential-field is required when --credential-source is 'entity_field'.");
-            return 1;
-        }
-
-        // Build the inputs map: --inputs JSON first, then --input key=value, then --model.
-        var inputs = new Dictionary<string, object?>();
-        if (!string.IsNullOrWhiteSpace(settings.InputsJson))
-        {
-            try
-            {
-                if (JsonNode.Parse(settings.InputsJson) is not JsonObject parsed)
-                {
-                    Renderer.Error("--inputs must be a JSON object.");
-                    return 1;
-                }
-                foreach (var kv in parsed)
-                    inputs[kv.Key] = kv.Value?.DeepClone();
-            }
-            catch { Renderer.Error("--inputs is not valid JSON."); return 1; }
-        }
-        foreach (var pair in settings.Inputs)
-        {
-            var idx = pair.IndexOf('=');
-            if (idx < 1)
-            {
-                Renderer.Error($"--input '{pair}' is not key=value.");
-                return 1;
-            }
-            inputs[pair[..idx]] = pair[(idx + 1)..];
-        }
-        if (!string.IsNullOrWhiteSpace(settings.Model))
-            inputs["model"] = settings.Model;
-
-        var paramsDict = new Dictionary<string, object?>
-        {
-            ["provider"] = settings.Provider,
-            ["operation"] = settings.Operation,
-            ["credential_source"] = settings.CredentialSource,
-            ["inputs"] = inputs,
-        };
-        if (!string.IsNullOrEmpty(settings.ConnectionId))
-            paramsDict["connection_id"] = settings.ConnectionId;
-        if (!string.IsNullOrEmpty(settings.CredentialField))
-            paramsDict["credential_field"] = settings.CredentialField;
-
-        var paramsJson = System.Text.Json.JsonSerializer.Serialize(paramsDict);
-        var parameters = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(paramsJson);
+        System.Text.Json.JsonElement parameters;
+        try { parameters = BuildParameters(settings); }
+        catch (ArgumentException ex) { Renderer.Error(ex.Message); return 1; }
 
         try
         {
@@ -1815,6 +1749,56 @@ public class WorkflowsIntegrationAddCommand : BaseCommand<WorkflowIntegrationAdd
             HandleError(ex);
             return 1;
         }
+    }
+
+    internal static System.Text.Json.JsonElement BuildParameters(WorkflowIntegrationAddSettings settings)
+    {
+        if (string.IsNullOrWhiteSpace(settings.Provider))
+            throw new ArgumentException("--provider is required.");
+        if (string.IsNullOrWhiteSpace(settings.Operation))
+            throw new ArgumentException("--operation is required.");
+        if (!ValidSources.Contains(settings.CredentialSource))
+            throw new ArgumentException("--credential-source must be one of: system, current_user, connection, entity_field.");
+        if (settings.CredentialSource == "connection" && string.IsNullOrWhiteSpace(settings.ConnectionId))
+            throw new ArgumentException("--connection-id is required when --credential-source is 'connection'.");
+        if (settings.CredentialSource == "entity_field" && string.IsNullOrWhiteSpace(settings.CredentialField))
+            throw new ArgumentException("--credential-field is required when --credential-source is 'entity_field'.");
+
+        var inputs = new Dictionary<string, object?>();
+        if (!string.IsNullOrWhiteSpace(settings.InputsJson))
+        {
+            JsonNode? node;
+            try { node = JsonNode.Parse(settings.InputsJson); }
+            catch (System.Text.Json.JsonException) { throw new ArgumentException("--inputs is not valid JSON."); }
+            if (node is not JsonObject parsed)
+                throw new ArgumentException("--inputs must be a JSON object.");
+            foreach (var kv in parsed)
+                inputs[kv.Key] = kv.Value?.DeepClone();
+        }
+        foreach (var pair in settings.Inputs)
+        {
+            var idx = pair.IndexOf('=');
+            if (idx < 1)
+                throw new ArgumentException($"--input '{pair}' is not key=value.");
+            inputs[pair[..idx]] = pair[(idx + 1)..];
+        }
+        if (!string.IsNullOrWhiteSpace(settings.Model))
+            inputs["model"] = settings.Model;
+
+        var paramsDict = new Dictionary<string, object?>
+        {
+            ["provider"] = settings.Provider,
+            ["operation"] = settings.Operation,
+            ["credential_source"] = settings.CredentialSource,
+            ["inputs"] = inputs,
+        };
+        if (!string.IsNullOrEmpty(settings.ConnectionId))
+            paramsDict["connection_id"] = settings.ConnectionId;
+        // The server only reads credential_field_path; any other key is silently dropped.
+        if (!string.IsNullOrEmpty(settings.CredentialField))
+            paramsDict["credential_field_path"] = settings.CredentialField;
+
+        return System.Text.Json.JsonSerializer.SerializeToElement(paramsDict);
     }
 }
 
