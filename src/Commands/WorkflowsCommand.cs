@@ -784,29 +784,9 @@ public class WorkflowsTriggerCommand : BaseCommand<WorkflowTriggerSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, WorkflowTriggerSettings settings)
     {
-        object? payload = null;
-        if (!string.IsNullOrEmpty(settings.Payload) || !string.IsNullOrEmpty(settings.Entity) || settings.EntityId.HasValue)
-        {
-            // The trigger endpoint's Data field is a *string* (the record is re-parsed
-            // server-side into $anythink.trigger.data), so stringify the payload rather
-            // than nesting the object.
-            string? dataStr = null;
-            if (!string.IsNullOrEmpty(settings.Payload))
-            {
-                try
-                {
-                    dataStr = JsonNode.Parse(settings.Payload)?.ToJsonString();
-                }
-                catch { Renderer.Error("Invalid JSON payload."); return 1; }
-            }
-
-            payload = new
-            {
-                entityName = settings.Entity,
-                entityId = settings.EntityId,
-                data = dataStr
-            };
-        }
+        JsonObject? payload;
+        try { payload = BuildPayload(settings.Payload, settings.Entity, settings.EntityId); }
+        catch (System.Text.Json.JsonException) { Renderer.Error("Invalid JSON payload."); return 1; }
 
         try
         {
@@ -827,6 +807,20 @@ public class WorkflowsTriggerCommand : BaseCommand<WorkflowTriggerSettings>
             HandleError(ex);
             return 1;
         }
+    }
+
+    // The endpoint binds snake_case keys and takes data as a string it re-parses into $anythink.trigger.data.
+    internal static JsonObject? BuildPayload(string? payloadJson, string? entity, int? entityId)
+    {
+        if (string.IsNullOrEmpty(payloadJson) && string.IsNullOrEmpty(entity) && !entityId.HasValue)
+            return null;
+
+        var body = new JsonObject();
+        if (!string.IsNullOrEmpty(entity)) body["entity_name"] = entity;
+        if (entityId.HasValue) body["entity_id"] = entityId.Value;
+        if (!string.IsNullOrEmpty(payloadJson))
+            body["data"] = (JsonNode.Parse(payloadJson) ?? throw new System.Text.Json.JsonException()).ToJsonString();
+        return body;
     }
 }
 
