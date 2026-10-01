@@ -420,7 +420,7 @@ public static class ConfigService
 
     private static readonly Regex OrgIdPattern = new(@"^[0-9]{1,12}$", RegexOptions.Compiled);
 
-    private static string? NormaliseHttpUrl(string? raw)
+    internal static string? NormaliseHttpUrl(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
         var trimmed = raw.Trim();

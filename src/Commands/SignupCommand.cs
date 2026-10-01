@@ -95,7 +95,7 @@ public class PlatformLoginSettings : CommandSettings
     public string? Profile { get; set; }
 
     [CommandOption("--base-url <URL>")]
-    [Description("Override API base URL for this profile")]
+    [Description("API URL of the project's instance, for connecting to a project directly (default: the platform API)")]
     public string? BaseUrl { get; set; }
 
     [CommandOption("--google")]
@@ -105,6 +105,10 @@ public class PlatformLoginSettings : CommandSettings
 
 public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
 {
+    // A project's API instance can differ from the platform URL, so --base-url only changes the profile
+    internal static string? InstanceUrlFor(string? baseUrlFlag, string platformUrl) =>
+        string.IsNullOrWhiteSpace(baseUrlFlag) ? platformUrl : ConfigService.NormaliseHttpUrl(baseUrlFlag);
+
     public override async Task<int> ExecuteAsync(CommandContext context, PlatformLoginSettings settings)
     {
         // ── Google OAuth path ──────────────────────────────────────────────────
@@ -112,6 +116,12 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
             return await GoogleLogin();
 
         var (platformKey, platform) = ResolvePlatformContext();
+        var instanceUrl = InstanceUrlFor(settings.BaseUrl, platform.MyAnythinkUrl);
+        if (instanceUrl is null)
+        {
+            Renderer.Error($"--base-url must be an absolute http(s) URL, e.g. https://api.example.com (got '{settings.BaseUrl}').");
+            return 1;
+        }
 
         // ── Direct credential path: --org-id + (--token or --api-key) ──────────
         // Bypasses the billing API entirely — useful when you already have a JWT
@@ -126,7 +136,7 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
                 OrgId          = settings.OrgId,
                 AccessToken    = settings.Token,
                 ApiKey          = settings.ApiKey,
-                InstanceApiUrl = platform.MyAnythinkUrl,
+                InstanceApiUrl = instanceUrl,
                 Alias          = profileKey,
                 PlatformKey    = platformKey,
             });
@@ -171,7 +181,7 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
                 {
                     OrgId          = settings.OrgId,
                     AccessToken    = resp!.AccessToken,
-                    InstanceApiUrl = platform.MyAnythinkUrl,
+                    InstanceApiUrl = instanceUrl,
                     Alias          = profileKey,
                     PlatformKey    = platformKey,
                 });
