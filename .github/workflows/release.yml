@@ -206,16 +206,33 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     # Dormant until the one-time first submission is done, the WINGET_TOKEN
-    # secret is added, and repo variable ENABLE_WINGET is set to 'true'.
+    # secret is added to the release environment, and ENABLE_WINGET is 'true'.
     if: ${{ vars.ENABLE_WINGET == 'true' }}
-    permissions:
-      contents: read
+    environment: release
+    permissions: {}
+    env:
+      KOMAC_VERSION: 2.16.0
+      KOMAC_SHA256: 7d2707fa6210f2789a3702de49fbd150b736dbf426ee0b9bc8e098736f9fd82d
     steps:
-      - uses: vedantmgoyal9/winget-releaser@4ffc7888bffd451b357355dc214d43bb9f23917e # v2
-        with:
-          identifier: Anythink.CLI
-          version: ${{ needs.build.outputs.version }}
-          release-tag: v${{ needs.build.outputs.version }}
-          installers-regex: 'anythink-win-(x64|arm64)\.exe$'
-          max-versions-to-keep: 5
-          token: ${{ secrets.WINGET_TOKEN }}
+      # winget-releaser pulls cargo-binstall@main and an unpinned komac and hands
+      # them the token, so we run a checksum-pinned komac directly instead.
+      - name: Install komac
+        run: |
+          curl -fsSL -o komac.tar.gz \
+            "https://github.com/russellbanks/Komac/releases/download/v${KOMAC_VERSION}/komac-${KOMAC_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+          echo "${KOMAC_SHA256}  komac.tar.gz" | sha256sum -c -
+          tar -xzf komac.tar.gz komac
+          sudo install -m 0755 komac /usr/local/bin/komac
+
+      - name: Submit manifest
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          GITHUB_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          KOMAC_CREATED_WITH: anythink-cli release workflow
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::Unexpected version '$VERSION'"; exit 1; }
+          BASE="https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}"
+          komac update Anythink.CLI \
+            --version "$VERSION" \
+            --urls "$BASE/anythink-win-x64.exe" "$BASE/anythink-win-arm64.exe" \
+            --submit
