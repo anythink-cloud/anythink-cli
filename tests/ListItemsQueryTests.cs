@@ -151,6 +151,13 @@ public class ListItemsQueryTests
         Parsed("""{"published_at":{"ne":null}}""").Should().Equal("published_at=NNULL:");
     }
 
+    [Fact]
+    public void Parse_NeNullAlongsideOtherOperators_UsesNullSuffixKey()
+    {
+        Parsed("""{"published_at":{"ne":null,"gt":"2026-01-01"}}""")
+            .Should().Equal("published_at__null=NNULL:", "published_at__gt=GT:2026-01-01");
+    }
+
     [Theory]
     [InlineData("null", true, "NULL:")]
     [InlineData("null", false, "NNULL:")]

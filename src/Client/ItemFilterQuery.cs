@@ -96,10 +96,11 @@ internal static class ItemFilterQuery
 
         if (value is null)
         {
+            // The API re-prefixes `__ne` values unless they carry an operator it knows, and NULL:/NNULL: aren't among them.
             return prefix switch
             {
-                "" => new(key, "NULL:"),
-                "!" => new(key, "NNULL:"),
+                "" => new($"{field}__null", "NULL:"),
+                "!" => new($"{field}__null", "NNULL:"),
                 _ => throw new ArgumentException($"Filter operator '{op}' on '{field}' needs a value."),
             };
         }
