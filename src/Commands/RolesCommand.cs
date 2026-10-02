@@ -327,6 +327,10 @@ public class RolePermissionsRemoveSettings : CommandSettings
     [CommandOption("--actions <ACTIONS>")]
     [Description("Comma-separated actions: read,create,update,delete (default: read)")]
     public string Actions { get; set; } = "read";
+
+    [CommandOption("-y|--yes")]
+    [Description("Skip confirmation prompt")]
+    public bool Yes { get; set; }
 }
 
 public class RolesPermissionsRemoveCommand : BaseCommand<RolePermissionsRemoveSettings>
@@ -362,6 +366,14 @@ public class RolesPermissionsRemoveCommand : BaseCommand<RolePermissionsRemoveSe
             if (removed.Count == 0)
             {
                 Renderer.Info("No matching permissions to remove (not assigned or not found).");
+                return 0;
+            }
+
+            if (!settings.Yes && !AnsiConsole.Confirm(
+                    $"[yellow]Remove[/] [bold red]{Markup.Escape(string.Join(", ", removed))}[/] [yellow]on[/] {Markup.Escape(settings.Entity)} [yellow]from role[/] {settings.RoleId}[yellow]?[/]",
+                    defaultValue: false))
+            {
+                Renderer.Info("Cancelled.");
                 return 0;
             }
 

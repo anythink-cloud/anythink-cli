@@ -57,4 +57,16 @@ public class RolesPermissionsTests
         var act = () => RolesPermissionsAddCommand.TryResolveEntityIdAsync(client, "blog_posts");
         await act.Should().ThrowAsync<AnythinkException>();
     }
+
+    // ── Removing permissions is destructive and must be confirmable ─────────
+
+    [Fact]
+    public void RemoveSettings_ExposesYesFlag_LikeOtherDestructiveCommands()
+    {
+        var opt = typeof(RolePermissionsRemoveSettings).GetProperty(nameof(RolePermissionsRemoveSettings.Yes))!
+            .GetCustomAttributes(typeof(Spectre.Console.Cli.CommandOptionAttribute), false)
+            .Cast<Spectre.Console.Cli.CommandOptionAttribute>().Single();
+        opt.LongNames.Should().Contain("yes");
+        new RolePermissionsRemoveSettings().Yes.Should().BeFalse();
+    }
 }

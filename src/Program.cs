@@ -427,7 +427,7 @@ app.Configure(config =>
 
             perms.AddCommand<RolesPermissionsRemoveCommand>("remove")
                 .WithDescription("Remove entity permissions from a role")
-                .WithExample("roles", "permissions", "remove", "239", "badges", "--actions", "create");
+                .WithExample("roles", "permissions", "remove", "239", "badges", "--actions", "create", "--yes");
         });
     });
 
