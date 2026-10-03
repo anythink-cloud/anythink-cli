@@ -25,8 +25,8 @@ public class DataListSettings : CommandSettings
     [Description("Records per page (default: 20)")]
     public int Limit { get; set; } = 20;
 
-    [CommandOption("--filter <JSON>")]
-    [Description("Filter expression (JSON)")]
+    [CommandOption("--filter <FILTER>")]
+    [Description("Field filters: JSON like {\"status\":\"draft\",\"price\":{\"gte\":10}} or field=value pairs like 'status=draft&price=GTE:10'")]
     public string? Filter { get; set; }
 
     [CommandOption("--json")]
