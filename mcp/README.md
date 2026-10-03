@@ -92,11 +92,11 @@ Configuration is via environment variables:
 | `MCP_EXCHANGE_CLIENT_ID` | yes | Client id of this server's confidential client at the authorisation server, used for token exchange. |
 | `MCP_EXCHANGE_CLIENT_SECRET` | yes | Secret for that client. Never logged. |
 | `MCP_UPSTREAM_AUDIENCE` | yes | Audience requested for the exchanged token, i.e. the audience your project API expects. |
-| `MCP_INSTANCE_HOST_SUFFIXES` | no | Comma-separated host suffixes a token's `instance_url` must match (https only). Defaults to `.anythink.cloud,.anythink.dev,.anythink.uk`. |
+| `MCP_INSTANCE_HOST_SUFFIXES` | no | Comma-separated host suffixes a token's `instance_url` must match (https only, and the host's first label must be `api`). Defaults to `.anythink.cloud,.anythink.dev,.anythink.uk`. |
 | `MCP_ALLOWED_ORIGINS` | no | Comma-separated `Origin` values accepted when a request carries one. Requests without an `Origin` header are always accepted; the default is to reject any browser origin. |
 | `MCP_ALLOWED_HOSTS` | no | Extra `Host` values accepted besides the host in `MCP_PUBLIC_URL` (`/health` is exempt). |
 | `MCP_TOKEN_ENDPOINT` | no | Explicit https token endpoint for the exchange. Without it the endpoint is discovered from the issuer and must share the issuer's origin. |
-| `MCP_ALLOW_LOOPBACK_INSTANCE` | no | Set to `true` for local development to accept loopback `instance_url` values (and `X-Instance-Url` on the internal API). |
+| `MCP_ALLOW_LOOPBACK_INSTANCE` | no | Set to `true` for local development to accept loopback `instance_url` values (and `X-Instance-Url` on the internal API). Only allowed when `ASPNETCORE_ENVIRONMENT=Development`; otherwise the server refuses to start. |
 | `MCP_INTERNAL_BIND` | no | Address the internal REST port listens on. Defaults to `127.0.0.1`. Any non-loopback address requires `MCP_INTERNAL_TOKEN`. |
 | `MCP_INTERNAL_TOKEN` | when bound beyond loopback | Shared secret internal callers send in the `X-Internal-Token` header on `/tools` and `/tools/call`. |
 | `MCP_PORT` | no | Public port serving `/mcp` and the OAuth metadata. Defaults to `5300` (or pass `--port`). |
@@ -113,6 +113,10 @@ API. Instead the server exchanges it (RFC 8693) at the authorisation server's to
 endpoint, found through the issuer's discovery document, for a token whose audience is
 `MCP_UPSTREAM_AUDIENCE`, caches the result until shortly before it expires, and uses
 only that token upstream. If the exchange fails the client gets a generic 401 or 502.
+
+Each project may have 8 concurrent requests in flight on `/mcp`, with up to 8 more
+queued; beyond that the server returns `429`. Upstream calls share one connection pool,
+don't follow redirects, and time out after 30 seconds.
 
 The hosted tool set is intentionally small and read-only for now:
 `project_details`, `entities_list`, and `records_query`. A broader tool set is

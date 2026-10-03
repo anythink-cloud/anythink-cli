@@ -9,7 +9,7 @@ namespace AnythinkMcp.Tests;
 
 public class HostedToolsTests
 {
-    private const string ItemsUrl = "https://42.api.anythink.cloud/org/42/entities/blog_posts/items";
+    private const string ItemsUrl = "https://api.my.anythink.cloud/org/42/entities/blog_posts/items";
     private const string EmptyPage = """{"items":[],"total_items":0,"total_pages":0,"has_next_page":false,"page":1,"page_size":20}""";
 
     private readonly MockHttpMessageHandler _mock = new();
@@ -25,7 +25,7 @@ public class HostedToolsTests
 
         return new HostedTools(
             new McpClientFactory(null, _mock),
-            new HostedCredentials { OrgId = "42", InstanceUrl = "https://42.api.anythink.cloud", Token = "t" });
+            new HostedCredentials { OrgId = "42", InstanceUrl = "https://api.my.anythink.cloud", Token = "t" });
     }
 
     private string Query => _sent!.Query;

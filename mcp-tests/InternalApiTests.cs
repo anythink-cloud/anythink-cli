@@ -82,11 +82,11 @@ public class InternalApiTests
 
     [Fact]
     public void CheckInstanceUrl_AllowedHost_Passes() =>
-        InternalApi.CheckInstanceUrl("https://42.api.anythink.cloud", InternalApi.ForHttp(Env())).Should().BeNull();
+        InternalApi.CheckInstanceUrl("https://api.my.anythink.cloud", InternalApi.ForHttp(Env())).Should().BeNull();
 
     [Theory]
     [InlineData("https://evilanythink.cloud")]
-    [InlineData("http://42.api.anythink.cloud")]
+    [InlineData("http://api.my.anythink.cloud")]
     [InlineData("http://localhost:5000")]
     public void CheckInstanceUrl_OutsideAllowlist_Is400(string url)
     {
@@ -98,5 +98,5 @@ public class InternalApiTests
 
     [Fact]
     public void CheckInstanceUrl_Loopback_AllowedOnlyWithExplicitOptIn() =>
-        InternalApi.CheckInstanceUrl("http://localhost:5000", InternalApi.ForHttp(Env(("MCP_ALLOW_LOOPBACK_INSTANCE", "true")))).Should().BeNull();
+        InternalApi.CheckInstanceUrl("http://localhost:5000", InternalApi.ForHttp(Env(("MCP_ALLOW_LOOPBACK_INSTANCE", "true"), ("ASPNETCORE_ENVIRONMENT", "Development")))).Should().BeNull();
 }

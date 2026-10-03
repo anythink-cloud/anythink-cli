@@ -11,6 +11,14 @@ public class McpClientFactory
 
     private static readonly AsyncLocal<(string OrgId, string BaseUrl, string Token)?> _requestCredentials = new();
 
+    private static readonly SocketsHttpHandler HostedUpstreamHandler = new()
+    {
+        AllowAutoRedirect = false,
+        PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+    };
+
+    private static readonly TimeSpan HostedUpstreamTimeout = TimeSpan.FromSeconds(30);
+
     public string? ProfileName => _profileName;
 
     public McpClientFactory(string? profileName = null)
@@ -58,10 +66,7 @@ public class McpClientFactory
             || string.IsNullOrEmpty(credentials.Token))
             throw new InvalidOperationException("Hosted request has no resolved Anythink credentials.");
 
-        if (_httpHandler is null)
-            return new AnythinkClient(credentials.OrgId, credentials.InstanceUrl, credentials.Token);
-
-        var http = new HttpClient(_httpHandler);
+        var http = new HttpClient(_httpHandler ?? HostedUpstreamHandler, disposeHandler: false) { Timeout = HostedUpstreamTimeout };
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", credentials.Token);
         return new AnythinkClient(credentials.OrgId, credentials.InstanceUrl, http);
     }

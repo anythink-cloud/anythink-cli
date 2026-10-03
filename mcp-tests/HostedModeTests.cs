@@ -38,7 +38,15 @@ public class HostedModeTests : IAsyncLifetime
 
     private static string ExchangedFor(string inbound) => "ex-" + inbound[^16..];
 
-    public async Task InitializeAsync()
+    public Task InitializeAsync() => StartAppAsync(HostedMode.DefaultMaxConcurrentRequestsPerProject);
+
+    private async Task RestartAppAsync(int maxConcurrentRequestsPerProject)
+    {
+        await DisposeAsync();
+        await StartAppAsync(maxConcurrentRequestsPerProject);
+    }
+
+    private async Task StartAppAsync(int maxConcurrentRequestsPerProject)
     {
         _rsa = RSA.Create(2048);
         _key = new RsaSecurityKey(_rsa) { KeyId = "test-key-1" };
@@ -66,6 +74,7 @@ public class HostedModeTests : IAsyncLifetime
             Audience = PublicUrl,
             Exchange = new TokenExchangeOptions { ClientId = "mcp", ClientSecret = "s3cret", Audience = "anythink-oauth" },
             AllowedOrigins = [Origin],
+            MaxConcurrentRequestsPerProject = maxConcurrentRequestsPerProject,
         };
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
@@ -86,7 +95,7 @@ public class HostedModeTests : IAsyncLifetime
     }
 
     private string ValidToken(
-        string? tid = "42", string? instanceUrl = "https://42.api.anythink.cloud",
+        string? tid = "42", string? instanceUrl = "https://api.my.anythink.cloud",
         DateTime? expires = null, string? issuer = null, string? audience = null, RsaSecurityKey? signWith = null) =>
         HostedTestSupport.CreateToken(signWith ?? _key, issuer ?? Issuer, audience ?? PublicUrl, tid, instanceUrl, expires);
 
@@ -104,10 +113,10 @@ public class HostedModeTests : IAsyncLifetime
         AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = $"Bearer {token}" }
     }, _client, ownsHttpClient: false);
 
-    private static string UpstreamOrgUrl(string tid) => $"https://{tid}.api.anythink.cloud/org/{tid}";
+    private static string UpstreamOrgUrl(string tid, string host = "api.my.anythink.cloud") => $"https://{host}/org/{tid}";
 
-    private MockedRequest MockProject(string tid, string name, string bearer) =>
-        _mock.When(HttpMethod.Get, UpstreamOrgUrl(tid))
+    private MockedRequest MockProject(string tid, string name, string bearer, string host = "api.my.anythink.cloud") =>
+        _mock.When(HttpMethod.Get, UpstreamOrgUrl(tid, host))
             .WithHeaders("Authorization", $"Bearer {bearer}")
             .Respond("application/json", $$"""{"id":{{tid}},"name":"{{name}}"}""");
 
@@ -211,7 +220,7 @@ public class HostedModeTests : IAsyncLifetime
     public async Task ValidToken_SetsCredentialsFromClaims_IgnoringHeaders()
     {
         const string tid = "42";
-        const string instanceUrl = "https://42.api.anythink.cloud";
+        const string instanceUrl = "https://api.my.anythink.cloud";
         var token = ValidToken(tid: tid, instanceUrl: instanceUrl);
 
         MockProject(tid, "Real Project", ExchangedFor(token));
@@ -384,7 +393,7 @@ public class HostedModeTests : IAsyncLifetime
         {
             Issuer = Issuer,
             Audience = PublicUrl,
-            Claims = new Dictionary<string, object> { ["tid"] = "42", ["instance_url"] = "https://42.api.anythink.cloud" },
+            Claims = new Dictionary<string, object> { ["tid"] = "42", ["instance_url"] = "https://api.my.anythink.cloud" },
         });
 
         var response = await _client.SendAsync(McpPost(unsigned));
@@ -401,7 +410,7 @@ public class HostedModeTests : IAsyncLifetime
         {
             Issuer = Issuer,
             Audience = PublicUrl,
-            Claims = new Dictionary<string, object> { ["tid"] = "42", ["instance_url"] = "https://42.api.anythink.cloud" },
+            Claims = new Dictionary<string, object> { ["tid"] = "42", ["instance_url"] = "https://api.my.anythink.cloud" },
             SigningCredentials = new SigningCredentials(hmacKey, SecurityAlgorithms.HmacSha256),
         });
 
@@ -420,7 +429,7 @@ public class HostedModeTests : IAsyncLifetime
 
     [Theory]
     [InlineData("https://evilanythink.cloud")]
-    [InlineData("https://42.api.evilanythink.cloud")]
+    [InlineData("https://api.my.evilanythink.cloud")]
     [InlineData("https://attacker.example.com")]
     public async Task InstanceUrlOutsideAllowlist_Returns401_AndNothingIsExchanged(string instanceUrl)
     {
@@ -478,10 +487,10 @@ public class HostedModeTests : IAsyncLifetime
     [Fact]
     public async Task ConcurrentRequestsForDifferentProjects_GetIsolatedCredentials()
     {
-        var tokenA = ValidToken(tid: "1", instanceUrl: "https://1.api.anythink.cloud");
-        var tokenB = ValidToken(tid: "2", instanceUrl: "https://2.api.anythink.cloud");
-        MockProject("1", "Project One", ExchangedFor(tokenA));
-        MockProject("2", "Project Two", ExchangedFor(tokenB));
+        var tokenA = ValidToken(tid: "1", instanceUrl: "https://api.one.anythink.cloud");
+        var tokenB = ValidToken(tid: "2", instanceUrl: "https://api.two.anythink.cloud");
+        MockProject("1", "Project One", ExchangedFor(tokenA), "api.one.anythink.cloud");
+        MockProject("2", "Project Two", ExchangedFor(tokenB), "api.two.anythink.cloud");
 
         async Task<string> Call(string token)
         {
@@ -495,5 +504,38 @@ public class HostedModeTests : IAsyncLifetime
         for (var i = 0; i < results.Length; i++)
             results[i].Should().Contain(i % 2 == 0 ? "Project One" : "Project Two")
                 .And.NotContain(i % 2 == 0 ? "Project Two" : "Project One");
+    }
+
+    [Fact]
+    public async Task ConcurrentRequestsBeyondTheProjectLimit_AreRejected_WithoutAffectingOtherProjects()
+    {
+        await RestartAppAsync(maxConcurrentRequestsPerProject: 1);
+        var token = ValidToken();
+        var otherToken = ValidToken(tid: "7", instanceUrl: "https://api.other.anythink.cloud");
+        MockProject("7", "Other", ExchangedFor(otherToken), "api.other.anythink.cloud");
+        var upstreamEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseUpstream = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _mock.When(HttpMethod.Get, UpstreamOrgUrl("42")).Respond(async _ =>
+        {
+            upstreamEntered.TrySetResult();
+            await releaseUpstream.Task;
+            return new HttpResponseMessage { Content = new StringContent("""{"id":42,"name":"P"}""") };
+        });
+        await using var holding = await McpClient.CreateAsync(Transport(token));
+        await using var queued = await McpClient.CreateAsync(Transport(token));
+        await using var rejected = await McpClient.CreateAsync(Transport(token));
+        await using var otherProject = await McpClient.CreateAsync(Transport(otherToken));
+
+        var holdingCall = holding.CallToolAsync("project_details").AsTask();
+        await upstreamEntered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        var waiting = new[] { queued.CallToolAsync("project_details").AsTask(), rejected.CallToolAsync("project_details").AsTask() };
+        var refusedCall = await Task.WhenAny(waiting).WaitAsync(TimeSpan.FromSeconds(10));
+        var otherCall = await otherProject.CallToolAsync("project_details");
+        releaseUpstream.SetResult();
+
+        refusedCall.IsFaulted.Should().BeTrue();
+        ((TextContentBlock)otherCall.Content[0]).Text.Should().Contain("Other");
+        await holdingCall;
+        await waiting.Single(call => call != refusedCall);
     }
 }

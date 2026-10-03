@@ -36,7 +36,7 @@ internal static class HostedTestSupport
         string issuer,
         string audience,
         string? tid = "42",
-        string? instanceUrl = "https://42.api.anythink.cloud",
+        string? instanceUrl = "https://api.my.anythink.cloud",
         DateTime? expires = null,
         DateTime? notBefore = null)
     {

@@ -31,8 +31,13 @@ internal static class HostedConfig
         };
     }
 
-    public static bool LoopbackOptIn(Func<string, string?> get) =>
-        string.Equals(get("MCP_ALLOW_LOOPBACK_INSTANCE"), "true", StringComparison.OrdinalIgnoreCase);
+    public static bool LoopbackOptIn(Func<string, string?> get)
+    {
+        if (!string.Equals(get("MCP_ALLOW_LOOPBACK_INSTANCE"), "true", StringComparison.OrdinalIgnoreCase)) return false;
+        if (!string.Equals(get("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("MCP_ALLOW_LOOPBACK_INSTANCE is only allowed when ASPNETCORE_ENVIRONMENT is Development.");
+        return true;
+    }
 
     private static List<string> List(string? raw) =>
         raw?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList() ?? [];

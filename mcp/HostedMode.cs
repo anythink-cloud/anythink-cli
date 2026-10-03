@@ -1,4 +1,8 @@
+using System.Security.Claims;
+using System.Threading.RateLimiting;
 using AnythinkMcp.Tools;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,6 +16,8 @@ namespace AnythinkMcp;
 public static class HostedMode
 {
     public const int MaxRequestBodyBytes = 1_048_576;
+    public const int DefaultMaxConcurrentRequestsPerProject = 8;
+    private const string ProjectConcurrencyPolicy = "per-project";
 
     public static readonly string[] DefaultInstanceHostSuffixes = [".anythink.cloud", ".anythink.dev", ".anythink.uk"];
 
@@ -27,6 +33,7 @@ public static class HostedMode
         public IReadOnlyList<string> AllowedOrigins { get; init; } = [];
         public IReadOnlyList<string> AllowedHosts { get; init; } = [];
         public bool AllowLoopbackInstance { get; init; }
+        public int MaxConcurrentRequestsPerProject { get; init; } = DefaultMaxConcurrentRequestsPerProject;
     }
 
     public static WebApplication BuildPublicApp(
@@ -89,6 +96,18 @@ public static class HostedMode
             });
 
         builder.Services.AddAuthorization();
+        builder.Services.AddRateLimiter(limiter =>
+        {
+            limiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            limiter.AddPolicy(ProjectConcurrencyPolicy, context => RateLimitPartition.GetConcurrencyLimiter(
+                context.User.FindFirstValue("tid") ?? "",
+                _ => new ConcurrencyLimiterOptions
+                {
+                    PermitLimit = options.MaxConcurrentRequestsPerProject,
+                    QueueLimit = options.MaxConcurrentRequestsPerProject,
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                }));
+        });
 
         builder.Services
             .AddMcpServer(server => server.ServerInfo = new() { Name = "anythink", Version = "1.0.0" })
@@ -108,6 +127,7 @@ public static class HostedMode
 
         app.UseAuthentication();
         app.UseAuthorization();
+        app.UseRateLimiter();
 
         app.Use(async (context, next) =>
         {
@@ -118,7 +138,7 @@ public static class HostedMode
         });
 
         app.MapGet("/health", () => new { status = "healthy", timestamp = DateTime.UtcNow });
-        app.MapMcp(resourcePath).RequireAuthorization();
+        app.MapMcp(resourcePath).RequireAuthorization().RequireRateLimiting(ProjectConcurrencyPolicy);
 
         return app;
     }

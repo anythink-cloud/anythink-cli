@@ -86,7 +86,26 @@ public class HostedConfigTests
     public void LoopbackInstance_IsOffUnlessExplicitlyEnabled()
     {
         Load().AllowLoopbackInstance.Should().BeFalse();
-        Load(env => env["MCP_ALLOW_LOOPBACK_INSTANCE"] = "true").AllowLoopbackInstance.Should().BeTrue();
+        Load(env =>
+        {
+            env["MCP_ALLOW_LOOPBACK_INSTANCE"] = "true";
+            env["ASPNETCORE_ENVIRONMENT"] = "Development";
+        }).AllowLoopbackInstance.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("Production")]
+    [InlineData("Staging")]
+    [InlineData(null)]
+    public void LoopbackInstance_OutsideDevelopment_RefusesToStart(string? environment)
+    {
+        var act = () => Load(env =>
+        {
+            env["MCP_ALLOW_LOOPBACK_INSTANCE"] = "true";
+            if (environment is not null) env["ASPNETCORE_ENVIRONMENT"] = environment;
+        });
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*Development*");
     }
 
     [Fact]

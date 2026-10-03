@@ -106,6 +106,7 @@ internal static class HostedAuth
         if (uri.AbsolutePath != "/") return false;
 
         var host = uri.IdnHost.ToLowerInvariant();
+        if (!host.StartsWith("api.", StringComparison.Ordinal)) return false;
         return allowedHostSuffixes.Any(suffix =>
         {
             var d = suffix.TrimStart('.').ToLowerInvariant();
