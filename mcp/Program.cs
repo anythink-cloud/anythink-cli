@@ -41,27 +41,30 @@ static async Task RunHostedServer(string? profile, int port, int internalPort)
     var internalOptions = InternalApi.ForHosted(Environment.GetEnvironmentVariable);
 
     var publicApp = HostedMode.BuildPublicApp(
-        WebApplication.CreateBuilder(), options, new McpClientFactory(profile));
+        WebApplication.CreateBuilder(), options, new McpClientFactory());
 
     var internalApp = BuildRestApp(profile, ResolveCorsOrigins(), internalOptions);
 
-    var logger = publicApp.Services.GetRequiredService<ILogger<Program>>();
-    logger.LogInformation(
+    publicApp.Logger.LogInformation(
         "Hosted MCP server on port {Port}, resource {Resource}, issuer {Issuer}", port, options.PublicUrl, options.Issuer);
-    logger.LogInformation(
+    publicApp.Logger.LogInformation(
         "Internal REST server on {Bind}:{InternalPort}", internalOptions.Bind, internalPort);
 
-    await Task.WhenAll(
-        publicApp.RunAsync($"http://0.0.0.0:{port}"),
-        internalApp.RunAsync($"http://{internalOptions.Bind}:{internalPort}"));
+    publicApp.Urls.Add($"http://0.0.0.0:{port}");
+    internalApp.Urls.Add($"http://{internalOptions.Bind}:{internalPort}");
+    await publicApp.StartAsync();
+    await internalApp.StartAsync();
+    await publicApp.WaitForShutdownAsync();
+    await internalApp.StopAsync();
 }
 
 // ── HTTP mode (for AI sidebar / multi-tenant) ────────────────────────────────
 
 static async Task RunHttpServer(string? profile, int port)
 {
-    var app = BuildRestApp(profile, ResolveCorsOrigins(), InternalApi.ForHttp(Environment.GetEnvironmentVariable));
-    await app.RunAsync($"http://0.0.0.0:{port}");
+    var internalOptions = InternalApi.ForHttp(Environment.GetEnvironmentVariable);
+    var app = BuildRestApp(profile, ResolveCorsOrigins(), internalOptions);
+    await app.RunAsync($"http://{internalOptions.Bind}:{port}");
 }
 
 static WebApplication BuildRestApp(string? profile, string[] corsOrigins, InternalApiOptions internalOptions)
@@ -88,127 +91,16 @@ static WebApplication BuildRestApp(string? profile, string[] corsOrigins, Intern
     var app = builder.Build();
     app.UseCors();
 
-    var logger = app.Services.GetRequiredService<ILogger<Program>>();
-    logger.LogInformation("MCP internal REST server starting with CORS origins: {Origins}",
+    app.Logger.LogInformation("MCP internal REST server starting with CORS origins: {Origins}",
         string.Join(", ", corsOrigins));
 
-    // Health check (unauthenticated — standard for K8s probes)
-    app.MapGet("/health", () => new { status = "healthy", timestamp = DateTime.UtcNow });
-
-    app.MapGet("/tools", (HttpContext context) =>
-    {
-        if (InternalApi.CheckToken(context, internalOptions) is { } denied) return denied;
-        var tools = McpToolRegistry.GetToolDefinitions();
-        return Results.Json(tools);
-    });
-
-    // Execute a tool (requires auth + tenant context)
-    app.MapPost("/tools/call", async (HttpContext context) =>
-    {
-        if (InternalApi.CheckToken(context, internalOptions) is { } denied) return denied;
-        if (!ExtractAuth(context, out var token, out var orgId, out var instanceUrl, out var error))
-            return error!;
-        if (InternalApi.CheckInstanceUrl(instanceUrl!, internalOptions) is { } badInstance) return badInstance;
-
-        // Parse request body
-        JsonElement body;
-        try
-        {
-            body = await JsonSerializer.DeserializeAsync<JsonElement>(context.Request.Body);
-        }
-        catch (JsonException)
-        {
-            return Results.Json(new { error = new { message = "Invalid JSON" } }, statusCode: 400);
-        }
-
-        if (!body.TryGetProperty("name", out var nameEl) || nameEl.GetString() is not { } toolName)
-            return Results.Json(new { error = new { message = "'name' field required" } }, statusCode: 400);
-
-        var arguments = body.TryGetProperty("arguments", out var args)
-            ? args
-            : JsonSerializer.Deserialize<JsonElement>("{}");
-
-        // Block config-mutating tools in HTTP mode
-        if (toolName is "login" or "login_direct" or "signup" or "logout"
-            or "config_use" or "config_remove" or "config_show"
-            or "accounts_use")
-        {
-            return Results.Json(new
-            {
-                error = new { message = $"Tool '{toolName}' is not available in HTTP mode." }
-            }, statusCode: 403);
-        }
-
-        // Set per-request credentials and execute
-        McpClientFactory.SetRequestCredentials(orgId!, instanceUrl!, token!);
-        try
-        {
-            logger.LogInformation("Tool call: {ToolName} args={ArgNames}", toolName,
-                arguments.ValueKind == JsonValueKind.Object ? string.Join(",", arguments.EnumerateObject().Select(a => a.Name)) : "");
-            var result = await McpToolRegistry.ExecuteToolAsync(toolName, arguments,
-                context.RequestServices);
-            logger.LogInformation("Tool result: {ToolName} ({Length} chars)", toolName, result.Length);
-
-            return Results.Json(new
-            {
-                result = new { content = new[] { new { type = "text", text = result } } }
-            });
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Tool '{ToolName}' execution failed for org {OrgId}", toolName, orgId);
-            return Results.Json(new
-            {
-                error = new { message = "Tool execution failed. Check server logs for details." }
-            }, statusCode: 500);
-        }
-        finally
-        {
-            McpClientFactory.ClearRequestCredentials();
-        }
-    });
+    InternalApi.MapEndpoints(app, internalOptions);
 
     return app;
 }
 
 static string[] ResolveCorsOrigins() =>
     Environment.GetEnvironmentVariable("MCP_CORS_ORIGINS")?.Split(',') ?? ["http://localhost:5200"];
-
-// ── Auth extraction helper ───────────────────────────────────────────────────
-
-static bool ExtractAuth(HttpContext context, out string? token, out string? orgId,
-    out string? instanceUrl, out IResult? error)
-{
-    var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
-    orgId = context.Request.Headers["X-Org-Id"].FirstOrDefault();
-    instanceUrl = context.Request.Headers["X-Instance-Url"].FirstOrDefault();
-
-    if (string.IsNullOrEmpty(authHeader))
-    {
-        token = null;
-        error = Results.Json(new { error = "Authorization header required" }, statusCode: 401);
-        return false;
-    }
-
-    // Proper Bearer token extraction
-    token = authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
-        ? authHeader[7..]
-        : authHeader;
-
-    if (string.IsNullOrEmpty(orgId))
-    {
-        error = Results.Json(new { error = "X-Org-Id header required" }, statusCode: 400);
-        return false;
-    }
-    if (string.IsNullOrEmpty(instanceUrl))
-    {
-        error = Results.Json(new { error = "X-Instance-Url header required" }, statusCode: 400);
-        return false;
-    }
-
-    error = null;
-    return true;
-}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

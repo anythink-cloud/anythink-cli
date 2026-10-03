@@ -450,7 +450,7 @@ public class CliTool
         return Uri.TryCreate(path, UriKind.Absolute, out var target)
             && Uri.TryCreate(baseUrl, UriKind.Absolute, out var project)
             && target.UserInfo.Length == 0
-            && Uri.Compare(target, project, UriComponents.SchemeAndServer | UriComponents.Port, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) == 0
+            && Uri.Compare(target, project, UriComponents.SchemeAndServer, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) == 0
             ? path
             : null;
     }

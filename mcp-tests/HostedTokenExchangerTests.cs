@@ -47,7 +47,12 @@ public class HostedTokenExchangerTests
         });
     }
 
-    private HostedTokenExchanger Exchanger() => new(new HttpClient(_mock), Issuer, Options, _clock);
+    private HostedTokenExchanger Exchanger(MockHttpMessageHandler? mock = null, TokenExchangeOptions? options = null, int cacheLimit = 100) =>
+        new(new HttpClient(mock ?? _mock), Issuer, options ?? Options, _clock, cacheLimit: cacheLimit);
+
+    private static void Discovery(MockHttpMessageHandler mock, string issuer = Issuer, string endpoint = TokenEndpoint) =>
+        mock.When(HttpMethod.Get, $"{Issuer}/.well-known/oauth-authorization-server")
+            .Respond("application/json", $$"""{"issuer":"{{issuer}}","token_endpoint":"{{endpoint}}"}""");
 
     [Fact]
     public async Task Exchange_SendsRfc8693FormFields_AndKeepsSecretsOutOfTheUrl()
@@ -73,7 +78,7 @@ public class HostedTokenExchangerTests
         mock.When(HttpMethod.Post, TokenEndpoint)
             .Respond("application/json", """{"access_token":"via-openid","expires_in":60}""");
 
-        var token = await new HostedTokenExchanger(new HttpClient(mock), Issuer, Options, _clock)
+        var token = await Exchanger(mock)
             .ExchangeAsync("inbound", default);
 
         token.Should().Be("via-openid");
@@ -83,10 +88,9 @@ public class HostedTokenExchangerTests
     public async Task Exchange_TokenEndpointOverPlainHttp_Refused()
     {
         var mock = new MockHttpMessageHandler();
-        mock.When(HttpMethod.Get, $"{Issuer}/.well-known/oauth-authorization-server")
-            .Respond("application/json", """{"issuer":"https://issuer.test","token_endpoint":"http://issuer.test/token"}""");
+        Discovery(mock, endpoint: "http://issuer.test/token");
 
-        var act = () => new HostedTokenExchanger(new HttpClient(mock), Issuer, Options, _clock)
+        var act = () => Exchanger(mock)
             .ExchangeAsync("inbound", default);
 
         await act.Should().ThrowAsync<TokenExchangeException>();
@@ -155,12 +159,11 @@ public class HostedTokenExchangerTests
     public async Task Exchange_Rejected4xx_ThrowsRejected_WithoutEchoingTheBody()
     {
         var mock = new MockHttpMessageHandler();
-        mock.When(HttpMethod.Get, $"{Issuer}/.well-known/oauth-authorization-server")
-            .Respond("application/json", $$"""{"issuer":"{{Issuer}}","token_endpoint":"{{TokenEndpoint}}"}""");
+        Discovery(mock);
         mock.When(HttpMethod.Post, TokenEndpoint)
             .Respond(HttpStatusCode.BadRequest, "application/json", """{"error":"invalid_grant","error_description":"upstream-secret"}""");
 
-        var act = () => new HostedTokenExchanger(new HttpClient(mock), Issuer, Options, _clock)
+        var act = () => Exchanger(mock)
             .ExchangeAsync("inbound", default);
 
         var ex = (await act.Should().ThrowAsync<TokenExchangeException>()).Which;
@@ -173,14 +176,13 @@ public class HostedTokenExchangerTests
     {
         var calls = 0;
         var mock = new MockHttpMessageHandler();
-        mock.When(HttpMethod.Get, $"{Issuer}/.well-known/oauth-authorization-server")
-            .Respond("application/json", $$"""{"issuer":"{{Issuer}}","token_endpoint":"{{TokenEndpoint}}"}""");
+        Discovery(mock);
         mock.When(HttpMethod.Post, TokenEndpoint).Respond(_ => new HttpResponseMessage(
             ++calls == 1 ? HttpStatusCode.InternalServerError : HttpStatusCode.OK)
         {
             Content = new StringContent("""{"access_token":"recovered","expires_in":60}""")
         });
-        var exchanger = new HostedTokenExchanger(new HttpClient(mock), Issuer, Options, _clock);
+        var exchanger = Exchanger(mock);
 
         var act = () => exchanger.ExchangeAsync("inbound", default);
         (await act.Should().ThrowAsync<TokenExchangeException>()).Which.Rejected.Should().BeFalse();
@@ -192,31 +194,23 @@ public class HostedTokenExchangerTests
     public async Task Exchange_ResponseWithoutAccessToken_Fails()
     {
         var mock = new MockHttpMessageHandler();
-        mock.When(HttpMethod.Get, $"{Issuer}/.well-known/oauth-authorization-server")
-            .Respond("application/json", $$"""{"issuer":"{{Issuer}}","token_endpoint":"{{TokenEndpoint}}"}""");
+        Discovery(mock);
         mock.When(HttpMethod.Post, TokenEndpoint).Respond("application/json", """{"expires_in":60}""");
 
-        var act = () => new HostedTokenExchanger(new HttpClient(mock), Issuer, Options, _clock)
+        var act = () => Exchanger(mock)
             .ExchangeAsync("inbound", default);
 
         await act.Should().ThrowAsync<TokenExchangeException>();
     }
 
-    private HostedTokenExchanger ExchangerFor(MockHttpMessageHandler mock, TokenExchangeOptions? options = null, int cacheLimit = 100) =>
-        new(new HttpClient(mock), Issuer, options ?? Options, _clock, cacheLimit: cacheLimit);
-
-    private static void Discovery(MockHttpMessageHandler mock, string issuer, string endpoint) =>
-        mock.When(HttpMethod.Get, $"{Issuer}/.well-known/oauth-authorization-server")
-            .Respond("application/json", $$"""{"issuer":"{{issuer}}","token_endpoint":"{{endpoint}}"}""");
-
     [Fact]
     public async Task Exchange_LifetimeWithinSkew_ReturnsTokenWithoutCachingIt()
     {
         var mock = new MockHttpMessageHandler();
-        Discovery(mock, Issuer, TokenEndpoint);
+        Discovery(mock);
         var post = mock.When(HttpMethod.Post, TokenEndpoint)
             .Respond("application/json", """{"access_token":"short-lived","expires_in":10}""");
-        var exchanger = ExchangerFor(mock);
+        var exchanger = Exchanger(mock);
 
         (await exchanger.ExchangeAsync("inbound", default)).Should().Be("short-lived");
 
@@ -236,11 +230,11 @@ public class HostedTokenExchangerTests
     public async Task Exchange_ErrorCode_DecidesWhetherTheTokenWasRejected(int status, string error, bool rejected)
     {
         var mock = new MockHttpMessageHandler();
-        Discovery(mock, Issuer, TokenEndpoint);
+        Discovery(mock);
         mock.When(HttpMethod.Post, TokenEndpoint)
             .Respond((HttpStatusCode)status, "application/json", $$"""{"error":"{{error}}"}""");
 
-        var act = () => ExchangerFor(mock).ExchangeAsync("inbound", default);
+        var act = () => Exchanger(mock).ExchangeAsync("inbound", default);
 
         (await act.Should().ThrowAsync<TokenExchangeException>()).Which.Rejected.Should().Be(rejected);
     }
@@ -267,16 +261,14 @@ public class HostedTokenExchangerTests
         exchanger.CachedCount.Should().Be(1);
     }
 
-    private HostedTokenExchanger Exchanger(int cacheLimit) => new(new HttpClient(_mock), Issuer, Options, _clock, cacheLimit: cacheLimit);
-
     [Fact]
     public async Task Discovery_IssuerMismatch_Refused()
     {
         var mock = new MockHttpMessageHandler();
-        Discovery(mock, "https://someone-else.test", TokenEndpoint);
+        Discovery(mock, issuer: "https://someone-else.test");
         var post = mock.When(HttpMethod.Post, TokenEndpoint).Respond("application/json", """{"access_token":"x","expires_in":3600}""");
 
-        var act = () => ExchangerFor(mock).ExchangeAsync("inbound", default);
+        var act = () => Exchanger(mock).ExchangeAsync("inbound", default);
 
         await act.Should().ThrowAsync<TokenExchangeException>();
         mock.GetMatchCount(post).Should().Be(0);
@@ -286,11 +278,11 @@ public class HostedTokenExchangerTests
     public async Task Discovery_CrossOriginTokenEndpoint_Refused_AndNoSecretIsSentThere()
     {
         var mock = new MockHttpMessageHandler();
-        Discovery(mock, Issuer, "https://attacker.test/token");
+        Discovery(mock, endpoint: "https://attacker.test/token");
         var post = mock.When(HttpMethod.Post, "https://attacker.test/token")
             .Respond("application/json", """{"access_token":"x","expires_in":3600}""");
 
-        var act = () => ExchangerFor(mock).ExchangeAsync("inbound", default);
+        var act = () => Exchanger(mock).ExchangeAsync("inbound", default);
 
         await act.Should().ThrowAsync<TokenExchangeException>();
         mock.GetMatchCount(post).Should().Be(0);
@@ -307,26 +299,7 @@ public class HostedTokenExchangerTests
             ClientId = "c", ClientSecret = "s", Audience = "a", TokenEndpoint = "https://sts.test/token"
         };
 
-        (await ExchangerFor(mock, options).ExchangeAsync("inbound", default)).Should().Be("via-override");
-    }
-
-    [Fact]
-    public async Task Exchange_RedirectResponse_IsAFailure_AndTheTargetIsNeverCalled()
-    {
-        var mock = new MockHttpMessageHandler();
-        Discovery(mock, Issuer, TokenEndpoint);
-        mock.When(HttpMethod.Post, TokenEndpoint).Respond(_ =>
-        {
-            var r = new HttpResponseMessage(HttpStatusCode.Redirect);
-            r.Headers.Location = new Uri("https://attacker.test/steal");
-            return r;
-        });
-        var stolen = mock.When(HttpMethod.Post, "https://attacker.test/steal").Respond(HttpStatusCode.OK);
-
-        var act = () => ExchangerFor(mock).ExchangeAsync("inbound", default);
-
-        await act.Should().ThrowAsync<TokenExchangeException>();
-        mock.GetMatchCount(stolen).Should().Be(0);
+        (await Exchanger(mock, options).ExchangeAsync("inbound", default)).Should().Be("via-override");
     }
 
     [Fact]

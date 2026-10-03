@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 
 namespace AnythinkMcp.Tests;
 
@@ -7,12 +8,12 @@ public class HostedAuthTests
     private static readonly string[] Suffixes = HostedMode.DefaultInstanceHostSuffixes;
 
     [Theory]
-    [InlineData("https://api.my.anythink.cloud", false)]
-    [InlineData("https://api.my.anythink.dev", true)]
-    [InlineData("https://api.my.anythink.uk", false)]
-    [InlineData("https://api.uk01-lon.anythink.cloud", false)]
-    public void IsAllowedInstanceUrl_HttpsOnAllowedSuffix_Allowed(string url, bool allowLoopback) =>
-        HostedAuth.IsAllowedInstanceUrl(url, allowLoopback, Suffixes).Should().BeTrue();
+    [InlineData("https://api.my.anythink.cloud")]
+    [InlineData("https://api.my.anythink.dev")]
+    [InlineData("https://api.my.anythink.uk")]
+    [InlineData("https://api.uk01-lon.anythink.cloud")]
+    public void IsAllowedInstanceUrl_HttpsOnAllowedSuffix_Allowed(string url) =>
+        HostedAuth.IsAllowedInstanceUrl(url, allowLoopback: false, Suffixes).Should().BeTrue();
 
     [Theory]
     [InlineData("https://evilanythink.cloud")]
@@ -76,4 +77,20 @@ public class HostedAuthTests
     [Fact]
     public void IsAllowedInstanceUrl_LoopbackWithUserinfo_StillRefused() =>
         HostedAuth.IsAllowedInstanceUrl("http://user@localhost:5000", allowLoopback: true, Suffixes).Should().BeFalse();
+
+    [Theory]
+    [InlineData("mcp.test", true)]
+    [InlineData("localhost", true)]
+    [InlineData("evil.example", false)]
+    public async Task ValidateHostAndOrigin_AcceptsThePublicHostAndExtraAllowedHosts(string host, bool allowed)
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Host = new HostString(host);
+        context.Request.Path = "/mcp";
+        var reachedNext = false;
+
+        await HostedAuth.ValidateHostAndOrigin(context, _ => { reachedNext = true; return Task.CompletedTask; }, ["mcp.test", "localhost"], []);
+
+        reachedNext.Should().Be(allowed);
+    }
 }

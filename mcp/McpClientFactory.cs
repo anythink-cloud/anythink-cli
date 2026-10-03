@@ -11,13 +11,14 @@ public class McpClientFactory
 
     private static readonly AsyncLocal<(string OrgId, string BaseUrl, string Token)?> _requestCredentials = new();
 
-    private static readonly SocketsHttpHandler HostedUpstreamHandler = new()
+    private static readonly SocketsHttpHandler UpstreamHandler = new()
     {
         AllowAutoRedirect = false,
+        UseCookies = false,
         PooledConnectionLifetime = TimeSpan.FromMinutes(2),
     };
 
-    private static readonly TimeSpan HostedUpstreamTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan UpstreamTimeout = TimeSpan.FromSeconds(30);
 
     public string? ProfileName => _profileName;
 
@@ -66,9 +67,14 @@ public class McpClientFactory
             || string.IsNullOrEmpty(credentials.Token))
             throw new InvalidOperationException("Hosted request has no resolved Anythink credentials.");
 
-        var http = new HttpClient(_httpHandler ?? HostedUpstreamHandler, disposeHandler: false) { Timeout = HostedUpstreamTimeout };
-        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", credentials.Token);
-        return new AnythinkClient(credentials.OrgId, credentials.InstanceUrl, http);
+        return CreateRequestClient(credentials.OrgId, credentials.InstanceUrl, credentials.Token);
+    }
+
+    private AnythinkClient CreateRequestClient(string orgId, string baseUrl, string token)
+    {
+        var http = new HttpClient(_httpHandler ?? UpstreamHandler, disposeHandler: false) { Timeout = UpstreamTimeout };
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return new AnythinkClient(orgId, baseUrl, http);
     }
 
     public AnythinkClient GetClient()
@@ -77,9 +83,7 @@ public class McpClientFactory
         if (_requestCredentials.Value.HasValue)
         {
             var creds = _requestCredentials.Value.Value;
-            return _httpHandler is not null
-                ? new AnythinkClient(creds.OrgId, creds.BaseUrl, new HttpClient(_httpHandler))
-                : new AnythinkClient(creds.OrgId, creds.BaseUrl, creds.Token);
+            return CreateRequestClient(creds.OrgId, creds.BaseUrl, creds.Token);
         }
 
         // Stdio mode: resolve from CLI config

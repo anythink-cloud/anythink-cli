@@ -29,7 +29,6 @@
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
-  <!-- MCP SDK — stdio and Streamable HTTP transports, both with DI hosting -->
   <ItemGroup>
     <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
     <PackageReference Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />

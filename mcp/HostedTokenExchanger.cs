@@ -67,7 +67,7 @@ public sealed partial class HostedTokenExchanger : ITokenExchanger
         _cache = new MemoryCache(new MemoryCacheOptions { SizeLimit = cacheLimit, Clock = new ClockAdapter(_clock) });
     }
 
-    public static SocketsHttpHandler CreateHandler() => new() { AllowAutoRedirect = false };
+    public static SocketsHttpHandler CreateHandler() => new() { AllowAutoRedirect = false, UseCookies = false };
 
     internal int CachedCount => _cache.Count;
 
@@ -75,8 +75,8 @@ public sealed partial class HostedTokenExchanger : ITokenExchanger
     {
         var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(inboundToken)));
 
-        if (_cache.TryGetValue(key, out CachedToken? hit) && hit!.ExpiresAt > _clock.GetUtcNow())
-            return hit.AccessToken;
+        if (_cache.TryGetValue(key, out CachedToken? hit))
+            return hit!.AccessToken;
 
         var flight = _inFlight.GetOrAdd(key, _ => new Lazy<Task<CachedToken>>(() => ExchangeAndCacheAsync(key, inboundToken)));
         return (await flight.Value.WaitAsync(cancellationToken)).AccessToken;
@@ -87,8 +87,7 @@ public sealed partial class HostedTokenExchanger : ITokenExchanger
         try
         {
             var token = await RequestAsync(inboundToken);
-            if (token.ExpiresAt > _clock.GetUtcNow())
-                _cache.Set(key, token, new MemoryCacheEntryOptions { Size = 1, AbsoluteExpiration = token.ExpiresAt });
+            _cache.Set(key, token, new MemoryCacheEntryOptions { Size = 1, AbsoluteExpiration = token.ExpiresAt });
             return token;
         }
         finally

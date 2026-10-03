@@ -82,7 +82,7 @@ public partial class HostedTools
         [Description("Page number, starting at 1.")] int page = 1,
         [Description("Records per page, 1 to 1000.")] int pageSize = 20)
     {
-        if (!EntityNamePattern().IsMatch(entity ?? ""))
+        if (!EntityNamePattern().IsMatch(entity))
             throw new McpException("Entity name may only contain lowercase letters, digits and underscores.");
 
         var client = _factory.GetClient(_credentials);
@@ -91,7 +91,7 @@ public partial class HostedTools
             if (ItemFilterQuery.Parse(filter).Select(p => p.Key.Split("__")[0]).FirstOrDefault(ReservedQueryParams.Contains) is { } reserved)
                 throw new McpException($"'{reserved}' is a reserved query parameter and can't be used as a filter field.");
 
-            var result = await client.ListItemsAsync(entity!, Math.Max(page, 1), Math.Clamp(pageSize, 1, 1000), filter, fields);
+            var result = await client.ListItemsAsync(entity, Math.Max(page, 1), Math.Clamp(pageSize, 1, 1000), filter, fields);
             return JsonSerializer.Serialize(result, SerializerOptions);
         }
         catch (ArgumentException ex)

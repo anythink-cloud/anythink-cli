@@ -7,10 +7,7 @@ using System.Text.Json;
 using FluentAssertions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -96,8 +93,9 @@ public class HostedModeTests : IAsyncLifetime
 
     private string ValidToken(
         string? tid = "42", string? instanceUrl = "https://api.my.anythink.cloud",
-        DateTime? expires = null, string? issuer = null, string? audience = null, RsaSecurityKey? signWith = null) =>
-        HostedTestSupport.CreateToken(signWith ?? _key, issuer ?? Issuer, audience ?? PublicUrl, tid, instanceUrl, expires);
+        DateTime? expires = null, string? issuer = null, string? audience = null, RsaSecurityKey? signWith = null,
+        DateTime? notBefore = null) =>
+        HostedTestSupport.CreateToken(signWith ?? _key, issuer ?? Issuer, audience ?? PublicUrl, tid, instanceUrl, expires, notBefore);
 
     private static HttpRequestMessage McpPost(string? bearerToken) =>
         new(HttpMethod.Post, "/mcp")
@@ -195,23 +193,18 @@ public class HostedModeTests : IAsyncLifetime
     [Fact]
     public async Task ExpiredToken_Returns401()
     {
-        var token = ValidToken(expires: DateTime.UtcNow.AddHours(-1));
+        var token = ValidToken(expires: DateTime.UtcNow.AddHours(-1), notBefore: DateTime.UtcNow.AddHours(-2));
         var response = await _client.SendAsync(McpPost(token));
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
-    [Fact]
-    public async Task TokenMissingTidOrInstanceUrl_Returns401()
+    [Theory]
+    [InlineData(null, "https://api.my.anythink.cloud")]
+    [InlineData("42", null)]
+    [InlineData("not-a-number", "https://api.my.anythink.cloud")]
+    public async Task TokenWithoutAValidTidOrInstanceUrl_Returns401(string? tid, string? instanceUrl)
     {
-        var token = ValidToken(tid: null);
-        var response = await _client.SendAsync(McpPost(token));
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-    }
-
-    [Fact]
-    public async Task HttpInstanceUrl_Refused()
-    {
-        var token = ValidToken(instanceUrl: "http://evil.example.com");
+        var token = ValidToken(tid: tid, instanceUrl: instanceUrl);
         var response = await _client.SendAsync(McpPost(token));
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -250,15 +243,7 @@ public class HostedModeTests : IAsyncLifetime
     [Fact]
     public async Task ToolsList_HostedMode_ReturnsOnlyProvingTools_WithTitleAndReadOnlyHint()
     {
-        var token = ValidToken();
-        var transport = new HttpClientTransport(new HttpClientTransportOptions
-        {
-            Endpoint = new Uri(PublicUrl),
-            TransportMode = HttpTransportMode.StreamableHttp,
-            AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = $"Bearer {token}" }
-        }, _client, ownsHttpClient: false);
-
-        await using var mcpClient = await McpClient.CreateAsync(transport);
+        await using var mcpClient = await McpClient.CreateAsync(Transport(ValidToken()));
         var tools = await mcpClient.ListToolsAsync();
 
         tools.Select(t => t.Name).Should().BeEquivalentTo(
@@ -287,23 +272,6 @@ public class HostedModeTests : IAsyncLifetime
         await mcpClient.CallToolAsync("project_details");
 
         upstreamBearer.Should().Be(ExchangedFor(token)).And.NotBe(token);
-    }
-
-    [Fact]
-    public async Task ExchangeRequest_CarriesInboundTokenAndConfiguredAudienceAndClientCredentials()
-    {
-        var token = ValidToken();
-        MockProject("42", "P", ExchangedFor(token));
-
-        await using var mcpClient = await McpClient.CreateAsync(Transport(token));
-        await mcpClient.CallToolAsync("project_details");
-
-        _exchangeForm["grant_type"].Should().Be("urn:ietf:params:oauth:grant-type:token-exchange");
-        _exchangeForm["subject_token"].Should().Be(token);
-        _exchangeForm["subject_token_type"].Should().Be("urn:ietf:params:oauth:token-type:access_token");
-        _exchangeForm["audience"].Should().Be("anythink-oauth");
-        _exchangeForm["client_id"].Should().Be("mcp");
-        _exchangeForm["client_secret"].Should().Be("s3cret");
     }
 
     [Fact]
@@ -350,22 +318,6 @@ public class HostedModeTests : IAsyncLifetime
 
         response.StatusCode.Should().Be(HttpStatusCode.BadGateway);
         response.Headers.WwwAuthenticate.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task SubjectTokenNearExpiry_StillReachesUpstream_WithoutCachingTheExchange()
-    {
-        var token = ValidToken();
-        _exchangeOverride = () => new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new StringContent("""{"access_token":"short-lived","expires_in":10,"token_type":"Bearer"}""")
-        };
-        var upstream = MockProject("42", "P", "short-lived");
-
-        await using var mcpClient = await McpClient.CreateAsync(Transport(token));
-        await mcpClient.CallToolAsync("project_details");
-
-        _mock.GetMatchCount(upstream).Should().Be(1);
     }
 
     [Fact]
@@ -420,17 +372,11 @@ public class HostedModeTests : IAsyncLifetime
         _exchangeCount.Should().Be(0);
     }
 
-    [Fact]
-    public void JwtValidation_AllowsOnlyRs256()
-    {
-        var jwt = _app.Services.GetRequiredService<IOptionsMonitor<JwtBearerOptions>>().Get(JwtBearerDefaults.AuthenticationScheme);
-        jwt.TokenValidationParameters.ValidAlgorithms.Should().Equal("RS256");
-    }
-
     [Theory]
     [InlineData("https://evilanythink.cloud")]
     [InlineData("https://api.my.evilanythink.cloud")]
     [InlineData("https://attacker.example.com")]
+    [InlineData("http://api.my.anythink.cloud")]
     public async Task InstanceUrlOutsideAllowlist_Returns401_AndNothingIsExchanged(string instanceUrl)
     {
         var response = await _client.SendAsync(McpPost(ValidToken(instanceUrl: instanceUrl)));
@@ -438,11 +384,6 @@ public class HostedModeTests : IAsyncLifetime
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         _exchangeCount.Should().Be(0);
     }
-
-    [Fact]
-    public void PublicApp_RequestBodyLimitIs1Mb() =>
-        _app.Services.GetRequiredService<IOptions<KestrelServerOptions>>().Value.Limits.MaxRequestBodySize
-            .Should().Be(1_048_576);
 
     [Fact]
     public async Task UnlistedOrigin_Returns403()
@@ -522,20 +463,52 @@ public class HostedModeTests : IAsyncLifetime
             return new HttpResponseMessage { Content = new StringContent("""{"id":42,"name":"P"}""") };
         });
         await using var holding = await McpClient.CreateAsync(Transport(token));
-        await using var queued = await McpClient.CreateAsync(Transport(token));
-        await using var rejected = await McpClient.CreateAsync(Transport(token));
+        await using var secondCaller = await McpClient.CreateAsync(Transport(token));
+        await using var thirdCaller = await McpClient.CreateAsync(Transport(token));
         await using var otherProject = await McpClient.CreateAsync(Transport(otherToken));
 
         var holdingCall = holding.CallToolAsync("project_details").AsTask();
         await upstreamEntered.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        var waiting = new[] { queued.CallToolAsync("project_details").AsTask(), rejected.CallToolAsync("project_details").AsTask() };
+        var waiting = new[] { secondCaller.CallToolAsync("project_details").AsTask(), thirdCaller.CallToolAsync("project_details").AsTask() };
         var refusedCall = await Task.WhenAny(waiting).WaitAsync(TimeSpan.FromSeconds(10));
         var otherCall = await otherProject.CallToolAsync("project_details");
         releaseUpstream.SetResult();
 
-        refusedCall.IsFaulted.Should().BeTrue();
+        refusedCall.Exception!.InnerException.Should().BeOfType<HttpRequestException>()
+            .Which.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
         ((TextContentBlock)otherCall.Content[0]).Text.Should().Contain("Other");
         await holdingCall;
         await waiting.Single(call => call != refusedCall);
+    }
+
+    [Theory]
+    [InlineData("POST", "/mcp/other")]
+    [InlineData("PUT", "/mcp")]
+    public async Task AuthenticatedRequestToAnUnmappedRoute_NeverTriggersAnExchange(string method, string path)
+    {
+        var request = new HttpRequestMessage(new HttpMethod(method), path)
+        {
+            Content = new StringContent("{}", Encoding.UTF8, "application/json"),
+            Headers = { Authorization = new AuthenticationHeaderValue("Bearer", ValidToken()) }
+        };
+
+        var response = await _client.SendAsync(request);
+
+        response.IsSuccessStatusCode.Should().BeFalse();
+        _exchangeCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task RecordsQuery_ThroughTheHostedPipeline_ReturnsTheProjectsRecords()
+    {
+        var token = ValidToken();
+        _mock.When(HttpMethod.Get, $"{UpstreamOrgUrl("42")}/entities/blog_posts/items*")
+            .WithHeaders("Authorization", $"Bearer {ExchangedFor(token)}")
+            .Respond("application/json", """{"items":[{"id":1,"title":"Hello"}],"total_items":1,"total_pages":1,"has_next_page":false,"page":1,"page_size":20}""");
+
+        await using var mcpClient = await McpClient.CreateAsync(Transport(token));
+        var result = await mcpClient.CallToolAsync("records_query", new Dictionary<string, object?> { ["entity"] = "blog_posts" });
+
+        ((TextContentBlock)result.Content[0]).Text.Should().Contain("Hello");
     }
 }

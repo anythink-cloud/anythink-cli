@@ -75,14 +75,6 @@ public class HostedConfigTests
     }
 
     [Fact]
-    public void Options_PublicUrlSetDirectly_IsNormalisedToo() =>
-        new HostedMode.Options
-        {
-            PublicUrl = "https://mcp.test/mcp/", Issuer = "i", Audience = "a",
-            Exchange = new TokenExchangeOptions { ClientId = "c", ClientSecret = "s", Audience = "a" }
-        }.PublicUrl.Should().Be("https://mcp.test/mcp");
-
-    [Fact]
     public void LoopbackInstance_IsOffUnlessExplicitlyEnabled()
     {
         Load().AllowLoopbackInstance.Should().BeFalse();

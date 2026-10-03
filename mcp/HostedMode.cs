@@ -23,9 +23,7 @@ public static class HostedMode
 
     public sealed class Options
     {
-        private readonly string _publicUrl = "";
-
-        public required string PublicUrl { get => _publicUrl; init => _publicUrl = value.TrimEnd('/'); }
+        public required string PublicUrl { get; init; }
         public required string Issuer { get; init; }
         public required string Audience { get; init; }
         public required TokenExchangeOptions Exchange { get; init; }
@@ -41,8 +39,7 @@ public static class HostedMode
         Options options,
         McpClientFactory factory,
         Action<JwtBearerOptions>? configureJwtBearer = null,
-        HttpMessageHandler? exchangeHandler = null,
-        TimeProvider? clock = null)
+        HttpMessageHandler? exchangeHandler = null)
     {
         var resourcePath = new Uri(options.PublicUrl).AbsolutePath.TrimEnd('/');
         if (resourcePath.Length == 0) resourcePath = "/";
@@ -56,7 +53,7 @@ public static class HostedMode
             exchangeHandler is null
                 ? new HttpClient(HostedTokenExchanger.CreateHandler()) { Timeout = TimeSpan.FromSeconds(10) }
                 : new HttpClient(exchangeHandler),
-            options.Issuer, options.Exchange, clock, sp.GetRequiredService<ILoggerFactory>().CreateLogger<HostedTokenExchanger>()));
+            options.Issuer, options.Exchange, logger: sp.GetRequiredService<ILoggerFactory>().CreateLogger<HostedTokenExchanger>()));
 
         builder.Services
             .AddAuthentication(auth =>
@@ -131,7 +128,7 @@ public static class HostedMode
 
         app.Use(async (context, next) =>
         {
-            if (context.Request.Path.StartsWithSegments(resourcePath)
+            if (context.GetEndpoint()?.Metadata.GetMetadata<EnableRateLimitingAttribute>() is not null
                 && !await HostedAuth.TryPopulateCredentialsAsync(context))
                 return;
             await next();

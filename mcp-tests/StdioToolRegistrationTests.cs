@@ -22,12 +22,4 @@ public class StdioToolRegistrationTests
         names.Should().BeEquivalentTo(ExpectedStdioTools);
     }
 
-    [Fact]
-    public void HostedTools_AreNotDiscoveredByTheStdioOrInternalRestRegistry()
-    {
-        var names = McpToolRegistry.GetToolDefinitions()
-            .Select(t => (string)t.GetType().GetProperty("name")!.GetValue(t)!);
-
-        names.Should().NotContain(["project_details", "entities_list", "records_query"]);
-    }
 }

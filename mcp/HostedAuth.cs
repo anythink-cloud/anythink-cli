@@ -22,9 +22,9 @@ internal static class HostedAuth
         var tid = principal?.FindFirstValue("tid");
         var instanceUrl = principal?.FindFirstValue("instance_url");
 
-        if (string.IsNullOrEmpty(tid) || string.IsNullOrEmpty(instanceUrl))
+        if (string.IsNullOrEmpty(tid) || !tid.All(char.IsAsciiDigit) || string.IsNullOrEmpty(instanceUrl))
         {
-            context.Fail("Token is missing the required 'tid' or 'instance_url' claim.");
+            context.Fail("Token is missing a valid 'tid' or 'instance_url' claim.");
             return Task.CompletedTask;
         }
 
@@ -56,8 +56,6 @@ internal static class HostedAuth
         }
         catch (TokenExchangeException ex)
         {
-            context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("AnythinkMcp.HostedAuth")
-                .LogWarning("Token exchange failed (rejected: {Rejected})", ex.Rejected);
             if (ex.Rejected)
                 await context.ChallengeAsync();
             else

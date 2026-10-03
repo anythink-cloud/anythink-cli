@@ -69,7 +69,8 @@ Once connected, run the `login` (or `login_direct`) tool, then `accounts_use` /
 
 `--hosted` serves MCP over Streamable HTTP for remote MCP clients, which sign the
 user in with their Anythink account via OAuth. One connection targets one
-project. stdio stays the default for local installs, and `--http` is unchanged.
+project. stdio stays the default for local installs. `--http` now checks `X-Instance-Url`
+against the same host rules and no longer logs tool arguments.
 
 To run it locally:
 
@@ -79,6 +80,7 @@ export MCP_AUTH_ISSUER=https://api.billing.anythink.cloud
 export MCP_EXCHANGE_CLIENT_ID=<confidential client id>
 export MCP_EXCHANGE_CLIENT_SECRET=<confidential client secret>
 export MCP_UPSTREAM_AUDIENCE=<audience your project API expects>
+export MCP_ALLOWED_HOSTS=localhost
 anythink-mcp --hosted
 ```
 
