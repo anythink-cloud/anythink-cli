@@ -23,4 +23,4 @@ ENV DOTNET_GCConserveMemory=9
 
 EXPOSE 5300
 ENTRYPOINT ["dotnet", "anythink-mcp.dll"]
-CMD ["--http", "--port", "5300"]
+CMD ["--internal", "--port", "5300"]

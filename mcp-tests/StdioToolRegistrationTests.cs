@@ -4,7 +4,7 @@ namespace AnythinkMcp.Tests;
 
 public class StdioToolRegistrationTests
 {
-    private static readonly string[] ExpectedStdioTools =
+    internal static readonly string[] ExpectedStdioTools =
     [
         "signup", "login", "login_google", "login_direct", "logout",
         "config_show", "config_use", "config_remove",

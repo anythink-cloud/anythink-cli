@@ -32,7 +32,7 @@ internal static class InternalApi
         return options;
     }
 
-    public static InternalApiOptions ForHttp(Func<string, string?> get) => Build(get, "0.0.0.0");
+    public static InternalApiOptions ForInternal(Func<string, string?> get) => Build(get, "0.0.0.0");
 
     public static bool IsLoopbackBind(string bind) =>
         bind.Equals("localhost", StringComparison.OrdinalIgnoreCase)
