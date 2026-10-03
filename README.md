@@ -46,6 +46,7 @@ The official command-line interface for [Anythink](https://anythink.cloud) — t
   - [roles](#roles)
   - [api-keys](#api-keys)
   - [menus](#menus)
+  - [settings](#settings)
   - [integrations](#integrations)
   - [pay](#pay)
   - [oauth](#oauth)
@@ -585,6 +586,54 @@ anythink menus add-item 250 check_ins --icon MessageCircle --parent 168
 
 # Add a top-level menu item
 anythink menus add-item 250 badges --icon Award
+```
+
+---
+
+### settings
+
+View and change project settings in the active project, including the allowed application URLs that browsers may call the API from (CORS).
+
+```
+anythink settings get [--json]                   Show all project settings
+anythink settings set <key> <value>              Set a single project setting
+anythink settings cors list                      List allowed application URLs
+anythink settings cors add <url>                 Add an allowed origin
+anythink settings cors remove <url>              Remove an allowed origin
+```
+
+**Keys — `settings set`**
+
+| Key                            | Value                                     |
+| ------------------------------ | ----------------------------------------- |
+| `name`, `description`          | Text                                      |
+| `require_email_confirmation`   | `true` / `false`                          |
+| `allow_registrations`          | `true` / `false`                          |
+| `default_role_id`              | Role ID for newly registered users        |
+| `enable_group_rls`             | `true` / `false`                          |
+| `payment_success_url`, `payment_cancel_url` | URL                          |
+| `app_engagement_trial_enabled` | `true` / `false`                          |
+| `app_engagement_trial_days`    | Number of days                            |
+| `ai_mode`                      | `platform` or `byok`                      |
+| `ai_byok_provider`, `ai_default_model` | Text                              |
+| `google_maps_key`              | Text                                      |
+
+`cors add` and `cors remove` clear the project's CORS cache, so the change applies straight away. Matching is case-insensitive and adding a URL that is already present does nothing. Anythink's own domains and `localhost` are always allowed and don't need adding.
+
+**Examples**
+
+```bash
+# Allow a deployed front end to call the API
+anythink settings cors add https://my-app.vercel.app
+
+# Allow every subdomain
+anythink settings cors add "*.example.com"
+
+# Remove an origin
+anythink settings cors remove https://my-app.vercel.app
+
+# Let users sign up on their own
+anythink settings set allow_registrations true
 ```
 
 ---

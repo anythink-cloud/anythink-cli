@@ -492,4 +492,7 @@ public class AnythinkClient : HttpApiClient
 
     public Task<TenantResponse?> UpdateTenantAsync(UpdateTenantRequest req)
         => PutAsync<TenantResponse>(BaseUrl + $"/org/{OrgId}", req);
+
+    public Task ClearCorsCacheAsync()
+        => PostVoidAsync(BaseUrl + $"/org/{OrgId}/cors/clear-cache");
 }
