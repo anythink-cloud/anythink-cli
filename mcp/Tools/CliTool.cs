@@ -438,10 +438,21 @@ public class CliTool
             method = GetFlag(args, "--method") ?? "GET";
         }
         var body = GetFlag(args, "--data") ?? GetFlag(args, "-d");
-        // Ensure path is a full URL — prepend the tenant base URL if it's a relative path
-        if (path.StartsWith('/'))
-            path = $"{client.BaseUrl}/org/{client.OrgId}{path}";
-        return await client.FetchRawAsync(path, method, body);
+        var url = ResolveFetchUrl(path, client.BaseUrl, client.OrgId);
+        if (url is null) return "fetch only accepts a path, or a URL on the project's API host.";
+        return await client.FetchRawAsync(url, method, body);
+    }
+
+    internal static string? ResolveFetchUrl(string path, string baseUrl, string orgId)
+    {
+        if (path.StartsWith('/')) return $"{baseUrl}/org/{orgId}{path}";
+
+        return Uri.TryCreate(path, UriKind.Absolute, out var target)
+            && Uri.TryCreate(baseUrl, UriKind.Absolute, out var project)
+            && target.UserInfo.Length == 0
+            && Uri.Compare(target, project, UriComponents.SchemeAndServer, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) == 0
+            ? path
+            : null;
     }
 
     private static async Task<string> HandleDocs(AnythinkClient client, bool json)
