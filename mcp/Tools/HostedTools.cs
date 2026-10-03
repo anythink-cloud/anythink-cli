@@ -36,7 +36,7 @@ public partial class HostedTools
     public async Task<string> ProjectDetails()
     {
         var client = _factory.GetClient(_credentials);
-        var tenant = await client.GetTenantAsync();
+        var tenant = await FromProject(() => client.GetTenantAsync());
 
         return JsonSerializer.Serialize(new
         {
@@ -54,7 +54,7 @@ public partial class HostedTools
     public async Task<string> EntitiesList()
     {
         var client = _factory.GetClient(_credentials);
-        var entities = await client.GetEntitiesAsync();
+        var entities = await FromProject(() => client.GetEntitiesAsync());
 
         return JsonSerializer.Serialize(entities.Select(e => new
         {
@@ -91,12 +91,24 @@ public partial class HostedTools
             if (ItemFilterQuery.Parse(filter).Select(p => p.Key.Split("__")[0]).FirstOrDefault(ReservedQueryParams.Contains) is { } reserved)
                 throw new McpException($"'{reserved}' is a reserved query parameter and can't be used as a filter field.");
 
-            var result = await client.ListItemsAsync(entity, Math.Max(page, 1), Math.Clamp(pageSize, 1, 1000), filter, fields);
+            var result = await FromProject(() => client.ListItemsAsync(entity, Math.Max(page, 1), Math.Clamp(pageSize, 1, 1000), filter, fields));
             return JsonSerializer.Serialize(result, SerializerOptions);
         }
         catch (ArgumentException ex)
         {
             throw new McpException(ex.Message);
+        }
+    }
+
+    private static async Task<T> FromProject<T>(Func<Task<T>> call)
+    {
+        try
+        {
+            return await call();
+        }
+        catch (AnythinkException ex)
+        {
+            throw new McpException($"The project API returned status {ex.StatusCode}.");
         }
     }
 }

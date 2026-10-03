@@ -21,5 +21,4 @@ public class StdioToolRegistrationTests
 
         names.Should().BeEquivalentTo(ExpectedStdioTools);
     }
-
 }

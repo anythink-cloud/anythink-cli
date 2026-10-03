@@ -132,4 +132,16 @@ public class HostedToolsTests
 
         description.Should().MatchRegex($@"\b{op}\b");
     }
+
+    [Fact]
+    public async Task UpstreamError_IsAToolError_WithTheStatusButNotTheBody()
+    {
+        _mock.When("https://api.my.anythink.cloud/org/42/entities")
+            .Respond(System.Net.HttpStatusCode.InternalServerError, "application/json", """{"error":"secret-detail"}""");
+
+        var act = () => Tools().EntitiesList();
+
+        (await act.Should().ThrowAsync<McpException>()).Which.Message
+            .Should().Contain("500").And.NotContain("secret-detail");
+    }
 }

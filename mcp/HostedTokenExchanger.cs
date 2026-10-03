@@ -127,7 +127,11 @@ public sealed partial class HostedTokenExchanger : ITokenExchanger
             using var doc = JsonDocument.Parse(body);
             var root = doc.RootElement;
             var accessToken = root.TryGetProperty("access_token", out var at) ? at.GetString() : null;
-            if (string.IsNullOrEmpty(accessToken)) throw new TokenExchangeException(rejected: false);
+            if (string.IsNullOrEmpty(accessToken))
+            {
+                _logger?.LogWarning("Token exchange response had no access_token");
+                throw new TokenExchangeException(rejected: false);
+            }
 
             var lifetime = root.TryGetProperty("expires_in", out var ei) && ei.TryGetInt32(out var seconds)
                 ? TimeSpan.FromSeconds(seconds)
@@ -186,7 +190,7 @@ public sealed partial class HostedTokenExchanger : ITokenExchanger
         if (_options.TokenEndpoint is not null)
             return Uri.TryCreate(_options.TokenEndpoint, UriKind.Absolute, out var configured) && configured.Scheme == Uri.UriSchemeHttps
                 ? configured
-                : throw new TokenExchangeException(rejected: false);
+                : throw ConfigurationFailure("MCP_TOKEN_ENDPOINT is not an absolute https URL");
 
         var issuerUri = new Uri(_issuer);
         foreach (var path in new[] { "/.well-known/oauth-authorization-server", "/.well-known/openid-configuration" })
@@ -210,6 +214,12 @@ public sealed partial class HostedTokenExchanger : ITokenExchanger
             catch (Exception) { }
         }
 
-        throw new TokenExchangeException(rejected: false);
+        throw ConfigurationFailure("Token endpoint discovery failed for the configured issuer");
+    }
+
+    private TokenExchangeException ConfigurationFailure(string reason)
+    {
+        _logger?.LogError("Token exchange is misconfigured: {Reason}", reason);
+        return new TokenExchangeException(rejected: false);
     }
 }
