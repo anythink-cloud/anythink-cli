@@ -4,14 +4,8 @@ using RichardSzalay.MockHttp;
 
 namespace AnythinkMcp.Tests;
 
-/// <summary>
-/// Test-only OAuth issuer: a real RSA key plus a mocked discovery/JWKS handler, so hosted-mode auth
-/// tests exercise the real JwtBearer validation path (signature, issuer, audience, lifetime) without
-/// any network access.
-/// </summary>
 internal static class HostedTestSupport
 {
-    /// <summary>Registers the discovery document and JWKS for <paramref name="issuer"/> on <paramref name="mock"/>.</summary>
     public static void ConfigureIssuer(MockHttpMessageHandler mock, string issuer, RsaSecurityKey key)
     {
         mock.When(HttpMethod.Get, $"{issuer}/.well-known/openid-configuration")
@@ -37,7 +31,6 @@ internal static class HostedTestSupport
                 """);
     }
 
-    /// <summary>Signs a test access token. Pass <paramref name="signingKey"/> to simulate a key the JWKS doesn't advertise.</summary>
     public static string CreateToken(
         RsaSecurityKey signingKey,
         string issuer,

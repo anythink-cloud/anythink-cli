@@ -9,33 +9,47 @@ using ModelContextProtocol.AspNetCore.Authentication;
 
 namespace AnythinkMcp;
 
-/// <summary>Builds the OAuth-protected MCP endpoint used by Claude and other hosted connectors.</summary>
 public static class HostedMode
 {
+    public const int MaxRequestBodyBytes = 1_048_576;
+
+    public static readonly string[] DefaultInstanceHostSuffixes = [".anythink.cloud", ".anythink.dev", ".anythink.uk"];
+
     public sealed class Options
     {
-        /// <summary>The resource identifier Claude connects to, e.g. https://mcp.anythink.dev/mcp.</summary>
-        public required string PublicUrl { get; init; }
+        private readonly string _publicUrl = "";
 
-        /// <summary>The Anythink OAuth authorisation server's issuer URL.</summary>
+        public required string PublicUrl { get => _publicUrl; init => _publicUrl = value.TrimEnd('/'); }
         public required string Issuer { get; init; }
-
-        /// <summary>The audience tokens must carry. Defaults to <see cref="PublicUrl"/>.</summary>
         public required string Audience { get; init; }
+        public required TokenExchangeOptions Exchange { get; init; }
+        public IReadOnlyList<string> AllowedInstanceHostSuffixes { get; init; } = DefaultInstanceHostSuffixes;
+        public IReadOnlyList<string> AllowedOrigins { get; init; } = [];
+        public IReadOnlyList<string> AllowedHosts { get; init; } = [];
+        public bool AllowLoopbackInstance { get; init; }
     }
 
     public static WebApplication BuildPublicApp(
         WebApplicationBuilder builder,
         Options options,
         McpClientFactory factory,
-        Action<JwtBearerOptions>? configureJwtBearer = null)
+        Action<JwtBearerOptions>? configureJwtBearer = null,
+        HttpMessageHandler? exchangeHandler = null,
+        TimeProvider? clock = null)
     {
         var resourcePath = new Uri(options.PublicUrl).AbsolutePath.TrimEnd('/');
         if (resourcePath.Length == 0) resourcePath = "/";
 
         builder.Logging.AddConsole();
         builder.Services.AddSingleton(factory);
+        builder.Services.AddSingleton(options);
         builder.Services.AddScoped<HostedCredentials>();
+        builder.WebHost.ConfigureKestrel(kestrel => kestrel.Limits.MaxRequestBodySize = MaxRequestBodyBytes);
+        builder.Services.AddSingleton<ITokenExchanger>(sp => new HostedTokenExchanger(
+            exchangeHandler is null
+                ? new HttpClient(HostedTokenExchanger.CreateHandler()) { Timeout = TimeSpan.FromSeconds(10) }
+                : new HttpClient(exchangeHandler),
+            options.Issuer, options.Exchange, clock, sp.GetRequiredService<ILoggerFactory>().CreateLogger<HostedTokenExchanger>()));
 
         builder.Services
             .AddAuthentication(auth =>
@@ -45,8 +59,8 @@ public static class HostedMode
             })
             .AddJwtBearer(jwt =>
             {
-                // Otherwise ASP.NET Core renames "tid" to the tenantid XML claim URI, breaking FindFirstValue("tid").
                 jwt.MapInboundClaims = false;
+                jwt.SaveToken = true;
                 jwt.Authority = options.Issuer;
                 jwt.TokenValidationParameters = new TokenValidationParameters
                 {
@@ -56,6 +70,7 @@ public static class HostedMode
                     ValidAudience = options.Audience,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
+                    ValidAlgorithms = ["RS256"],
                     ClockSkew = TimeSpan.FromSeconds(60),
                 };
                 jwt.Events = new JwtBearerEvents { OnTokenValidated = HostedAuth.OnTokenValidated };
@@ -82,13 +97,23 @@ public static class HostedMode
 
         var app = builder.Build();
 
+        var publicUri = new Uri(options.PublicUrl);
+        var allowedHosts = options.AllowedHosts.Append(publicUri.Host).ToArray();
+        app.Use((context, next) => HostedAuth.ValidateHostAndOrigin(context, next, allowedHosts, options.AllowedOrigins));
+        app.Use((context, next) =>
+        {
+            context.Request.Scheme = publicUri.Scheme;
+            return next(context);
+        });
+
         app.UseAuthentication();
         app.UseAuthorization();
 
-        // Runs after authorization, so claims are already validated — just copies them into HostedCredentials.
         app.Use(async (context, next) =>
         {
-            HostedAuth.PopulateCredentials(context);
+            if (context.Request.Path.StartsWithSegments(resourcePath)
+                && !await HostedAuth.TryPopulateCredentialsAsync(context))
+                return;
             await next();
         });
 
