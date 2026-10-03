@@ -4,13 +4,16 @@ using AnythinkMcp;
 var profile = ResolveFlag(args, "--profile", "-p");
 var hostedMode = args.Contains("--hosted");
 var httpMode = args.Contains("--http");
+var internalMode = args.Contains("--internal");
 var port = ResolveIntFlag(args, "--port", "MCP_PORT", 5300);
 var internalPort = ResolveIntFlag(args, "--internal-port", "MCP_INTERNAL_PORT", 5301);
 
 if (hostedMode)
     await RunHostedServer(profile, port, internalPort);
 else if (httpMode)
-    await RunHttpServer(profile, port);
+    await RunLocalHttpServer(profile, port);
+else if (internalMode)
+    await RunInternalServer(profile, port);
 else
     await RunStdioServer(profile);
 
@@ -58,11 +61,17 @@ static async Task RunHostedServer(string? profile, int port, int internalPort)
     await internalApp.StopAsync();
 }
 
-// ── HTTP mode (for AI sidebar / multi-tenant) ────────────────────────────────
-
-static async Task RunHttpServer(string? profile, int port)
+static async Task RunLocalHttpServer(string? profile, int port)
 {
-    var internalOptions = InternalApi.ForHttp(Environment.GetEnvironmentVariable);
+    var app = LocalHttpMode.BuildApp(WebApplication.CreateBuilder(), new McpClientFactory(profile));
+    app.Urls.Add($"http://localhost:{port}");
+    app.Logger.LogInformation("Anythink MCP server on http://localhost:{Port}/mcp", port);
+    await app.RunAsync();
+}
+
+static async Task RunInternalServer(string? profile, int port)
+{
+    var internalOptions = InternalApi.ForInternal(Environment.GetEnvironmentVariable);
     var app = BuildRestApp(profile, ResolveCorsOrigins(), internalOptions);
     await app.RunAsync($"http://{internalOptions.Bind}:{port}");
 }
