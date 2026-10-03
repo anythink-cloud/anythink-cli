@@ -166,10 +166,10 @@ public class AnythinkClient : HttpApiClient
     // ── Data ──────────────────────────────────────────────────────────────────
 
     public async Task<PaginatedResult<JsonObject>> ListItemsAsync(
-        string entityName, int page = 1, int pageSize = 20, string? filterJson = null)
+        string entityName, int page = 1, int pageSize = 20, string? filter = null)
     {
-        var url = _org + $"/entities/{entityName}/items?limit={pageSize}&page={page}";
-        if (!string.IsNullOrEmpty(filterJson)) url += $"&filter={Uri.EscapeDataString(filterJson)}";
+        var url = _org + $"/entities/{entityName}/items?page={page}&pageSize={pageSize}"
+                  + ItemFilterQuery.ToQueryString(ItemFilterQuery.Parse(filter));
         return (await GetAsync<PaginatedResult<JsonObject>>(url))
                ?? new PaginatedResult<JsonObject>([], 0, null, false, page, pageSize);
     }
