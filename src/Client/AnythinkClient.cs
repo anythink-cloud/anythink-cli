@@ -139,7 +139,7 @@ public class AnythinkClient : HttpApiClient
     public Task DisableWorkflowAsync(int id) => PostAsync<JsonObject>(_org + $"/workflows/{id}/disable");
 
     public Task TriggerWorkflowAsync(int id, object? payload = null)
-        => PostAsync<JsonObject>(_org + $"/workflows/{id}/trigger", payload ?? new { });
+        => PostVoidAsync(_org + $"/workflows/{id}/trigger", payload ?? new { });
 
     public Task DeleteWorkflowAsync(int id) => DeleteAsync(_org + $"/workflows/{id}");
 

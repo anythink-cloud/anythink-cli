@@ -768,24 +768,25 @@ public class WorkflowTriggerSettings : CommandSettings
     public int Id { get; set; }
 
     [CommandOption("--payload <JSON>")]
-    [Description("Optional JSON payload to pass to the workflow")]
+    [Description("Optional JSON record to pass to the workflow (available as $anythink.trigger.data)")]
     public string? Payload { get; set; }
+
+    [CommandOption("--entity <NAME>")]
+    [Description("Entity name for the trigger (required for Manual-trigger workflows)")]
+    public string? Entity { get; set; }
+
+    [CommandOption("--entity-id <ID>")]
+    [Description("Optional entity/record id to associate with the trigger")]
+    public int? EntityId { get; set; }
 }
 
 public class WorkflowsTriggerCommand : BaseCommand<WorkflowTriggerSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, WorkflowTriggerSettings settings)
     {
-        object? payload = null;
-        if (!string.IsNullOrEmpty(settings.Payload))
-        {
-            try
-            {
-                var parsed = System.Text.Json.JsonSerializer.Deserialize<JsonObject>(settings.Payload);
-                payload = new { data = parsed };
-            }
-            catch { Renderer.Error("Invalid JSON payload."); return 1; }
-        }
+        JsonObject? payload;
+        try { payload = BuildPayload(settings.Payload, settings.Entity, settings.EntityId); }
+        catch (System.Text.Json.JsonException) { Renderer.Error("Invalid JSON payload."); return 1; }
 
         try
         {
@@ -806,6 +807,20 @@ public class WorkflowsTriggerCommand : BaseCommand<WorkflowTriggerSettings>
             HandleError(ex);
             return 1;
         }
+    }
+
+    // The endpoint binds snake_case keys and takes data as a string it re-parses into $anythink.trigger.data.
+    internal static JsonObject? BuildPayload(string? payloadJson, string? entity, int? entityId)
+    {
+        if (string.IsNullOrEmpty(payloadJson) && string.IsNullOrEmpty(entity) && !entityId.HasValue)
+            return null;
+
+        var body = new JsonObject();
+        if (!string.IsNullOrEmpty(entity)) body["entity_name"] = entity;
+        if (entityId.HasValue) body["entity_id"] = entityId.Value;
+        if (!string.IsNullOrEmpty(payloadJson))
+            body["data"] = (JsonNode.Parse(payloadJson) ?? throw new System.Text.Json.JsonException()).ToJsonString();
+        return body;
     }
 }
 
