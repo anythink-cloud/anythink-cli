@@ -2,21 +2,10 @@ using AnythinkCli.Client;
 using AnythinkCli.Importers;
 using AnythinkCli.Importers.Directus;
 using Spectre.Console.Cli;
+using Spectre.Console;
 using System.ComponentModel;
 
 namespace AnythinkCli.Commands;
-
-// ── anythink import directus ──────────────────────────────────────────────────
-//
-//  Imports collections + fields from a Directus instance into an Anythink
-//  project. Optionally also imports flows as Anythink workflows. Schema only —
-//  data migration is a separate step.
-//
-//  Usage:
-//    anythink import directus --url https://cms.example.com --token <token>
-//    anythink import directus --url https://cms.example.com --token <token> --dry-run
-//    anythink import directus --url https://cms.example.com --token <token> --include-flows
-// ─────────────────────────────────────────────────────────────────────────────
 
 public class ImportDirectusSettings : CommandSettings
 {
@@ -25,8 +14,16 @@ public class ImportDirectusSettings : CommandSettings
     public string? Url { get; set; }
 
     [CommandOption("--token <TOKEN>")]
-    [Description("Directus static token or admin token")]
+    [Description("Directus static or admin token. Prefer the DIRECTUS_TOKEN environment variable: a flag lands in shell history and the process list")]
     public string? Token { get; set; }
+
+    [CommandOption("--allow-insecure")]
+    [Description("Allow a plain http:// Directus URL (localhost is always allowed)")]
+    public bool AllowInsecure { get; set; }
+
+    [CommandOption("--yes")]
+    [Description("Apply without the confirmation prompt (required when not running interactively)")]
+    public bool Yes { get; set; }
 
     [CommandOption("--to <PROFILE>")]
     [Description("Target Anythink project profile (defaults to the active profile)")]
@@ -55,19 +52,19 @@ public class ImportDirectusSettings : CommandSettings
 
 public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
 {
+    public const string TokenEnvVar = "DIRECTUS_TOKEN";
+
     public override async Task<int> ExecuteAsync(CommandContext context, ImportDirectusSettings settings)
     {
-        if (string.IsNullOrWhiteSpace(settings.Url))
-            throw new CliException("--url is required. Example: [bold #F97316]--url https://cms.example.com[/]");
-        if (!Uri.TryCreate(settings.Url, UriKind.Absolute, out var uri) ||
-            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
-            throw new CliException("--url must be an http:// or https:// URL.");
-        if (string.IsNullOrWhiteSpace(settings.Token))
-            throw new CliException("--token is required. Provide a Directus static or admin token.");
-
         try
         {
-            var importer = new DirectusImporter(settings.Url, settings.Token);
+            var url         = ValidateUrl(settings.Url, settings.AllowInsecure);
+            var interactive = IsInteractive();
+            RequireConfirmationMode(settings.DryRun, settings.Yes, interactive);
+            var token = ResolveToken(settings.Token, Environment.GetEnvironmentVariable(TokenEnvVar), interactive,
+                () => AnsiConsole.Prompt(new TextPrompt<string>("Directus token:").Secret()));
+
+            var importer = new DirectusImporter(url, token);
             var target   = settings.To is not null ? GetClientForProfile(settings.To) : GetClient();
 
             var runner = new ImportRunner(importer, target,
@@ -76,15 +73,49 @@ public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
                     IncludeFlows: settings.IncludeFlows,
                     IncludeData:  settings.IncludeData,
                     IncludeFiles: settings.IncludeFiles,
-                    IncludeRoles: settings.IncludeRoles));
+                    IncludeRoles: settings.IncludeRoles,
+                    RequireConfirmation: !settings.DryRun && !settings.Yes));
 
-            var result = await runner.RunAsync();
-            return result.Errors.Count > 0 ? 1 : 0;
+            return ExitCodeFor(await runner.RunAsync());
         }
         catch (Exception ex)
         {
             HandleError(ex);
             return 1;
         }
+    }
+
+    internal static int ExitCodeFor(ImportResult result) => result.Errors.Count > 0 ? 1 : 0;
+
+    internal static bool IsInteractive() => !Console.IsInputRedirected && AnsiConsole.Profile.Capabilities.Interactive;
+
+    internal static string ValidateUrl(string? url, bool allowInsecure)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            throw new CliException("--url is required. Example: [bold #F97316]--url https://cms.example.com[/]");
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+            throw new CliException("--url must be an http:// or https:// URL.");
+        if (uri.Scheme == Uri.UriSchemeHttp && !allowInsecure && !uri.IsLoopback)
+            throw new CliException("Refusing a plain http:// URL — the token would travel unencrypted. Use https:// or pass [bold #F97316]--allow-insecure[/].");
+        return url;
+    }
+
+    internal static string ResolveToken(string? option, string? envValue, bool interactive, Func<string> prompt)
+    {
+        if (!string.IsNullOrWhiteSpace(option)) return option;
+        if (!string.IsNullOrWhiteSpace(envValue)) return envValue;
+        if (interactive)
+        {
+            var typed = prompt();
+            if (!string.IsNullOrWhiteSpace(typed)) return typed;
+        }
+        throw new CliException($"A Directus token is required. Set the [bold #F97316]{TokenEnvVar}[/] environment variable (preferred) or pass --token.");
+    }
+
+    internal static void RequireConfirmationMode(bool dryRun, bool yes, bool interactive)
+    {
+        if (!dryRun && !yes && !interactive)
+            throw new CliException("Refusing to modify the project without confirmation while not running interactively. Re-run with [bold #F97316]--yes[/] to apply, or [bold #F97316]--dry-run[/] to preview.");
     }
 }

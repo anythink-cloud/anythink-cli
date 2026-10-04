@@ -35,6 +35,7 @@ public class CliTool
         "Menu commands: 'menus list' shows dashboard menus with tree structure; " +
         "'menus add-item <menu_id> <entity> --icon <Icon> --parent <parent_id>' adds an entity to a dashboard menu. " +
         "For destructive commands add '--yes' to skip confirmation prompts. " +
+        "'import directus' changes the project: run it with '--dry-run' first and only add '--yes' once the user has approved the plan. " +
         "Add '--json' where supported for machine-readable output.")]
     public async Task<string> RunCli(
         [Description(

@@ -3,33 +3,16 @@ using AnythinkCli.Models;
 
 namespace AnythinkCli.Importers.Directus;
 
-// Maps Directus flow triggers and operations onto Anythink workflow triggers
-// and WorkflowAction values, plus translates the per-operation `options` JSON
-// into the parameter shape Anythink expects for that action.
-//
-// Anythink WorkflowAction values:
-//   ReadData, CreateData, UpdateData, DeleteData, CallAnApi, RunScript,
-//   SendACommand, Condition, SendAnEmail, Integration
-//
-// Anythink validates step parameters at run time against the action's
-// parameter type, so this translator emits the snake_case property names
-// each action type expects (e.g. RunScript → "script", SendAnEmail →
-// "to" / "template_type" / "payload", CreateData → "entity_name" / "payload").
-
 public record FlowStepTranslation(
     string       Action,
     JsonElement  Parameters,
     bool         NeedsManualReview,
-    string?      ReviewNote
+    string?      ReviewNote,
+    bool         Enabled = true
 );
 
 public static class DirectusFlowMapping
 {
-    /// <summary>
-    /// Maps a Directus flow trigger to the Anythink Triggers array shape
-    /// (a single trigger entry for each flow — Anythink supports multiple
-    /// but Directus flows have exactly one trigger).
-    /// </summary>
     public static WorkflowTriggerRequest MapTrigger(DirectusFlow flow)
     {
         var opts = flow.Options;
@@ -80,9 +63,7 @@ public static class DirectusFlowMapping
             }
 
             case "webhook":
-                // The Anythink API requires a non-empty api_route on Api triggers.
-                // Directus webhooks don't carry a per-flow path, so derive one
-                // from the flow name (lowercase, hyphenated).
+                // Api triggers need a route and Directus webhooks have none, so derive it from the flow name.
                 var route = SanitizeRoute(flow.Name);
                 return new WorkflowTriggerRequest("Api", true,
                     new WorkflowTriggerConfig(ApiRoute: route));
@@ -93,12 +74,6 @@ public static class DirectusFlowMapping
         }
     }
 
-    /// <summary>
-    /// Translates a Directus operation into an Anythink (action, parameters)
-    /// pair with a flag indicating whether the result needs manual review
-    /// after import (e.g. unmappable operation, lossy translation, or
-    /// templating that may not work as-is).
-    /// </summary>
     public static FlowStepTranslation Translate(DirectusOperation op)
     {
         var opts = op.Options;
@@ -171,27 +146,39 @@ public static class DirectusFlowMapping
             headers = ExtractHeaders(h);
         }
 
-        // Build as JsonNode then convert — anonymous types with embedded
-        // Dictionary<string,string> don't round-trip cleanly through
-        // SerializeToElement when later re-embedded in another payload.
+        // Anonymous types holding a Dictionary don't round-trip through SerializeToElement.
+        var (safeUrl, urlRedacted) = RedactUrl(url);
         var node = new System.Text.Json.Nodes.JsonObject
         {
-            ["url"]    = url,
+            ["url"]    = safeUrl,
             ["method"] = method,
         };
+        var redacted = urlRedacted;
         if (headers is not null)
         {
             var hObj = new System.Text.Json.Nodes.JsonObject();
-            foreach (var kv in headers) hObj[kv.Key] = kv.Value;
+            foreach (var kv in headers)
+            {
+                var sensitive = IsSensitiveHeader(kv.Key);
+                redacted |= sensitive;
+                hObj[kv.Key] = sensitive ? RedactedHeaderValue : kv.Value;
+            }
             node["headers"] = hObj;
         }
-        if (!string.IsNullOrEmpty(body)) node["body"] = body;
+        if (!string.IsNullOrEmpty(body))
+        {
+            var (safeBody, bodyRedacted) = RedactJsonBody(body);
+            redacted |= bodyRedacted;
+            node["body"] = safeBody;
+        }
 
         return new FlowStepTranslation(
             Action:            "CallAnApi",
             Parameters:        JsonSerializer.SerializeToElement(node),
-            NeedsManualReview: ContainsMustache(url) || (body != null && ContainsMustache(body)),
-            ReviewNote:        null);
+            NeedsManualReview: redacted || ContainsMustache(url) || (body != null && ContainsMustache(body)),
+            ReviewNote:        redacted
+                ? "Credentials in the URL, headers or body were replaced with a placeholder — store the real value as an Anythink secret and reference it."
+                : null);
     }
 
     private static FlowStepTranslation TranslateItemCreate(JsonElement? opts)
@@ -231,13 +218,58 @@ public static class DirectusFlowMapping
     private static FlowStepTranslation TranslateItemDelete(JsonElement? opts)
     {
         var collection = TryGetString(opts, "collection") ?? "";
-        var key        = TryGetString(opts, "key") ?? "";
-        var filter     = new[] { new { field = "id", @operator = "=", value = key } };
+        var rawKey     = opts.HasValue && opts.Value.ValueKind == JsonValueKind.Object &&
+                         opts.Value.TryGetProperty("key", out var el) ? el.GetRawText() : null;
+        if (ContainsMustache(rawKey))
+            return UntranslatedDelete(collection,
+                $"Delete key was the template {rawKey}; the engine drops a filter whose value resolves empty or non-numeric, " +
+                "which would delete every row. Rebuild it with an explicit ReadData step and a checked id.");
+
+        var keys = ReadDeleteKeys(opts);
+        if (collection.Length == 0 || keys is null)
+            return UntranslatedDelete(collection);
+
+        // The filter builder has no "in" operator, so several keys ride on the query syntax's IN: prefix.
+        var value = keys.Count == 1 ? keys[0] : "IN:" + string.Join(",", keys);
+        var filter = new[] { new { field = "id", @operator = "eq", value } };
         return new FlowStepTranslation(
             Action:            "DeleteData",
             Parameters:        Json(new { entity_name = collection, filter_conditions = filter }),
-            NeedsManualReview: ContainsMustache(key),
-            ReviewNote:        null);
+            NeedsManualReview: true,
+            ReviewNote:        $"Deletes '{collection}' rows with hard-coded id(s) {string.Join(", ", keys)} — confirm this is intended.");
+    }
+
+    private static FlowStepTranslation UntranslatedDelete(string collection, string? note = null)
+    {
+        var name   = collection.Length > 0 && collection.All(c => char.IsAsciiLetterOrDigit(c) || c == '_')
+            ? collection : "(unknown)";
+        var script = $"// Directus item-delete on '{name}' could not be translated safely — no delete was created.";
+        return new FlowStepTranslation(
+            Action:            "RunScript",
+            Parameters:        Json(new { script }),
+            NeedsManualReview: true,
+            ReviewNote:        (note ?? "Directus 'item-delete' without a plain key can't be mapped to a filtered delete — rebuild it by hand.") + " Left disabled.",
+            Enabled:           false);
+    }
+
+    private static List<string>? ReadDeleteKeys(JsonElement? opts)
+    {
+        if (!opts.HasValue || opts.Value.ValueKind != JsonValueKind.Object ||
+            !opts.Value.TryGetProperty("key", out var el))
+            return null;
+
+        var raw = el.ValueKind switch
+        {
+            JsonValueKind.String or JsonValueKind.Number => new List<string?> { el.ToString() },
+            JsonValueKind.Array => el.EnumerateArray()
+                .Select(e => e.ValueKind is JsonValueKind.String or JsonValueKind.Number ? e.ToString() : null)
+                .ToList(),
+            _ => []
+        };
+        if (raw.Count == 0 || raw.Any(string.IsNullOrWhiteSpace)) return null;
+
+        var keys = raw.Select(k => k!.Trim()).ToList();
+        return keys.All(k => k.All(char.IsAsciiDigit)) ? keys : null;
     }
 
     private static FlowStepTranslation TranslateCondition(JsonElement? opts) =>
@@ -360,6 +392,68 @@ public static class DirectusFlowMapping
         }
         return dict.Count == 0 ? null : dict;
     }
+
+    internal const string RedactedHeaderValue = "REPLACE_WITH_SECRET";
+
+    private static readonly string[] SensitiveHeaderFragments =
+        ["auth", "token", "key", "secret", "cookie", "password", "signature", "sig", "session", "credential", "x-api"];
+
+    private static readonly string[] SensitiveQueryFragments =
+        ["key", "token", "secret", "password", "signature", "auth", "sig", "api", "session", "credential"];
+
+    private static readonly System.Text.RegularExpressions.Regex UrlUserInfo =
+        new(@"^([A-Za-z][A-Za-z0-9+.\-]*://)[^/?#@\s]*@", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    private static (string Url, bool Redacted) RedactUrl(string url)
+    {
+        var redacted = false;
+        var stripped = UrlUserInfo.Replace(url, "$1");
+        redacted |= stripped != url;
+
+        var q = stripped.IndexOf('?');
+        if (q < 0) return (stripped, redacted);
+
+        var parts = stripped[(q + 1)..].Split('&').Select(p =>
+        {
+            var eq = p.IndexOf('=');
+            if (eq <= 0) return p;
+            var name = p[..eq];
+            if (!SensitiveQueryFragments.Any(f => name.Contains(f, StringComparison.OrdinalIgnoreCase))) return p;
+            redacted = true;
+            return name + "=" + RedactedHeaderValue;
+        });
+        return (stripped[..(q + 1)] + string.Join("&", parts), redacted);
+    }
+
+    private static (string Body, bool Redacted) RedactJsonBody(string body)
+    {
+        System.Text.Json.Nodes.JsonNode? root;
+        try { root = System.Text.Json.Nodes.JsonNode.Parse(body); }
+        catch (JsonException) { return (body, false); }
+        if (root is null) return (body, false);
+
+        var redacted = false;
+        void Walk(System.Text.Json.Nodes.JsonNode? n)
+        {
+            if (n is System.Text.Json.Nodes.JsonObject o)
+                foreach (var key in o.Select(kv => kv.Key).ToList())
+                {
+                    if (o[key] is System.Text.Json.Nodes.JsonValue && SensitiveQueryFragments.Any(f => key.Contains(f, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        o[key] = RedactedHeaderValue;
+                        redacted = true;
+                    }
+                    else Walk(o[key]);
+                }
+            else if (n is System.Text.Json.Nodes.JsonArray a)
+                foreach (var item in a) Walk(item);
+        }
+        Walk(root);
+        return redacted ? (root.ToJsonString(), true) : (body, false);
+    }
+
+    internal static bool IsSensitiveHeader(string name) =>
+        SensitiveHeaderFragments.Any(f => name.Contains(f, StringComparison.OrdinalIgnoreCase));
 
     private static bool ContainsMustache(string? s) =>
         s is not null && s.Contains("{{");

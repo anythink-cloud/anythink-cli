@@ -109,7 +109,14 @@ public record Workflow(
     [property: JsonPropertyName("enabled")] bool Enabled,
     [property: JsonPropertyName("steps")] List<WorkflowStep>? Steps,
     [property: JsonPropertyName("options")] System.Text.Json.JsonElement? Options = null,
-    [property: JsonPropertyName("jobs")] List<WorkflowJob>? Jobs = null
+    [property: JsonPropertyName("jobs")] List<WorkflowJob>? Jobs = null,
+    [property: JsonPropertyName("triggers")] List<WorkflowTrigger>? Triggers = null
+);
+
+public record WorkflowTrigger(
+    [property: JsonPropertyName("type")]    string                 Type,
+    [property: JsonPropertyName("enabled")] bool                   Enabled,
+    [property: JsonPropertyName("config")]  WorkflowTriggerConfig? Config = null
 );
 
 public record WorkflowJob(
@@ -151,8 +158,6 @@ public record CreateWorkflowRequest(
     [property: JsonPropertyName("triggers")]     List<WorkflowTriggerRequest> Triggers
 );
 
-// One entry in CreateWorkflowRequest.Triggers. Anythink supports multiple
-// concurrent triggers on a workflow (Event / Timed / Manual / Api).
 public record WorkflowTriggerRequest(
     [property: JsonPropertyName("type")]    string                 Type,    // Event | Timed | Manual | Api
     [property: JsonPropertyName("enabled")] bool                   Enabled,
@@ -183,11 +188,16 @@ public record UpdateWorkflowRequest(
     [property: JsonPropertyName("description")] string? Description = null
 );
 
-public record UpdateWorkflowStepLinksRequest(
-    [property: JsonPropertyName("name")] string Name,
-    [property: JsonPropertyName("action")] string Action,
-    [property: JsonPropertyName("on_success_step_id")] int? OnSuccessStepId,
-    [property: JsonPropertyName("on_failure_step_id")] int? OnFailureStepId
+// The step endpoint is a full replace: any field left out is nulled on the stored row.
+public record UpdateWorkflowStepRequest(
+    [property: JsonPropertyName("name")]               string                        Name,
+    [property: JsonPropertyName("description")]        string?                       Description,
+    [property: JsonPropertyName("enabled")]            bool                          Enabled,
+    [property: JsonPropertyName("action")]             string                        Action,
+    [property: JsonPropertyName("parameters")]         System.Text.Json.JsonElement? Parameters,
+    [property: JsonPropertyName("is_start_step")]      bool                          IsStartStep,
+    [property: JsonPropertyName("on_success_step_id")] int?                          OnSuccessStepId,
+    [property: JsonPropertyName("on_failure_step_id")] int?                          OnFailureStepId
 );
 
 // Used internally to avoid C# 'event' keyword conflict in anonymous types
@@ -360,7 +370,12 @@ public record FileResponse(
     [property: JsonPropertyName("file_type")]          string   FileType,
     [property: JsonPropertyName("file_size")]          long     FileSize,
     [property: JsonPropertyName("is_public")]          bool     IsPublic,
-    [property: JsonPropertyName("created_at")]         DateTime CreatedAt
+    [property: JsonPropertyName("created_at")]         DateTime CreatedAt,
+    [property: JsonPropertyName("custom_metadata")]    string?  CustomMetadata = null
+);
+
+public record UpdateFileMetadataRequest(
+    [property: JsonPropertyName("custom_metadata")] string CustomMetadata
 );
 
 // ── Roles ────────────────────────────────────────────────────────────────────

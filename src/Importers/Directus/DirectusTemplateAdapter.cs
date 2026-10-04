@@ -4,39 +4,14 @@ using System.Text.RegularExpressions;
 
 namespace AnythinkCli.Importers.Directus;
 
-// Rewrites Directus mustache template expressions into Anythink's
-// $anythink.* syntax so imported workflows substitute values correctly at
-// runtime instead of printing the literal mustache.
-//
-// Directus uses:
-//   {{ $trigger.payload.X }}     ← entity event payload (Event trigger)
-//   {{ $trigger.body.X }}        ← webhook body (Webhook trigger)
-//   {{ $last.X }}                ← output of the previous operation
-//   {{ $<step_key>.X }}          ← output of a specific upstream operation
-//   {{ $env.X }}                 ← environment variable
-//   {{ $accountability.user }}   ← authenticated user metadata
-//
-// Anythink uses:
-//   {{ $anythink.trigger.id }}
-//   {{ $anythink.trigger.data.X }}
-//   {{ $anythink.steps.<step_key>.X }}
-//   {{ $anythink.secrets.X }}
-//   {{ $anythink.now }}
-//
-// Unresolved cases (env, accountability) remain as-is and the step is
-// flagged for manual review so the user can adapt them by hand.
-
 public static class DirectusTemplateAdapter
 {
-    private static readonly Regex MustachePattern =
-        new(@"\{\{\s*(?<expr>\$?[A-Za-z_][A-Za-z0-9_\.\[\]]*)\s*\}\}",
-            RegexOptions.Compiled);
+    // Must match the target workflow engine's own template pattern so nothing it would resolve slips through.
+    private static readonly Regex EnginePattern = new(@"\{\{([^}]+)\}\}", RegexOptions.Compiled);
 
-    /// <summary>
-    /// Rewrite a single template string. Returns the adapted string plus a
-    /// flag indicating whether any expression couldn't be translated (so the
-    /// caller can keep the manual-review marker).
-    /// </summary>
+    private static readonly Regex RecognisedExpression =
+        new(@"^\$?[A-Za-z_][A-Za-z0-9_\.\[\]]*$", RegexOptions.Compiled);
+
     public static (string Adapted, bool HasUnresolved) Adapt(
         string input,
         string? previousStepKey,
@@ -44,30 +19,41 @@ public static class DirectusTemplateAdapter
     {
         bool unresolved = false;
 
-        var rewritten = MustachePattern.Replace(input, m =>
+        var sb = new System.Text.StringBuilder();
+        var last = 0;
+        foreach (Match m in EnginePattern.Matches(input))
         {
-            var expr = m.Groups["expr"].Value;
-            var translated = TranslateExpression(expr, previousStepKey, knownStepKeys, ref unresolved);
-            if (translated is not null)
-                return "{{ " + translated + " }}";
+            sb.Append(BreakBareReferences(input[last..m.Index], ref unresolved));
+            last = m.Index + m.Length;
 
-            // Unresolved: NEUTER the mustache so Anythink's server-side
-            // PayloadTemplater (regex `\{\{([^}]+)\}\}`) can't resolve it.
-            // We break the leading `{{` with a space → the regex won't match
-            // and the expression renders literally. Critical: stops a hostile
-            // source from injecting e.g. `{{ $anythink.secrets.X }}` and
-            // exfiltrating target tenant secrets at workflow run time.
-            return "{ { " + expr + " }} ";
-        });
+            var expr = m.Groups[1].Value.Trim();
+            var translated = RecognisedExpression.IsMatch(expr)
+                ? TranslateExpression(expr, previousStepKey, knownStepKeys, ref unresolved)
+                : null;
+            if (translated is not null && RecognisedExpression.IsMatch(translated))
+            {
+                sb.Append("{{ ").Append(translated).Append(" }}");
+                continue;
+            }
+
+            unresolved = true;
+            // Breaking the opener keeps a hostile source from resolving e.g. target-project secrets at run time.
+            sb.Append("{ { ").Append(expr.Replace("{", "{ ")).Append(" }} ");
+        }
+        sb.Append(BreakBareReferences(input[last..], ref unresolved));
+        var rewritten = sb.ToString();
 
         return (rewritten, unresolved);
     }
 
-    /// <summary>
-    /// Recursively walk a JsonElement, rewriting every string value via Adapt.
-    /// Returns the new JsonElement and whether any expression was left
-    /// unresolved during the walk.
-    /// </summary>
+    // The engine also resolves a whole string value starting with "$anythink." even without braces.
+    private static string BreakBareReferences(string text, ref bool unresolved)
+    {
+        if (!text.Contains("$anythink", StringComparison.OrdinalIgnoreCase)) return text;
+        unresolved = true;
+        return Regex.Replace(text, @"\$(?=anythink)", "$ ", RegexOptions.IgnoreCase);
+    }
+
     public static (JsonElement Adapted, bool HasUnresolved) AdaptElement(
         JsonElement element,
         string? previousStepKey,
@@ -121,11 +107,6 @@ public static class DirectusTemplateAdapter
         }
     }
 
-    /// <summary>
-    /// Translate a single template expression (the bit inside the {{ }}).
-    /// Returns null if no translation rule matched — the caller leaves the
-    /// expression literal and flags it for manual review.
-    /// </summary>
     private static string? TranslateExpression(
         string expr,
         string? previousStepKey,
@@ -138,6 +119,11 @@ public static class DirectusTemplateAdapter
         if (parts.Length == 0) return null;
 
         var head = parts[0];
+        if (head.Equals("anythink", StringComparison.OrdinalIgnoreCase))
+        {
+            unresolved = true;
+            return null;
+        }
         var tail = parts.Length > 1 ? string.Join('.', parts.Skip(1)) : "";
 
         switch (head)

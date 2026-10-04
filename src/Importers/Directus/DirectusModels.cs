@@ -114,13 +114,18 @@ public record DirectusPolicy(
 );
 
 public record DirectusAccess(
-    [property: JsonPropertyName("role")]   string? Role,    // null = applies to everyone (the Public policy uses this)
-    [property: JsonPropertyName("policy")] string  Policy
+    [property: JsonPropertyName("role")]   string? Role,    // role and user both null = the Public policy attachment
+    [property: JsonPropertyName("policy")] string  Policy,
+    [property: JsonPropertyName("user")]   string? User = null
 );
 
 public record DirectusPermission(
     [property: JsonPropertyName("id")]         int?    Id,
     [property: JsonPropertyName("policy")]     string? Policy,
     [property: JsonPropertyName("collection")] string  Collection,
-    [property: JsonPropertyName("action")]     string  Action
+    [property: JsonPropertyName("action")]     string  Action,
+    [property: JsonPropertyName("permissions")] System.Text.Json.JsonElement? Filter = null,
+    [property: JsonPropertyName("validation")]  System.Text.Json.JsonElement? Validation = null,
+    [property: JsonPropertyName("presets")]     System.Text.Json.JsonElement? Presets = null,
+    [property: JsonPropertyName("fields")]      System.Text.Json.JsonElement? Fields = null
 );

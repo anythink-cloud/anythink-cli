@@ -13,7 +13,9 @@ public record ImportSchema(
     List<ImportCollection> Collections,
     List<ImportFlow>       Flows,
     List<ImportFile>       Files,
-    List<ImportRole>       Roles
+    List<ImportRole>       Roles,
+    List<string>?          Warnings = null,   // reported, exit code unaffected
+    List<string>?          Errors   = null    // source items that could not be imported — fail the run
 );
 
 // A file in the source platform — describes enough metadata for the runner to
@@ -41,7 +43,8 @@ public record ImportCollection(
     string                Name,
     List<ImportFieldSpec> Fields,
     bool                  IsJunction = false,     // hidden in source; back m2m relationships
-    bool                  IsPublic   = false      // mapped onto Anythink entity.is_public
+    bool                  IsPublic   = false,     // mapped onto Anythink entity.is_public
+    string?               DataUnsupportedReason = null
 );
 
 public record ImportFieldSpec(
@@ -74,7 +77,8 @@ public record ImportStep(
     string?       OnSuccessSourceId,
     string?       OnFailureSourceId,
     bool          NeedsManualReview = false,
-    string?       ReviewNote        = null
+    string?       ReviewNote        = null,
+    bool          Enabled           = true
 );
 
 // A page of records from a source collection. The records are kept as raw

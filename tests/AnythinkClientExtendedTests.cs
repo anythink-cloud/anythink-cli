@@ -872,3 +872,42 @@ public class AnythinkClientExtendedTests
         methods.Should().BeEmpty();
     }
 }
+
+public class UploadCapTests
+{
+    private static HttpClient Source(byte[] body, long? declaredLength = null)
+    {
+        var handler = new RichardSzalay.MockHttp.MockHttpMessageHandler();
+        handler.When("*").Respond(_ =>
+        {
+            var content = new ByteArrayContent(body);
+            if (declaredLength is not null) content.Headers.ContentLength = declaredLength;
+            return new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = content };
+        });
+        return new HttpClient(handler);
+    }
+
+    [Fact]
+    public async Task Download_Over_The_Cap_Is_Refused_With_A_413()
+    {
+        var act = async () => await AnythinkClient.DownloadCappedAsync(Source(new byte[50]), "http://x/f", "big.bin", 10);
+
+        await act.Should().ThrowAsync<AnythinkException>().Where(e => e.StatusCode == 413);
+    }
+
+    [Fact]
+    public async Task Download_Within_The_Cap_Is_Returned_In_Full()
+    {
+        var bytes = await AnythinkClient.DownloadCappedAsync(Source(new byte[10]), "http://x/f", "ok.bin", 10);
+
+        bytes.Should().HaveCount(10);
+    }
+
+    [Fact]
+    public async Task Download_With_No_Cap_Is_Not_Limited()
+    {
+        var bytes = await AnythinkClient.DownloadCappedAsync(Source(new byte[5000]), "http://x/f", "any.bin", null);
+
+        bytes.Should().HaveCount(5000);
+    }
+}
