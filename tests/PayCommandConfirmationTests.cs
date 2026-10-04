@@ -6,10 +6,15 @@ using Spectre.Console.Cli;
 
 namespace AnythinkCli.Tests;
 
-// Rule: a destructive pay command run non-interactively without --yes exits non-zero and sends no write request.
+// Rule: a destructive pay/offers command run non-interactively without --yes exits non-zero and sends no write request.
 [Collection("SequentialConfig")]
 public class PayCommandConfirmationTests : IDisposable
 {
+    private const string OfferJson = """
+    {"id":"11111111-1111-1111-1111-111111111111","name":"Launch","kind":"discount","per_user_redemption_cap":1,"status":"active",
+     "created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}
+    """;
+
     private readonly string _tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
     private readonly HttpListener _listener = new();
     private readonly List<string> _requests = [];
@@ -49,7 +54,7 @@ public class PayCommandConfirmationTests : IDisposable
             HttpListenerContext ctx;
             try { ctx = await _listener.GetContextAsync(); } catch { return; }
             lock (_requests) _requests.Add($"{ctx.Request.HttpMethod} {ctx.Request.Url!.AbsolutePath}");
-            var body = System.Text.Encoding.UTF8.GetBytes("{}");
+            var body = System.Text.Encoding.UTF8.GetBytes(ctx.Request.Url.AbsolutePath.Contains("/offers/") ? OfferJson : "{}");
             ctx.Response.ContentType = "application/json";
             await ctx.Response.OutputStream.WriteAsync(body);
             ctx.Response.Close();
@@ -91,6 +96,28 @@ public class PayCommandConfirmationTests : IDisposable
     public Task SubscriptionsRelink_WithoutYes_RefusesAndSendsNoWrite()
         => AssertRefusedWithoutWriting(new PaySubscriptionsRelinkCommand().ExecuteAsync(null!,
             new PaySubscriptionsRelinkSettings { Id = _id.ToString(), ToUserId = 4 }));
+
+    [Fact]
+    public Task OffersPause_WithoutYes_RefusesAndSendsNoWrite()
+        => AssertRefusedWithoutWriting(new PayOffersPauseCommand().ExecuteAsync(null!, new PayOffersPauseSettings { Id = _id.ToString() }));
+
+    [Fact]
+    public Task OffersDelete_WithoutYes_RefusesAndSendsNoWrite()
+        => AssertRefusedWithoutWriting(new PayOffersDeleteCommand().ExecuteAsync(null!, new PayOffersDeleteSettings { Id = _id.ToString() }));
+
+    [Theory]
+    [InlineData("paused")]
+    [InlineData("expired")]
+    public Task OffersUpdate_StatusPausedOrExpired_WithoutYes_RefusesAndSendsNoWrite(string status)
+        => AssertRefusedWithoutWriting(new PayOffersUpdateCommand().ExecuteAsync(null!, new PayOffersUpdateSettings { Id = _id.ToString(), Status = status }));
+
+    [Fact]
+    public async Task OffersUpdate_StatusActive_NeedsNoConfirmation()
+    {
+        (await new PayOffersUpdateCommand().ExecuteAsync(null!, new PayOffersUpdateSettings { Id = _id.ToString(), Status = "active" })).Should().Be(0);
+
+        Writes().Should().ContainSingle(w => w.StartsWith("PUT "));
+    }
 
     [Fact]
     public async Task SubscriptionsCancel_WithYes_SendsTheWrite()

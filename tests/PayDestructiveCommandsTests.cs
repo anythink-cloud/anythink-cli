@@ -5,7 +5,7 @@ using System.Reflection;
 
 namespace AnythinkCli.Tests;
 
-// Rule: every pay command that deletes, expires, relinks or cancels must confirm by default and accept -y|--yes.
+// Rule: every pay/offers command that deletes, expires, relinks, cancels or pauses must confirm by default and accept -y|--yes.
 public class PayDestructiveCommandsTests
 {
     [Fact]
@@ -20,10 +20,20 @@ public class PayDestructiveCommandsTests
     public void SubscriptionRelink_RequiresConfirmationByDefault()
         => new PaySubscriptionsRelinkSettings().SkipConfirm.Should().BeFalse();
 
+    [Fact]
+    public void OfferDelete_RequiresConfirmationByDefault()
+        => new PayOffersDeleteSettings().Yes.Should().BeFalse();
+
+    [Fact]
+    public void OfferPause_RequiresConfirmationByDefault()
+        => new PayOffersPauseSettings().SkipConfirm.Should().BeFalse();
+
     [Theory]
     [InlineData(typeof(PayPlansDeleteSettings), nameof(PayPlansDeleteSettings.SkipConfirm))]
     [InlineData(typeof(PaySubscriptionsConfirmSettings), nameof(PaySubscriptionsConfirmSettings.SkipConfirm))]
     [InlineData(typeof(PaySubscriptionsRelinkSettings), nameof(PaySubscriptionsRelinkSettings.SkipConfirm))]
+    [InlineData(typeof(PayOffersPauseSettings), nameof(PayOffersPauseSettings.SkipConfirm))]
+    [InlineData(typeof(PayOffersDeleteSettings), nameof(PayOffersDeleteSettings.Yes))]
     public void ConfirmationFlag_IsBoundToDashYAndDashDashYes(Type settings, string property)
     {
         var option = settings.GetProperty(property)!.GetCustomAttribute<CommandOptionAttribute>()!;

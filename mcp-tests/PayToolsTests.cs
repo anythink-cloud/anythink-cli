@@ -185,6 +185,54 @@ public class PayToolsTests : McpTestBase
         result.Should().Contain("[]");
     }
 
+    // ── Rule: pausing or expiring an offer needs confirm: true ──
+
+    [Fact]
+    public async Task SetOfferStatus_PausedWithoutConfirm_DoesNotCallApi()
+    {
+        var tools = BuildTools(new MockHttpMessageHandler());
+
+        var result = await tools.SetOfferStatus(Guid.NewGuid().ToString(), "paused");
+
+        result.Should().ContainEquivalentOf("confirm");
+    }
+
+    [Fact]
+    public async Task UpdateOffer_ExpiredWithoutConfirm_DoesNotCallApi()
+    {
+        var tools = BuildTools(new MockHttpMessageHandler());
+
+        var result = await tools.UpdateOffer(Guid.NewGuid().ToString(), status: "expired");
+
+        result.Should().ContainEquivalentOf("confirm");
+    }
+
+    [Fact]
+    public async Task SetOfferStatus_ActiveNeedsNoConfirm()
+    {
+        var id = Guid.NewGuid();
+        var handler = new MockHttpMessageHandler();
+        handler.When(HttpMethod.Put, $"*/offers/{id}").Respond("application/json", "{}");
+        var tools = BuildTools(handler);
+
+        var act = async () => await tools.SetOfferStatus(id.ToString(), "active");
+
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task SetOfferStatus_PausedWithConfirm_CallsApi()
+    {
+        var id = Guid.NewGuid();
+        var handler = new MockHttpMessageHandler();
+        handler.When(HttpMethod.Put, $"*/offers/{id}").Respond("application/json", "{}");
+        var tools = BuildTools(handler);
+
+        await tools.SetOfferStatus(id.ToString(), "paused", confirm: true);
+
+        handler.VerifyNoOutstandingExpectation();
+    }
+
     [Fact]
     public void CredentialTools_RemainBlockedInHttpMode()
     {
@@ -215,7 +263,7 @@ public class PayToolsTests : McpTestBase
     // ── Rule: a malformed guid yields a helpful message, never an exception ──
 
     [Fact]
-    public async Task BadGuid_ReturnsHelpfulErrorForEverySubscriptionTool()
+    public async Task BadGuid_ReturnsHelpfulErrorForEverySubscriptionAndOfferTool()
     {
         var tools = BuildTools(new MockHttpMessageHandler());
         const string bad = "not-a-guid";
@@ -227,7 +275,13 @@ public class PayToolsTests : McpTestBase
             await tools.AdminDeleteSubscription(bad, confirm: true),
             await tools.AdminForceExpireSubscription(bad),
             await tools.AdminRelinkSubscription(bad, 1),
-            await tools.AdminResyncSubscription(bad)
+            await tools.AdminResyncSubscription(bad),
+            await tools.GetOffer(bad),
+            await tools.UpdateOffer(bad),
+            await tools.SetOfferStatus(bad, "paused"),
+            await tools.ListOfferCodes(bad),
+            await tools.CreateOfferCode(bad, "X"),
+            await tools.GetOfferRedemptions(bad)
         };
 
         results.Should().OnlyContain(r => r.Contains("Invalid") && r.Contains(bad) && r.Contains("guid"));

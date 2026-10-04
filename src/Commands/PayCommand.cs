@@ -276,6 +276,9 @@ internal static class PayValidation
         currency.Length == 3 && currency.All(char.IsAsciiLetter)
             ? null
             : "Currency must be a 3-letter code (e.g. gbp).";
+
+    public static string? DiscountPercent(decimal percent) =>
+        percent is >= 0 and <= 100 ? null : "Discount percent must be between 0 and 100.";
 }
 
 // ── pay plans ────────────────────────────────────────────────────────────────

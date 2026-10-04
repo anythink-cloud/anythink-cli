@@ -77,6 +77,8 @@ public class CliTool
             {
                 ("subscriptions", "delete" or "force-expire" or "relink" or "resync" or "cancel") => true,
                 ("plans", "delete") => true,
+                ("offers", "delete" or "pause") => true,
+                ("offers", "update") => StatusArg(args) is "paused" or "expired",
                 ("apple", "credentials" or "verify") => true,
                 _ => false
             };
@@ -92,6 +94,13 @@ public class CliTool
         }
 
         return null;
+    }
+
+    private static string? StatusArg(List<string> args)
+    {
+        var i = args.FindIndex(a => a == "--status");
+        if (i >= 0 && i + 1 < args.Count) return args[i + 1].ToLowerInvariant();
+        return args.FirstOrDefault(a => a.StartsWith("--status=", StringComparison.Ordinal))?[9..].ToLowerInvariant();
     }
 
     // ── HTTP mode: in-process execution ──────────────────────────────────

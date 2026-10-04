@@ -13,6 +13,10 @@ public class CliToolRefusalTests
     [InlineData("pay subscriptions resync abc")]
     [InlineData("pay subscriptions cancel abc --yes")]
     [InlineData("pay plans delete 12 --yes")]
+    [InlineData("pay offers delete abc --yes")]
+    [InlineData("pay offers pause abc --yes")]
+    [InlineData("pay offers update abc --status paused --yes")]
+    [InlineData("pay offers update abc --status=expired")]
     [InlineData("pay apple credentials set --issuer-id x")]
     [InlineData("pay apple verify --signed-transaction jws")]
     public void MoneyAffectingPayCommands_AreRefusedInStdioAndHttpMode(string command)
@@ -24,6 +28,8 @@ public class CliToolRefusalTests
     [Theory]
     [InlineData("pay subscriptions list --status active")]
     [InlineData("pay plans list")]
+    [InlineData("pay offers update abc --status active")]
+    [InlineData("pay offers update abc --name X")]
     [InlineData("entities list")]
     public void ReadOnlyAndNonBillingCommands_AreNotRefused(string command)
     {
@@ -34,6 +40,7 @@ public class CliToolRefusalTests
     [Theory]
     [InlineData("fetch POST /integrations/anythinkpay/subscriptions/abc/admin/resync")]
     [InlineData("fetch /integrations/anythinkpay/subscriptions/abc --method DELETE")]
+    [InlineData("fetch PUT /integrations/anythinkpay/offers/abc --data {}")]
     public void FetchWritesToPayPaths_AreRefusedInHttpModeOnly(string command)
     {
         CliTool.RefusalFor(command, httpMode: true).Should().NotBeNull();
@@ -42,6 +49,7 @@ public class CliToolRefusalTests
 
     [Theory]
     [InlineData("fetch /integrations/anythinkpay/subscriptions")]
+    [InlineData("fetch GET /integrations/anythinkpay/offers")]
     [InlineData("fetch POST /entities/posts/items --data {}")]
     public void FetchReadsAndNonPayWrites_AreNotRefusedInHttpMode(string command)
         => CliTool.RefusalFor(command, httpMode: true).Should().BeNull();

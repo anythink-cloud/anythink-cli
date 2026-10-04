@@ -724,9 +724,15 @@ anythink pay plans list|get|create|update|delete  Manage subscription plans
 anythink pay subscriptions list|get|events        Inspect subscriptions and history
 anythink pay subscriptions cancel|resume          Standard lifecycle actions
 anythink pay subscriptions delete|force-expire|relink|resync   Admin recovery (project admin)
+
+anythink pay offers list|get|create|update        Manage promo and referral offers
+anythink pay offers pause|activate                Change an offer's status
+anythink pay offers delete                        Permanently delete an offer, its codes and redemption records
+anythink pay offers codes|add-code|redemptions    Inspect and extend an offer
+anythink pay offers user-code                     Look up a user's personal referral code
 ```
 
-Commands that cancel, delete, expire or relink (`pay plans delete`, `pay subscriptions cancel|delete|force-expire|relink`) ask for confirmation. Pass `-y`/`--yes` to skip the prompt; in a non-interactive shell they refuse to run without it.
+Commands that cancel, delete, expire, relink or pause (`pay plans delete`, `pay subscriptions cancel|delete|force-expire|relink`, `pay offers pause|delete`) ask for confirmation. Pass `-y`/`--yes` to skip the prompt; in a non-interactive shell they refuse to run without it.
 
 `pay plans update` only changes the fields you pass: omitted flags keep the plan's current currency, interval, type and active state. Use `--active` or `--inactive` to change availability.
 

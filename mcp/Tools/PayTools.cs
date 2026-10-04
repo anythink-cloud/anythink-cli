@@ -15,6 +15,11 @@ public class PayTools
     private static string Json(object? value) =>
         JsonSerializer.Serialize(value, new JsonSerializerOptions { WriteIndented = true });
 
+    private static string? OfferStatusPreview(string? status, string offerId, bool confirm) =>
+        status is "paused" or "expired" && !confirm
+            ? $"Would set offer {offerId} to {status}, so its codes stop being redeemable. Re-run with confirm: true to proceed."
+            : null;
+
     private static bool TryId(string value, string label, out Guid id, out string error)
     {
         error = Guid.TryParse(value, out id) ? "" : $"Invalid {label} '{value}': expected a guid such as 3f2504e0-4f89-41d3-9a0c-0305e82c3301.";
@@ -198,4 +203,109 @@ public class PayTools
         if (!TryId(subscriptionId, "subscription id", out var id, out var error)) return error;
         return Json(await _factory.GetClient().GetSubscriptionAsync(id));
     }
+
+    // ── Offers (admin) ────────────────────────────────────────────────────────
+
+    [McpServerTool(Name = "anythinkpay_list_offers", ReadOnly = true),
+     Description("List offers and their primary promo/referral code")]
+    public async Task<string> ListOffers()
+        => Json(await _factory.GetClient().GetOffersAsync());
+
+    [McpServerTool(Name = "anythinkpay_get_offer", ReadOnly = true),
+     Description("Show one offer by id (guid)")]
+    public async Task<string> GetOffer(
+        [Description("Offer id (guid)")] string offerId)
+    {
+        if (!TryId(offerId, "offer id", out var id, out var error)) return error;
+        return Json(await _factory.GetClient().GetOfferAsync(id));
+    }
+
+    [McpServerTool(Name = "anythinkpay_create_offer"),
+     Description("Create an offer. Rewards and eligibility are JSON strings in the offer reward vocabulary, e.g. redeemerRewardJson {\"type\":\"trial_extension\",\"days\":14}.")]
+    public async Task<string> CreateOffer(
+        [Description("Offer display name")] string name,
+        [Description("Offer kind: discount, trial_extension, or referral")] string kind,
+        [Description("Redeemer reward as a JSON string (required)")] string redeemerRewardJson,
+        [Description("Description (optional)")] string? description = null,
+        [Description("Referrer reward as a JSON string, referral offers only (optional)")] string? referrerRewardJson = null,
+        [Description("Eligibility rules as a JSON string (optional)")] string? eligibilityJson = null,
+        [Description("Total redemption cap (optional, unlimited if omitted)")] int? totalRedemptionCap = null,
+        [Description("Per-user redemption cap (default 1)")] int perUserRedemptionCap = 1,
+        [Description("Initial status: active, paused, or expired (default active)")] string status = "active")
+    {
+        var offer = await _factory.GetClient().CreateOfferAsync(new CreateOfferRequest(
+            Name: name, Kind: kind, RedeemerRewardJson: redeemerRewardJson, Description: description,
+            ReferrerRewardJson: referrerRewardJson, EligibilityJson: eligibilityJson,
+            TotalRedemptionCap: totalRedemptionCap, PerUserRedemptionCap: perUserRedemptionCap, Status: status));
+        return Json(offer);
+    }
+
+    [McpServerTool(Name = "anythinkpay_update_offer"),
+     Description("Update an offer (patch — only supplied fields change). kind is immutable.")]
+    public async Task<string> UpdateOffer(
+        [Description("Offer id (guid)")] string offerId,
+        [Description("Name (optional)")] string? name = null,
+        [Description("Description (optional)")] string? description = null,
+        [Description("Redeemer reward as a JSON string (optional)")] string? redeemerRewardJson = null,
+        [Description("Referrer reward as a JSON string (optional)")] string? referrerRewardJson = null,
+        [Description("Eligibility rules as a JSON string (optional)")] string? eligibilityJson = null,
+        [Description("Status: active, paused, or expired (optional). paused and expired require confirm: true.")] string? status = null,
+        [Description("Must be true to pause or expire the offer. Omit or pass false to preview.")] bool confirm = false)
+    {
+        if (!TryId(offerId, "offer id", out var id, out var error)) return error;
+        if (OfferStatusPreview(status, offerId, confirm) is { } preview) return preview;
+        var offer = await _factory.GetClient().UpdateOfferAsync(id, new UpdateOfferRequest(
+            Name: name, Description: description, RedeemerRewardJson: redeemerRewardJson,
+            ReferrerRewardJson: referrerRewardJson, EligibilityJson: eligibilityJson, Status: status));
+        return Json(offer);
+    }
+
+    [McpServerTool(Name = "anythinkpay_set_offer_status"),
+     Description("Set an offer's status (active, paused, or expired)")]
+    public async Task<string> SetOfferStatus(
+        [Description("Offer id (guid)")] string offerId,
+        [Description("Status: active, paused, or expired. paused and expired require confirm: true.")] string status,
+        [Description("Must be true to pause or expire the offer. Omit or pass false to preview.")] bool confirm = false)
+    {
+        if (!TryId(offerId, "offer id", out var id, out var error)) return error;
+        if (OfferStatusPreview(status, offerId, confirm) is { } preview) return preview;
+        return Json(await _factory.GetClient().SetOfferStatusAsync(id, status));
+    }
+
+    [McpServerTool(Name = "anythinkpay_list_offer_codes", ReadOnly = true),
+     Description("List the promo/referral codes attached to an offer")]
+    public async Task<string> ListOfferCodes(
+        [Description("Offer id (guid)")] string offerId)
+    {
+        if (!TryId(offerId, "offer id", out var id, out var error)) return error;
+        return Json(await _factory.GetClient().GetOfferCodesAsync(id));
+    }
+
+    [McpServerTool(Name = "anythinkpay_create_offer_code"),
+     Description("Add a promo/referral code to an offer. Omit ownerUserId for a shared promo code.")]
+    public async Task<string> CreateOfferCode(
+        [Description("Offer id (guid)")] string offerId,
+        [Description("Code slug (e.g. LAUNCH50)")] string slug,
+        [Description("Owner user id for a personal/referral code (optional)")] int? ownerUserId = null)
+    {
+        if (!TryId(offerId, "offer id", out var id, out var error)) return error;
+        return Json(await _factory.GetClient().CreateOfferCodeAsync(id, new CreateOfferCodeRequest(slug, ownerUserId)));
+    }
+
+    [McpServerTool(Name = "anythinkpay_get_offer_redemptions", ReadOnly = true),
+     Description("List redemptions for one offer")]
+    public async Task<string> GetOfferRedemptions(
+        [Description("Offer id (guid)")] string offerId,
+        [Description("Page number (default 1)")] int page = 1,
+        [Description("Items per page (default 50)")] int pageSize = 50)
+    {
+        if (!TryId(offerId, "offer id", out var id, out var error)) return error;
+        return Json(await _factory.GetClient().GetOfferRedemptionsAsync(id, page, pageSize));
+    }
+
+    [McpServerTool(Name = "anythinkpay_get_user_code", ReadOnly = true),
+     Description("Look up a user's personal referral code (admin)")]
+    public async Task<string> GetUserCode(
+        [Description("Numeric user id")] int userId)
+        => Json(await _factory.GetClient().GetUserCodeAsync(userId));
 }

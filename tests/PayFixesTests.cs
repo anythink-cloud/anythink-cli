@@ -101,7 +101,7 @@ public class PayFormatTests
     }
 }
 
-// ── Rule: money and currency input is validated before it is sent ──
+// ── Rule: money, currency and discount input is validated before it is sent ──
 
 public class PayValidationTests
 {
@@ -126,12 +126,38 @@ public class PayValidationTests
     [InlineData("u5d")]
     public void Currency_NotThreeLetters_IsRejected(string code) => PayValidation.Currency(code).Should().NotBeNull();
 
+    [Theory]
+    [InlineData(0.5)]
+    [InlineData(50)]
+    [InlineData(100)]
+    public void DiscountPercent_BetweenZeroAndHundred_IsAccepted(double percent)
+        => PayValidation.DiscountPercent((decimal)percent).Should().BeNull();
+
+    [Fact]
+    public void DiscountPercent_Zero_IsAllowed()
+        => PayValidation.DiscountPercent(0m).Should().BeNull();
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(100.5)]
+    [InlineData(150)]
+    public void DiscountPercent_NegativeOrOverHundred_IsRejected(double percent)
+        => PayValidation.DiscountPercent((decimal)percent).Should().NotBeNull();
+
     [Fact]
     public void PlanSettings_BadAmountOrCurrency_FailValidation()
     {
         new PayPlansCreateSettings { Amount = 0m }.ValidateSupplied().Should().NotBeNull();
         new PayPlansCreateSettings { Currency = "pounds" }.ValidateSupplied().Should().NotBeNull();
         new PayPlansCreateSettings { Amount = 5m, Currency = "gbp" }.ValidateSupplied().Should().BeNull();
+    }
+
+    [Fact]
+    public void OfferSettings_DiscountPercentShortcutOutOfRange_FailsValidation()
+    {
+        new PayOffersCreateSettings { DiscountPercent = 120m }.ValidateSupplied().Should().NotBeNull();
+        new PayOffersCreateSettings { DiscountPercent = 50m }.ValidateSupplied().Should().BeNull();
+        new PayOffersCreateSettings().ValidateSupplied().Should().BeNull();
     }
 }
 

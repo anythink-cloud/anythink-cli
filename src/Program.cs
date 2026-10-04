@@ -591,6 +591,56 @@ app.Configure(config =>
             subs.AddCommand<PaySubscriptionsResyncCommand>("resync")
                 .WithDescription("Re-sync a subscription from the provider (project admin)");
         });
+
+        pay.AddBranch("offers", offers =>
+        {
+            offers.SetDescription("Configure offers, promo/referral codes, and view redemptions");
+
+            offers.AddCommand<PayOffersListCommand>("list")
+                .WithDescription("List offers");
+
+            offers.AddCommand<PayOffersGetCommand>("get")
+                .WithDescription("Show one offer by id (guid)");
+
+            offers.AddCommand<PayOffersCreateCommand>("create")
+                .WithDescription("Create an offer (rewards via convenience flags or raw JSON)")
+                .WithExample("pay", "offers", "create",
+                    "--name", "Launch 50", "--kind", "discount", "--discount-percent", "50")
+                .WithExample("pay", "offers", "create",
+                    "--name", "Referral", "--kind", "referral",
+                    "--redeemer-trial-days", "14", "--referrer-subscription-days", "30");
+
+            offers.AddCommand<PayOffersUpdateCommand>("update")
+                .WithDescription("Update an offer (patch — only supplied fields change; kind is immutable)")
+                .WithExample("pay", "offers", "update", "<offerId>", "--referrer-trial-days", "30");
+
+            offers.AddCommand<PayOffersPauseCommand>("pause")
+                .WithDescription("Pause an offer");
+
+            offers.AddCommand<PayOffersActivateCommand>("activate")
+                .WithDescription("Activate a paused offer");
+
+            offers.AddCommand<PayOffersDeleteCommand>("delete")
+                .WithDescription("Permanently delete an offer and all its codes + redemptions (history is lost; trial bonuses already granted are preserved)")
+                .WithExample("pay", "offers", "delete", "<offerId>")
+                .WithExample("pay", "offers", "delete", "<offerId>", "--yes");
+
+            offers.AddCommand<PayOffersCodesCommand>("codes")
+                .WithDescription("List the promo/referral codes attached to an offer")
+                .WithExample("pay", "offers", "codes", "<offerId>");
+
+            offers.AddCommand<PayOffersAddCodeCommand>("add-code")
+                .WithDescription("Add a promo/referral code to an offer")
+                .WithExample("pay", "offers", "add-code", "<offerId>", "--slug", "LAUNCH50");
+
+            offers.AddCommand<PayOffersRedemptionsCommand>("redemptions")
+                .WithDescription("List redemptions for an offer")
+                .WithExample("pay", "offers", "redemptions", "<offerId>");
+
+            offers.AddCommand<PayOffersUserCodeCommand>("user-code")
+                .WithDescription("Look up a user's personal referral code")
+                .WithExample("pay", "offers", "user-code", "42");
+        });
     });
 
     // ── API Keys ──────────────────────────────────────────────────────────────
