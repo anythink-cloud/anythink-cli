@@ -11,7 +11,7 @@ public class HostedAuthTests
     [InlineData("https://api.my.anythink.cloud")]
     [InlineData("https://api.my.anythink.dev")]
     [InlineData("https://api.my.anythink.uk")]
-    [InlineData("https://api.uk01-lon.anythink.cloud")]
+    [InlineData("https://api.acme.anythink.cloud")]
     public void IsAllowedInstanceUrl_HttpsOnAllowedSuffix_Allowed(string url) =>
         HostedAuth.IsAllowedInstanceUrl(url, allowLoopback: false, Suffixes).Should().BeTrue();
 

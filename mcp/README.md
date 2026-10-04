@@ -51,6 +51,25 @@ To pin a profile:
 }
 ```
 
+## Use over HTTP (local)
+
+Some MCP clients connect over HTTP instead of launching a process. Run the server locally
+with `--http` and point the client at `http://localhost:5300/mcp`:
+
+```bash
+anythink-mcp --http
+npx -y @anythink-cloud/mcp --http --port 5300
+```
+
+It serves the same tools as stdio, uses your saved `anythink login`, and listens on
+`localhost` only. Requests for other hosts and from web pages are refused. There is no
+separate sign-in: anything that can reach `localhost` on your machine can use your login
+while it runs, so don't run it on a shared machine. For Claude Code:
+
+```bash
+claude mcp add --transport http anythink http://localhost:5300/mcp
+```
+
 ## Authenticate
 
 Once connected, run the `login` (or `login_direct`) tool, then `accounts_use` /
@@ -69,8 +88,7 @@ Once connected, run the `login` (or `login_direct`) tool, then `accounts_use` /
 
 `--hosted` serves MCP over Streamable HTTP for remote MCP clients, which sign the
 user in with their Anythink account via OAuth. One connection targets one
-project. stdio stays the default for local installs. `--http` now checks `X-Instance-Url`
-against the same host rules and no longer logs tool arguments.
+project.
 
 To run it locally:
 
@@ -132,12 +150,12 @@ loopback by default. If your internal services reach it over the network, set
 `MCP_INTERNAL_BIND` and `MCP_INTERNAL_TOKEN`; callers then send the token in
 `X-Internal-Token`.
 
-Rollout note: under `--hosted` the internal REST API moves to port `5301` (it was on the
-`--http` port, `5300`), so callers' URLs must change. Ingress should target only `5300`,
-and a NetworkPolicy should allow only your internal services to reach `5301`.
+Under `--hosted` the internal REST API listens on port `5301`. Route ingress only to `5300`,
+and allow only your internal services to reach `5301`.
 
-The Docker image runs `--http --port 5300` by default; override the container command
-with `--hosted` to switch modes.
+`--internal` runs only that internal REST API, on `--port` (default `5300`), with the same
+bind and token settings. The Docker image runs `--hosted` by default; override the
+container command with `--internal` to run only the internal REST API.
 
 ## Links
 
