@@ -44,8 +44,8 @@ internal static class SettingsHelpers
             ThemeSettings: t.ThemeSettings,
             RequireEmailConfirmation: requireEmailConfirmation);
 
-    /// <summary>Sets one key and saves. Returns false (and saves nothing) when the key is unknown.</summary>
-    public static async Task<bool> SetAsync(AnythinkClient client, string rawKey, string value)
+    public static async Task<SaveResult> SetAsync(
+        AnythinkClient client, string rawKey, string value, bool yes = false, Func<string, bool>? confirm = null)
     {
         var tenant = Require(await client.GetTenantAsync());
         var ts = tenant.TenantSettings ?? DefaultTenantSettings();
@@ -61,10 +61,27 @@ internal static class SettingsHelpers
             case "name":                         name = value; break;
             case "description":                  description = value; break;
             case "google_maps_key":              googleMapsKey = value; break;
-            case "require_email_confirmation":   requireEmail = ParseBool(value, key); break;
+            case "require_email_confirmation":
+                requireEmail = ParseBool(value, key);
+                if (requireEmail == false &&
+                    !Authorise("Turning off email confirmation lets anyone register with an address they don't own.", false, yes, confirm))
+                    return SaveResult.Cancelled;
+                break;
 
-            case "allow_registrations":          ts = ts with { AllowRegistrations = ParseBool(value, key) }; break;
-            case "default_role_id":              ts = ts with { DefaultRoleId = ParseInt(value, key) }; break;
+            case "allow_registrations":
+                var allow = ParseBool(value, key);
+                if (allow &&
+                    !Authorise("Enabling registrations lets anyone sign up to this project without an invitation.", false, yes, confirm))
+                    return SaveResult.Cancelled;
+                ts = ts with { AllowRegistrations = allow };
+                break;
+            case "default_role_id":
+                var roleId = ParseInt(value, key);
+                var adminWarning = await AdminRoleWarningAsync(client, roleId);
+                if (adminWarning != null && !Authorise(adminWarning, true, yes, confirm))
+                    return SaveResult.Cancelled;
+                ts = ts with { DefaultRoleId = roleId };
+                break;
             case "enable_group_rls":             ts = ts with { EnableGroupRls = ParseBool(value, key) }; break;
             case "payment_success_url":          ts = ts with { PaymentSuccessUrl = value }; break;
             case "payment_cancel_url":           ts = ts with { PaymentCancelUrl = value }; break;
@@ -74,40 +91,177 @@ internal static class SettingsHelpers
             case "app_engagement_trial_enabled": ts = ts with { AppEngagementTrialEnabled = ParseBool(value, key) }; break;
             case "app_engagement_trial_days":    ts = ts with { AppEngagementTrialDays = ParseInt(value, key) }; break;
 
-            default: return false;
+            default: return SaveResult.UnknownKey;
         }
 
         await client.UpdateTenantAsync(BuildUpdate(tenant, name, description, googleMapsKey, requireEmail, ts));
-        return true;
+        return SaveResult.Saved;
     }
 
-    /// <summary>Adds an allowed origin and clears the CORS cache. Returns false when it is already present.</summary>
-    public static Task<bool> AddCorsUrlAsync(AnythinkClient client, string url) =>
-        UpdateCorsUrlsAsync(client, urls =>
+    public static Func<string, bool>? InteractiveConfirm() =>
+        AnsiConsole.Profile.Capabilities.Interactive
+            ? warning => AnsiConsole.Confirm($"[yellow]{Markup.Escape(warning)}[/] Continue?", defaultValue: false)
+            : null;
+
+    // Hard warnings never prompt: only an explicit --yes lets them through.
+    internal static bool Authorise(string warning, bool hard, bool yes, Func<string, bool>? confirm)
+    {
+        if (yes) return true;
+        if (hard || confirm is null)
+            throw new CliException($"{Markup.Escape(warning)} Re-run with [bold]--yes[/] to confirm.");
+        return confirm(warning);
+    }
+
+    internal static async Task<string?> AdminRoleWarningAsync(AnythinkClient client, int roleId)
+    {
+        var role = await client.GetRoleAsync(roleId)
+            ?? throw new CliException($"Role {roleId} doesn't exist in this project.");
+
+        // Ordinary seeded roles already have API access, so that says nothing about privilege.
+        var adminLike = role.IsAdministrator ||
+            role.Name.Trim().ToLowerInvariant() is "admin" or "administrator" ||
+            (role.Permissions ?? []).Any(p => p.Name.StartsWith("anythink_", StringComparison.OrdinalIgnoreCase)
+                                              && !p.Name.EndsWith(":read", StringComparison.OrdinalIgnoreCase));
+        return adminLike
+            ? $"Role '{role.Name}' has administrative access, and every new sign-up would be given it."
+            : null;
+    }
+
+    public static async Task<SaveResult> AddCorsUrlAsync(
+        AnythinkClient client, string url, bool yes = false, Func<string, bool>? confirm = null)
+    {
+        var origin = CorsOrigin.Parse(url);
+        if (origin.Warning != null && !Authorise(origin.Warning, true, yes, confirm))
+            return SaveResult.Cancelled;
+
+        return await UpdateCorsUrlsAsync(client, urls =>
         {
-            if (urls.Contains(url, StringComparer.OrdinalIgnoreCase)) return false;
-            urls.Add(url);
+            if (urls.Contains(origin.Value, StringComparer.OrdinalIgnoreCase)) return false;
+            urls.Add(origin.Value);
             return true;
         });
+    }
 
-    /// <summary>Removes an allowed origin and clears the CORS cache. Returns false when it isn't present.</summary>
-    public static Task<bool> RemoveCorsUrlAsync(AnythinkClient client, string url) =>
-        UpdateCorsUrlsAsync(client, urls =>
-            urls.RemoveAll(u => string.Equals(u, url, StringComparison.OrdinalIgnoreCase)) > 0);
+    public static Task<SaveResult> RemoveCorsUrlAsync(AnythinkClient client, string url)
+    {
+        var raw = url.Trim();
+        var normalised = CorsOrigin.TryParse(raw)?.Value ?? raw;
+        return UpdateCorsUrlsAsync(client, urls =>
+            urls.RemoveAll(u => string.Equals(u, normalised, StringComparison.OrdinalIgnoreCase)
+                             || string.Equals(u, raw, StringComparison.OrdinalIgnoreCase)) > 0);
+    }
 
-    private static async Task<bool> UpdateCorsUrlsAsync(AnythinkClient client, Func<List<string>, bool> change)
+    private static async Task<SaveResult> UpdateCorsUrlsAsync(AnythinkClient client, Func<List<string>, bool> change)
     {
         var tenant = Require(await client.GetTenantAsync());
         var ts = tenant.TenantSettings ?? DefaultTenantSettings();
         var urls = new List<string>(ts.AllowedApplicationUrls ?? []);
-        if (!change(urls)) return false;
+        if (!change(urls)) return SaveResult.Unchanged;
 
         await client.UpdateTenantAsync(BuildUpdate(
             tenant, tenant.Name, tenant.Description, tenant.GoogleMapsKey,
             tenant.RequireEmailConfirmation, ts with { AllowedApplicationUrls = urls }));
         await client.ClearCorsCacheAsync();
-        return true;
+        return SaveResult.Saved;
     }
+
+    private static readonly System.Text.RegularExpressions.Regex SecretName =
+        new("secret|token|password|api_?key|private_?key|_key$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    public static System.Text.Json.Nodes.JsonNode? MaskSecrets(System.Text.Json.Nodes.JsonNode? node)
+    {
+        switch (node)
+        {
+            case System.Text.Json.Nodes.JsonObject obj:
+                foreach (var (k, v) in obj.ToList())
+                {
+                    if (SecretName.IsMatch(k))
+                        obj[k] = v is null || (v is System.Text.Json.Nodes.JsonValue jv &&
+                                  jv.TryGetValue<string>(out var str) && string.IsNullOrEmpty(str))
+                            ? null : "set";
+                    else
+                        MaskSecrets(v);
+                }
+                break;
+            case System.Text.Json.Nodes.JsonArray arr:
+                foreach (var item in arr) MaskSecrets(item);
+                break;
+        }
+        return node;
+    }
+}
+
+public enum SaveResult { Saved, Unchanged, UnknownKey, Cancelled }
+
+internal sealed record CorsOrigin(string Value, string? Warning)
+{
+    private static readonly string[] SharedSuffixes =
+    [
+        "vercel.app", "netlify.app", "herokuapp.com", "github.io", "pages.dev", "web.app", "firebaseapp.com",
+        "azurewebsites.net", "cloudfront.net", "onrender.com", "fly.dev", "co.uk", "com.au",
+    ];
+
+    public static CorsOrigin? TryParse(string input)
+    {
+        try { return Parse(input); }
+        catch (CliException) { return null; }
+    }
+
+    public static CorsOrigin Parse(string input)
+    {
+        var s = input.Trim();
+        if (s.EndsWith('/')) s = s[..^1];
+        if (s.Length == 0 || s == "*" || s.Equals("null", StringComparison.OrdinalIgnoreCase))
+            throw Invalid(input, "an origin is required, not a bare wildcard or 'null'");
+
+        string? scheme = null;
+        var rest = s;
+        var sep = s.IndexOf("://", StringComparison.Ordinal);
+        if (sep >= 0)
+        {
+            scheme = s[..sep].ToLowerInvariant();
+            rest = s[(sep + 3)..];
+            if (scheme is not ("http" or "https"))
+                throw Invalid(input, "only http and https origins are allowed");
+        }
+        else if (!s.StartsWith("*.", StringComparison.Ordinal))
+        {
+            throw Invalid(input, "include the scheme, e.g. https://app.example.com");
+        }
+
+        if (rest.IndexOfAny(['/', '?', '#', '@', '\\', ' ']) >= 0)
+            throw Invalid(input, "an origin has no path, query, fragment or credentials");
+
+        var host = rest;
+        string? port = null;
+        var colon = rest.LastIndexOf(':');
+        if (colon >= 0)
+        {
+            host = rest[..colon];
+            port = rest[(colon + 1)..];
+            if (!int.TryParse(port, out var p) || p is < 1 or > 65535 || port.Any(c => !char.IsAsciiDigit(c)))
+                throw Invalid(input, "invalid port");
+        }
+
+        host = host.ToLowerInvariant();
+        var wildcard = host.StartsWith("*.", StringComparison.Ordinal);
+        var baseHost = wildcard ? host[2..] : host;
+        if (baseHost.Length == 0 || baseHost.Split('.').Any(l => l.Length == 0 || l.StartsWith('-') || l.EndsWith('-'))
+            || baseHost.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '.' or '-')))
+            throw Invalid(input, "invalid host name");
+
+        var value = (scheme is null ? "" : scheme + "://") + host + (port is null ? "" : ":" + port);
+
+        string? warning = null;
+        if (wildcard && (!baseHost.Contains('.') ||
+                         SharedSuffixes.Any(x => baseHost == x || baseHost.EndsWith("." + x))))
+            warning = $"'{value}' would trust every site hosted under '{baseHost}', including ones other people control.";
+
+        return new CorsOrigin(value, warning);
+    }
+
+    private static CliException Invalid(string input, string why) =>
+        new($"'{Markup.Escape(input)}' is not a valid origin: {why}.");
 }
 
 // ── settings get ─────────────────────────────────────────────────────────────
@@ -129,7 +283,8 @@ public class SettingsGetCommand : BaseCommand<SettingsGetSettings>
 
             if (opts.Json)
             {
-                Renderer.PrintJson(System.Text.Json.JsonSerializer.Serialize(tenant, Renderer.PrettyJson));
+                var node = System.Text.Json.JsonSerializer.SerializeToNode(tenant, Renderer.PrettyJson);
+                Renderer.PrintJson(SettingsHelpers.MaskSecrets(node)!.ToJsonString(Renderer.PrettyJson));
                 return 0;
             }
 
@@ -142,7 +297,7 @@ public class SettingsGetCommand : BaseCommand<SettingsGetSettings>
             Renderer.KeyValue("google_maps_key", string.IsNullOrEmpty(tenant.GoogleMapsKey) ? "—" : "✓ set");
 
             AnsiConsole.WriteLine();
-            Renderer.Header("Tenant settings");
+            Renderer.Header("Project settings");
             Renderer.KeyValue("allow_registrations", (ts?.AllowRegistrations ?? false).ToString().ToLowerInvariant());
             Renderer.KeyValue("default_role_id", ts?.DefaultRoleId?.ToString() ?? "—");
             Renderer.KeyValue("enable_group_rls", (ts?.EnableGroupRls ?? false).ToString().ToLowerInvariant());
@@ -187,6 +342,10 @@ public class SettingsSetSettings : CommandSettings
     [CommandArgument(1, "<VALUE>")]
     [Description("New value")]
     public string Value { get; set; } = "";
+
+    [CommandOption("-y|--yes")]
+    [Description("Confirm risky changes without prompting (required when not running interactively)")]
+    public bool Yes { get; set; }
 }
 
 public class SettingsSetCommand : BaseCommand<SettingsSetSettings>
@@ -196,11 +355,15 @@ public class SettingsSetCommand : BaseCommand<SettingsSetSettings>
         try
         {
             var client = GetClient();
-            var known = false;
-            await AnsiConsole.Status().StartAsync("Saving…", async _ =>
-                known = await SettingsHelpers.SetAsync(client, s.Key, s.Value));
+            var result = await SettingsHelpers.SetAsync(client, s.Key, s.Value, s.Yes, SettingsHelpers.InteractiveConfirm());
 
-            if (!known)
+            if (result == SaveResult.Cancelled)
+            {
+                Renderer.Info("Cancelled.");
+                return 0;
+            }
+
+            if (result == SaveResult.UnknownKey)
             {
                 Renderer.Error($"Unknown setting key '{Markup.Escape(s.Key)}'.");
                 AnsiConsole.MarkupLine("[dim]Run [bold]anythink settings get[/] to see available keys. For CORS URLs use [bold]anythink settings cors add/remove[/].[/]");
@@ -235,8 +398,12 @@ public class SettingsCorsListCommand : BaseCommand<EmptySettings>
 public class SettingsCorsUrlSettings : CommandSettings
 {
     [CommandArgument(0, "<URL>")]
-    [Description("Application origin, e.g. https://app.example.com or a wildcard like *.example.com")]
+    [Description("Application origin, e.g. https://app.example.com or a wildcard like https://*.example.com")]
     public string Url { get; set; } = "";
+
+    [CommandOption("-y|--yes")]
+    [Description("Confirm risky wildcard origins without prompting")]
+    public bool Yes { get; set; }
 }
 
 public class SettingsCorsAddCommand : BaseCommand<SettingsCorsUrlSettings>
@@ -246,17 +413,22 @@ public class SettingsCorsAddCommand : BaseCommand<SettingsCorsUrlSettings>
         try
         {
             var client = GetClient();
-            var changed = false;
-            await AnsiConsole.Status().StartAsync("Saving…", async _ =>
-                changed = await SettingsHelpers.AddCorsUrlAsync(client, s.Url));
+            var result = await SettingsHelpers.AddCorsUrlAsync(client, s.Url, s.Yes, SettingsHelpers.InteractiveConfirm());
 
-            if (!changed)
+            if (result == SaveResult.Cancelled)
             {
-                Renderer.Warn($"'{Markup.Escape(s.Url)}' is already in the allow-list.");
+                Renderer.Info("Cancelled.");
                 return 0;
             }
 
-            Renderer.Success($"Added [bold]{Markup.Escape(s.Url)}[/] to allowed origins (CORS cache cleared).");
+            var shown = CorsOrigin.Parse(s.Url).Value;
+            if (result == SaveResult.Unchanged)
+            {
+                Renderer.Warn($"'{Markup.Escape(shown)}' is already in the allow-list.");
+                return 0;
+            }
+
+            Renderer.Success($"Added [bold]{Markup.Escape(shown)}[/] to allowed origins (CORS cache cleared).");
             return 0;
         }
         catch (Exception ex) { HandleError(ex); return 1; }
@@ -270,9 +442,7 @@ public class SettingsCorsRemoveCommand : BaseCommand<SettingsCorsUrlSettings>
         try
         {
             var client = GetClient();
-            var changed = false;
-            await AnsiConsole.Status().StartAsync("Saving…", async _ =>
-                changed = await SettingsHelpers.RemoveCorsUrlAsync(client, s.Url));
+            var changed = await SettingsHelpers.RemoveCorsUrlAsync(client, s.Url) == SaveResult.Saved;
 
             if (!changed)
             {

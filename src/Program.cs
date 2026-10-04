@@ -609,7 +609,7 @@ app.Configure(config =>
         });
     });
 
-    // ── Settings (project / tenant) ─────────────────────────────────────────────
+    // ── Settings (project) ─────────────────────────────────────────────
 
     config.AddBranch("settings", settings =>
     {

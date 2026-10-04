@@ -365,7 +365,8 @@ public record RoleResponse(
     [property: JsonPropertyName("description")]      string?          Description,
     [property: JsonPropertyName("is_active")]        bool             IsActive,
     [property: JsonPropertyName("anyapi_access")]    bool             AnyApiAccess = false,
-    [property: JsonPropertyName("permissions")]      List<Permission>? Permissions = null
+    [property: JsonPropertyName("permissions")]      List<Permission>? Permissions = null,
+    [property: JsonPropertyName("is_administrator")] bool             IsAdministrator = false
 );
 
 public record CreateRoleRequest(
@@ -524,8 +525,7 @@ public record TenantSettingsDto(
     [property: JsonPropertyName("enable_group_rls")]            bool?         EnableGroupRls = null
 )
 {
-    // The update endpoint replaces the whole settings object, so fields this model doesn't
-    // know about are carried through unchanged rather than reset to their defaults.
+    // Update replaces the whole object, so unmodelled fields must round-trip.
     [JsonExtensionData] public Dictionary<string, JsonElement>? Extra { get; init; }
 }
 

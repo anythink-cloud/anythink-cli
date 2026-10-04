@@ -608,9 +608,9 @@ View and change project settings in the active project, including the allowed ap
 
 ```
 anythink settings get [--json]                   Show all project settings
-anythink settings set <key> <value>              Set a single project setting
+anythink settings set <key> <value> [--yes]     Set a single project setting
 anythink settings cors list                      List allowed application URLs
-anythink settings cors add <url>                 Add an allowed origin
+anythink settings cors add <url> [--yes]         Add an allowed origin
 anythink settings cors remove <url>              Remove an allowed origin
 ```
 
@@ -630,6 +630,10 @@ anythink settings cors remove <url>              Remove an allowed origin
 | `ai_byok_provider`, `ai_default_model` | Text                              |
 | `google_maps_key`              | Text                                      |
 
+Origins must be `http`/`https` with a host and optional port, with no path, query or fragment; a trailing `/` is stripped. A wildcard such as `https://*.example.com` is only safe on a domain you control, so wildcards under shared hosting domains (`vercel.app`, `github.io`, …) or a bare TLD are refused unless you pass `--yes`.
+
+Some changes widen who can sign up: `default_role_id` pointing at an administrator role is refused unless you pass `--yes`, and `allow_registrations true` and `require_email_confirmation false` ask for confirmation (pass `--yes` when running non-interactively).
+
 `cors add` and `cors remove` clear the project's CORS cache, so the change applies straight away. Matching is case-insensitive and adding a URL that is already present does nothing. Anythink's own domains and `localhost` are always allowed and don't need adding.
 
 **Examples**
@@ -638,8 +642,8 @@ anythink settings cors remove <url>              Remove an allowed origin
 # Allow a deployed front end to call the API
 anythink settings cors add https://my-app.vercel.app
 
-# Allow every subdomain
-anythink settings cors add "*.example.com"
+# Allow every subdomain of a domain you own
+anythink settings cors add "https://*.example.com"
 
 # Remove an origin
 anythink settings cors remove https://my-app.vercel.app
