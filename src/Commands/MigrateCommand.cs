@@ -1145,7 +1145,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
 
     /// <summary>
     /// Remaps the org ID in an href from source to destination.
-    /// "/org/54925003/entities/categories" → "/org/37523255/entities/categories"
+    /// "/org/11111111/entities/categories" → "/org/22222222/entities/categories"
     /// Hrefs without an org prefix are returned unchanged.
     /// </summary>
     internal static string RemapHref(string href, string srcOrgId, string dstOrgId) =>
