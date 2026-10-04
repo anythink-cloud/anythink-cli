@@ -582,13 +582,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                                 remappedDefaultRoleId = dstRoleId;
                         }
 
-                        var newSettings = srcTenant.TenantSettings == null ? null
-                            : new TenantSettingsDto(
-                                srcTenant.TenantSettings.AllowRegistrations,
-                                remappedDefaultRoleId,
-                                srcTenant.TenantSettings.AllowedApplicationUrls,
-                                srcTenant.TenantSettings.PaymentSuccessUrl,
-                                srcTenant.TenantSettings.PaymentCancelUrl);
+                        var newSettings = BuildDestinationSettings(srcTenant.TenantSettings, remappedDefaultRoleId);
 
                         try
                         {
@@ -1142,6 +1136,9 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         }
         cCreated.Value++;
     }
+
+    internal static TenantSettingsDto? BuildDestinationSettings(TenantSettingsDto? source, int? remappedDefaultRoleId)
+        => source is null ? null : source with { DefaultRoleId = remappedDefaultRoleId };
 
     /// <summary>
     /// Remaps the org ID in an href from source to destination.

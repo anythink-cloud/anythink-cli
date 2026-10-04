@@ -98,9 +98,7 @@ internal static class InternalApi
                 ? args
                 : JsonSerializer.Deserialize<JsonElement>("{}");
 
-            if (toolName is "login" or "login_direct" or "signup" or "logout"
-                or "config_use" or "config_remove" or "config_show"
-                or "accounts_use")
+            if (McpToolRegistry.BlockedInHttpMode.Contains(toolName))
             {
                 return Results.Json(new
                 {

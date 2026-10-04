@@ -34,7 +34,7 @@ public class CliTool
         "Pass the command exactly as you would after 'anythink', e.g. 'entities list' or 'data list posts'. " +
         "Menu commands: 'menus list' shows dashboard menus with tree structure; " +
         "'menus add-item <menu_id> <entity> --icon <Icon> --parent <parent_id>' adds an entity to a dashboard menu. " +
-        "For destructive commands add '--yes' to skip confirmation prompts. " +
+        "Destructive commands (delete, expire, relink, pause and similar) must be run by a person in a terminal; never add '--yes' on their behalf. " +
         "Add '--json' where supported for machine-readable output.")]
     public async Task<string> RunCli(
         [Description(
@@ -49,12 +49,49 @@ public class CliTool
         if (!SafeArgs.IsMatch(command))
             return "Error: command contains disallowed characters.";
 
+        if (RefusalFor(command, McpClientFactory.IsHttpMode) is { } refusal)
+            return refusal;
+
         // HTTP mode: execute in-process via AnythinkClient
         if (McpClientFactory.IsHttpMode)
             return await ExecuteInProcess(command);
 
         // Stdio mode: shell out to the CLI binary
         return await ExecuteViaProcess(command);
+    }
+
+    private const string PayRefusal =
+        "Refused: this changes billing state and cannot be run through the cli tool. " +
+        "Use the dedicated anythinkpay_* tools (which ask for confirm: true) or ask a person to run it in a terminal.";
+
+    internal static string? RefusalFor(string command, bool httpMode)
+    {
+        var args = SplitArgs(command);
+        var words = args.Where(a => !a.StartsWith('-')).Select(a => a.ToLowerInvariant()).ToList();
+
+        if (words is ["pay", ..])
+        {
+            var area = words.ElementAtOrDefault(1);
+            var action = words.ElementAtOrDefault(2);
+            var refused = (area, action) switch
+            {
+                ("subscriptions", "delete" or "force-expire" or "relink" or "resync" or "cancel") => true,
+                ("plans", "delete") => true,
+                ("apple", "credentials" or "verify") => true,
+                _ => false
+            };
+            if (refused) return PayRefusal;
+        }
+
+        if (httpMode && words is ["fetch", ..])
+        {
+            var (method, path, _) = ParseFetch(args.Skip(1).ToList());
+            if (!method.Equals("GET", StringComparison.OrdinalIgnoreCase) &&
+                path.Contains("/integrations/anythinkpay/", StringComparison.OrdinalIgnoreCase))
+                return PayRefusal;
+        }
+
+        return null;
     }
 
     // ── HTTP mode: in-process execution ──────────────────────────────────
@@ -423,9 +460,17 @@ public class CliTool
     {
         if (args.Count == 0) return "Usage: fetch [METHOD] <path> [--data '{...}'] or fetch <path> [--method METHOD] [--data '{...}']";
 
-        // Support both: `fetch POST /path -d '{}'` and `fetch /path --method POST --data '{}'`
-        var method = "GET";
-        var path = args[0];
+        var (method, path, body) = ParseFetch(args);
+        var url = ResolveFetchUrl(path, client.BaseUrl, client.OrgId);
+        if (url is null) return "fetch only accepts a path, or a URL on the project's API host.";
+        return await client.FetchRawAsync(url, method, body);
+    }
+
+    // Supports both `fetch POST /path -d '{}'` and `fetch /path --method POST --data '{}'`.
+    private static (string Method, string Path, string? Body) ParseFetch(List<string> args)
+    {
+        if (args.Count == 0) return ("GET", "", null);
+        string method, path = args[0];
         if (args.Count > 1 && args[0] is "GET" or "POST" or "PUT" or "PATCH" or "DELETE")
         {
             method = args[0];
@@ -437,10 +482,7 @@ public class CliTool
             args = args.Skip(1).ToList();
             method = GetFlag(args, "--method") ?? "GET";
         }
-        var body = GetFlag(args, "--data") ?? GetFlag(args, "-d");
-        var url = ResolveFetchUrl(path, client.BaseUrl, client.OrgId);
-        if (url is null) return "fetch only accepts a path, or a URL on the project's API host.";
-        return await client.FetchRawAsync(url, method, body);
+        return (method, path, GetFlag(args, "--data") ?? GetFlag(args, "-d"));
     }
 
     internal static string? ResolveFetchUrl(string path, string baseUrl, string orgId)
