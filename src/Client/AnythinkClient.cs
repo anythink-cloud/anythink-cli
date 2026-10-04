@@ -139,7 +139,7 @@ public class AnythinkClient : HttpApiClient
     public Task DisableWorkflowAsync(int id) => PostAsync<JsonObject>(_org + $"/workflows/{id}/disable");
 
     public Task TriggerWorkflowAsync(int id, object? payload = null)
-        => PostAsync<JsonObject>(_org + $"/workflows/{id}/trigger", payload ?? new { });
+        => PostVoidAsync(_org + $"/workflows/{id}/trigger", payload ?? new { });
 
     public Task DeleteWorkflowAsync(int id) => DeleteAsync(_org + $"/workflows/{id}");
 
@@ -166,10 +166,11 @@ public class AnythinkClient : HttpApiClient
     // ── Data ──────────────────────────────────────────────────────────────────
 
     public async Task<PaginatedResult<JsonObject>> ListItemsAsync(
-        string entityName, int page = 1, int pageSize = 20, string? filterJson = null)
+        string entityName, int page = 1, int pageSize = 20, string? filter = null, string? fields = null)
     {
-        var url = _org + $"/entities/{entityName}/items?limit={pageSize}&page={page}";
-        if (!string.IsNullOrEmpty(filterJson)) url += $"&filter={Uri.EscapeDataString(filterJson)}";
+        var url = _org + $"/entities/{entityName}/items?page={page}&pageSize={pageSize}"
+                  + ItemFilterQuery.ToQueryString(ItemFilterQuery.Parse(filter));
+        if (!string.IsNullOrEmpty(fields)) url += $"&fields={Uri.EscapeDataString(fields)}";
         return (await GetAsync<PaginatedResult<JsonObject>>(url))
                ?? new PaginatedResult<JsonObject>([], 0, null, false, page, pageSize);
     }

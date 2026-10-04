@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using AnythinkCli.Client;
+using AnythinkCli.Commands;
 using AnythinkCli.Models;
 using ModelContextProtocol.Server;
 
@@ -272,11 +273,7 @@ public class CliTool
         }
         if (args[0] == "trigger" && args.Count > 1 && (await ResolveWorkflowId(client, args[1])) is { } triggerId)
         {
-            var payloadStr = GetFlag(args, "--payload");
-            object? payload = null;
-            if (payloadStr != null)
-                payload = new { data = JsonNode.Parse(payloadStr) };
-            await client.TriggerWorkflowAsync(triggerId, payload);
+            await client.TriggerWorkflowAsync(triggerId, BuildTriggerPayload(args));
             return $"Workflow {triggerId} triggered.";
         }
         if (args[0] == "enable" && args.Count > 1 && (await ResolveWorkflowId(client, args[1])) is { } enableId)
@@ -441,10 +438,21 @@ public class CliTool
             method = GetFlag(args, "--method") ?? "GET";
         }
         var body = GetFlag(args, "--data") ?? GetFlag(args, "-d");
-        // Ensure path is a full URL — prepend the tenant base URL if it's a relative path
-        if (path.StartsWith('/'))
-            path = $"{client.BaseUrl}/org/{client.OrgId}{path}";
-        return await client.FetchRawAsync(path, method, body);
+        var url = ResolveFetchUrl(path, client.BaseUrl, client.OrgId);
+        if (url is null) return "fetch only accepts a path, or a URL on the project's API host.";
+        return await client.FetchRawAsync(url, method, body);
+    }
+
+    internal static string? ResolveFetchUrl(string path, string baseUrl, string orgId)
+    {
+        if (path.StartsWith('/')) return $"{baseUrl}/org/{orgId}{path}";
+
+        return Uri.TryCreate(path, UriKind.Absolute, out var target)
+            && Uri.TryCreate(baseUrl, UriKind.Absolute, out var project)
+            && target.UserInfo.Length == 0
+            && Uri.Compare(target, project, UriComponents.SchemeAndServer, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) == 0
+            ? path
+            : null;
     }
 
     private static async Task<string> HandleDocs(AnythinkClient client, bool json)
@@ -511,6 +519,17 @@ public class CliTool
         var items = rows.ToList();
         if (items.Count == 0) return $"{title}: (none)";
         return $"{title} ({items.Count}):\n{Serialize(items)}";
+    }
+
+    internal static JsonObject? BuildTriggerPayload(List<string> args)
+    {
+        var payload = GetFlag(args, "--payload");
+        var entity = GetFlag(args, "--entity");
+        var entityIdRaw = GetFlag(args, "--entity-id");
+        int? entityId = null;
+        if (entityIdRaw != null)
+            entityId = int.TryParse(entityIdRaw, out var id) ? id : throw new ArgumentException($"--entity-id must be an integer, got '{entityIdRaw}'.");
+        return WorkflowsTriggerCommand.BuildPayload(payload, entity, entityId);
     }
 
     private static string? GetFlag(List<string> args, string flag)
