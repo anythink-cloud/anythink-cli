@@ -14,6 +14,15 @@ public static class McpToolRegistry
 {
     private static readonly Dictionary<string, ToolInfo> Tools = DiscoverTools();
 
+    internal static readonly HashSet<string> BlockedInHttpMode =
+    [
+        "login", "login_direct", "signup", "logout",
+        "config_use", "config_remove", "config_show",
+        "accounts_use",
+        "anythinkpay_admin_delete_subscription", "anythinkpay_admin_force_expire_subscription",
+        "anythinkpay_admin_relink_subscription", "anythinkpay_admin_resync_subscription"
+    ];
+
     /// <summary>Returns tool definitions in Claude API tool_use format.</summary>
     public static List<object> GetToolDefinitions()
     {
@@ -29,6 +38,9 @@ public static class McpToolRegistry
     public static async Task<string> ExecuteToolAsync(string toolName, JsonElement arguments,
         IServiceProvider services)
     {
+        if (BlockedInHttpMode.Contains(toolName))
+            throw new UnauthorizedAccessException($"Tool '{toolName}' is not available in HTTP mode.");
+
         if (!Tools.TryGetValue(toolName, out var tool))
             throw new ArgumentException($"Unknown tool: {toolName}");
 

@@ -115,9 +115,7 @@ static async Task RunHttpServer(string? profile, int port)
             : JsonSerializer.Deserialize<JsonElement>("{}");
 
         // Block config-mutating tools in HTTP mode
-        if (toolName is "login" or "login_direct" or "signup" or "logout"
-            or "config_use" or "config_remove" or "config_show"
-            or "accounts_use")
+        if (McpToolRegistry.BlockedInHttpMode.Contains(toolName))
         {
             return Results.Json(new
             {
