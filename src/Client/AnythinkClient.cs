@@ -105,6 +105,33 @@ public class AnythinkClient : HttpApiClient
     public Task DeleteEntityAsync(string name)
         => DeleteAsync(_org + $"/entities/{name}");
 
+    // ── Email Templates ───────────────────────────────────────────────────────
+
+    public async Task<List<EmailTemplate>> GetEmailTemplatesAsync()
+        => (await GetAsync<List<EmailTemplate>>(_org + "/email-templates")) ?? [];
+
+    public async Task<EmailTemplate> GetEmailTemplateAsync(string templateType)
+        => (await GetAsync<EmailTemplate>(_org + $"/email-templates/{templateType}"))
+           ?? throw new AnythinkException($"Email template '{templateType}' not found.", 404);
+
+    public async Task<EmailTemplatePreview> PreviewEmailTemplateAsync(string templateType)
+        => (await GetAsync<EmailTemplatePreview>(_org + $"/email-templates/{templateType}/preview"))
+           ?? throw new AnythinkException($"Could not preview '{templateType}'.", 404);
+
+    public async Task<EmailTemplatePreview> PreviewRawEmailAsync(PreviewRawEmailRequest req)
+        => (await PostAsync<EmailTemplatePreview>(_org + "/email-templates/preview-raw", req))
+           ?? throw new AnythinkException("Preview returned no body.", 500);
+
+    public Task<EmailTemplate?> UpdateEmailTemplateAsync(string templateType, UpdateEmailTemplateRequest req)
+        => PutAsync<EmailTemplate>(_org + $"/email-templates/{templateType}", req);
+
+    public async Task<EmailShell> GetEmailShellAsync()
+        => (await GetAsync<EmailShell>(_org + "/email-templates/shell"))
+           ?? throw new AnythinkException("Could not load shell.", 404);
+
+    public Task<EmailShell?> UpdateEmailShellAsync(UpdateEmailShellRequest req)
+        => PutAsync<EmailShell>(_org + "/email-templates/shell", req);
+
     // ── Fields ────────────────────────────────────────────────────────────────
     // Uses dedicated GET /entities/{name}/fields endpoint (not the full entity fetch)
 

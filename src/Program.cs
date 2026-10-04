@@ -173,6 +173,46 @@ app.Configure(config =>
             .WithExample("entities", "delete", "temp_data", "--yes");
     });
 
+    // ── Email ─────────────────────────────────────────────────────────────────
+
+    config.AddBranch("email", email =>
+    {
+        email.SetDescription("Manage email templates and the per-project shell wrapper");
+
+        email.AddBranch("templates", templates =>
+        {
+            templates.SetDescription("Inspect and edit email templates");
+
+            templates.AddCommand<EmailTemplatesListCommand>("list")
+                .WithDescription("List all email templates for this project");
+
+            templates.AddCommand<EmailTemplateShowCommand>("show")
+                .WithDescription("Show a template's subject + content, or the rendered HTML with --rendered")
+                .WithExample("email", "templates", "show", "confirmation")
+                .WithExample("email", "templates", "show", "confirmation", "--rendered");
+
+            templates.AddCommand<EmailTemplateUpdateCommand>("update")
+                .WithDescription("Update a template's subject or content (content from file or stdin)")
+                .WithExample("email", "templates", "update", "confirmation", "--content", "./new.html")
+                .WithExample("cat new.html | email templates update confirmation --content -");
+        });
+
+        email.AddCommand<EmailPreviewRawCommand>("preview")
+            .WithDescription("Render uncommitted subject + content + optional wrapper, print HTML")
+            .WithExample("email", "preview", "--subject", "Hi", "--content", "./body.html");
+
+        email.AddBranch("shell", shell =>
+        {
+            shell.SetDescription("Manage the per-project HTML shell that wraps every email's body");
+
+            shell.AddCommand<EmailShellShowCommand>("show")
+                .WithDescription("Show the current shell HTML (custom or platform default)");
+
+            shell.AddCommand<EmailShellUpdateCommand>("update")
+                .WithDescription("Save new shell HTML, or pass --reset to revert to the platform default");
+        });
+    });
+
     // ── Fields ────────────────────────────────────────────────────────────────
 
     config.AddBranch("fields", fields =>

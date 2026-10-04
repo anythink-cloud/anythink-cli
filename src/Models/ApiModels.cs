@@ -542,3 +542,41 @@ public record UpdateTenantRequest(
     [property: JsonPropertyName("tenant_settings")]   TenantSettingsDto? TenantSettings,
     [property: JsonPropertyName("theme_settings")]    ThemeSettingsDto?  ThemeSettings
 );
+
+public record EmailTemplate(
+    [property: JsonPropertyName("id")]              int     Id,
+    [property: JsonPropertyName("template_type")]   string  TemplateType,
+    [property: JsonPropertyName("subject")]         string  Subject,
+    [property: JsonPropertyName("content")]         string  Content,
+    [property: JsonPropertyName("display_name")]    string? DisplayName,
+    [property: JsonPropertyName("description")]     string? Description,
+    [property: JsonPropertyName("is_active")]       bool    IsActive,
+    [property: JsonPropertyName("is_system")]       bool?   IsSystem,
+    [property: JsonPropertyName("locked")]          bool    Locked
+);
+
+public record EmailTemplatePreview(
+    [property: JsonPropertyName("subject")]      string Subject,
+    [property: JsonPropertyName("html_content")] string HtmlContent
+);
+
+public record UpdateEmailTemplateRequest(
+    [property: JsonPropertyName("subject")] string Subject,
+    [property: JsonPropertyName("content")] string Content
+);
+
+public record PreviewRawEmailRequest(
+    [property: JsonPropertyName("subject")]      string? Subject,
+    [property: JsonPropertyName("content")]      string? Content,
+    [property: JsonPropertyName("wrapper_html")] string? WrapperHtml
+);
+
+public record EmailShell(
+    [property: JsonPropertyName("html")]          string Html,
+    [property: JsonPropertyName("is_customised")] bool   IsCustomised,
+    [property: JsonPropertyName("default_html")]  string DefaultHtml
+);
+
+public record UpdateEmailShellRequest(
+    [property: JsonPropertyName("html")] string? Html
+);
