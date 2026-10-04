@@ -154,10 +154,9 @@ Rollout note: under `--hosted` the internal REST API moves to port `5301` (it wa
 `--internal` port, `5300`), so callers' URLs must change. Ingress should target only `5300`,
 and a NetworkPolicy should allow only your internal services to reach `5301`.
 
-`--internal` runs only that internal REST API, on `--port` (default `5300`). It checks
-`X-Instance-Url` against the same host rules and doesn't log tool arguments. The Docker
-image runs `--hosted` by default; override the container command with
-`--internal` to run only the internal REST API.
+`--internal` runs only that internal REST API, on `--port` (default `5300`), with the same
+bind and token settings. The Docker image runs `--hosted` by default; override the
+container command with `--internal` to run only the internal REST API.
 
 ## Links
 

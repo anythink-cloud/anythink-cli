@@ -71,7 +71,7 @@ static async Task RunLocalHttpServer(string? profile, int port)
 
 static async Task RunInternalServer(string? profile, int port)
 {
-    var internalOptions = InternalApi.ForInternal(Environment.GetEnvironmentVariable);
+    var internalOptions = InternalApi.ForHosted(Environment.GetEnvironmentVariable);
     var app = BuildRestApp(profile, ResolveCorsOrigins(), internalOptions);
     await app.RunAsync($"http://{internalOptions.Bind}:{port}");
 }

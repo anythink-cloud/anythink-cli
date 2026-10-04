@@ -51,21 +51,12 @@ public class InternalApiTests
         InternalApi.ForHosted(Env(("MCP_INTERNAL_BIND", bind))).Bind.Should().Be(bind);
 
     [Fact]
-    public void Http_Defaults_AreUnchanged()
-    {
-        var options = InternalApi.ForInternal(Env());
-
-        options.Bind.Should().Be("0.0.0.0");
-        options.Token.Should().BeNull();
-    }
-
-    [Fact]
     public void CheckToken_NoneConfigured_AllowsEveryone() =>
-        InternalApi.CheckToken(WithToken(null), InternalApi.ForInternal(Env())).Should().BeNull();
+        InternalApi.CheckToken(WithToken(null), InternalApi.ForHosted(Env())).Should().BeNull();
 
     [Fact]
     public void CheckToken_MatchingHeader_Allowed() =>
-        InternalApi.CheckToken(WithToken("s3cret"), InternalApi.ForInternal(Env(("MCP_INTERNAL_TOKEN", "s3cret")))).Should().BeNull();
+        InternalApi.CheckToken(WithToken("s3cret"), InternalApi.ForHosted(Env(("MCP_INTERNAL_TOKEN", "s3cret")))).Should().BeNull();
 
     [Theory]
     [InlineData(null)]
@@ -74,7 +65,7 @@ public class InternalApiTests
     [InlineData("s3cre")]
     public void CheckToken_MissingOrWrongHeader_Is401(string? supplied)
     {
-        var denied = InternalApi.CheckToken(WithToken(supplied), InternalApi.ForInternal(Env(("MCP_INTERNAL_TOKEN", "s3cret"))));
+        var denied = InternalApi.CheckToken(WithToken(supplied), InternalApi.ForHosted(Env(("MCP_INTERNAL_TOKEN", "s3cret"))));
 
         denied.Should().NotBeNull();
         StatusOf(denied!).Should().Be(401);
@@ -82,7 +73,7 @@ public class InternalApiTests
 
     [Fact]
     public void CheckInstanceUrl_AllowedHost_Passes() =>
-        InternalApi.CheckInstanceUrl("https://api.my.anythink.cloud", InternalApi.ForInternal(Env())).Should().BeNull();
+        InternalApi.CheckInstanceUrl("https://api.my.anythink.cloud", InternalApi.ForHosted(Env())).Should().BeNull();
 
     [Theory]
     [InlineData("https://evilanythink.cloud")]
@@ -90,7 +81,7 @@ public class InternalApiTests
     [InlineData("http://localhost:5000")]
     public void CheckInstanceUrl_OutsideAllowlist_Is400(string url)
     {
-        var denied = InternalApi.CheckInstanceUrl(url, InternalApi.ForInternal(Env()));
+        var denied = InternalApi.CheckInstanceUrl(url, InternalApi.ForHosted(Env()));
 
         denied.Should().NotBeNull();
         StatusOf(denied!).Should().Be(400);
@@ -98,5 +89,5 @@ public class InternalApiTests
 
     [Fact]
     public void CheckInstanceUrl_Loopback_AllowedOnlyWithExplicitOptIn() =>
-        InternalApi.CheckInstanceUrl("http://localhost:5000", InternalApi.ForInternal(Env(("MCP_ALLOW_LOOPBACK_INSTANCE", "true"), ("ASPNETCORE_ENVIRONMENT", "Development")))).Should().BeNull();
+        InternalApi.CheckInstanceUrl("http://localhost:5000", InternalApi.ForHosted(Env(("MCP_ALLOW_LOOPBACK_INSTANCE", "true"), ("ASPNETCORE_ENVIRONMENT", "Development")))).Should().BeNull();
 }
