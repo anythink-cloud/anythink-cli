@@ -29,4 +29,8 @@
     <ProjectReference Include="../mcp/AnythinkMcp.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="RemoteToolSurface.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

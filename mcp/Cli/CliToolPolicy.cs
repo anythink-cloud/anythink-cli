@@ -11,7 +11,10 @@ public static class CliToolPolicy
         ["files upload", "workflows seed", "integrations oauth connect", "pay connect", "oauth google"];
 
     private static readonly string[] HiddenRemotely =
-        ["workflows create --filter-file", "workflows export --output", "api-keys create --save-as"];
+    [
+        "workflows create --filter-file", "workflows export --output", "api-keys create --save-as",
+        "api-keys create --no-expiry-cap", "data list --all"
+    ];
 
     private static readonly string[] AutomaticFlags = ["--json", "--yes"];
 
@@ -22,7 +25,9 @@ public static class CliToolPolicy
     ];
 
     private static readonly HashSet<string> DestructiveVerbs =
-        ["delete", "remove", "revoke", "purge", "disconnect", "step-delete", "fetch"];
+        ["delete", "remove", "revoke", "purge", "disconnect", "step-delete", "fetch", "update", "step-update"];
+
+    private static readonly HashSet<string> OpenWorldVerbs = ["execute", "trigger", "invite"];
 
     public static bool Includes(CliCommand command, CliToolScope scope) =>
         !Matches(command.Key, ExcludedEverywhere)
@@ -43,6 +48,8 @@ public static class CliToolPolicy
     public static bool IsReadOnly(CliCommand command) => ReadOnlyVerbs.Contains(command.Verb);
 
     public static bool IsDestructive(CliCommand command) => DestructiveVerbs.Contains(command.Verb);
+
+    public static bool IsOpenWorld(CliCommand command) => OpenWorldVerbs.Contains(command.Verb);
 
     private static bool Matches(string key, IEnumerable<string> prefixes) =>
         prefixes.Any(prefix => key == prefix || key.StartsWith(prefix + " ", StringComparison.Ordinal));

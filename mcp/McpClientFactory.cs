@@ -72,9 +72,11 @@ public class McpClientFactory
 
     private AnythinkClient CreateRequestClient(string orgId, string baseUrl, string token)
     {
-        var http = new HttpClient(_httpHandler ?? UpstreamHandler, disposeHandler: false) { Timeout = UpstreamTimeout };
+        var handler = _httpHandler ?? UpstreamHandler;
+        var http = new HttpClient(handler, disposeHandler: false) { Timeout = UpstreamTimeout };
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        return new AnythinkClient(orgId, baseUrl, http);
+        var anonymous = new HttpClient(handler, disposeHandler: false) { Timeout = UpstreamTimeout };
+        return new AnythinkClient(orgId, baseUrl, http, anonymous);
     }
 
     public AnythinkClient GetClient()

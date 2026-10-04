@@ -164,4 +164,65 @@ public class CliCommandToolTests
             results[i].Output.Should().NotContainAny(Enumerable.Range(0, 8).Where(j => j != i).Select(j => $"title-{j}\""));
         }
     }
+
+    [Theory]
+    [InlineData(" --yes")]
+    [InlineData("a b")]
+    [InlineData("\"quoted\"")]
+    [InlineData("@file")]
+    [InlineData("a=b")]
+    [InlineData("--")]
+    [InlineData("x --json")]
+    public async Task OptionValues_ReachTheApiAsOneValue(string description)
+    {
+        string? body = null;
+        var mock = new MockHttpMessageHandler();
+        mock.When(HttpMethod.Post, $"{ApiUrl}/org/42/workflows").Respond(async req =>
+        {
+            body = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage { Content = new StringContent("""{"id":7,"name":"Nightly","trigger":"Manual"}""") };
+        });
+
+        var result = await Tool("workflows_create").RunAsync(
+            Args(new { name = "Nightly", trigger = "Manual", description }), Client(mock));
+
+        result.ExitCode.Should().Be(0, result.Output);
+        JsonDocument.Parse(body!).RootElement.GetProperty("description").GetString().Should().Be(description);
+    }
+
+    [Fact]
+    public async Task ACommandThatWouldPrompt_FailsInsteadOfWaitingForInput()
+    {
+        var mock = new MockHttpMessageHandler();
+
+        var run = Tool("secrets_create").RunAsync(Args(new { key = "API_TOKEN" }), Client(mock));
+
+        (await run.WaitAsync(TimeSpan.FromSeconds(10))).ExitCode.Should().NotBe(0);
+        mock.GetMatchCount(mock.When("*")).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task PublicSearch_FromARequestClient_IsSentWithoutTheUsersToken()
+    {
+        var mock = new MockHttpMessageHandler();
+        string? publicAuth = "unset", privateAuth = null;
+        const string empty = """{"items":[],"page":1,"page_size":20,"total_items":0,"total_pages":0,"has_next_page":false,"has_previous_page":false}""";
+        mock.When($"{ApiUrl}/org/42/search/public*").Respond(req =>
+        {
+            publicAuth = req.Headers.Authorization?.ToString();
+            return new HttpResponseMessage { Content = new StringContent(empty) };
+        });
+        mock.When($"{ApiUrl}/org/42/search").Respond(req =>
+        {
+            privateAuth = req.Headers.Authorization?.ToString();
+            return new HttpResponseMessage { Content = new StringContent(empty) };
+        });
+        var client = new McpClientFactory(null, mock).GetClient(new HostedCredentials { OrgId = "42", InstanceUrl = ApiUrl, Token = "user-token" });
+
+        await client.SearchAsync("q=x", isPublic: true);
+        await client.SearchAsync("q=x");
+
+        publicAuth.Should().BeNull();
+        privateAuth.Should().Be("Bearer user-token");
+    }
 }

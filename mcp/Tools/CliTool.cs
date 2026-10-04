@@ -29,20 +29,30 @@ public class CliTool
         if (args.Count == 0)
             return "Error: command must not be empty.";
 
-        var result = await CliRunner.RunAsync(args, TryGetClient());
+        AnythinkClient? client;
+        try
+        {
+            client = ResolveClient();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return $"Error: {ex.Message}";
+        }
+
+        var result = await CliRunner.RunAsync(args, client);
         if (result.ExitCode != 0)
             return $"CLI exited with code {result.ExitCode}: {result.Output}";
 
         return result.Output.Length > 0 ? result.Output : "(no output)";
     }
 
-    private AnythinkClient? TryGetClient()
+    private AnythinkClient? ResolveClient()
     {
         try
         {
             return _factory.GetClient();
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException) when (string.IsNullOrEmpty(_factory.ProfileName))
         {
             return null;
         }

@@ -86,12 +86,6 @@ static WebApplication BuildRestApp(string? profile, string[] corsOrigins, Intern
     builder.WebHost.ConfigureKestrel(opts => opts.Limits.MaxRequestBodySize = HostedMode.MaxRequestBodyBytes);
 
     builder.Services.AddSingleton(new McpClientFactory(profile));
-    builder.Services
-        .AddMcpServer(server =>
-        {
-            server.ServerInfo = new() { Name = "anythink", Version = "1.0.0" };
-        })
-        .WithToolsFromAssembly();
 
     builder.Services.AddCors(options =>
     {

@@ -30,7 +30,7 @@ public sealed class CliCommandTool : McpServerTool
                 Title = title,
                 ReadOnlyHint = readOnly,
                 DestructiveHint = readOnly ? null : CliToolPolicy.IsDestructive(command),
-                OpenWorldHint = false
+                OpenWorldHint = CliToolPolicy.IsOpenWorld(command)
             }
         };
     }
@@ -146,7 +146,7 @@ public sealed class CliCommandTool : McpServerTool
         {
             return factory.GetClient();
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException) when (string.IsNullOrEmpty(factory.ProfileName))
         {
             return null;
         }

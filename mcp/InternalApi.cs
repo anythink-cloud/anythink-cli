@@ -148,9 +148,9 @@ internal static class InternalApi
             ? authHeader[7..]
             : authHeader;
 
-        if (string.IsNullOrEmpty(orgId))
+        if (string.IsNullOrEmpty(orgId) || orgId.Length > 12 || !orgId.All(char.IsAsciiDigit))
         {
-            error = Results.Json(new { error = "X-Org-Id header required" }, statusCode: 400);
+            error = Results.Json(new { error = "X-Org-Id header must be a numeric org id" }, statusCode: 400);
             return false;
         }
         if (string.IsNullOrEmpty(instanceUrl))

@@ -46,12 +46,14 @@ public class AnythinkClient : HttpApiClient
     public AnythinkClient(Profile p) : this(p.OrgId, p.InstanceApiUrl, p.AccessToken, p.ApiKey) { }
 
     /// <summary>Test-only constructor — injects a mock HttpClient.</summary>
-    internal AnythinkClient(string orgId, string baseUrl, HttpClient http) : base(http)
+    internal AnythinkClient(string orgId, string baseUrl, HttpClient http) : this(orgId, baseUrl, http, http) { }
+
+    internal AnythinkClient(string orgId, string baseUrl, HttpClient http, HttpClient anonymousHttp) : base(http)
     {
         OrgId   = orgId;
         BaseUrl = baseUrl.TrimEnd('/');
         _org    = $"{BaseUrl}/org/{OrgId}";
-        _anonymousHttp = http;
+        _anonymousHttp = anonymousHttp;
     }
 
     private async Task<T?> GetAnonymousAsync<T>(string url)
