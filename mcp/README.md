@@ -156,8 +156,8 @@ and a NetworkPolicy should allow only your internal services to reach `5301`.
 
 `--internal` runs only that internal REST API, on `--port` (default `5300`). It checks
 `X-Instance-Url` against the same host rules and doesn't log tool arguments. The Docker
-image runs `--internal --port 5300` by default; override the container command with
-`--hosted` to switch modes.
+image runs `--hosted` by default; override the container command with
+`--internal` to run only the internal REST API.
 
 ## Links
 
