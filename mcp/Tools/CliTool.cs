@@ -23,7 +23,8 @@ public class CliTool
             "CLI arguments after 'anythink', e.g. 'entities list', 'users me', " +
             "'data list blog_posts --json', 'migrate --from a --to b --dry-run', 'fetch /some/path'. " +
             "Do NOT include 'anythink' itself or '--profile' (profile is injected automatically).")]
-        string command)
+        string command,
+        CancellationToken cancellationToken = default)
     {
         var args = SplitArgs(command);
         if (args.Count == 0)
@@ -39,7 +40,7 @@ public class CliTool
             return $"Error: {ex.Message}";
         }
 
-        var result = await CliRunner.RunAsync(args, client);
+        var result = await CliRunner.RunAsync(args, client, cancellationToken);
         if (result.ExitCode != 0)
             return $"CLI exited with code {result.ExitCode}: {result.Output}";
 

@@ -58,7 +58,7 @@ public class AnythinkClient : HttpApiClient
 
     private async Task<T?> GetAnonymousAsync<T>(string url)
     {
-        var response = await _anonymousHttp.GetAsync(url);
+        var response = await _anonymousHttp.GetAsync(url, ClientContext.Cancellation);
         var raw = await response.Content.ReadAsStringAsync();
         if (!response.IsSuccessStatusCode)
             throw new AnythinkException(raw, (int)response.StatusCode);
@@ -76,7 +76,7 @@ public class AnythinkClient : HttpApiClient
         var request = new HttpRequestMessage(new HttpMethod(method), url);
         if (body != null)
             request.Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
-        var response = await Http.SendAsync(request);
+        var response = await Http.SendAsync(request, ClientContext.Cancellation);
         var content = await response.Content.ReadAsStringAsync();
         if (!response.IsSuccessStatusCode)
             throw new AnythinkException(content, (int)response.StatusCode);
@@ -252,7 +252,7 @@ public class AnythinkClient : HttpApiClient
         fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
         form.Add(fileContent, "file", Path.GetFileName(filePath));
         var url = _org + $"/files?isPublic={isPublic.ToString().ToLower()}";
-        var resp = await Http.PostAsync(url, form);
+        var resp = await Http.PostAsync(url, form, ClientContext.Cancellation);
         if (!resp.IsSuccessStatusCode)
             throw new AnythinkException(await resp.Content.ReadAsStringAsync(), (int)resp.StatusCode);
         var json = await resp.Content.ReadAsStringAsync();
@@ -280,7 +280,7 @@ public class AnythinkClient : HttpApiClient
         form.Add(fileContent, "file", fileName);
 
         var url = _org + $"/files?isPublic={isPublic.ToString().ToLower()}";
-        var resp = await Http.PostAsync(url, form);
+        var resp = await Http.PostAsync(url, form, ClientContext.Cancellation);
         if (!resp.IsSuccessStatusCode)
             throw new AnythinkException(await resp.Content.ReadAsStringAsync(), (int)resp.StatusCode);
         var json = await resp.Content.ReadAsStringAsync();

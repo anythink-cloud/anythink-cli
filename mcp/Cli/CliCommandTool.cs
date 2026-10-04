@@ -51,7 +51,7 @@ public sealed class CliCommandTool : McpServerTool
         CliRunResult result;
         try
         {
-            result = await RunAsync(request.Params?.Arguments, ResolveClient(request.Services!));
+            result = await RunAsync(request.Params?.Arguments, ResolveClient(request.Services!), cancellationToken);
         }
         catch (InvalidOperationException ex)
         {
@@ -65,7 +65,8 @@ public sealed class CliCommandTool : McpServerTool
         };
     }
 
-    public async Task<CliRunResult> RunAsync(IEnumerable<KeyValuePair<string, JsonElement>>? arguments, AnythinkClient? client)
+    public async Task<CliRunResult> RunAsync(
+        IEnumerable<KeyValuePair<string, JsonElement>>? arguments, AnythinkClient? client, CancellationToken cancellationToken = default)
     {
         IReadOnlyList<string> args;
         try
@@ -77,7 +78,7 @@ public sealed class CliCommandTool : McpServerTool
             return new CliRunResult(1, $"Error: {ex.Message}");
         }
 
-        return await CliRunner.RunAsync(args, client);
+        return await CliRunner.RunAsync(args, client, cancellationToken);
     }
 
     internal IReadOnlyList<string> BuildArgs(IEnumerable<KeyValuePair<string, JsonElement>>? arguments)

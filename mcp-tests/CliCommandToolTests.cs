@@ -225,4 +225,32 @@ public class CliCommandToolTests
         publicAuth.Should().BeNull();
         privateAuth.Should().Be("Bearer user-token");
     }
+
+    [Fact]
+    public async Task Cancelling_StopsTheCommandAtItsApiCall()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var handler = new HangingHandler();
+
+        var run = Tool("data_list").RunAsync(
+            Args(new { entity = "posts" }), new AnythinkClient("42", ApiUrl, new HttpClient(handler)), cancellation.Token);
+        await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        cancellation.Cancel();
+        var result = await run.WaitAsync(TimeSpan.FromSeconds(10));
+
+        result.ExitCode.Should().Be(1);
+        result.Output.Should().Be("Cancelled.");
+    }
+
+    private sealed class HangingHandler : HttpMessageHandler
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Started.TrySetResult();
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return new HttpResponseMessage();
+        }
+    }
 }

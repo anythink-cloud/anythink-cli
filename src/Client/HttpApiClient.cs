@@ -46,18 +46,18 @@ public abstract class HttpApiClient
     internal HttpApiClient(HttpClient http) { Http = http; }
 
     protected async Task<T?> GetAsync<T>(string url) =>
-        await DeserializeAsync<T>(await Http.GetAsync(url));
+        await DeserializeAsync<T>(await Http.GetAsync(url, ClientContext.Cancellation));
 
     protected async Task<T> PostAsync<T>(string url, object? body = null)
     {
-        var r = await Http.PostAsync(url, Serialize(body ?? new { }));
+        var r = await Http.PostAsync(url, Serialize(body ?? new { }), ClientContext.Cancellation);
         return await DeserializeAsync<T>(r)
                ?? throw new AnythinkException("Empty response.", (int)r.StatusCode);
     }
 
     protected async Task<T?> PutAsync<T>(string url, object body)
     {
-        var r = await Http.PutAsync(url, Serialize(body));
+        var r = await Http.PutAsync(url, Serialize(body), ClientContext.Cancellation);
         // 204 No Content = success with no body (e.g. entity item updates)
         if (r.StatusCode == System.Net.HttpStatusCode.NoContent) return default;
         return await DeserializeAsync<T>(r)
@@ -66,21 +66,21 @@ public abstract class HttpApiClient
 
     protected async Task PostVoidAsync(string url, object? body = null)
     {
-        var r = await Http.PostAsync(url, Serialize(body ?? new { }));
+        var r = await Http.PostAsync(url, Serialize(body ?? new { }), ClientContext.Cancellation);
         if (!r.IsSuccessStatusCode)
             throw new AnythinkException(await r.Content.ReadAsStringAsync(), (int)r.StatusCode);
     }
 
     protected async Task PutVoidAsync(string url, object body)
     {
-        var r = await Http.PutAsync(url, Serialize(body));
+        var r = await Http.PutAsync(url, Serialize(body), ClientContext.Cancellation);
         if (!r.IsSuccessStatusCode)
             throw new AnythinkException(await r.Content.ReadAsStringAsync(), (int)r.StatusCode);
     }
 
     protected async Task DeleteAsync(string url)
     {
-        var r = await Http.DeleteAsync(url);
+        var r = await Http.DeleteAsync(url, ClientContext.Cancellation);
         if (!r.IsSuccessStatusCode)
             throw new AnythinkException(await r.Content.ReadAsStringAsync(), (int)r.StatusCode);
     }

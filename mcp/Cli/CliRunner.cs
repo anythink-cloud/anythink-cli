@@ -10,11 +10,13 @@ public static class CliRunner
 {
     static CliRunner() => AmbientConsole.Install();
 
-    public static async Task<CliRunResult> RunAsync(IReadOnlyList<string> args, AnythinkClient? client)
+    public static async Task<CliRunResult> RunAsync(
+        IReadOnlyList<string> args, AnythinkClient? client, CancellationToken cancellationToken = default)
     {
         using var output = new StringWriter();
         AmbientConsole.Use(output);
         ClientContext.Current = client;
+        ClientContext.Cancellation = cancellationToken;
 
         var app = new CommandApp();
         app.Configure(config =>
@@ -29,6 +31,8 @@ public static class CliRunner
         });
 
         var exitCode = await app.RunAsync(args);
-        return new CliRunResult(exitCode, output.ToString().Trim());
+        return cancellationToken.IsCancellationRequested
+            ? new CliRunResult(1, "Cancelled.")
+            : new CliRunResult(exitCode, output.ToString().Trim());
     }
 }

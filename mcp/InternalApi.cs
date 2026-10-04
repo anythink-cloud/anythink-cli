@@ -107,7 +107,7 @@ internal static class InternalApi
                 logger.LogInformation("Tool call: {ToolName} args={ArgNames}", toolName,
                     arguments.ValueKind == JsonValueKind.Object ? string.Join(",", arguments.EnumerateObject().Select(a => a.Name)) : "");
                 var result = await McpToolRegistry.ExecuteToolAsync(toolName, arguments,
-                    context.RequestServices);
+                    context.RequestServices, context.RequestAborted);
                 logger.LogInformation("Tool result: {ToolName} ({Length} chars)", toolName, result.Length);
 
                 return Results.Json(new

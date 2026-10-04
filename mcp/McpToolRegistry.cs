@@ -18,7 +18,8 @@ public static class McpToolRegistry
             input_schema = tool.ProtocolTool.InputSchema
         }).ToList();
 
-    public static async Task<string> ExecuteToolAsync(string toolName, JsonElement arguments, IServiceProvider services)
+    public static async Task<string> ExecuteToolAsync(
+        string toolName, JsonElement arguments, IServiceProvider services, CancellationToken cancellationToken = default)
     {
         if (!Tools.Value.TryGetValue(toolName, out var tool))
             throw new ArgumentException($"Unknown tool: {toolName}");
@@ -28,6 +29,6 @@ public static class McpToolRegistry
             ? arguments.EnumerateObject().Select(p => KeyValuePair.Create(p.Name, p.Value))
             : null;
 
-        return (await tool.RunAsync(properties, client)).Output;
+        return (await tool.RunAsync(properties, client, cancellationToken)).Output;
     }
 }
