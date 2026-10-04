@@ -248,7 +248,7 @@ public class HostedModeTests : IAsyncLifetime
         var tools = await mcpClient.ListToolsAsync();
 
         tools.Select(t => t.Name).Should().BeEquivalentTo(
-            CliCommandTool.All(CliToolScope.Remote).Select(t => t.ProtocolTool.Name).Append("project_details"));
+            CliCommandTool.All(CliToolScope.Hosted).Select(t => t.ProtocolTool.Name).Append("project_details").Append("projects_list"));
 
         foreach (var tool in tools)
         {
@@ -512,5 +512,122 @@ public class HostedModeTests : IAsyncLifetime
         var result = await mcpClient.CallToolAsync("data_list", new Dictionary<string, object?> { ["entity"] = "blog_posts" });
 
         ((TextContentBlock)result.Content[0]).Text.Should().Contain("Hello");
+    }
+
+    private const string ShopProject = "3f2504e0-4f89-11d3-9a0c-0305e82c3301";
+
+    private string AllProjectsToken(IReadOnlyDictionary<string, object>? extra = null) =>
+        HostedTestSupport.CreateToken(_key, Issuer, PublicUrl, tid: null, instanceUrl: null,
+            extraClaims: new Dictionary<string, object>(extra ?? new Dictionary<string, object>()) { ["projects"] = "all" });
+
+    private void ExchangeForProject(string tid, string instanceUrl, out string exchanged)
+    {
+        var token = HostedTestSupport.CreateToken(_key, Issuer, "anythink-oauth", tid, instanceUrl);
+        exchanged = token;
+        _exchangeOverride = () => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent($$"""{"access_token":"{{token}}","expires_in":600,"token_type":"Bearer"}""", Encoding.UTF8, "application/json")
+        };
+    }
+
+    private static string Text(CallToolResult result) => ((TextContentBlock)result.Content[0]).Text;
+
+    [Fact]
+    public async Task AllProjectsToken_ToolsTakeAProjectArgument()
+    {
+        await using var mcpClient = await McpClient.CreateAsync(Transport(AllProjectsToken()));
+        var tools = await mcpClient.ListToolsAsync();
+
+        tools.Single(t => t.Name == "data_list").ProtocolTool.InputSchema.GetProperty("properties")
+            .TryGetProperty("project", out _).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task AllProjectsToken_WithoutProject_IsAToolError_AndNothingIsExchanged()
+    {
+        await using var mcpClient = await McpClient.CreateAsync(Transport(AllProjectsToken()));
+
+        var result = await mcpClient.CallToolAsync("data_list", new Dictionary<string, object?> { ["entity"] = "posts" });
+
+        result.IsError.Should().BeTrue();
+        Text(result).Should().Contain("projects_list");
+        _exchangeCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task AllProjectsToken_WithProject_ExchangesForThatProject_AndCallsItsApi()
+    {
+        ExchangeForProject("77", "https://api.shop.anythink.cloud", out var exchanged);
+        _mock.When(HttpMethod.Get, "https://api.shop.anythink.cloud/org/77/entities/posts/items*")
+            .WithHeaders("Authorization", $"Bearer {exchanged}")
+            .Respond("application/json", """{"items":[{"id":1,"title":"From shop"}],"total_items":1,"total_pages":1,"has_next_page":false,"page":1,"page_size":20}""");
+
+        await using var mcpClient = await McpClient.CreateAsync(Transport(AllProjectsToken()));
+        var result = await mcpClient.CallToolAsync("data_list",
+            new Dictionary<string, object?> { ["entity"] = "posts", ["project"] = ShopProject });
+
+        result.IsError.Should().NotBe(true);
+        Text(result).Should().Contain("From shop");
+        _exchangeForm["project_id"].Should().Be(ShopProject);
+    }
+
+    [Fact]
+    public async Task AllProjectsToken_ProjectOutOfReach_IsAToolError()
+    {
+        _exchangeOverride = () => new HttpResponseMessage(HttpStatusCode.BadRequest)
+        {
+            Content = new StringContent("""{"error":"invalid_target"}""", Encoding.UTF8, "application/json")
+        };
+
+        await using var mcpClient = await McpClient.CreateAsync(Transport(AllProjectsToken()));
+        var result = await mcpClient.CallToolAsync("entities_list", new Dictionary<string, object?> { ["project"] = ShopProject });
+
+        result.IsError.Should().BeTrue();
+        Text(result).Should().Contain("don't have access");
+    }
+
+    [Fact]
+    public async Task AllProjectsToken_ExchangedForAForeignHost_IsRefused()
+    {
+        ExchangeForProject("77", "https://api.attacker.example", out _);
+
+        await using var mcpClient = await McpClient.CreateAsync(Transport(AllProjectsToken()));
+        var result = await mcpClient.CallToolAsync("entities_list", new Dictionary<string, object?> { ["project"] = ShopProject });
+
+        result.IsError.Should().BeTrue();
+        _mock.GetMatchCount(_mock.When("https://api.attacker.example/*")).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ProjectsList_ReturnsTheProjectsTheTokenCanReach()
+    {
+        var token = AllProjectsToken();
+        _mock.When(HttpMethod.Get, $"{Issuer}/oauth/v1/projects")
+            .WithHeaders("Authorization", $"Bearer {token}")
+            .Respond("application/json", $$"""[{"project_id":"{{ShopProject}}","name":"Shop"}]""");
+
+        await using var mcpClient = await McpClient.CreateAsync(Transport(token));
+        var result = await mcpClient.CallToolAsync("projects_list");
+
+        Text(result).Should().Contain("Shop").And.Contain(ShopProject);
+    }
+
+    [Fact]
+    public async Task SingleProjectToken_AnotherProject_IsAToolError()
+    {
+        await using var mcpClient = await McpClient.CreateAsync(Transport(ValidToken()));
+
+        var result = await mcpClient.CallToolAsync("entities_list", new Dictionary<string, object?> { ["project"] = ShopProject });
+
+        result.IsError.Should().BeTrue();
+        Text(result).Should().Contain("one project only");
+    }
+
+    [Fact]
+    public async Task AllProjectsToken_ThatAlsoNamesAProject_IsRejected()
+    {
+        var token = AllProjectsToken(new Dictionary<string, object> { ["tid"] = "42" });
+
+        (await _client.SendAsync(McpPost(token))).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 }

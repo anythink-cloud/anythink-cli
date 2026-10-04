@@ -38,9 +38,11 @@ internal static class HostedTestSupport
         string? tid = "42",
         string? instanceUrl = "https://api.my.anythink.cloud",
         DateTime? expires = null,
-        DateTime? notBefore = null)
+        DateTime? notBefore = null,
+        IReadOnlyDictionary<string, object>? extraClaims = null)
     {
         var claims = new Dictionary<string, object> { ["sub"] = "user-1" };
+        foreach (var (name, value) in extraClaims ?? new Dictionary<string, object>()) claims[name] = value;
         if (tid is not null) claims["tid"] = tid;
         if (instanceUrl is not null) claims["instance_url"] = instanceUrl;
 

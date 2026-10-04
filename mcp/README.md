@@ -89,8 +89,9 @@ Once connected, run the `login` (or `login_direct`) tool, then `accounts_use` /
 ## Hosted mode (remote MCP connector)
 
 `--hosted` serves MCP over Streamable HTTP for remote MCP clients, which sign the
-user in with their Anythink account via OAuth. One connection targets one
-project.
+user in with their Anythink account via OAuth. When signing in, the user grants
+access to one project or to all of their projects. With all projects, `projects_list`
+shows what the connection can reach, and every other tool takes a `project` id.
 
 To run it locally:
 
@@ -140,7 +141,7 @@ Each project may have 8 concurrent requests in flight on `/mcp`, with up to 8 mo
 queued; beyond that the server returns `429`. Upstream calls share one connection pool,
 don't follow redirects, and time out after 30 seconds.
 
-Hosted mode serves `project_details` plus the generated command tools, leaving out
+Hosted mode serves `projects_list`, `project_details` and the generated command tools, leaving out
 commands that sign in, switch profiles, use the local machine (opening a browser,
 or reading and writing local files), call arbitrary routes (`fetch`) or create API
 keys. Positional values can't contain `/`, `..`, `?` or `#` (free-text arguments such as

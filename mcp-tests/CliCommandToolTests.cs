@@ -13,7 +13,7 @@ public class CliCommandToolTests
     private static CliCommandTool? Find(string name, CliToolScope scope) =>
         CliCommandTool.All(scope).SingleOrDefault(t => t.ProtocolTool.Name == name);
 
-    private static CliCommandTool Tool(string name, CliToolScope scope = CliToolScope.Remote) => Find(name, scope)!;
+    private static CliCommandTool Tool(string name, CliToolScope scope = CliToolScope.Internal) => Find(name, scope)!;
 
     private static Dictionary<string, JsonElement> Args(object values) =>
         JsonSerializer.SerializeToElement(values).EnumerateObject().ToDictionary(p => p.Name, p => p.Value);
@@ -43,7 +43,7 @@ public class CliCommandToolTests
 
     [Theory]
     [InlineData(CliToolScope.Local)]
-    [InlineData(CliToolScope.Remote)]
+    [InlineData(CliToolScope.Internal)]
     public void EveryTool_HasAUniqueNameATitleAndAnExplicitHint(CliToolScope scope)
     {
         var tools = CliCommandTool.All(scope);
@@ -69,7 +69,7 @@ public class CliCommandToolTests
     public void PlatformAndCrossProjectCommands_AreLeftOutEverywhere(string name)
     {
         Find(name, CliToolScope.Local).Should().BeNull();
-        Find(name, CliToolScope.Remote).Should().BeNull();
+        Find(name, CliToolScope.Internal).Should().BeNull();
     }
 
     [Theory]
@@ -81,14 +81,14 @@ public class CliCommandToolTests
     public void CommandsThatUseTheLocalMachine_AreLocalOnly(string name)
     {
         Find(name, CliToolScope.Local).Should().NotBeNull();
-        Find(name, CliToolScope.Remote).Should().BeNull();
+        Find(name, CliToolScope.Internal).Should().BeNull();
     }
 
     [Fact]
     public void ACommandThatReachesAnyRoute_IsLocalOnly()
     {
         Find("fetch", CliToolScope.Local).Should().NotBeNull();
-        Find("fetch", CliToolScope.Remote).Should().BeNull();
+        Find("fetch", CliToolScope.Internal).Should().BeNull();
     }
 
     [Fact]
@@ -141,7 +141,7 @@ public class CliCommandToolTests
     {
         var command = new CliCommand(["things", verb], "", []);
 
-        foreach (var scope in new[] { CliToolScope.Local, CliToolScope.Remote })
+        foreach (var scope in new[] { CliToolScope.Local, CliToolScope.Internal })
         {
             CliToolPolicy.IsReadOnly(command, scope).Should().BeFalse();
             CliToolPolicy.IsDestructive(command, scope).Should().BeTrue();
@@ -156,15 +156,15 @@ public class CliCommandToolTests
     {
         var command = new CliCommand(["things", verb], "", []);
 
-        CliToolPolicy.IsReadOnly(command, CliToolScope.Remote).Should().BeFalse();
-        CliToolPolicy.IsDestructive(command, CliToolScope.Remote).Should().BeFalse();
+        CliToolPolicy.IsReadOnly(command, CliToolScope.Internal).Should().BeFalse();
+        CliToolPolicy.IsDestructive(command, CliToolScope.Internal).Should().BeFalse();
     }
 
     [Theory]
     [InlineData("step-link")]
     [InlineData("rls")]
     public void AVerbThatOverwritesWhatIsThere_IsDestructive(string verb) =>
-        CliToolPolicy.IsDestructive(new CliCommand(["things", verb], "", []), CliToolScope.Remote).Should().BeTrue();
+        CliToolPolicy.IsDestructive(new CliCommand(["things", verb], "", []), CliToolScope.Internal).Should().BeTrue();
 
     [Fact]
     public void Arguments_ArePositionalAndOptionsCarryTheirValue()

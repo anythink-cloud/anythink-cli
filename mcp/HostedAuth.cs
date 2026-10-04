@@ -12,13 +12,28 @@ public sealed class HostedCredentials
     public string? OrgId { get; set; }
     public string? InstanceUrl { get; set; }
     public string? Token { get; set; }
+    public string? ProjectId { get; set; }
+    public string? InboundToken { get; set; }
+    public bool AllProjects { get; set; }
 }
 
 internal static class HostedAuth
 {
+    public static bool IsAllProjects(ClaimsPrincipal? principal) => principal?.FindFirstValue("projects") == "all";
+
+    public static string RateLimitPartition(ClaimsPrincipal principal) =>
+        principal.FindFirstValue("tid") ?? $"user:{principal.FindFirstValue("sub")}";
+
     public static Task OnTokenValidated(TokenValidatedContext context)
     {
         var principal = context.Principal;
+        if (IsAllProjects(principal))
+        {
+            if (string.IsNullOrEmpty(principal!.FindFirstValue("sub")) || principal.HasClaim(c => c.Type is "tid" or "instance_url"))
+                context.Fail("An all-projects token must name the user and no project.");
+            return Task.CompletedTask;
+        }
+
         var tid = principal?.FindFirstValue("tid");
         var instanceUrl = principal?.FindFirstValue("instance_url");
 
@@ -48,11 +63,19 @@ internal static class HostedAuth
             return false;
         }
 
+        var creds = context.RequestServices.GetRequiredService<HostedCredentials>();
+        creds.InboundToken = inbound;
+        if (IsAllProjects(context.User))
+        {
+            creds.AllProjects = true;
+            return true;
+        }
+
         string exchanged;
         try
         {
             exchanged = await context.RequestServices.GetRequiredService<ITokenExchanger>()
-                .ExchangeAsync(inbound, context.RequestAborted);
+                .ExchangeAsync(inbound, null, context.RequestAborted);
         }
         catch (TokenExchangeException ex)
         {
@@ -64,8 +87,8 @@ internal static class HostedAuth
             return false;
         }
 
-        var creds = context.RequestServices.GetRequiredService<HostedCredentials>();
         creds.OrgId = context.User.FindFirstValue("tid");
+        creds.ProjectId = context.User.FindFirstValue("project_id");
         creds.InstanceUrl = context.User.FindFirstValue("instance_url")?.TrimEnd('/');
         creds.Token = exchanged;
         return true;

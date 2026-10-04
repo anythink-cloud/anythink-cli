@@ -7,7 +7,7 @@ public class RemoteToolSurfaceTests
 {
     private const string SnapshotFile = "RemoteToolSurface.txt";
 
-    internal static string Surface() => string.Join('\n', CliCommandTool.All(CliToolScope.Remote)
+    internal static string Surface() => string.Join('\n', CliCommandTool.All(CliToolScope.Internal)
         .Select(tool =>
         {
             var annotations = tool.ProtocolTool.Annotations!;
