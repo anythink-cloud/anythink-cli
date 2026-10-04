@@ -41,7 +41,7 @@ static async Task RunStdioServer(string? profile)
 static async Task RunHostedServer(string? profile, int port, int internalPort)
 {
     var options = HostedConfig.FromEnvironment(Environment.GetEnvironmentVariable);
-    var internalOptions = InternalApi.ForHosted(Environment.GetEnvironmentVariable);
+    var internalOptions = InternalApi.FromEnvironment(Environment.GetEnvironmentVariable);
 
     var publicApp = HostedMode.BuildPublicApp(
         WebApplication.CreateBuilder(), options, new McpClientFactory());
@@ -71,7 +71,7 @@ static async Task RunLocalHttpServer(string? profile, int port)
 
 static async Task RunInternalServer(string? profile, int port)
 {
-    var internalOptions = InternalApi.ForHosted(Environment.GetEnvironmentVariable);
+    var internalOptions = InternalApi.FromEnvironment(Environment.GetEnvironmentVariable);
     var app = BuildRestApp(profile, ResolveCorsOrigins(), internalOptions);
     await app.RunAsync($"http://{internalOptions.Bind}:{port}");
 }

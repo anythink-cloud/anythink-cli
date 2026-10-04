@@ -22,9 +22,9 @@ public class InternalApiTests
     }
 
     [Fact]
-    public void Hosted_DefaultBind_IsLoopback_AndNeedsNoToken()
+    public void DefaultBind_IsLoopback_AndNeedsNoToken()
     {
-        var options = InternalApi.ForHosted(Env());
+        var options = InternalApi.FromEnvironment(Env());
 
         options.Bind.Should().Be("127.0.0.1");
         options.Token.Should().BeNull();
@@ -33,30 +33,30 @@ public class InternalApiTests
     [Theory]
     [InlineData("0.0.0.0")]
     [InlineData("10.1.2.3")]
-    public void Hosted_NonLoopbackBind_WithoutToken_RefusesToStart(string bind)
+    public void NonLoopbackBind_WithoutToken_RefusesToStart(string bind)
     {
-        var act = () => InternalApi.ForHosted(Env(("MCP_INTERNAL_BIND", bind)));
+        var act = () => InternalApi.FromEnvironment(Env(("MCP_INTERNAL_BIND", bind)));
         act.Should().Throw<InvalidOperationException>().WithMessage("MCP_INTERNAL_TOKEN*");
     }
 
     [Fact]
-    public void Hosted_NonLoopbackBind_WithToken_Starts() =>
-        InternalApi.ForHosted(Env(("MCP_INTERNAL_BIND", "0.0.0.0"), ("MCP_INTERNAL_TOKEN", "t"))).Token.Should().Be("t");
+    public void NonLoopbackBind_WithToken_Starts() =>
+        InternalApi.FromEnvironment(Env(("MCP_INTERNAL_BIND", "0.0.0.0"), ("MCP_INTERNAL_TOKEN", "t"))).Token.Should().Be("t");
 
     [Theory]
     [InlineData("127.0.0.1")]
     [InlineData("::1")]
     [InlineData("localhost")]
-    public void Hosted_ExplicitLoopbackBind_NeedsNoToken(string bind) =>
-        InternalApi.ForHosted(Env(("MCP_INTERNAL_BIND", bind))).Bind.Should().Be(bind);
+    public void ExplicitLoopbackBind_NeedsNoToken(string bind) =>
+        InternalApi.FromEnvironment(Env(("MCP_INTERNAL_BIND", bind))).Bind.Should().Be(bind);
 
     [Fact]
     public void CheckToken_NoneConfigured_AllowsEveryone() =>
-        InternalApi.CheckToken(WithToken(null), InternalApi.ForHosted(Env())).Should().BeNull();
+        InternalApi.CheckToken(WithToken(null), InternalApi.FromEnvironment(Env())).Should().BeNull();
 
     [Fact]
     public void CheckToken_MatchingHeader_Allowed() =>
-        InternalApi.CheckToken(WithToken("s3cret"), InternalApi.ForHosted(Env(("MCP_INTERNAL_TOKEN", "s3cret")))).Should().BeNull();
+        InternalApi.CheckToken(WithToken("s3cret"), InternalApi.FromEnvironment(Env(("MCP_INTERNAL_TOKEN", "s3cret")))).Should().BeNull();
 
     [Theory]
     [InlineData(null)]
@@ -65,7 +65,7 @@ public class InternalApiTests
     [InlineData("s3cre")]
     public void CheckToken_MissingOrWrongHeader_Is401(string? supplied)
     {
-        var denied = InternalApi.CheckToken(WithToken(supplied), InternalApi.ForHosted(Env(("MCP_INTERNAL_TOKEN", "s3cret"))));
+        var denied = InternalApi.CheckToken(WithToken(supplied), InternalApi.FromEnvironment(Env(("MCP_INTERNAL_TOKEN", "s3cret"))));
 
         denied.Should().NotBeNull();
         StatusOf(denied!).Should().Be(401);
@@ -73,7 +73,7 @@ public class InternalApiTests
 
     [Fact]
     public void CheckInstanceUrl_AllowedHost_Passes() =>
-        InternalApi.CheckInstanceUrl("https://api.my.anythink.cloud", InternalApi.ForHosted(Env())).Should().BeNull();
+        InternalApi.CheckInstanceUrl("https://api.my.anythink.cloud", InternalApi.FromEnvironment(Env())).Should().BeNull();
 
     [Theory]
     [InlineData("https://evilanythink.cloud")]
@@ -81,7 +81,7 @@ public class InternalApiTests
     [InlineData("http://localhost:5000")]
     public void CheckInstanceUrl_OutsideAllowlist_Is400(string url)
     {
-        var denied = InternalApi.CheckInstanceUrl(url, InternalApi.ForHosted(Env()));
+        var denied = InternalApi.CheckInstanceUrl(url, InternalApi.FromEnvironment(Env()));
 
         denied.Should().NotBeNull();
         StatusOf(denied!).Should().Be(400);
@@ -89,5 +89,5 @@ public class InternalApiTests
 
     [Fact]
     public void CheckInstanceUrl_Loopback_AllowedOnlyWithExplicitOptIn() =>
-        InternalApi.CheckInstanceUrl("http://localhost:5000", InternalApi.ForHosted(Env(("MCP_ALLOW_LOOPBACK_INSTANCE", "true"), ("ASPNETCORE_ENVIRONMENT", "Development")))).Should().BeNull();
+        InternalApi.CheckInstanceUrl("http://localhost:5000", InternalApi.FromEnvironment(Env(("MCP_ALLOW_LOOPBACK_INSTANCE", "true"), ("ASPNETCORE_ENVIRONMENT", "Development")))).Should().BeNull();
 }

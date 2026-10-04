@@ -20,7 +20,7 @@ internal sealed class InternalApiOptions
 
 internal static class InternalApi
 {
-    public static InternalApiOptions ForHosted(Func<string, string?> get)
+    public static InternalApiOptions FromEnvironment(Func<string, string?> get)
     {
         var bind = HostedConfig.Optional(get, "MCP_INTERNAL_BIND") ?? "127.0.0.1";
         var options = Build(get, bind);

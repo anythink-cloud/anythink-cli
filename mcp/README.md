@@ -150,9 +150,8 @@ loopback by default. If your internal services reach it over the network, set
 `MCP_INTERNAL_BIND` and `MCP_INTERNAL_TOKEN`; callers then send the token in
 `X-Internal-Token`.
 
-Rollout note: under `--hosted` the internal REST API moves to port `5301` (it was on the
-`--internal` port, `5300`), so callers' URLs must change. Ingress should target only `5300`,
-and a NetworkPolicy should allow only your internal services to reach `5301`.
+Under `--hosted` the internal REST API listens on port `5301`. Route ingress only to `5300`,
+and allow only your internal services to reach `5301`.
 
 `--internal` runs only that internal REST API, on `--port` (default `5300`), with the same
 bind and token settings. The Docker image runs `--hosted` by default; override the
