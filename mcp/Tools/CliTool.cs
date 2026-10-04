@@ -441,6 +441,8 @@ public class CliTool
         // Ensure path is a full URL — prepend the tenant base URL if it's a relative path
         if (path.StartsWith('/'))
             path = $"{client.BaseUrl}/org/{client.OrgId}{path}";
+        if (method.Equals("GET", StringComparison.OrdinalIgnoreCase))
+            path = FetchPaging.CapPageSize(path);
         return await client.FetchRawAsync(path, method, body);
     }
 
