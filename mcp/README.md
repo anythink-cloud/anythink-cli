@@ -81,7 +81,9 @@ Once connected, run the `login` (or `login_direct`) tool, then `accounts_use` /
 - **Config** — `config_show`, `config_use`, `config_remove`
 - **Accounts & projects** — `accounts_list`, `accounts_create`, `accounts_use`,
   `projects_list`, `projects_create`, `projects_use`, `projects_delete`
-- **Email** — `email_templates_list`
+- **Every project command** — one tool per CLI command, generated from the CLI itself,
+  e.g. `entities_list`, `fields_add`, `data_list`, `workflows_create`. Each is marked
+  read-only or destructive so clients can ask before changing anything.
 - **Generic CLI** — `cli` to run any Anythink CLI command
 
 ## Hosted mode (remote MCP connector)
@@ -138,9 +140,10 @@ Each project may have 8 concurrent requests in flight on `/mcp`, with up to 8 mo
 queued; beyond that the server returns `429`. Upstream calls share one connection pool,
 don't follow redirects, and time out after 30 seconds.
 
-The hosted tool set is intentionally small and read-only for now:
-`project_details`, `entities_list`, and `records_query`. A broader tool set is
-planned for a follow-up release.
+Hosted mode serves `project_details` plus the generated command tools, leaving out
+commands that sign in, switch profiles, or use the local machine (opening a browser,
+or reading and writing local files). Tools run as the signed-in user, so their role
+in the project decides what each call can do.
 
 The internal REST API (`GET /tools`, `POST /tools/call`) used by your internal services
 keeps running, but only on the internal port, never on the public port. It trusts

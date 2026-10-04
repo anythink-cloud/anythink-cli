@@ -27,6 +27,9 @@ public abstract class BaseCommand<TSettings> : AsyncCommand<TSettings>
     /// </summary>
     internal AnythinkClient GetClient(HttpClient? refreshHttp)
     {
+        if (ClientContext.Current is { } ambient)
+            return ambient;
+
         // --profile flag takes precedence over the active profile on disk.
         if (!string.IsNullOrEmpty(ProfileCtx.Current))
             return GetClientForProfile(ProfileCtx.Current, refreshHttp);

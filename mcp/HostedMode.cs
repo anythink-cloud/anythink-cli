@@ -1,3 +1,4 @@
+using AnythinkMcp.Cli;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
 using AnythinkMcp.Tools;
@@ -109,6 +110,7 @@ public static class HostedMode
         builder.Services
             .AddMcpServer(server => server.ServerInfo = new() { Name = "anythink", Version = "1.0.0" })
             .WithTools<HostedTools>()
+            .WithTools(CliCommandTool.All(CliToolScope.Remote))
             .WithHttpTransport(http => http.SessionMode = HttpServerSessionMode.Stateless);
 
         var app = builder.Build();

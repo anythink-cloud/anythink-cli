@@ -1,3 +1,4 @@
+using AnythinkMcp.Cli;
 using System.Text.Json;
 using AnythinkMcp;
 
@@ -32,7 +33,8 @@ static async Task RunStdioServer(string? profile)
                 server.ServerInfo = new() { Name = "anythink", Version = "1.0.0" };
             })
             .WithStdioServerTransport()
-            .WithToolsFromAssembly();
+            .WithToolsFromAssembly()
+            .WithTools(CliCommandTool.All(CliToolScope.Local));
     });
 
     await builder.Build().RunAsync();

@@ -64,6 +64,6 @@ public class InternalApiEndpointTests : IAsyncLifetime
         (await _client.SendAsync(ToolCall("entities_list", instanceUrl: instanceUrl))).StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
     [Fact]
-    public async Task ToolsCall_ForAConfigChangingTool_Returns403() =>
-        (await _client.SendAsync(ToolCall("config_use"))).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    public async Task ToolsCall_ForAToolNotOfferedRemotely_Returns404() =>
+        (await _client.SendAsync(ToolCall("config_use"))).StatusCode.Should().Be(HttpStatusCode.NotFound);
 }

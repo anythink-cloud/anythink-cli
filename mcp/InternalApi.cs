@@ -94,19 +94,12 @@ internal static class InternalApi
             if (!body.TryGetProperty("name", out var nameEl) || nameEl.GetString() is not { } toolName)
                 return Results.Json(new { error = new { message = "'name' field required" } }, statusCode: 400);
 
+            if (!McpToolRegistry.Contains(toolName))
+                return Results.Json(new { error = new { message = $"Unknown tool: {toolName}" } }, statusCode: 404);
+
             var arguments = body.TryGetProperty("arguments", out var args)
                 ? args
                 : JsonSerializer.Deserialize<JsonElement>("{}");
-
-            if (toolName is "login" or "login_direct" or "signup" or "logout"
-                or "config_use" or "config_remove" or "config_show"
-                or "accounts_use")
-            {
-                return Results.Json(new
-                {
-                    error = new { message = $"Tool '{toolName}' is not available in HTTP mode." }
-                }, statusCode: 403);
-            }
 
             McpClientFactory.SetRequestCredentials(orgId!, instanceUrl!, token!);
             try
