@@ -614,6 +614,21 @@ public class CliCommandToolTests
         result.Output.Should().Contain("500").And.NotContain("secret-detail");
     }
 
+    [Theory]
+    [InlineData("entities_get", "GET", "/entities/posts", "not json")]
+    [InlineData("entities_create", "POST", "/entities", "")]
+    public async Task RemoteRun_AnUnreadableSuccessResponse_IsReportedAsSuch_NotAsAStatus(string tool, string method, string path, string body)
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.When(new HttpMethod(method), $"{ApiUrl}/org/42{path}").Respond("application/json", body);
+
+        var result = await Tool(tool).RunAsync(Args(new { name = "posts" }), Client(mock));
+
+        result.ExitCode.Should().Be(1);
+        result.Output.Should().Contain("response this command couldn't read").And.NotContain("status 200");
+        if (body.Length > 0) result.Output.Should().NotContain(body);
+    }
+
     [Fact]
     public async Task LocalRun_UpstreamError_KeepsTheBody()
     {

@@ -11,7 +11,9 @@ public class AnythinkException(string message, int statusCode) : Exception(messa
 {
     public int StatusCode { get; } = statusCode;
 
-    public string StatusOnlyMessage => $"The project API returned status {StatusCode}.";
+    public string StatusOnlyMessage => StatusCode is >= 200 and < 300
+        ? "The project API returned a response this command couldn't read."
+        : $"The project API returned status {StatusCode}.";
 }
 
 /// <summary>
