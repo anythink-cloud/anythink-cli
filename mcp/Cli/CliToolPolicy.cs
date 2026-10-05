@@ -8,13 +8,10 @@ public static class CliToolPolicy
         ["cli", "signup", "login", "logout", "config", "accounts", "projects", "plans", "migrate"];
 
     private static readonly string[] ExcludedRemotely =
-        ["files upload", "workflows seed", "integrations oauth connect", "pay connect", "oauth google", "fetch"];
+        ["files upload", "workflows seed", "integrations oauth connect", "pay connect", "oauth google", "fetch", "api-keys create"];
 
-    private static readonly string[] HiddenRemotely =
-    [
-        "workflows create --filter-file", "workflows export --output", "api-keys create --save-as",
-        "api-keys create --no-expiry-cap", "data list --all"
-    ];
+    internal static readonly string[] HiddenRemotely =
+        ["workflows create --filter-file", "workflows export --output", "data list --all"];
 
     private static readonly string[] FreeTextArguments =
         ["search query text", "workflows create name", "roles create name", "users invite first_name", "users invite last_name"];

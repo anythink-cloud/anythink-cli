@@ -1,3 +1,4 @@
+using AnythinkCli.Client;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -132,6 +133,7 @@ public static class ConfigService
 
     public static CliConfigData Load()
     {
+        ClientContext.RequireLocal();
         if (!File.Exists(ConfigPath)) return new CliConfigData();
         var json = File.ReadAllText(ConfigPath);
         var data = JsonSerializer.Deserialize<CliConfigData>(json, JsonOpts) ?? new CliConfigData();
@@ -144,6 +146,7 @@ public static class ConfigService
 
     public static void Save(CliConfigData config)
     {
+        ClientContext.RequireLocal();
         Directory.CreateDirectory(ConfigDir);
         File.WriteAllText(ConfigPath, JsonSerializer.Serialize(config, JsonOpts));
         TightenPermissions();
@@ -299,6 +302,7 @@ public static class ConfigService
     /// </summary>
     public static PlatformConfig ApplyRuntimeOverrides(PlatformConfig p)
     {
+        ClientContext.RequireLocal();
         var c = new PlatformConfig
         {
             MyAnythinkOrgId = p.MyAnythinkOrgId,
@@ -359,6 +363,7 @@ public static class ConfigService
 
     public static void Reset()
     {
+        ClientContext.RequireLocal();
         if (File.Exists(ConfigPath)) File.Delete(ConfigPath);
     }
 

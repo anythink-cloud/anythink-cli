@@ -79,14 +79,18 @@ public class McpClientFactory
         return new AnythinkClient(orgId, baseUrl, http, anonymous);
     }
 
+    public AnythinkClient GetRequestClient()
+    {
+        var creds = _requestCredentials.Value
+            ?? throw new InvalidOperationException("The request carries no credentials.");
+        return CreateRequestClient(creds.OrgId, creds.BaseUrl, creds.Token);
+    }
+
     public AnythinkClient GetClient()
     {
         // HTTP mode: use per-request credentials (no config files)
         if (_requestCredentials.Value.HasValue)
-        {
-            var creds = _requestCredentials.Value.Value;
-            return CreateRequestClient(creds.OrgId, creds.BaseUrl, creds.Token);
-        }
+            return GetRequestClient();
 
         // Stdio mode: resolve from CLI config
         var profile = !string.IsNullOrEmpty(_profileName)

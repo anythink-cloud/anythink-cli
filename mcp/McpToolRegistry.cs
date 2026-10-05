@@ -24,7 +24,7 @@ public static class McpToolRegistry
         if (!Tools.Value.TryGetValue(toolName, out var tool))
             throw new ArgumentException($"Unknown tool: {toolName}");
 
-        var client = services.GetRequiredService<McpClientFactory>().GetClient();
+        var client = services.GetRequiredService<McpClientFactory>().GetRequestClient();
         var properties = arguments.ValueKind == JsonValueKind.Object
             ? arguments.EnumerateObject().Select(p => KeyValuePair.Create(p.Name, p.Value))
             : null;

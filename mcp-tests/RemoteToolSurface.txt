@@ -1,5 +1,4 @@
 api [read-only] base_url?
-api_keys_create [write] name expires_in? permissions?
 api_keys_list [read-only]
 api_keys_revoke [destructive] id
 data_create [write] entity data?

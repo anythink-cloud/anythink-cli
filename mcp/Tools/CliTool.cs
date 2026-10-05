@@ -40,7 +40,7 @@ public class CliTool
             return $"Error: {ex.Message}";
         }
 
-        var result = await CliRunner.RunAsync(args, client, cancellationToken);
+        var result = await CliRunner.RunAsync(args, client, CliToolScope.Local, cancellationToken);
         if (result.ExitCode != 0)
             return $"CLI exited with code {result.ExitCode}: {result.Output}";
 
