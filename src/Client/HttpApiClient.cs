@@ -28,6 +28,14 @@ public abstract class HttpApiClient
 {
     protected readonly HttpClient Http;
 
+    private static readonly SocketsHttpHandler SharedHandler = new()
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+        UseCookies = false
+    };
+
+    protected static HttpClient NewClient() => new(SharedHandler, disposeHandler: false);
+
     protected static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -36,7 +44,7 @@ public abstract class HttpApiClient
 
     protected HttpApiClient(string? token, string? apiKey)
     {
-        Http = new HttpClient();
+        Http = NewClient();
         if (!string.IsNullOrEmpty(apiKey))
             Http.DefaultRequestHeaders.Add("X-API-Key", apiKey);
         else if (!string.IsNullOrEmpty(token))

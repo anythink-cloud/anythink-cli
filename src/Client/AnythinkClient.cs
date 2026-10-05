@@ -40,7 +40,7 @@ public class AnythinkClient : HttpApiClient
         OrgId   = orgId;
         BaseUrl = baseUrl.TrimEnd('/');
         _org    = $"{BaseUrl}/org/{OrgId}";
-        _anonymousHttp = new HttpClient();
+        _anonymousHttp = NewClient();
         ConfineTo(_org);
     }
 
