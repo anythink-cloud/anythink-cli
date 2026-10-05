@@ -128,14 +128,19 @@ Configuration is via environment variables:
 Hosted mode serves only three things on the public port: the MCP endpoint (`/mcp`),
 the OAuth protected-resource metadata (`/.well-known/oauth-protected-resource` and
 `/.well-known/oauth-protected-resource/mcp`), and `/health`. Every request to `/mcp`
-must carry a valid bearer token issued by the Anythink authorisation server; the
-project and its API URL come from the token's own claims, never from headers.
+must carry a valid bearer token issued by the Anythink authorisation server. For a
+one-project connection the project and its API URL come from the token's own claims; for an
+all-projects connection the token names no project, and each call names one with `project`.
+Either way the project's API URL comes from a validated token, never from headers.
 
 The inbound token is issued for this server, so it is never forwarded to the project
 API. Instead the server exchanges it (RFC 8693) at the authorisation server's token
 endpoint, found through the issuer's discovery document, for a token whose audience is
 `MCP_UPSTREAM_AUDIENCE`, caches the result until shortly before it expires, and uses
-only that token upstream. If the exchange fails the client gets a generic 401 or 502.
+only that token upstream. For a one-project connection the exchange happens when the request
+arrives, and if it fails the client gets a generic 401 or 502. For an all-projects connection it
+happens when a tool runs (once per token and project), and a failure is a tool error, not an
+HTTP error.
 
 A connection to one project may have 8 concurrent requests in flight on `/mcp`, shared
 by everyone connected to that project, with up to 8 more queued; beyond that the server
