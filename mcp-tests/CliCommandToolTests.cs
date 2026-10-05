@@ -102,12 +102,42 @@ public class CliCommandToolTests
     [InlineData("entities_list", true, null)]
     [InlineData("entities_delete", false, true)]
     [InlineData("entities_create", false, false)]
+    [InlineData("workflows_export", true, null)]
+    [InlineData("integrations_oauth_configure", false, true)]
+    [InlineData("entities_update", false, true)]
     public void Annotations_FollowTheCommandVerb(string name, bool readOnly, bool? destructive)
     {
         var annotations = Tool(name).ProtocolTool.Annotations!;
 
         annotations.ReadOnlyHint.Should().Be(readOnly);
         annotations.DestructiveHint.Should().Be(destructive);
+    }
+
+    // ── Rule: a command nobody classified is treated as destructive ────────────
+
+    [Theory]
+    [InlineData("frobnicate")]
+    [InlineData("configure")]
+    [InlineData("reset")]
+    [InlineData("")]
+    public void AVerbNobodyClassified_IsDestructive(string verb)
+    {
+        var command = new CliCommand(["things", verb], "", []);
+
+        CliToolPolicy.IsReadOnly(command).Should().BeFalse();
+        CliToolPolicy.IsDestructive(command).Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("create")]
+    [InlineData("add")]
+    [InlineData("enable")]
+    public void AnAdditiveVerb_IsNeitherReadOnlyNorDestructive(string verb)
+    {
+        var command = new CliCommand(["things", verb], "", []);
+
+        CliToolPolicy.IsReadOnly(command).Should().BeFalse();
+        CliToolPolicy.IsDestructive(command).Should().BeFalse();
     }
 
     [Fact]

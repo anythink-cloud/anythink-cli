@@ -30,7 +30,7 @@ integrations_execute [write, open-world] provider operation input? inputs?
 integrations_get [read-only] provider
 integrations_list [read-only]
 integrations_oauth_callback_url [read-only]
-integrations_oauth_configure [write] provider client_id? client_secret? disable? use_social_sign_in?
+integrations_oauth_configure [destructive] provider client_id? client_secret? disable? use_social_sign_in?
 integrations_oauth_status [read-only] provider
 integrations_test [write] connection_id
 menus_add_item [write] menu_id entity icon? name? parent?
@@ -62,7 +62,7 @@ workflows_create [write] name api_route? cron? description? enabled? entity? eve
 workflows_delete [destructive] id
 workflows_disable [write] id
 workflows_enable [write] id
-workflows_export [write] id
+workflows_export [read-only] id
 workflows_file_handler_add [write] workflow_id step_key enabled? entity? existing_file_id? field? file_name? folder_id? is_public? link_mode? name? on_failure? on_success? operation? overwrite_if_present? record_id? source_url? start?
 workflows_file_handler_example [read-only]
 workflows_get [read-only] id

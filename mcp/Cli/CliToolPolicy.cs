@@ -21,11 +21,14 @@ public static class CliToolPolicy
     private static readonly HashSet<string> ReadOnlyVerbs =
     [
         "list", "get", "me", "status", "jobs", "step-get", "query", "similar", "audit", "payments", "methods",
-        "callback-url", "api", "docs", "file-handler-example"
+        "callback-url", "api", "docs", "file-handler-example", "export"
     ];
 
-    private static readonly HashSet<string> DestructiveVerbs =
-        ["delete", "remove", "revoke", "purge", "disconnect", "step-delete", "fetch", "update", "step-update"];
+    private static readonly HashSet<string> AdditiveVerbs =
+    [
+        "create", "add", "add-item", "step-add", "step-link", "file-handler-add", "integration-add", "connect",
+        "enable", "disable", "test", "rehydrate", "rls", "upload", "seed", "invite", "trigger", "execute"
+    ];
 
     private static readonly HashSet<string> OpenWorldVerbs = ["execute", "trigger", "invite"];
 
@@ -53,7 +56,7 @@ public static class CliToolPolicy
 
     public static bool IsReadOnly(CliCommand command) => ReadOnlyVerbs.Contains(command.Verb);
 
-    public static bool IsDestructive(CliCommand command) => DestructiveVerbs.Contains(command.Verb);
+    public static bool IsDestructive(CliCommand command) => !IsReadOnly(command) && !AdditiveVerbs.Contains(command.Verb);
 
     public static bool IsOpenWorld(CliCommand command) => OpenWorldVerbs.Contains(command.Verb);
 
