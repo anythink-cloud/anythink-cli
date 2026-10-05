@@ -108,11 +108,12 @@ internal static class InternalApi
                     arguments.ValueKind == JsonValueKind.Object ? string.Join(",", arguments.EnumerateObject().Select(a => a.Name)) : "");
                 var result = await McpToolRegistry.ExecuteToolAsync(toolName, arguments,
                     context.RequestServices, context.RequestAborted);
-                logger.LogInformation("Tool result: {ToolName} ({Length} chars)", toolName, result.Length);
+                logger.LogInformation("Tool result: {ToolName} ({Length} chars, error: {IsError})",
+                    toolName, result.Output.Length, result.IsError);
 
                 return Results.Json(new
                 {
-                    result = new { content = new[] { new { type = "text", text = result } } }
+                    result = new { content = new[] { new { type = "text", text = result.Output } }, is_error = result.IsError }
                 });
             }
             catch (Exception ex)
