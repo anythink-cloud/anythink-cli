@@ -37,7 +37,7 @@ public class AnythinkClient : HttpApiClient
     public AnythinkClient(string orgId, string baseUrl, string? token = null, string? apiKey = null)
         : base(token, apiKey)
     {
-        OrgId   = orgId;
+        OrgId   = RequireOrgId(orgId);
         BaseUrl = baseUrl.TrimEnd('/');
         _org    = $"{BaseUrl}/org/{OrgId}";
         _anonymousHttp = NewClient();
@@ -51,12 +51,15 @@ public class AnythinkClient : HttpApiClient
 
     internal AnythinkClient(string orgId, string baseUrl, HttpClient http, HttpClient anonymousHttp) : base(http)
     {
-        OrgId   = orgId;
+        OrgId   = RequireOrgId(orgId);
         BaseUrl = baseUrl.TrimEnd('/');
         _org    = $"{BaseUrl}/org/{OrgId}";
         _anonymousHttp = anonymousHttp;
         ConfineTo(_org);
     }
+
+    private static string RequireOrgId(string orgId) =>
+        orgId.Length > 0 && orgId.All(char.IsAsciiDigit) ? orgId : throw new ArgumentException("The project id must be numeric.", nameof(orgId));
 
     private static string Seg(string value) =>
         value is "." or ".." ? throw new ArgumentException($"'{value}' is not a valid path segment.", nameof(value)) : Uri.EscapeDataString(value);

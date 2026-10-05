@@ -62,7 +62,7 @@ public class McpClientFactoryTests : IDisposable
 
         var task1 = Task.Run(() =>
         {
-            McpClientFactory.SetRequestCredentials("org-1", "https://api1.com", "token1");
+            McpClientFactory.SetRequestCredentials("1", "https://api1.com", "token1");
             Thread.Sleep(50); // Give task2 time to set its own credentials
             var factory = new McpClientFactory();
             task1OrgId = factory.GetClient().OrgId;
@@ -72,7 +72,7 @@ public class McpClientFactoryTests : IDisposable
         var task2 = Task.Run(() =>
         {
             Thread.Sleep(10); // Start slightly after task1
-            McpClientFactory.SetRequestCredentials("org-2", "https://api2.com", "token2");
+            McpClientFactory.SetRequestCredentials("2", "https://api2.com", "token2");
             var factory = new McpClientFactory();
             task2OrgId = factory.GetClient().OrgId;
             McpClientFactory.ClearRequestCredentials();
@@ -80,7 +80,7 @@ public class McpClientFactoryTests : IDisposable
 
         await Task.WhenAll(task1, task2);
 
-        task1OrgId.Should().Be("org-1", "task1 should see its own credentials");
-        task2OrgId.Should().Be("org-2", "task2 should see its own credentials");
+        task1OrgId.Should().Be("1", "task1 should see its own credentials");
+        task2OrgId.Should().Be("2", "task2 should see its own credentials");
     }
 }

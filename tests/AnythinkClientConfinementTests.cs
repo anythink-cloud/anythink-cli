@@ -146,4 +146,28 @@ public class AnythinkClientConfinementTests
 
         _sent.Should().ContainSingle().Which.AbsolutePath.Should().Be("/org/1");
     }
+
+    // ── Rule: the project id is non-empty and numeric, so the root can't be widened ──
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("1/..")]
+    [InlineData("..")]
+    [InlineData("1x")]
+    [InlineData("org-1")]
+    [InlineData("1 ")]
+    public void AnOrgIdThatIsNotNumeric_IsRefused(string orgId)
+    {
+        var act = () => new AnythinkClient(orgId, BaseUrl, new HttpClient(_mock));
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void AnOrgIdThatIsNotNumeric_IsRefusedByTheTokenConstructorToo()
+    {
+        var act = () => new AnythinkClient("1/..", BaseUrl, "token");
+
+        act.Should().Throw<ArgumentException>();
+    }
 }
