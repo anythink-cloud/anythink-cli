@@ -137,9 +137,11 @@ endpoint, found through the issuer's discovery document, for a token whose audie
 `MCP_UPSTREAM_AUDIENCE`, caches the result until shortly before it expires, and uses
 only that token upstream. If the exchange fails the client gets a generic 401 or 502.
 
-Each project may have 8 concurrent requests in flight on `/mcp`, with up to 8 more
-queued; beyond that the server returns `429`. Upstream calls share one connection pool,
-don't follow redirects, and time out after 30 seconds.
+A connection to one project may have 8 concurrent requests in flight on `/mcp`, shared
+by everyone connected to that project, with up to 8 more queued; beyond that the server
+returns `429`. A connection that covers all projects has the same limit per user, across
+every project it calls. Upstream calls share one connection pool, don't follow redirects,
+and time out after 30 seconds.
 
 Hosted mode serves `projects_list`, `project_details` and the generated command tools, leaving out
 commands that sign in, switch profiles, use the local machine (opening a browser,
