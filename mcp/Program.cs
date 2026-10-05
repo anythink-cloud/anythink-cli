@@ -1,3 +1,4 @@
+using AnythinkMcp.Cli;
 using System.Text.Json;
 using AnythinkMcp;
 
@@ -32,7 +33,8 @@ static async Task RunStdioServer(string? profile)
                 server.ServerInfo = new() { Name = "anythink", Version = "1.0.0" };
             })
             .WithStdioServerTransport()
-            .WithToolsFromAssembly();
+            .WithToolsFromAssembly()
+            .WithTools(CliCommandTool.All(CliToolScope.Local));
     });
 
     await builder.Build().RunAsync();
@@ -84,12 +86,6 @@ static WebApplication BuildRestApp(string? profile, string[] corsOrigins, Intern
     builder.WebHost.ConfigureKestrel(opts => opts.Limits.MaxRequestBodySize = HostedMode.MaxRequestBodyBytes);
 
     builder.Services.AddSingleton(new McpClientFactory(profile));
-    builder.Services
-        .AddMcpServer(server =>
-        {
-            server.ServerInfo = new() { Name = "anythink", Version = "1.0.0" };
-        })
-        .WithToolsFromAssembly();
 
     builder.Services.AddCors(options =>
     {

@@ -1,3 +1,4 @@
+using AnythinkMcp.Cli;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -241,18 +242,19 @@ public class HostedModeTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task ToolsList_HostedMode_ReturnsOnlyProvingTools_WithTitleAndReadOnlyHint()
+    public async Task ToolsList_HostedMode_IsProjectDetailsAndTheRemoteCliTools_AllAnnotated()
     {
         await using var mcpClient = await McpClient.CreateAsync(Transport(ValidToken()));
         var tools = await mcpClient.ListToolsAsync();
 
         tools.Select(t => t.Name).Should().BeEquivalentTo(
-            ["project_details", "entities_list", "records_query"]);
+            CliCommandTool.All(CliToolScope.Remote).Select(t => t.ProtocolTool.Name).Append("project_details"));
 
         foreach (var tool in tools)
         {
             tool.Title.Should().NotBeNullOrWhiteSpace();
-            tool.ProtocolTool.Annotations?.ReadOnlyHint.Should().BeTrue();
+            var annotations = tool.ProtocolTool.Annotations!;
+            (annotations.ReadOnlyHint == true || annotations.DestructiveHint.HasValue).Should().BeTrue();
             tool.Name.Length.Should().BeLessOrEqualTo(64);
         }
     }
@@ -499,7 +501,7 @@ public class HostedModeTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task RecordsQuery_ThroughTheHostedPipeline_ReturnsTheProjectsRecords()
+    public async Task DataList_ThroughTheHostedPipeline_ReturnsTheProjectsRecords()
     {
         var token = ValidToken();
         _mock.When(HttpMethod.Get, $"{UpstreamOrgUrl("42")}/entities/blog_posts/items*")
@@ -507,7 +509,7 @@ public class HostedModeTests : IAsyncLifetime
             .Respond("application/json", """{"items":[{"id":1,"title":"Hello"}],"total_items":1,"total_pages":1,"has_next_page":false,"page":1,"page_size":20}""");
 
         await using var mcpClient = await McpClient.CreateAsync(Transport(token));
-        var result = await mcpClient.CallToolAsync("records_query", new Dictionary<string, object?> { ["entity"] = "blog_posts" });
+        var result = await mcpClient.CallToolAsync("data_list", new Dictionary<string, object?> { ["entity"] = "blog_posts" });
 
         ((TextContentBlock)result.Content[0]).Text.Should().Contain("Hello");
     }

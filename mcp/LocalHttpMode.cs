@@ -1,3 +1,4 @@
+using AnythinkMcp.Cli;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -17,6 +18,7 @@ public static class LocalHttpMode
         builder.Services
             .AddMcpServer(server => server.ServerInfo = new() { Name = "anythink", Version = "1.0.0" })
             .WithToolsFromAssembly()
+            .WithTools(CliCommandTool.All(CliToolScope.Local))
             .WithHttpTransport(http => http.SessionMode = HttpServerSessionMode.Stateless);
 
         var app = builder.Build();

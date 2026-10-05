@@ -94,19 +94,12 @@ internal static class InternalApi
             if (!body.TryGetProperty("name", out var nameEl) || nameEl.GetString() is not { } toolName)
                 return Results.Json(new { error = new { message = "'name' field required" } }, statusCode: 400);
 
+            if (!McpToolRegistry.Contains(toolName))
+                return Results.Json(new { error = new { message = $"Unknown tool: {toolName}" } }, statusCode: 404);
+
             var arguments = body.TryGetProperty("arguments", out var args)
                 ? args
                 : JsonSerializer.Deserialize<JsonElement>("{}");
-
-            if (toolName is "login" or "login_direct" or "signup" or "logout"
-                or "config_use" or "config_remove" or "config_show"
-                or "accounts_use")
-            {
-                return Results.Json(new
-                {
-                    error = new { message = $"Tool '{toolName}' is not available in HTTP mode." }
-                }, statusCode: 403);
-            }
 
             McpClientFactory.SetRequestCredentials(orgId!, instanceUrl!, token!);
             try
@@ -114,12 +107,14 @@ internal static class InternalApi
                 logger.LogInformation("Tool call: {ToolName} args={ArgNames}", toolName,
                     arguments.ValueKind == JsonValueKind.Object ? string.Join(",", arguments.EnumerateObject().Select(a => a.Name)) : "");
                 var result = await McpToolRegistry.ExecuteToolAsync(toolName, arguments,
-                    context.RequestServices);
-                logger.LogInformation("Tool result: {ToolName} ({Length} chars)", toolName, result.Length);
+                    context.RequestServices, context.RequestAborted);
+                logger.LogInformation("Tool result: {ToolName} ({Length} chars, error: {IsError})",
+                    toolName, result.Output.Length, result.IsError);
 
                 return Results.Json(new
                 {
-                    result = new { content = new[] { new { type = "text", text = result } } }
+                    result = new { content = new[] { new { type = "text", text = result.Output } } },
+                    is_error = result.IsError
                 });
             }
             catch (Exception ex)
@@ -155,9 +150,9 @@ internal static class InternalApi
             ? authHeader[7..]
             : authHeader;
 
-        if (string.IsNullOrEmpty(orgId))
+        if (string.IsNullOrEmpty(orgId) || orgId.Length > 12 || !orgId.All(char.IsAsciiDigit))
         {
-            error = Results.Json(new { error = "X-Org-Id header required" }, statusCode: 400);
+            error = Results.Json(new { error = "X-Org-Id header must be a numeric org id" }, statusCode: 400);
             return false;
         }
         if (string.IsNullOrEmpty(instanceUrl))
