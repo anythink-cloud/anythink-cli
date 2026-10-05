@@ -10,11 +10,13 @@ namespace AnythinkMcp.Cli;
 public sealed class CliCommandTool : McpServerTool
 {
     private readonly CliCommand _command;
+    private readonly CliToolScope _scope;
     private readonly IReadOnlyList<CliParameter> _parameters;
 
     public CliCommandTool(CliCommand command, CliToolScope scope)
     {
         _command = command;
+        _scope = scope;
         _parameters = CliToolPolicy.Parameters(command, scope);
 
         var title = Title(command);
@@ -109,6 +111,8 @@ public sealed class CliCommandTool : McpServerTool
             var text = Scalar(value);
             if (text.StartsWith('-'))
                 throw new ArgumentException($"'{parameter.Name}' can't start with '-'.");
+            if (_scope == CliToolScope.Remote && !CliToolPolicy.IsFreeText(_command, parameter) && CliToolPolicy.HasPathSyntax(text))
+                throw new ArgumentException($"'{parameter.Name}' can't contain '/', '..', '?' or '#'.");
             args.Add(text);
         }
 

@@ -45,19 +45,36 @@ public abstract class HttpApiClient
     /// <summary>Test-only constructor — accepts a pre-configured HttpClient (e.g. with a mock handler).</summary>
     internal HttpApiClient(HttpClient http) { Http = http; }
 
+    private string? _confinedTo;
+
+    protected void ConfineTo(string root) => _confinedTo = new Uri(root).AbsoluteUri.TrimEnd('/');
+
+    // Uri collapses ".." segments, so the check has to run on the normalised form.
+    protected Uri Target(string url)
+    {
+        var uri = new Uri(url);
+        if (_confinedTo is not null)
+        {
+            var path = uri.GetLeftPart(UriPartial.Path);
+            if (path != _confinedTo && !path.StartsWith(_confinedTo + "/", StringComparison.Ordinal))
+                throw new InvalidOperationException("The request path leaves the project.");
+        }
+        return uri;
+    }
+
     protected async Task<T?> GetAsync<T>(string url) =>
-        await DeserializeAsync<T>(await Http.GetAsync(url, ClientContext.Cancellation));
+        await DeserializeAsync<T>(await Http.GetAsync(Target(url), ClientContext.Cancellation));
 
     protected async Task<T> PostAsync<T>(string url, object? body = null)
     {
-        var r = await Http.PostAsync(url, Serialize(body ?? new { }), ClientContext.Cancellation);
+        var r = await Http.PostAsync(Target(url), Serialize(body ?? new { }), ClientContext.Cancellation);
         return await DeserializeAsync<T>(r)
                ?? throw new AnythinkException("Empty response.", (int)r.StatusCode);
     }
 
     protected async Task<T?> PutAsync<T>(string url, object body)
     {
-        var r = await Http.PutAsync(url, Serialize(body), ClientContext.Cancellation);
+        var r = await Http.PutAsync(Target(url), Serialize(body), ClientContext.Cancellation);
         // 204 No Content = success with no body (e.g. entity item updates)
         if (r.StatusCode == System.Net.HttpStatusCode.NoContent) return default;
         return await DeserializeAsync<T>(r)
@@ -66,21 +83,21 @@ public abstract class HttpApiClient
 
     protected async Task PostVoidAsync(string url, object? body = null)
     {
-        var r = await Http.PostAsync(url, Serialize(body ?? new { }), ClientContext.Cancellation);
+        var r = await Http.PostAsync(Target(url), Serialize(body ?? new { }), ClientContext.Cancellation);
         if (!r.IsSuccessStatusCode)
             throw new AnythinkException(await r.Content.ReadAsStringAsync(), (int)r.StatusCode);
     }
 
     protected async Task PutVoidAsync(string url, object body)
     {
-        var r = await Http.PutAsync(url, Serialize(body), ClientContext.Cancellation);
+        var r = await Http.PutAsync(Target(url), Serialize(body), ClientContext.Cancellation);
         if (!r.IsSuccessStatusCode)
             throw new AnythinkException(await r.Content.ReadAsStringAsync(), (int)r.StatusCode);
     }
 
     protected async Task DeleteAsync(string url)
     {
-        var r = await Http.DeleteAsync(url, ClientContext.Cancellation);
+        var r = await Http.DeleteAsync(Target(url), ClientContext.Cancellation);
         if (!r.IsSuccessStatusCode)
             throw new AnythinkException(await r.Content.ReadAsStringAsync(), (int)r.StatusCode);
     }

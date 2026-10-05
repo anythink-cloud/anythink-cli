@@ -8,13 +8,16 @@ public static class CliToolPolicy
         ["cli", "signup", "login", "logout", "config", "accounts", "projects", "plans", "migrate"];
 
     private static readonly string[] ExcludedRemotely =
-        ["files upload", "workflows seed", "integrations oauth connect", "pay connect", "oauth google"];
+        ["files upload", "workflows seed", "integrations oauth connect", "pay connect", "oauth google", "fetch"];
 
     private static readonly string[] HiddenRemotely =
     [
         "workflows create --filter-file", "workflows export --output", "api-keys create --save-as",
         "api-keys create --no-expiry-cap", "data list --all"
     ];
+
+    private static readonly string[] FreeTextArguments =
+        ["search query text", "workflows create name", "roles create name", "users invite first_name", "users invite last_name"];
 
     private static readonly string[] AutomaticFlags = ["--json", "--yes"];
 
@@ -44,6 +47,12 @@ public static class CliToolPolicy
             .Where(p => p.Kind == CliParameterKind.Flag && AutomaticFlags.Contains(p.Token))
             .Select(p => p.Token)
             .ToList();
+
+    public static bool IsFreeText(CliCommand command, CliParameter parameter) =>
+        FreeTextArguments.Contains($"{command.Key} {parameter.Name}");
+
+    public static bool HasPathSyntax(string value) =>
+        value.AsSpan().IndexOfAny('/', '?', '#') >= 0 || value.Contains("..", StringComparison.Ordinal);
 
     public static bool IsReadOnly(CliCommand command) => ReadOnlyVerbs.Contains(command.Verb);
 

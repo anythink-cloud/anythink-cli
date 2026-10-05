@@ -14,7 +14,6 @@ entities_delete [destructive] name
 entities_get [read-only] name
 entities_list [read-only]
 entities_update [destructive] name lock_records? public? rls?
-fetch [destructive] path body? method?
 fields_add [write] entity name default? description? display? indexed? label? multiple? name_field? on_delete? options? public? required? searchable? target? type? unique?
 fields_delete [destructive] entity field_name
 fields_get [read-only] entity field_name

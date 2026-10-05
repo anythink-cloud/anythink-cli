@@ -20,6 +20,11 @@ public class CliCommandToolTests
 
     private static AnythinkClient Client(MockHttpMessageHandler mock) => new("42", ApiUrl, new HttpClient(mock));
 
+    private static MockedRequest AnyRequest(MockHttpMessageHandler mock) =>
+        mock.When("*").Respond("application/json", EmptyPage);
+
+    private const string EmptyPage = """{"items":[],"total_items":0,"total_pages":0,"has_next_page":false,"page":1,"page_size":20}""";
+
     private static IEnumerable<string> Properties(CliCommandTool tool) =>
         tool.ProtocolTool.InputSchema.GetProperty("properties").EnumerateObject().Select(p => p.Name);
 
@@ -80,6 +85,13 @@ public class CliCommandToolTests
     }
 
     [Fact]
+    public void ACommandThatReachesAnyRoute_IsLocalOnly()
+    {
+        Find("fetch", CliToolScope.Local).Should().NotBeNull();
+        Find("fetch", CliToolScope.Remote).Should().BeNull();
+    }
+
+    [Fact]
     public void FileOptions_AreHiddenRemotely()
     {
         Properties(Tool("workflows_create", CliToolScope.Local)).Should().Contain("filter_file");
@@ -121,13 +133,14 @@ public class CliCommandToolTests
     public async Task UnsafeOrInvalidInput_IsRefusedBeforeTheCliRuns(string json, string error)
     {
         var mock = new MockHttpMessageHandler();
+        var any = AnyRequest(mock);
         var arguments = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json);
 
         var result = await Tool("workflows_create").RunAsync(arguments, Client(mock));
 
         result.ExitCode.Should().Be(1);
         result.Output.Should().Contain(error);
-        mock.GetMatchCount(mock.When("*")).Should().Be(0);
+        mock.GetMatchCount(any).Should().Be(0);
     }
 
     [Fact]
@@ -194,11 +207,12 @@ public class CliCommandToolTests
     public async Task ACommandThatWouldPrompt_FailsInsteadOfWaitingForInput()
     {
         var mock = new MockHttpMessageHandler();
+        var any = AnyRequest(mock);
 
         var run = Tool("secrets_create").RunAsync(Args(new { key = "API_TOKEN" }), Client(mock));
 
         (await run.WaitAsync(TimeSpan.FromSeconds(10))).ExitCode.Should().NotBe(0);
-        mock.GetMatchCount(mock.When("*")).Should().Be(0);
+        mock.GetMatchCount(any).Should().Be(0);
     }
 
     [Fact]
@@ -225,6 +239,123 @@ public class CliCommandToolTests
         publicAuth.Should().BeNull();
         privateAuth.Should().Be("Bearer user-token");
     }
+
+    // ── Rule: a remote caller can't steer a request off the project's API root ──
+
+    [Theory]
+    [InlineData("../x")]
+    [InlineData("../../43/entities/posts")]
+    [InlineData("a?b")]
+    [InlineData("a/b")]
+    [InlineData("a#b")]
+    [InlineData("..")]
+    public async Task RemotePositionalWithPathSyntax_IsAToolError_AndNothingIsSent(string entity)
+    {
+        var mock = new MockHttpMessageHandler();
+        var any = AnyRequest(mock);
+
+        var result = await Tool("data_list").RunAsync(Args(new { entity }), Client(mock));
+
+        result.ExitCode.Should().Be(1);
+        result.Output.Should().Contain("can't contain");
+        mock.GetMatchCount(any).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task RemotePositional_FreeText_MayContainPunctuation()
+    {
+        string? body = null;
+        var mock = new MockHttpMessageHandler();
+        mock.When(HttpMethod.Post, $"{ApiUrl}/org/42/workflows").Respond(async req =>
+        {
+            body = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage { Content = new StringContent("""{"id":7,"name":"x","trigger":"Manual"}""") };
+        });
+
+        var result = await Tool("workflows_create").RunAsync(Args(new { name = "Sales / support? #1", trigger = "Manual" }), Client(mock));
+
+        result.ExitCode.Should().Be(0, result.Output);
+        JsonDocument.Parse(body!).RootElement.GetProperty("name").GetString().Should().Be("Sales / support? #1");
+    }
+
+    [Theory]
+    [InlineData("a/b")]
+    [InlineData("a?b")]
+    [InlineData("a#b")]
+    public async Task LocalPositional_ReachesTheApiAsOneEscapedPathSegment(string entity)
+    {
+        var mock = new MockHttpMessageHandler();
+        var sent = new List<Uri>();
+        mock.When("*").Respond(req =>
+        {
+            sent.Add(req.RequestUri!);
+            return new HttpResponseMessage { Content = new StringContent(EmptyPage) };
+        });
+
+        await Tool("data_list", CliToolScope.Local).RunAsync(Args(new { entity }), Client(mock));
+
+        var uri = sent.Should().ContainSingle().Subject;
+        uri.Host.Should().Be("api.my.anythink.cloud");
+        uri.Segments.Should().HaveCount(6);
+        uri.Segments[..4].Should().Equal("/", "org/", "42/", "entities/");
+    }
+
+    [Theory]
+    [InlineData("/../../43/users")]
+    [InlineData("../../43/users")]
+    [InlineData("/entities/../../43/users")]
+    [InlineData("/%2e%2e/%2e%2e/43/users")]
+    [InlineData("\\..\\..\\43\\users")]
+    public async Task Fetch_APathThatLeavesTheProject_IsRefused_AndNothingIsSent(string path)
+    {
+        var mock = new MockHttpMessageHandler();
+        var any = AnyRequest(mock);
+
+        var result = await Tool("fetch", CliToolScope.Local).RunAsync(Args(new { path }), Client(mock));
+
+        result.ExitCode.Should().Be(1);
+        mock.GetMatchCount(any).Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData("/entities", "/org/42/entities")]
+    [InlineData("entities", "/org/42/entities")]
+    [InlineData("/entities?page=2", "/org/42/entities")]
+    public async Task Fetch_APathUnderTheProject_IsPrefixedWithTheProjectPath(string path, string expected)
+    {
+        var mock = new MockHttpMessageHandler();
+        var sent = new List<Uri>();
+        mock.When("*").Respond(req =>
+        {
+            sent.Add(req.RequestUri!);
+            return new HttpResponseMessage { Content = new StringContent("[]") };
+        });
+
+        var result = await Tool("fetch", CliToolScope.Local).RunAsync(Args(new { path }), Client(mock));
+
+        result.ExitCode.Should().Be(0, result.Output);
+        sent.Should().ContainSingle().Which.AbsolutePath.Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("https://attacker.example/x")]
+    [InlineData("//attacker.example/x")]
+    [InlineData("http://169.254.169.254/latest/meta-data")]
+    public async Task Fetch_AnAbsoluteUrl_StaysOnTheProjectHost(string path)
+    {
+        var mock = new MockHttpMessageHandler();
+        var sent = new List<Uri>();
+        mock.When("*").Respond(req =>
+        {
+            sent.Add(req.RequestUri!);
+            return new HttpResponseMessage { Content = new StringContent("[]") };
+        });
+
+        await Tool("fetch", CliToolScope.Local).RunAsync(Args(new { path }), Client(mock));
+
+        sent.Should().ContainSingle().Which.Should().Match<Uri>(uri => uri.Host == "api.my.anythink.cloud" && uri.AbsolutePath.StartsWith("/org/42/"));
+    }
+
 
     [Fact]
     public async Task Cancelling_StopsTheCommandAtItsApiCall()
