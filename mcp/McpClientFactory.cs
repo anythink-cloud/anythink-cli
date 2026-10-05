@@ -37,8 +37,6 @@ public class McpClientFactory
         _requestCredentials.Value = null;
     }
 
-    public static bool IsHttpMode => _requestCredentials.Value.HasValue;
-
     /// <summary>Test-only constructor — injects a mock HTTP handler for all clients.</summary>
     internal McpClientFactory(string? profileName, HttpMessageHandler httpHandler)
     {

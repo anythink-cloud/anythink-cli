@@ -19,26 +19,22 @@ public class McpClientFactoryTests : IDisposable
     }
 
     [Fact]
-    public void IsHttpMode_ShouldBeFalse_WhenNoCredentialsSet()
+    public void GetRequestClient_WithoutRequestCredentials_Throws()
     {
-        McpClientFactory.IsHttpMode.Should().BeFalse();
+        var act = () => new McpClientFactory().GetRequestClient();
+
+        act.Should().Throw<InvalidOperationException>();
     }
 
     [Fact]
-    public void IsHttpMode_ShouldBeTrue_WhenCredentialsSet()
-    {
-        McpClientFactory.SetRequestCredentials("123", "https://api.example.com", "token");
-
-        McpClientFactory.IsHttpMode.Should().BeTrue();
-    }
-
-    [Fact]
-    public void ClearRequestCredentials_ShouldResetHttpMode()
+    public void ClearRequestCredentials_RemovesThem()
     {
         McpClientFactory.SetRequestCredentials("123", "https://api.example.com", "token");
         McpClientFactory.ClearRequestCredentials();
 
-        McpClientFactory.IsHttpMode.Should().BeFalse();
+        var act = () => new McpClientFactory().GetRequestClient();
+
+        act.Should().Throw<InvalidOperationException>();
     }
 
     [Fact]
