@@ -21,6 +21,8 @@ internal static class HostedAuth
 {
     public static bool IsAllProjects(ClaimsPrincipal? principal) => principal?.FindFirstValue("projects") == "all";
 
+    public static bool IsValidOrgId(string? value) => !string.IsNullOrEmpty(value) && value.All(char.IsAsciiDigit);
+
     public static string RateLimitPartition(ClaimsPrincipal principal) =>
         principal.FindFirstValue("tid") ?? $"user:{principal.FindFirstValue("sub")}";
 
@@ -29,7 +31,7 @@ internal static class HostedAuth
         var principal = context.Principal;
         if (IsAllProjects(principal))
         {
-            if (string.IsNullOrEmpty(principal!.FindFirstValue("sub")) || principal.HasClaim(c => c.Type is "tid" or "instance_url"))
+            if (string.IsNullOrEmpty(principal!.FindFirstValue("sub")) || principal.HasClaim(c => c.Type is "tid" or "project_id" or "instance_url"))
                 context.Fail("An all-projects token must name the user and no project.");
             return Task.CompletedTask;
         }
@@ -37,7 +39,7 @@ internal static class HostedAuth
         var tid = principal?.FindFirstValue("tid");
         var instanceUrl = principal?.FindFirstValue("instance_url");
 
-        if (string.IsNullOrEmpty(tid) || !tid.All(char.IsAsciiDigit) || string.IsNullOrEmpty(instanceUrl))
+        if (!IsValidOrgId(tid) || string.IsNullOrEmpty(instanceUrl))
         {
             context.Fail("Token is missing a valid 'tid' or 'instance_url' claim.");
             return Task.CompletedTask;

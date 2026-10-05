@@ -40,7 +40,8 @@ public sealed class HostedProjects(
         var claims = new JsonWebToken(token);
         var orgId = claims.TryGetClaim("tid", out var tid) ? tid.Value : null;
         var instanceUrl = claims.TryGetClaim("instance_url", out var url) ? url.Value : null;
-        if (orgId is null || !orgId.All(char.IsAsciiDigit) || instanceUrl is null
+        var grantedProject = claims.TryGetClaim("project_id", out var granted) && Guid.TryParse(granted.Value, out var parsed) ? parsed : (Guid?)null;
+        if (!HostedAuth.IsValidOrgId(orgId) || grantedProject != projectId || instanceUrl is null
             || !HostedAuth.IsAllowedInstanceUrl(instanceUrl, options.AllowLoopbackInstance, options.AllowedInstanceHostSuffixes))
             throw new HostedProjectException("Couldn't get access to that project. Try again.");
 

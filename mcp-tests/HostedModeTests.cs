@@ -95,8 +95,9 @@ public class HostedModeTests : IAsyncLifetime
     private string ValidToken(
         string? tid = "42", string? instanceUrl = "https://api.my.anythink.cloud",
         DateTime? expires = null, string? issuer = null, string? audience = null, RsaSecurityKey? signWith = null,
-        DateTime? notBefore = null) =>
-        HostedTestSupport.CreateToken(signWith ?? _key, issuer ?? Issuer, audience ?? PublicUrl, tid, instanceUrl, expires, notBefore);
+        DateTime? notBefore = null, string? projectId = null) =>
+        HostedTestSupport.CreateToken(signWith ?? _key, issuer ?? Issuer, audience ?? PublicUrl, tid, instanceUrl, expires, notBefore,
+            projectId is null ? null : new Dictionary<string, object> { ["project_id"] = projectId });
 
     private static HttpRequestMessage McpPost(string? bearerToken) =>
         new(HttpMethod.Post, "/mcp")
@@ -520,9 +521,10 @@ public class HostedModeTests : IAsyncLifetime
         HostedTestSupport.CreateToken(_key, Issuer, PublicUrl, tid: null, instanceUrl: null,
             extraClaims: new Dictionary<string, object>(extra ?? new Dictionary<string, object>()) { ["projects"] = "all" });
 
-    private void ExchangeForProject(string tid, string instanceUrl, out string exchanged)
+    private void ExchangeForProject(string tid, string instanceUrl, out string exchanged, string? projectId = ShopProject)
     {
-        var token = HostedTestSupport.CreateToken(_key, Issuer, "anythink-oauth", tid, instanceUrl);
+        var token = HostedTestSupport.CreateToken(_key, Issuer, "anythink-oauth", tid, instanceUrl,
+            extraClaims: projectId is null ? null : new Dictionary<string, object> { ["project_id"] = projectId });
         exchanged = token;
         _exchangeOverride = () => new HttpResponseMessage(HttpStatusCode.OK)
         {
@@ -629,5 +631,146 @@ public class HostedModeTests : IAsyncLifetime
         var token = AllProjectsToken(new Dictionary<string, object> { ["tid"] = "42" });
 
         (await _client.SendAsync(McpPost(token))).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    // ── Rule: an all-projects token names the user and no project ──────────────
+
+    [Fact]
+    public async Task AllProjectsToken_ThatAlsoCarriesAProjectId_IsRejected()
+    {
+        var token = AllProjectsToken(new Dictionary<string, object> { ["project_id"] = ShopProject });
+
+        (await _client.SendAsync(McpPost(token))).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        _exchangeCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task AllProjectsToken_WithoutASubject_IsRejected()
+    {
+        var token = HostedTestSupport.CreateToken(_key, Issuer, PublicUrl, tid: null, instanceUrl: null,
+            extraClaims: new Dictionary<string, object> { ["projects"] = "all" }, sub: null);
+
+        (await _client.SendAsync(McpPost(token))).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    // ── Rule: the token exchanged for a project must be for that project, on an allowed host ──
+
+    [Fact]
+    public async Task AllProjectsToken_ExchangedTokenForAnotherProject_IsRefused_AndNothingIsSent()
+    {
+        ExchangeForProject("77", "https://api.shop.anythink.cloud", out _, projectId: "11111111-1111-1111-1111-111111111111");
+        var any = _mock.When("https://api.shop.anythink.cloud/*").Respond("application/json", "[]");
+
+        await using var mcpClient = await McpClient.CreateAsync(Transport(AllProjectsToken()));
+        var result = await mcpClient.CallToolAsync("entities_list", new Dictionary<string, object?> { ["project"] = ShopProject });
+
+        result.IsError.Should().BeTrue();
+        _mock.GetMatchCount(any).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task AllProjectsToken_ExchangedTokenWithoutAProjectId_IsRefused_AndNothingIsSent()
+    {
+        ExchangeForProject("77", "https://api.shop.anythink.cloud", out _, projectId: null);
+        var any = _mock.When("https://api.shop.anythink.cloud/*").Respond("application/json", "[]");
+
+        await using var mcpClient = await McpClient.CreateAsync(Transport(AllProjectsToken()));
+        var result = await mcpClient.CallToolAsync("entities_list", new Dictionary<string, object?> { ["project"] = ShopProject });
+
+        result.IsError.Should().BeTrue();
+        _mock.GetMatchCount(any).Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("abc")]
+    [InlineData("77x")]
+    [InlineData("-1")]
+    [InlineData("7 7")]
+    public async Task AllProjectsToken_ExchangedTokenWithANonNumericOrEmptyTid_IsRefused_AndNothingIsSent(string tid)
+    {
+        ExchangeForProject(tid, "https://api.shop.anythink.cloud", out _);
+        var any = _mock.When("https://api.shop.anythink.cloud/*").Respond("application/json", "[]");
+
+        await using var mcpClient = await McpClient.CreateAsync(Transport(AllProjectsToken()));
+        var result = await mcpClient.CallToolAsync("entities_list", new Dictionary<string, object?> { ["project"] = ShopProject });
+
+        result.IsError.Should().BeTrue();
+        _mock.GetMatchCount(any).Should().Be(0);
+    }
+
+    // ── Rule: exchanged tokens are cached per inbound token and project ────────
+
+    private const string OtherShopProject = "9b2c1d7e-5a44-4f0e-8a31-6d3f0c2b1a99";
+
+    private void ExchangeByRequestedProject()
+    {
+        _exchangeOverride = () =>
+        {
+            var requested = _exchangeForm["project_id"];
+            var tid = requested.Equals(ShopProject, StringComparison.OrdinalIgnoreCase) ? "77" : "78";
+            var token = HostedTestSupport.CreateToken(_key, Issuer, "anythink-oauth", tid, "https://api.shop.anythink.cloud",
+                extraClaims: new Dictionary<string, object> { ["project_id"] = requested });
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent($$"""{"access_token":"{{token}}","expires_in":600,"token_type":"Bearer"}""", Encoding.UTF8, "application/json")
+            };
+        };
+        foreach (var tid in new[] { "77", "78" })
+            _mock.When(HttpMethod.Get, $"https://api.shop.anythink.cloud/org/{tid}/entities").Respond("application/json", "[]");
+    }
+
+    [Fact]
+    public async Task AllProjectsToken_OneTokenForTwoProjects_IsExchangedOncePerProject()
+    {
+        ExchangeByRequestedProject();
+        await using var mcpClient = await McpClient.CreateAsync(Transport(AllProjectsToken()));
+
+        foreach (var project in new[] { ShopProject, OtherShopProject, ShopProject, OtherShopProject })
+            (await mcpClient.CallToolAsync("entities_list", new Dictionary<string, object?> { ["project"] = project })).IsError.Should().NotBe(true);
+
+        _exchangeCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task AllProjectsToken_OneProjectIdInDifferentCases_IsExchangedOnce()
+    {
+        ExchangeByRequestedProject();
+        await using var mcpClient = await McpClient.CreateAsync(Transport(AllProjectsToken()));
+
+        foreach (var project in new[] { ShopProject, ShopProject.ToUpperInvariant(), $"{{{ShopProject}}}" })
+            (await mcpClient.CallToolAsync("entities_list", new Dictionary<string, object?> { ["project"] = project })).IsError.Should().NotBe(true);
+
+        _exchangeCount.Should().Be(1);
+        _exchangeForm["project_id"].Should().Be(ShopProject);
+    }
+
+    // ── Rule: a single-project connection may name its own project, and no other ──
+
+    [Theory]
+    [InlineData(ShopProject)]
+    [InlineData("3F2504E0-4F89-11D3-9A0C-0305E82C3301")]
+    public async Task SingleProjectToken_ItsOwnProjectId_IsAllowed(string project)
+    {
+        var token = ValidToken(projectId: ShopProject);
+        MockProject("42", "P", ExchangedFor(token));
+        _mock.When(HttpMethod.Get, $"{UpstreamOrgUrl("42")}/entities").Respond("application/json", "[]");
+
+        await using var mcpClient = await McpClient.CreateAsync(Transport(token));
+        var result = await mcpClient.CallToolAsync("entities_list", new Dictionary<string, object?> { ["project"] = project });
+
+        result.IsError.Should().NotBe(true);
+    }
+
+    [Fact]
+    public async Task SingleProjectToken_AProjectIdThatIsNotItsOwn_IsRefused()
+    {
+        var token = ValidToken(projectId: ShopProject);
+
+        await using var mcpClient = await McpClient.CreateAsync(Transport(token));
+        var result = await mcpClient.CallToolAsync("entities_list", new Dictionary<string, object?> { ["project"] = OtherShopProject });
+
+        result.IsError.Should().BeTrue();
+        Text(result).Should().Contain("one project only");
     }
 }
