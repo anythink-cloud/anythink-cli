@@ -304,16 +304,75 @@ public class CliCommandToolTests
     [InlineData("a/b")]
     [InlineData("a#b")]
     [InlineData("..")]
+    [InlineData("%2e%2e\\api-keys")]
+    [InlineData("posts\\x")]
+    [InlineData("%2e%2e")]
+    [InlineData("a%2Fb")]
+    [InlineData("a b")]
+    [InlineData("a\nb")]
+    [InlineData("é")]
+    [InlineData("")]
     public async Task RemotePositionalWithPathSyntax_IsAToolError_AndNothingIsSent(string entity)
     {
         var mock = new MockHttpMessageHandler();
         var any = AnyRequest(mock);
 
+        foreach (var tool in new[] { "data_list", "data_rls" })
+        {
+            var arguments = tool == "data_rls" ? Args(new { entity, id = 1 }) : Args(new { entity });
+
+            var result = await Tool(tool).RunAsync(arguments, Client(mock));
+
+            result.ExitCode.Should().Be(1, tool);
+            result.Output.Should().Contain("can only contain letters, digits");
+        }
+
+        mock.GetMatchCount(any).Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData("posts")]
+    [InlineData("blog_posts")]
+    [InlineData("my-entity.v2")]
+    public async Task RemotePositional_PlainIdentifier_IsSent(string entity)
+    {
+        var mock = new MockHttpMessageHandler();
+        var sent = new List<Uri>();
+        mock.When("*").Respond(req =>
+        {
+            sent.Add(req.RequestUri!);
+            return new HttpResponseMessage { Content = new StringContent(EmptyPage) };
+        });
+
         var result = await Tool("data_list").RunAsync(Args(new { entity }), Client(mock));
 
-        result.ExitCode.Should().Be(1);
-        result.Output.Should().Contain("can't contain");
-        mock.GetMatchCount(any).Should().Be(0);
+        result.ExitCode.Should().Be(0, result.Output);
+        sent.Should().ContainSingle().Which.AbsolutePath.Should().Be($"/org/42/entities/{entity}/items");
+    }
+
+    [Theory]
+    [InlineData("a/b", "a%2Fb")]
+    [InlineData("posts\\x", "posts%5Cx")]
+    [InlineData("%2e%2e\\api-keys", "%252e%252e%5Capi-keys")]
+    public async Task LocalDataRls_SendsTheEntityAsOneEscapedSegment(string entity, string escaped)
+    {
+        var mock = new MockHttpMessageHandler();
+        var sent = new List<(HttpMethod Method, Uri Uri, string Body)>();
+        mock.When("*").Respond(async req =>
+        {
+            sent.Add((req.Method, req.RequestUri!, req.Content is null ? "" : await req.Content.ReadAsStringAsync()));
+            return new HttpResponseMessage { Content = new StringContent("[]") };
+        });
+
+        var listed = await Tool("data_rls", CliToolScope.Local).RunAsync(Args(new { entity, id = 1 }), Client(mock));
+        var set = await Tool("data_rls", CliToolScope.Local).RunAsync(Args(new { entity, id = 1, user = 7, @readonly = true }), Client(mock));
+
+        listed.ExitCode.Should().Be(0, listed.Output);
+        set.ExitCode.Should().Be(0, set.Output);
+        sent.Select(s => s.Uri.AbsolutePath).Should().OnlyContain(path => path == $"/org/42/entities/{escaped}/items/1/rls-users");
+        sent.Select(s => s.Method).Should().Equal(HttpMethod.Get, HttpMethod.Put);
+        JsonDocument.Parse(sent[1].Body).RootElement.GetProperty("user_id").GetInt32().Should().Be(7);
+        JsonDocument.Parse(sent[1].Body).RootElement.GetProperty("readonly").GetBoolean().Should().BeTrue();
     }
 
     [Fact]

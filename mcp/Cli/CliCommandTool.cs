@@ -111,8 +111,8 @@ public sealed class CliCommandTool : McpServerTool
             var text = Scalar(value);
             if (text.StartsWith('-'))
                 throw new ArgumentException($"'{parameter.Name}' can't start with '-'.");
-            if (_scope == CliToolScope.Remote && !CliToolPolicy.IsFreeText(_command, parameter) && CliToolPolicy.HasPathSyntax(text))
-                throw new ArgumentException($"'{parameter.Name}' can't contain '/', '..', '?' or '#'.");
+            if (CliToolPolicy.IsRemote(_scope) && !CliToolPolicy.IsFreeText(_command, parameter) && !CliToolPolicy.IsPlainPathValue(text))
+                throw new ArgumentException($"'{parameter.Name}' can only contain letters, digits, '_', '-' and '.'.");
             args.Add(text);
         }
 

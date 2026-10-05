@@ -14,7 +14,7 @@ public static class CliToolPolicy
         ["workflows create --filter-file", "workflows export --output", "data list --all"];
 
     private static readonly string[] FreeTextArguments =
-        ["search query text", "workflows create name", "roles create name", "users invite first_name", "users invite last_name"];
+        ["search query text", "workflows create name", "roles create name", "users invite email", "users invite first_name", "users invite last_name"];
 
     private static readonly string[] AutomaticFlags = ["--json", "--yes"];
 
@@ -32,14 +32,16 @@ public static class CliToolPolicy
 
     private static readonly HashSet<string> OpenWorldVerbs = ["execute", "trigger", "invite"];
 
+    public static bool IsRemote(CliToolScope scope) => scope != CliToolScope.Local;
+
     public static bool Includes(CliCommand command, CliToolScope scope) =>
         !Matches(command.Key, ExcludedEverywhere)
-        && (scope == CliToolScope.Local || !Matches(command.Key, ExcludedRemotely));
+        && (!IsRemote(scope) || !Matches(command.Key, ExcludedRemotely));
 
     public static IReadOnlyList<CliParameter> Parameters(CliCommand command, CliToolScope scope) =>
         command.Parameters
             .Where(p => !AutomaticFlags.Contains(p.Token))
-            .Where(p => scope == CliToolScope.Local || !HiddenRemotely.Contains($"{command.Key} {p.Token}"))
+            .Where(p => !IsRemote(scope) || !HiddenRemotely.Contains($"{command.Key} {p.Token}"))
             .ToList();
 
     public static IReadOnlyList<string> AutomaticArgs(CliCommand command) =>
@@ -51,8 +53,8 @@ public static class CliToolPolicy
     public static bool IsFreeText(CliCommand command, CliParameter parameter) =>
         FreeTextArguments.Contains($"{command.Key} {parameter.Name}");
 
-    public static bool HasPathSyntax(string value) =>
-        value.AsSpan().IndexOfAny('/', '?', '#') >= 0 || value.Contains("..", StringComparison.Ordinal);
+    public static bool IsPlainPathValue(string value) =>
+        value.Length > 0 && value.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-' or '.') && !value.Contains("..", StringComparison.Ordinal);
 
     public static bool IsReadOnly(CliCommand command) => ReadOnlyVerbs.Contains(command.Verb);
 

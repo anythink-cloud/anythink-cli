@@ -95,12 +95,16 @@ public class AnythinkClientConfinementTests
         await client.GetFieldsAsync(value);
         await client.DeleteSecretAsync(value);
         await client.GetIntegrationDefinitionAsync(value);
+        await client.GetItemRlsUsersAsync(value, 5);
+        await client.SetItemRlsUserAsync(value, 5, 7, true);
 
         _sent.Select(uri => uri.AbsolutePath).Should().Equal(
             $"/org/1/entities/{escaped}",
             $"/org/1/entities/{escaped}/fields",
             $"/org/1/secrets/{escaped}",
-            $"/org/1/integrations/definitions/{escaped}");
+            $"/org/1/integrations/definitions/{escaped}",
+            $"/org/1/entities/{escaped}/items/5/rls-users",
+            $"/org/1/entities/{escaped}/items/5/rls-users");
         _sent.Should().OnlyContain(uri => uri.Query == "");
     }
 

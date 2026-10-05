@@ -195,6 +195,13 @@ public class AnythinkClient : HttpApiClient
     public Task DeleteItemAsync(string entityName, int id)
         => DeleteAsync(_org + $"/entities/{Seg(entityName)}/items/{id}");
 
+    public Task<string> GetItemRlsUsersAsync(string entityName, int id)
+        => FetchRawAsync(_org + $"/entities/{Seg(entityName)}/items/{id}/rls-users");
+
+    public Task<string> SetItemRlsUserAsync(string entityName, int id, int userId, bool readOnly)
+        => FetchRawAsync(_org + $"/entities/{Seg(entityName)}/items/{id}/rls-users", "PUT",
+            new JsonObject { ["user_id"] = userId, ["readonly"] = readOnly }.ToJsonString());
+
     // ── Users ─────────────────────────────────────────────────────────────────
 
     public async Task<List<UserResponse>> GetUsersAsync()

@@ -19,7 +19,7 @@ public static class CliRunner
         AmbientConsole.Use(output);
         ClientContext.Current = client;
         ClientContext.Cancellation = cancellationToken;
-        ClientContext.Remote = scope == CliToolScope.Remote;
+        ClientContext.Remote = CliToolPolicy.IsRemote(scope);
 
         var app = new CommandApp();
         app.Configure(config =>
@@ -28,7 +28,7 @@ public static class CliRunner
             config.Settings.Console = AmbientConsole.Instance;
             config.SetExceptionHandler((ex, _) =>
             {
-                var message = scope == CliToolScope.Remote && ex is AnythinkException api ? api.StatusOnlyMessage : ex.Message;
+                var message = CliToolPolicy.IsRemote(scope) && ex is AnythinkException api ? api.StatusOnlyMessage : ex.Message;
                 output.WriteLine($"Error: {message}");
                 return 1;
             });
