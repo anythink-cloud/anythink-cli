@@ -186,25 +186,50 @@ public class CliCommandToolTests
     }
 
     [Fact]
-    public async Task ConcurrentRuns_EachCaptureOnlyTheirOwnOutput()
+    public async Task ConcurrentRuns_EachUseTheirOwnCredentialsAndCaptureOnlyTheirOwnOutput()
     {
-        static MockHttpMessageHandler Project(string title)
+        const int runs = 8;
+        var handler = new RendezvousHandler(runs);
+        var tool = Tool("data_list");
+
+        var results = await Task.WhenAll(Enumerable.Range(0, runs).Select(i =>
         {
-            var mock = new MockHttpMessageHandler();
-            mock.When($"{ApiUrl}/org/42/entities/posts/items*").Respond("application/json",
-                $$"""{"items":[{"id":1,"title":"{{title}}"}],"total_items":1,"total_pages":1,"has_next_page":false,"page":1,"page_size":20}""");
-            return mock;
+            var http = new HttpClient(handler);
+            http.DefaultRequestHeaders.Authorization = new("Bearer", $"token-{i}");
+            var client = new AnythinkClient($"{100 + i}", ApiUrl, http);
+            return Task.Run(() => tool.RunAsync(Args(new { entity = "posts" }), client));
+        })).WaitAsync(TimeSpan.FromSeconds(30));
+
+        handler.MostInFlight.Should().Be(runs, "every run has to be in flight at the same time for this to prove isolation");
+        for (var i = 0; i < runs; i++)
+        {
+            results[i].ExitCode.Should().Be(0, results[i].Output);
+            results[i].Output.Should().Contain($"org-{100 + i}-token-{i}\"");
+            results[i].Output.Should().NotContainAny(Enumerable.Range(0, runs).Where(j => j != i).Select(j => $"org-{100 + j}-"));
         }
+    }
 
-        var runs = Enumerable.Range(0, 8)
-            .Select(i => Tool("data_list").RunAsync(Args(new { entity = "posts" }), Client(Project($"title-{i}"))))
-            .ToList();
-        var results = await Task.WhenAll(runs);
+    private sealed class RendezvousHandler(int parties) : HttpMessageHandler
+    {
+        private readonly TaskCompletionSource _allArrived = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _arrived;
 
-        for (var i = 0; i < results.Length; i++)
+        public int MostInFlight => _arrived;
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            results[i].Output.Should().Contain($"title-{i}");
-            results[i].Output.Should().NotContainAny(Enumerable.Range(0, 8).Where(j => j != i).Select(j => $"title-{j}\""));
+            if (Interlocked.Increment(ref _arrived) == parties)
+                _allArrived.SetResult();
+            await _allArrived.Task.WaitAsync(TimeSpan.FromSeconds(15), cancellationToken);
+
+            var org = request.RequestUri!.Segments[2].TrimEnd('/');
+            var token = request.Headers.Authorization!.Parameter;
+            return new HttpResponseMessage
+            {
+                Content = new StringContent(
+                    $$"""{"items":[{"id":1,"title":"org-{{org}}-{{token}}"}],"total_items":1,"total_pages":1,"has_next_page":false,"page":1,"page_size":20}""",
+                    System.Text.Encoding.UTF8, "application/json")
+            };
         }
     }
 

@@ -77,9 +77,6 @@ public class AuthTools
         + "the hosted HTTP server).")]
     public async Task<string> LoginGoogle()
     {
-        if (McpClientFactory.IsHttpMode)
-            return "Google sign-in needs a local browser and isn't available over the hosted HTTP server. Use the CLI: 'anythink login --google'.";
-
         var platform = ConfigService.ResolvePlatform();
         var eff = ConfigService.ApplyRuntimeOverrides(platform);
 

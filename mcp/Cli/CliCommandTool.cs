@@ -148,17 +148,9 @@ public sealed class CliCommandTool : McpServerTool
     private static AnythinkClient? ResolveClient(IServiceProvider services)
     {
         var factory = services.GetRequiredService<McpClientFactory>();
-        if (services.GetService<HostedCredentials>() is { } credentials)
-            return factory.GetClient(credentials);
-
-        try
-        {
-            return factory.GetClient();
-        }
-        catch (InvalidOperationException) when (string.IsNullOrEmpty(factory.ProfileName))
-        {
-            return null;
-        }
+        return services.GetService<HostedCredentials>() is { } credentials
+            ? factory.GetClient(credentials)
+            : factory.GetClientOrNull();
     }
 
     private static string Scalar(JsonElement value) => value.ValueKind switch

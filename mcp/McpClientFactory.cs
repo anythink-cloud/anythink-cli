@@ -123,6 +123,18 @@ public class McpClientFactory
         return CreateAnythinkClient(profile);
     }
 
+    public AnythinkClient? GetClientOrNull()
+    {
+        try
+        {
+            return GetClient();
+        }
+        catch (InvalidOperationException) when (string.IsNullOrEmpty(_profileName))
+        {
+            return null;
+        }
+    }
+
     private BillingClient CreateBillingClient(PlatformConfig platform)
         => _httpHandler is not null
             ? new BillingClient(platform, new HttpClient(_httpHandler))

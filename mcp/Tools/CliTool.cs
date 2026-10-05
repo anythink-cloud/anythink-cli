@@ -33,7 +33,7 @@ public class CliTool
         AnythinkClient? client;
         try
         {
-            client = ResolveClient();
+            client = _factory.GetClientOrNull();
         }
         catch (InvalidOperationException ex)
         {
@@ -45,18 +45,6 @@ public class CliTool
             return $"CLI exited with code {result.ExitCode}: {result.Output}";
 
         return result.Output.Length > 0 ? result.Output : "(no output)";
-    }
-
-    private AnythinkClient? ResolveClient()
-    {
-        try
-        {
-            return _factory.GetClient();
-        }
-        catch (InvalidOperationException) when (string.IsNullOrEmpty(_factory.ProfileName))
-        {
-            return null;
-        }
     }
 
     internal static List<string> SplitArgs(string input)
