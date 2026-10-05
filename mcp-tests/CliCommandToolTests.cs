@@ -357,6 +357,109 @@ public class CliCommandToolTests
     }
 
 
+    // ── Rule: true and false both reach a boolean option that can be set either way ──
+
+    [Theory]
+    [InlineData("entities_update", """{"name":"posts","public":true}""", "--public=true")]
+    [InlineData("entities_update", """{"name":"posts","public":false}""", "--public=false")]
+    [InlineData("entities_update", """{"name":"posts","rls":false}""", "--rls=false")]
+    [InlineData("entities_update", """{"name":"posts","lock_records":false}""", "--lock-records=false")]
+    [InlineData("fields_update", """{"entity":"posts","field_name":"title","required":false}""", "--required=false")]
+    [InlineData("workflows_step_update", """{"workflow_id":1,"step_id":2,"enabled":false}""", "--enabled=false")]
+    public void ABooleanThatCanBeSetEitherWay_IsPassedWithItsValue(string tool, string json, string expected)
+    {
+        var arguments = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json);
+
+        Tool(tool).BuildArgs(arguments).Should().Contain(expected);
+    }
+
+    [Theory]
+    [InlineData(true, new[] { "--public" })]
+    [InlineData(false, new string[0])]
+    public void APlainFlag_IsPassedOnlyWhenTrue(bool value, string[] expected)
+    {
+        var args = Tool("entities_create").BuildArgs(Args(new { name = "posts", @public = value }));
+
+        args.Should().Equal(new[] { "entities", "create", "posts" }.Concat(expected));
+    }
+
+    [Theory]
+    [InlineData("""{"name":"posts","public":"false"}""")]
+    [InlineData("""{"name":"posts","public":0}""")]
+    public void ABooleanGivenSomethingElse_IsAToolError(string json)
+    {
+        var arguments = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json);
+
+        var act = () => Tool("entities_update").BuildArgs(arguments);
+
+        act.Should().Throw<ArgumentException>().WithMessage("*must be true or false*");
+    }
+
+    [Theory]
+    [InlineData("public", "is_public")]
+    [InlineData("rls", "enable_rls")]
+    [InlineData("lock_records", "lock_new_records")]
+    public async Task EntitiesUpdate_FalseIsSentAsFalse_AndTheRestIsKept(string option, string property)
+    {
+        JsonElement sent = default;
+        var mock = new MockHttpMessageHandler();
+        mock.When(HttpMethod.Get, $"{ApiUrl}/org/42/entities/posts").Respond("application/json",
+            """{"name":"posts","table_name":"posts","enable_rls":true,"is_public":true,"lock_new_records":true,"fields":[]}""");
+        mock.When(HttpMethod.Put, $"{ApiUrl}/org/42/entities/posts").Respond(async req =>
+        {
+            sent = JsonDocument.Parse(await req.Content!.ReadAsStringAsync()).RootElement.Clone();
+            return new HttpResponseMessage { Content = new StringContent("""{"name":"posts","table_name":"posts","fields":[]}""") };
+        });
+
+        var result = await Tool("entities_update").RunAsync(
+            new Dictionary<string, JsonElement> { ["name"] = Json("posts"), [option] = Json(false) }, Client(mock));
+
+        result.ExitCode.Should().Be(0, result.Output);
+        foreach (var name in new[] { "is_public", "enable_rls", "lock_new_records" })
+            sent.GetProperty(name).GetBoolean().Should().Be(name != property, name);
+    }
+
+    [Fact]
+    public async Task FieldsUpdate_FalseIsSentAsFalse()
+    {
+        JsonElement sent = default;
+        var mock = new MockHttpMessageHandler();
+        mock.When(HttpMethod.Get, $"{ApiUrl}/org/42/entities/posts/fields").Respond("application/json",
+            """[{"id":9,"name":"title","database_type":"varchar","display_type":"input","is_required":true,"is_searchable":true,"publicly_searchable":true,"is_indexed":true}]""");
+        mock.When(HttpMethod.Put, $"{ApiUrl}/org/42/entities/posts/fields/9").Respond(async req =>
+        {
+            sent = JsonDocument.Parse(await req.Content!.ReadAsStringAsync()).RootElement.Clone();
+            return new HttpResponseMessage { Content = new StringContent("""{"id":9,"name":"title","database_type":"varchar","display_type":"input"}""") };
+        });
+
+        var result = await Tool("fields_update").RunAsync(Args(new { entity = "posts", field_name = "title", required = false }), Client(mock));
+
+        result.ExitCode.Should().Be(0, result.Output);
+        sent.GetProperty("is_required").GetBoolean().Should().BeFalse();
+        sent.GetProperty("is_searchable").GetBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task WorkflowStepUpdate_FalseDisablesTheStep()
+    {
+        JsonElement sent = default;
+        var mock = new MockHttpMessageHandler();
+        mock.When(HttpMethod.Get, $"{ApiUrl}/org/42/workflows/1").Respond("application/json",
+            """{"id":1,"name":"w","trigger":"Manual","enabled":true,"steps":[{"id":2,"name":"s","action":"log","enabled":true,"is_start_step":true}]}""");
+        mock.When(HttpMethod.Put, $"{ApiUrl}/org/42/workflows/1/steps/2").Respond(async req =>
+        {
+            sent = JsonDocument.Parse(await req.Content!.ReadAsStringAsync()).RootElement.Clone();
+            return new HttpResponseMessage { Content = new StringContent("""{"id":2,"name":"s","action":"log","enabled":false}""") };
+        });
+
+        var result = await Tool("workflows_step_update").RunAsync(Args(new { workflow_id = 1, step_id = 2, enabled = false }), Client(mock));
+
+        result.ExitCode.Should().Be(0, result.Output);
+        sent.GetProperty("enabled").GetBoolean().Should().BeFalse();
+    }
+
+    private static JsonElement Json(object value) => JsonSerializer.SerializeToElement(value);
+
     [Fact]
     public async Task Cancelling_StopsTheCommandAtItsApiCall()
     {

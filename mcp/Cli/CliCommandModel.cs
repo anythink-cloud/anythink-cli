@@ -6,7 +6,8 @@ namespace AnythinkMcp.Cli;
 public enum CliParameterKind { Argument, Scalar, Flag, Vector }
 
 public sealed record CliParameter(
-    string Name, string Token, CliParameterKind Kind, int Position, bool Required, string ClrType, string Description);
+    string Name, string Token, CliParameterKind Kind, int Position, bool Required, string ClrType, string Description,
+    bool ExplicitBoolean = false);
 
 public sealed record CliCommand(IReadOnlyList<string> Path, string Description, IReadOnlyList<CliParameter> Parameters)
 {
@@ -78,8 +79,13 @@ public static partial class CliCommandModel
             _ => CliParameterKind.Scalar
         };
 
+        var explicitBoolean = kind == CliParameterKind.Flag
+            && (((string?)element.Attribute("Value") is { } value && value != "NULL")
+                || clrType.StartsWith("System.Nullable`1[[System.Boolean", StringComparison.Ordinal));
+
         return new CliParameter(
-            PropertyName(optionName), (optionName.Length == 1 ? "-" : "--") + optionName, kind, 0, required, clrType, description);
+            PropertyName(optionName), (optionName.Length == 1 ? "-" : "--") + optionName, kind, 0, required, clrType, description,
+            explicitBoolean);
     }
 
     private static string PropertyName(string name) => name.ToLowerInvariant().Replace('-', '_');

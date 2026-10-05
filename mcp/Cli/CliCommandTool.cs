@@ -124,7 +124,11 @@ public sealed class CliCommandTool : McpServerTool
             switch (parameter.Kind)
             {
                 case CliParameterKind.Flag:
-                    if (value.ValueKind == JsonValueKind.True)
+                    if (value.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+                        throw new ArgumentException($"'{parameter.Name}' must be true or false.");
+                    if (parameter.ExplicitBoolean)
+                        args.Add($"{parameter.Token}={Scalar(value)}");
+                    else if (value.ValueKind == JsonValueKind.True)
                         args.Add(parameter.Token);
                     break;
                 case CliParameterKind.Vector:
