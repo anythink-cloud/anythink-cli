@@ -26,7 +26,7 @@ public sealed class CliCommandTool : McpServerTool
             Name = command.ToolName,
             Title = title,
             Description = command.Description,
-            InputSchema = Schema(_parameters),
+            InputSchema = Schema(_parameters, scope == CliToolScope.Hosted),
             Annotations = new ToolAnnotations
             {
                 Title = title,
@@ -50,12 +50,14 @@ public sealed class CliCommandTool : McpServerTool
     public override async ValueTask<CallToolResult> InvokeAsync(
         RequestContext<CallToolRequestParams> request, CancellationToken cancellationToken = default)
     {
+        var arguments = request.Params?.Arguments?.ToDictionary() ?? [];
         CliRunResult result;
         try
         {
-            result = await RunAsync(request.Params?.Arguments, ResolveClient(request.Services!), cancellationToken);
+            var client = await ResolveClientAsync(request.Services!, arguments, cancellationToken);
+            result = await RunAsync(arguments, client, cancellationToken);
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex) when (ex is InvalidOperationException or HostedProjectException)
         {
             result = new CliRunResult(1, $"Error: {ex.Message}");
         }
@@ -145,15 +147,20 @@ public sealed class CliCommandTool : McpServerTool
         return args;
     }
 
-    private AnythinkClient? ResolveClient(IServiceProvider services)
+    private async Task<AnythinkClient?> ResolveClientAsync(
+        IServiceProvider services, Dictionary<string, JsonElement> arguments, CancellationToken cancellationToken)
     {
-        var factory = services.GetRequiredService<McpClientFactory>();
-        if (services.GetService<HostedCredentials>() is { } credentials)
-            return factory.GetClient(credentials);
+        if (_scope == CliToolScope.Hosted)
+        {
+            var project = arguments.Remove(HostedProjects.ParameterName, out var value) && value.ValueKind == JsonValueKind.String
+                ? value.GetString()
+                : null;
+            return await services.GetRequiredService<HostedProjects>().ClientAsync(project, cancellationToken);
+        }
 
         return CliToolPolicy.IsRemote(_scope)
             ? throw new InvalidOperationException("The request carries no credentials.")
-            : factory.GetClientOrNull();
+            : services.GetRequiredService<McpClientFactory>().GetClientOrNull();
     }
 
     private static string Scalar(JsonElement value) => value.ValueKind switch
@@ -171,9 +178,11 @@ public sealed class CliCommandTool : McpServerTool
         return words.Count == 1 ? subject : $"{subject}: {string.Join(' ', words.Skip(1))}";
     }
 
-    private static JsonElement Schema(IReadOnlyList<CliParameter> parameters)
+    private static JsonElement Schema(IReadOnlyList<CliParameter> parameters, bool withProject)
     {
         var properties = new JsonObject();
+        if (withProject)
+            properties[HostedProjects.ParameterName] = new JsonObject { ["type"] = "string", ["description"] = HostedProjects.ParameterDescription };
         foreach (var parameter in parameters)
         {
             var property = parameter.Kind == CliParameterKind.Vector

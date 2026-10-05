@@ -8,7 +8,7 @@ public sealed record ToolCallResult(string Output, bool IsError);
 public static class McpToolRegistry
 {
     private static readonly Lazy<Dictionary<string, CliCommandTool>> Tools =
-        new(() => CliCommandTool.All(CliToolScope.Remote).ToDictionary(tool => tool.ProtocolTool.Name));
+        new(() => CliCommandTool.All(CliToolScope.Internal).ToDictionary(tool => tool.ProtocolTool.Name));
 
     public static bool Contains(string toolName) => Tools.Value.ContainsKey(toolName);
 

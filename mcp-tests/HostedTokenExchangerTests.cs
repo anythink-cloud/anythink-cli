@@ -57,7 +57,7 @@ public class HostedTokenExchangerTests
     [Fact]
     public async Task Exchange_SendsRfc8693FormFields_AndKeepsSecretsOutOfTheUrl()
     {
-        var token = await Exchanger().ExchangeAsync("inbound-token", default);
+        var token = await Exchanger().ExchangeAsync("inbound-token", null, default);
 
         token.Should().Be("exchanged-1");
         _form["grant_type"].Should().Be("urn:ietf:params:oauth:grant-type:token-exchange");
@@ -79,7 +79,7 @@ public class HostedTokenExchangerTests
             .Respond("application/json", """{"access_token":"via-openid","expires_in":60}""");
 
         var token = await Exchanger(mock)
-            .ExchangeAsync("inbound", default);
+            .ExchangeAsync("inbound", null, default);
 
         token.Should().Be("via-openid");
     }
@@ -91,7 +91,7 @@ public class HostedTokenExchangerTests
         Discovery(mock, endpoint: "http://issuer.test/token");
 
         var act = () => Exchanger(mock)
-            .ExchangeAsync("inbound", default);
+            .ExchangeAsync("inbound", null, default);
 
         await act.Should().ThrowAsync<TokenExchangeException>();
     }
@@ -101,8 +101,8 @@ public class HostedTokenExchangerTests
     {
         var exchanger = Exchanger();
 
-        var first = await exchanger.ExchangeAsync("inbound", default);
-        var second = await exchanger.ExchangeAsync("inbound", default);
+        var first = await exchanger.ExchangeAsync("inbound", null, default);
+        var second = await exchanger.ExchangeAsync("inbound", null, default);
 
         second.Should().Be(first);
         _exchanges.Should().Be(1);
@@ -113,7 +113,7 @@ public class HostedTokenExchangerTests
     {
         var exchanger = Exchanger();
 
-        var results = await Task.WhenAll(Enumerable.Range(0, 10).Select(_ => exchanger.ExchangeAsync("inbound", default)));
+        var results = await Task.WhenAll(Enumerable.Range(0, 10).Select(_ => exchanger.ExchangeAsync("inbound", null, default)));
 
         results.Distinct().Should().ContainSingle();
         _exchanges.Should().Be(1);
@@ -124,8 +124,8 @@ public class HostedTokenExchangerTests
     {
         var exchanger = Exchanger();
 
-        var a = await exchanger.ExchangeAsync("inbound-a", default);
-        var b = await exchanger.ExchangeAsync("inbound-b", default);
+        var a = await exchanger.ExchangeAsync("inbound-a", null, default);
+        var b = await exchanger.ExchangeAsync("inbound-b", null, default);
 
         a.Should().NotBe(b);
         _exchanges.Should().Be(2);
@@ -135,10 +135,10 @@ public class HostedTokenExchangerTests
     public async Task Exchange_AfterExpiry_ExchangesAgain()
     {
         var exchanger = Exchanger();
-        await exchanger.ExchangeAsync("inbound", default);
+        await exchanger.ExchangeAsync("inbound", null, default);
 
         _clock.Now += TimeSpan.FromSeconds(3600);
-        var refreshed = await exchanger.ExchangeAsync("inbound", default);
+        var refreshed = await exchanger.ExchangeAsync("inbound", null, default);
 
         refreshed.Should().Be("exchanged-2");
     }
@@ -147,10 +147,10 @@ public class HostedTokenExchangerTests
     public async Task Exchange_JustBeforeExpiryWindow_StillServedFromCache()
     {
         var exchanger = Exchanger();
-        await exchanger.ExchangeAsync("inbound", default);
+        await exchanger.ExchangeAsync("inbound", null, default);
 
         _clock.Now += TimeSpan.FromSeconds(3500);
-        await exchanger.ExchangeAsync("inbound", default);
+        await exchanger.ExchangeAsync("inbound", null, default);
 
         _exchanges.Should().Be(1);
     }
@@ -164,7 +164,7 @@ public class HostedTokenExchangerTests
             .Respond(HttpStatusCode.BadRequest, "application/json", """{"error":"invalid_grant","error_description":"upstream-secret"}""");
 
         var act = () => Exchanger(mock)
-            .ExchangeAsync("inbound", default);
+            .ExchangeAsync("inbound", null, default);
 
         var ex = (await act.Should().ThrowAsync<TokenExchangeException>()).Which;
         ex.Rejected.Should().BeTrue();
@@ -184,10 +184,10 @@ public class HostedTokenExchangerTests
         });
         var exchanger = Exchanger(mock);
 
-        var act = () => exchanger.ExchangeAsync("inbound", default);
+        var act = () => exchanger.ExchangeAsync("inbound", null, default);
         (await act.Should().ThrowAsync<TokenExchangeException>()).Which.Rejected.Should().BeFalse();
 
-        (await exchanger.ExchangeAsync("inbound", default)).Should().Be("recovered");
+        (await exchanger.ExchangeAsync("inbound", null, default)).Should().Be("recovered");
     }
 
     [Fact]
@@ -198,7 +198,7 @@ public class HostedTokenExchangerTests
         mock.When(HttpMethod.Post, TokenEndpoint).Respond("application/json", """{"expires_in":60}""");
 
         var act = () => Exchanger(mock)
-            .ExchangeAsync("inbound", default);
+            .ExchangeAsync("inbound", null, default);
 
         await act.Should().ThrowAsync<TokenExchangeException>();
     }
@@ -212,7 +212,7 @@ public class HostedTokenExchangerTests
             .Respond("application/json", """{"access_token":"short-lived","expires_in":10}""");
         var exchanger = Exchanger(mock);
 
-        (await exchanger.ExchangeAsync("inbound", default)).Should().Be("short-lived");
+        (await exchanger.ExchangeAsync("inbound", null, default)).Should().Be("short-lived");
 
         mock.GetMatchCount(post).Should().Be(1);
         exchanger.CachedCount.Should().Be(0);
@@ -234,7 +234,7 @@ public class HostedTokenExchangerTests
         mock.When(HttpMethod.Post, TokenEndpoint)
             .Respond((HttpStatusCode)status, "application/json", $$"""{"error":"{{error}}"}""");
 
-        var act = () => Exchanger(mock).ExchangeAsync("inbound", default);
+        var act = () => Exchanger(mock).ExchangeAsync("inbound", null, default);
 
         (await act.Should().ThrowAsync<TokenExchangeException>()).Which.Rejected.Should().Be(rejected);
     }
@@ -244,7 +244,7 @@ public class HostedTokenExchangerTests
     {
         var exchanger = Exchanger(cacheLimit: 3);
 
-        for (var i = 0; i < 20; i++) await exchanger.ExchangeAsync($"inbound-{i}", default);
+        for (var i = 0; i < 20; i++) await exchanger.ExchangeAsync($"inbound-{i}", null, default);
 
         exchanger.CachedCount.Should().BeLessOrEqualTo(3);
     }
@@ -253,10 +253,10 @@ public class HostedTokenExchangerTests
     public async Task Cache_ExpiredEntryIsReplacedNotAccumulated()
     {
         var exchanger = Exchanger();
-        await exchanger.ExchangeAsync("inbound", default);
+        await exchanger.ExchangeAsync("inbound", null, default);
 
         _clock.Now += TimeSpan.FromSeconds(3600);
-        await exchanger.ExchangeAsync("inbound", default);
+        await exchanger.ExchangeAsync("inbound", null, default);
 
         exchanger.CachedCount.Should().Be(1);
     }
@@ -268,7 +268,7 @@ public class HostedTokenExchangerTests
         Discovery(mock, issuer: "https://someone-else.test");
         var post = mock.When(HttpMethod.Post, TokenEndpoint).Respond("application/json", """{"access_token":"x","expires_in":3600}""");
 
-        var act = () => Exchanger(mock).ExchangeAsync("inbound", default);
+        var act = () => Exchanger(mock).ExchangeAsync("inbound", null, default);
 
         await act.Should().ThrowAsync<TokenExchangeException>();
         mock.GetMatchCount(post).Should().Be(0);
@@ -282,7 +282,7 @@ public class HostedTokenExchangerTests
         var post = mock.When(HttpMethod.Post, "https://attacker.test/token")
             .Respond("application/json", """{"access_token":"x","expires_in":3600}""");
 
-        var act = () => Exchanger(mock).ExchangeAsync("inbound", default);
+        var act = () => Exchanger(mock).ExchangeAsync("inbound", null, default);
 
         await act.Should().ThrowAsync<TokenExchangeException>();
         mock.GetMatchCount(post).Should().Be(0);
@@ -299,7 +299,7 @@ public class HostedTokenExchangerTests
             ClientId = "c", ClientSecret = "s", Audience = "a", TokenEndpoint = "https://sts.test/token"
         };
 
-        (await Exchanger(mock, options).ExchangeAsync("inbound", default)).Should().Be("via-override");
+        (await Exchanger(mock, options).ExchangeAsync("inbound", null, default)).Should().Be("via-override");
     }
 
     [Fact]

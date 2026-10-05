@@ -22,12 +22,15 @@ public class RemoteScopeToolTests : McpTestBase
 
     // ── Rule: remote callers never run as the server's own CLI login ──────────
 
-    [Fact]
-    public async Task RemoteRun_WithoutACallerClient_DoesNotUseTheServersSavedLogin()
+    public static TheoryData<CliToolScope> RemoteScopes => new() { CliToolScope.Internal, CliToolScope.Hosted };
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task RemoteRun_WithoutACallerClient_DoesNotUseTheServersSavedLogin(CliToolScope scope)
     {
         SetupProjectProfile();
 
-        var result = await Tool("entities_list", CliToolScope.Remote).RunAsync(NoArguments, client: null);
+        var result = await Tool("entities_list", scope).RunAsync(NoArguments, client: null);
 
         result.ExitCode.Should().Be(1);
         result.Output.Should().Contain("aren't available to remote callers");
@@ -67,7 +70,7 @@ public class RemoteScopeToolTests : McpTestBase
         builder.Services.AddSingleton(CreateFactory(mock));
         builder.Services.AddMcpServer()
             .WithHttpTransport(http => http.SessionMode = HttpServerSessionMode.Stateless)
-            .WithTools(CliCommandTool.All(CliToolScope.Remote));
+            .WithTools(CliCommandTool.All(CliToolScope.Internal));
         await using var app = builder.Build();
         app.MapMcp("/mcp");
         await app.StartAsync();
@@ -88,19 +91,21 @@ public class RemoteScopeToolTests : McpTestBase
 
     // ── Rule: a remote caller can't mint credentials ───────────────────────────
 
-    [Fact]
-    public void ApiKeyCreation_IsLocalOnly()
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public void ApiKeyCreation_IsLocalOnly(CliToolScope scope)
     {
         CliCommandTool.All(CliToolScope.Local).Select(t => t.ProtocolTool.Name).Should().Contain("api_keys_create");
-        CliCommandTool.All(CliToolScope.Remote).Select(t => t.ProtocolTool.Name).Should().NotContain("api_keys_create");
+        CliCommandTool.All(scope).Select(t => t.ProtocolTool.Name).Should().NotContain("api_keys_create");
     }
 
-    [Fact]
-    public void RemoteToolDescriptions_DoNotMentionOptionsThatAreHiddenRemotely()
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public void RemoteToolDescriptions_DoNotMentionOptionsThatAreHiddenRemotely(CliToolScope scope)
     {
         var hidden = CliToolPolicy.HiddenRemotely.Select(entry => entry[(entry.LastIndexOf(' ') + 1)..]).Distinct().ToList();
 
-        foreach (var tool in CliCommandTool.All(CliToolScope.Remote))
+        foreach (var tool in CliCommandTool.All(scope))
         {
             var text = tool.ProtocolTool.Description + " " + tool.ProtocolTool.InputSchema.GetRawText();
             foreach (var option in hidden)

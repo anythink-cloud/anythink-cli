@@ -13,7 +13,7 @@ public class CliCommandToolTests
     private static CliCommandTool? Find(string name, CliToolScope scope) =>
         CliCommandTool.All(scope).SingleOrDefault(t => t.ProtocolTool.Name == name);
 
-    private static CliCommandTool Tool(string name, CliToolScope scope = CliToolScope.Remote) => Find(name, scope)!;
+    private static CliCommandTool Tool(string name, CliToolScope scope = CliToolScope.Internal) => Find(name, scope)!;
 
     private static Dictionary<string, JsonElement> Args(object values) =>
         JsonSerializer.SerializeToElement(values).EnumerateObject().ToDictionary(p => p.Name, p => p.Value);
@@ -24,6 +24,10 @@ public class CliCommandToolTests
         mock.When("*").Respond("application/json", EmptyPage);
 
     private const string EmptyPage = """{"items":[],"total_items":0,"total_pages":0,"has_next_page":false,"page":1,"page_size":20}""";
+
+    public static TheoryData<CliToolScope> RemoteScopes => new() { CliToolScope.Internal, CliToolScope.Hosted };
+
+    private static readonly CliToolScope[] RemoteScopeList = [CliToolScope.Internal, CliToolScope.Hosted];
 
     private static IEnumerable<string> Properties(CliCommandTool tool) =>
         tool.ProtocolTool.InputSchema.GetProperty("properties").EnumerateObject().Select(p => p.Name);
@@ -43,7 +47,8 @@ public class CliCommandToolTests
 
     [Theory]
     [InlineData(CliToolScope.Local)]
-    [InlineData(CliToolScope.Remote)]
+    [InlineData(CliToolScope.Internal)]
+    [InlineData(CliToolScope.Hosted)]
     public void EveryTool_HasAUniqueNameATitleAndAnExplicitHint(CliToolScope scope)
     {
         var tools = CliCommandTool.All(scope);
@@ -69,7 +74,7 @@ public class CliCommandToolTests
     public void PlatformAndCrossProjectCommands_AreLeftOutEverywhere(string name)
     {
         Find(name, CliToolScope.Local).Should().BeNull();
-        Find(name, CliToolScope.Remote).Should().BeNull();
+        Find(name, CliToolScope.Internal).Should().BeNull();
     }
 
     [Theory]
@@ -81,21 +86,23 @@ public class CliCommandToolTests
     public void CommandsThatUseTheLocalMachine_AreLocalOnly(string name)
     {
         Find(name, CliToolScope.Local).Should().NotBeNull();
-        Find(name, CliToolScope.Remote).Should().BeNull();
+        Find(name, CliToolScope.Internal).Should().BeNull();
     }
 
-    [Fact]
-    public void ACommandThatReachesAnyRoute_IsLocalOnly()
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public void ACommandThatReachesAnyRoute_IsLocalOnly(CliToolScope remote)
     {
         Find("fetch", CliToolScope.Local).Should().NotBeNull();
-        Find("fetch", CliToolScope.Remote).Should().BeNull();
+        Find("fetch", remote).Should().BeNull();
     }
 
-    [Fact]
-    public void FileOptions_AreHiddenRemotely()
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public void FileOptions_AreHiddenRemotely(CliToolScope remote)
     {
         Properties(Tool("workflows_create", CliToolScope.Local)).Should().Contain("filter_file");
-        Properties(Tool("workflows_create")).Should().NotContain("filter_file").And.Contain("filter");
+        Properties(Tool("workflows_create", remote)).Should().NotContain("filter_file").And.Contain("filter");
     }
 
     [Theory]
@@ -109,19 +116,23 @@ public class CliCommandToolTests
     [InlineData("data_rls", false, true)]
     public void Annotations_FollowTheCommandVerb(string name, bool readOnly, bool? destructive)
     {
-        var annotations = Tool(name).ProtocolTool.Annotations!;
+        foreach (var scope in RemoteScopeList)
+        {
+            var annotations = Tool(name, scope).ProtocolTool.Annotations!;
 
-        annotations.ReadOnlyHint.Should().Be(readOnly);
-        annotations.DestructiveHint.Should().Be(destructive);
+            annotations.ReadOnlyHint.Should().Be(readOnly, scope.ToString());
+            annotations.DestructiveHint.Should().Be(destructive, scope.ToString());
+        }
     }
 
     // ── Rule: a command that can write a local file isn't read-only where that option is offered ──
 
-    [Fact]
-    public void WorkflowsExport_IsReadOnlyOnlyWhereItsOutputOptionIsHidden()
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public void WorkflowsExport_IsReadOnlyOnlyWhereItsOutputOptionIsHidden(CliToolScope scope)
     {
         var local = Tool("workflows_export", CliToolScope.Local);
-        var remote = Tool("workflows_export");
+        var remote = Tool("workflows_export", scope);
 
         Properties(local).Should().Contain("output");
         local.ProtocolTool.Annotations!.ReadOnlyHint.Should().BeFalse();
@@ -141,7 +152,7 @@ public class CliCommandToolTests
     {
         var command = new CliCommand(["things", verb], "", []);
 
-        foreach (var scope in new[] { CliToolScope.Local, CliToolScope.Remote })
+        foreach (var scope in new[] { CliToolScope.Local, CliToolScope.Internal })
         {
             CliToolPolicy.IsReadOnly(command, scope).Should().BeFalse();
             CliToolPolicy.IsDestructive(command, scope).Should().BeTrue();
@@ -156,15 +167,15 @@ public class CliCommandToolTests
     {
         var command = new CliCommand(["things", verb], "", []);
 
-        CliToolPolicy.IsReadOnly(command, CliToolScope.Remote).Should().BeFalse();
-        CliToolPolicy.IsDestructive(command, CliToolScope.Remote).Should().BeFalse();
+        CliToolPolicy.IsReadOnly(command, CliToolScope.Internal).Should().BeFalse();
+        CliToolPolicy.IsDestructive(command, CliToolScope.Internal).Should().BeFalse();
     }
 
     [Theory]
     [InlineData("step-link")]
     [InlineData("rls")]
     public void AVerbThatOverwritesWhatIsThere_IsDestructive(string verb) =>
-        CliToolPolicy.IsDestructive(new CliCommand(["things", verb], "", []), CliToolScope.Remote).Should().BeTrue();
+        CliToolPolicy.IsDestructive(new CliCommand(["things", verb], "", []), CliToolScope.Internal).Should().BeTrue();
 
     [Fact]
     public void Arguments_ArePositionalAndOptionsCarryTheirValue()
@@ -343,15 +354,16 @@ public class CliCommandToolTests
         var mock = new MockHttpMessageHandler();
         var any = AnyRequest(mock);
 
-        foreach (var tool in new[] { "data_list", "data_rls" })
-        {
-            var arguments = tool == "data_rls" ? Args(new { entity, id = 1 }) : Args(new { entity });
+        foreach (var scope in RemoteScopeList)
+            foreach (var tool in new[] { "data_list", "data_rls" })
+            {
+                var arguments = tool == "data_rls" ? Args(new { entity, id = 1 }) : Args(new { entity });
 
-            var result = await Tool(tool).RunAsync(arguments, Client(mock));
+                var result = await Tool(tool, scope).RunAsync(arguments, Client(mock));
 
-            result.ExitCode.Should().Be(1, tool);
-            result.Output.Should().Contain("can only contain letters, digits");
-        }
+                result.ExitCode.Should().Be(1, $"{scope} {tool}");
+                result.Output.Should().Contain("can only contain letters, digits");
+            }
 
         mock.GetMatchCount(any).Should().Be(0);
     }
@@ -362,18 +374,21 @@ public class CliCommandToolTests
     [InlineData("my-entity.v2")]
     public async Task RemotePositional_PlainIdentifier_IsSent(string entity)
     {
-        var mock = new MockHttpMessageHandler();
-        var sent = new List<Uri>();
-        mock.When("*").Respond(req =>
+        foreach (var scope in RemoteScopeList)
         {
-            sent.Add(req.RequestUri!);
-            return new HttpResponseMessage { Content = new StringContent(EmptyPage) };
-        });
+            var mock = new MockHttpMessageHandler();
+            var sent = new List<Uri>();
+            mock.When("*").Respond(req =>
+            {
+                sent.Add(req.RequestUri!);
+                return new HttpResponseMessage { Content = new StringContent(EmptyPage) };
+            });
 
-        var result = await Tool("data_list").RunAsync(Args(new { entity }), Client(mock));
+            var result = await Tool("data_list", scope).RunAsync(Args(new { entity }), Client(mock));
 
-        result.ExitCode.Should().Be(0, result.Output);
-        sent.Should().ContainSingle().Which.AbsolutePath.Should().Be($"/org/42/entities/{entity}/items");
+            result.ExitCode.Should().Be(0, result.Output);
+            sent.Should().ContainSingle().Which.AbsolutePath.Should().Be($"/org/42/entities/{entity}/items");
+        }
     }
 
     [Theory]
@@ -401,8 +416,9 @@ public class CliCommandToolTests
         JsonDocument.Parse(sent[1].Body).RootElement.GetProperty("readonly").GetBoolean().Should().BeTrue();
     }
 
-    [Fact]
-    public async Task RemotePositional_FreeText_MayContainPunctuation()
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task RemotePositional_FreeText_MayContainPunctuation(CliToolScope scope)
     {
         string? body = null;
         var mock = new MockHttpMessageHandler();
@@ -412,7 +428,7 @@ public class CliCommandToolTests
             return new HttpResponseMessage { Content = new StringContent("""{"id":7,"name":"x","trigger":"Manual"}""") };
         });
 
-        var result = await Tool("workflows_create").RunAsync(Args(new { name = "Sales / support? #1", trigger = "Manual" }), Client(mock));
+        var result = await Tool("workflows_create", scope).RunAsync(Args(new { name = "Sales / support? #1", trigger = "Manual" }), Client(mock));
 
         result.ExitCode.Should().Be(0, result.Output);
         JsonDocument.Parse(body!).RootElement.GetProperty("name").GetString().Should().Be("Sales / support? #1");
@@ -602,13 +618,14 @@ public class CliCommandToolTests
 
     // ── Rule: a remote caller sees the status of an upstream failure, never its body ──
 
-    [Fact]
-    public async Task RemoteRun_UpstreamError_IsAToolErrorWithTheStatusButNotTheBody()
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task RemoteRun_UpstreamError_IsAToolErrorWithTheStatusButNotTheBody(CliToolScope scope)
     {
         var mock = new MockHttpMessageHandler();
         mock.When($"{ApiUrl}/org/42/entities").Respond(System.Net.HttpStatusCode.InternalServerError, "application/json", """{"error":"secret-detail"}""");
 
-        var result = await Tool("entities_list").RunAsync(Args(new { }), Client(mock));
+        var result = await Tool("entities_list", scope).RunAsync(Args(new { }), Client(mock));
 
         result.ExitCode.Should().Be(1);
         result.Output.Should().Contain("500").And.NotContain("secret-detail");
@@ -619,14 +636,17 @@ public class CliCommandToolTests
     [InlineData("entities_create", "POST", "/entities", "")]
     public async Task RemoteRun_AnUnreadableSuccessResponse_IsReportedAsSuch_NotAsAStatus(string tool, string method, string path, string body)
     {
-        var mock = new MockHttpMessageHandler();
-        mock.When(new HttpMethod(method), $"{ApiUrl}/org/42{path}").Respond("application/json", body);
+        foreach (var scope in RemoteScopeList)
+        {
+            var mock = new MockHttpMessageHandler();
+            mock.When(new HttpMethod(method), $"{ApiUrl}/org/42{path}").Respond("application/json", body);
 
-        var result = await Tool(tool).RunAsync(Args(new { name = "posts" }), Client(mock));
+            var result = await Tool(tool, scope).RunAsync(Args(new { name = "posts" }), Client(mock));
 
-        result.ExitCode.Should().Be(1);
-        result.Output.Should().Contain("response this command couldn't read").And.NotContain("status 200");
-        if (body.Length > 0) result.Output.Should().NotContain(body);
+            result.ExitCode.Should().Be(1);
+            result.Output.Should().Contain("response this command couldn't read").And.NotContain("status 200");
+            if (body.Length > 0) result.Output.Should().NotContain(body);
+        }
     }
 
     [Fact]
@@ -643,15 +663,16 @@ public class CliCommandToolTests
 
     // ── Rule: output is capped, with a hint to narrow the query ────────────────
 
-    [Fact]
-    public async Task Output_BeyondTheCap_IsCutOffWithAHint()
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task Output_BeyondTheCap_IsCutOffWithAHint(CliToolScope scope)
     {
         var items = string.Join(',', Enumerable.Range(1, 4000).Select(i => $$"""{"id":{{i}},"title":"{{new string('x', 100)}}"}"""));
         var mock = new MockHttpMessageHandler();
         mock.When($"{ApiUrl}/org/42/entities/posts/items*").Respond("application/json",
             $$"""{"items":[{{items}}],"total_items":4000,"total_pages":1,"has_next_page":false,"page":1,"page_size":4000}""");
 
-        var result = await Tool("data_list").RunAsync(Args(new { entity = "posts" }), Client(mock));
+        var result = await Tool("data_list", scope).RunAsync(Args(new { entity = "posts" }), Client(mock));
 
         result.ExitCode.Should().Be(0);
         result.Output.Should().EndWith("to see the rest.]");
@@ -668,6 +689,23 @@ public class CliCommandToolTests
         var result = await Tool("entities_list").RunAsync(Args(new { }), Client(mock));
 
         result.Output.Should().NotContain("cut off");
+    }
+
+    [Fact]
+    public void NoCliCommand_HasAParameterCalledProject()
+    {
+        CliCommandModel.All
+            .SelectMany(command => command.Parameters.Select(parameter => $"{command.Key} {parameter.Name}"))
+            .Where(parameter => parameter.EndsWith($" {HostedProjects.ParameterName}"))
+            .Should().BeEmpty("hosted mode takes that name for its own project argument, and would swallow the command's value");
+    }
+
+    [Fact]
+    public void OnlyHostedTools_TakeAProjectArgument()
+    {
+        foreach (var scope in new[] { CliToolScope.Local, CliToolScope.Internal })
+            CliCommandTool.All(scope).Should().AllSatisfy(tool => Properties(tool).Should().NotContain(HostedProjects.ParameterName));
+        CliCommandTool.All(CliToolScope.Hosted).Should().AllSatisfy(tool => Properties(tool).Should().Contain(HostedProjects.ParameterName));
     }
 
     [Fact]

@@ -1,6 +1,6 @@
 namespace AnythinkMcp.Cli;
 
-public enum CliToolScope { Local, Remote }
+public enum CliToolScope { Local, Internal, Hosted }
 
 public static class CliToolPolicy
 {
