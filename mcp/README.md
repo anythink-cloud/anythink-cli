@@ -159,8 +159,8 @@ loopback by default. If your internal services reach it over the network, set
 
 `GET /tools` lists each tool's `name`, `description`, `input_schema` and `annotations`
 (`title`, `read_only_hint`, `destructive_hint`, `open_world_hint`; `destructive_hint` is
-`false` for a read-only tool). `POST /tools/call` returns `result.content` and
-`result.is_error`, which is `true` when the command failed, was given arguments it doesn't
+`false` for a read-only tool). `POST /tools/call` returns `result.content` and a top-level
+`is_error`, which is `true` when the command failed, was given arguments it doesn't
 accept, or was cancelled.
 
 Under `--hosted` the internal REST API listens on port `5301`. Route ingress only to `5300`,

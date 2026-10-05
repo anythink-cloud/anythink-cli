@@ -111,9 +111,9 @@ public class InternalApiEndpointTests : IAsyncLifetime
         var response = await _client.SendAsync(ToolCall("entities_list"));
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var result = (await Body(response)).GetProperty("result");
-        result.GetProperty("is_error").GetBoolean().Should().BeFalse();
-        result.GetProperty("content")[0].GetProperty("text").GetString().Should().Contain("posts");
+        var body = await Body(response);
+        body.GetProperty("is_error").GetBoolean().Should().BeFalse();
+        body.GetProperty("result").GetProperty("content")[0].GetProperty("text").GetString().Should().Contain("posts");
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public class InternalApiEndpointTests : IAsyncLifetime
         var response = await _client.SendAsync(ToolCall("entities_list"));
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        (await Body(response)).GetProperty("result").GetProperty("is_error").GetBoolean().Should().BeTrue();
+        (await Body(response)).GetProperty("is_error").GetBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -134,9 +134,9 @@ public class InternalApiEndpointTests : IAsyncLifetime
 
         var response = await _client.SendAsync(ToolCall("entities_list", arguments: """{"bogus":1}"""));
 
-        var result = (await Body(response)).GetProperty("result");
-        result.GetProperty("is_error").GetBoolean().Should().BeTrue();
-        result.GetProperty("content")[0].GetProperty("text").GetString().Should().Contain("Unknown parameter: bogus");
+        var body = await Body(response);
+        body.GetProperty("is_error").GetBoolean().Should().BeTrue();
+        body.GetProperty("result").GetProperty("content")[0].GetProperty("text").GetString().Should().Contain("Unknown parameter: bogus");
         _upstream.GetMatchCount(any).Should().Be(0);
     }
 }

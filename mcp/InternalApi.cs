@@ -113,7 +113,8 @@ internal static class InternalApi
 
                 return Results.Json(new
                 {
-                    result = new { content = new[] { new { type = "text", text = result.Output } }, is_error = result.IsError }
+                    result = new { content = new[] { new { type = "text", text = result.Output } } },
+                    is_error = result.IsError
                 });
             }
             catch (Exception ex)
