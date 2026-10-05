@@ -141,9 +141,13 @@ queued; beyond that the server returns `429`. Upstream calls share one connectio
 don't follow redirects, and time out after 30 seconds.
 
 Hosted mode serves `project_details` plus the generated command tools, leaving out
-commands that sign in, switch profiles, or use the local machine (opening a browser,
-or reading and writing local files). Tools run as the signed-in user, so their role
-in the project decides what each call can do.
+commands that sign in, switch profiles, use the local machine (opening a browser,
+or reading and writing local files), call arbitrary routes (`fetch`) or create API
+keys. Positional values can't contain `/`, `..`, `?` or `#` (free-text arguments such as
+search text and names excepted), every request is checked to stay under the project's
+API root, tool output is cut off at 200,000 characters, and an upstream error is reported
+by status only. Tools run as the signed-in user, so their role in the project decides
+what each call can do.
 
 The internal REST API (`GET /tools`, `POST /tools/call`) used by your internal services
 keeps running, but only on the internal port, never on the public port. It trusts
@@ -152,6 +156,12 @@ caller-supplied `X-Org-Id` and `X-Instance-Url` headers (the latter must be on t
 loopback by default. If your internal services reach it over the network, set
 `MCP_INTERNAL_BIND` and `MCP_INTERNAL_TOKEN`; callers then send the token in
 `X-Internal-Token`.
+
+`GET /tools` lists each tool's `name`, `description`, `input_schema` and `annotations`
+(`title`, `read_only_hint`, `destructive_hint`, `open_world_hint`; `destructive_hint` is
+`false` for a read-only tool). `POST /tools/call` returns `result.content` and
+`result.is_error`, which is `true` when the command failed, was given arguments it doesn't
+accept, or was cancelled.
 
 Under `--hosted` the internal REST API listens on port `5301`. Route ingress only to `5300`,
 and allow only your internal services to reach `5301`.
