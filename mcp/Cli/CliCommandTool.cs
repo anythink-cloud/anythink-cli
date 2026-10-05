@@ -145,11 +145,14 @@ public sealed class CliCommandTool : McpServerTool
         return args;
     }
 
-    private static AnythinkClient? ResolveClient(IServiceProvider services)
+    private AnythinkClient? ResolveClient(IServiceProvider services)
     {
         var factory = services.GetRequiredService<McpClientFactory>();
-        return services.GetService<HostedCredentials>() is { } credentials
-            ? factory.GetClient(credentials)
+        if (services.GetService<HostedCredentials>() is { } credentials)
+            return factory.GetClient(credentials);
+
+        return CliToolPolicy.IsRemote(_scope)
+            ? throw new InvalidOperationException("The request carries no credentials.")
             : factory.GetClientOrNull();
     }
 

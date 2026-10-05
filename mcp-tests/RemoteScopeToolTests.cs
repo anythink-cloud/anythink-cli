@@ -2,7 +2,12 @@ using System.Text.Json;
 using AnythinkCli.Client;
 using AnythinkMcp.Cli;
 using FluentAssertions;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using ModelContextProtocol.AspNetCore;
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
 using RichardSzalay.MockHttp;
 
 namespace AnythinkMcp.Tests;
@@ -49,6 +54,36 @@ public class RemoteScopeToolTests : McpTestBase
 
         await act.Should().ThrowAsync<InvalidOperationException>();
         mock.GetMatchCount(any).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ARemoteToolServedWithoutRequestCredentials_DoesNotFallBackToTheSavedLogin()
+    {
+        SetupProjectProfile();
+        var mock = new MockHttpMessageHandler();
+        var any = mock.When("*").Respond("application/json", "[]");
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseTestServer();
+        builder.Services.AddSingleton(CreateFactory(mock));
+        builder.Services.AddMcpServer()
+            .WithHttpTransport(http => http.SessionMode = HttpServerSessionMode.Stateless)
+            .WithTools(CliCommandTool.All(CliToolScope.Remote));
+        await using var app = builder.Build();
+        app.MapMcp("/mcp");
+        await app.StartAsync();
+        using var http = app.GetTestClient();
+        await using var mcp = await McpClient.CreateAsync(new HttpClientTransport(new HttpClientTransportOptions
+        {
+            Endpoint = new Uri("http://localhost/mcp"),
+            TransportMode = HttpTransportMode.StreamableHttp,
+        }, http, ownsHttpClient: false));
+
+        var result = await mcp.CallToolAsync("entities_list");
+
+        result.IsError.Should().BeTrue();
+        ((TextContentBlock)result.Content[0]).Text.Should().Contain("no credentials");
+        mock.GetMatchCount(any).Should().Be(0);
+        await app.StopAsync();
     }
 
     // ── Rule: a remote caller can't mint credentials ───────────────────────────
