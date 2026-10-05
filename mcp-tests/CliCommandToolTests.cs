@@ -671,6 +671,23 @@ public class CliCommandToolTests
     }
 
     [Fact]
+    public void NoCliCommand_HasAParameterCalledProject()
+    {
+        CliCommandModel.All
+            .SelectMany(command => command.Parameters.Select(parameter => $"{command.Key} {parameter.Name}"))
+            .Where(parameter => parameter.EndsWith($" {HostedProjects.ParameterName}"))
+            .Should().BeEmpty("hosted mode takes that name for its own project argument, and would swallow the command's value");
+    }
+
+    [Fact]
+    public void OnlyHostedTools_TakeAProjectArgument()
+    {
+        foreach (var scope in new[] { CliToolScope.Local, CliToolScope.Internal })
+            CliCommandTool.All(scope).Should().AllSatisfy(tool => Properties(tool).Should().NotContain(HostedProjects.ParameterName));
+        CliCommandTool.All(CliToolScope.Hosted).Should().AllSatisfy(tool => Properties(tool).Should().Contain(HostedProjects.ParameterName));
+    }
+
+    [Fact]
     public async Task Cancelling_StopsTheCommandAtItsApiCall()
     {
         using var cancellation = new CancellationTokenSource();
