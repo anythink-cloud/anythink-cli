@@ -10,6 +10,8 @@ namespace AnythinkCli.Client;
 public class AnythinkException(string message, int statusCode) : Exception(message)
 {
     public int StatusCode { get; } = statusCode;
+
+    public string StatusOnlyMessage => $"The project API returned status {StatusCode}.";
 }
 
 /// <summary>

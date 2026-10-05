@@ -48,7 +48,7 @@ public class HostedTools
         }
         catch (AnythinkException ex)
         {
-            throw new McpException($"The project API returned status {ex.StatusCode}.");
+            throw new McpException(ex.StatusOnlyMessage);
         }
     }
 }

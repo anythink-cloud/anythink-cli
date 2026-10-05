@@ -490,6 +490,61 @@ public class CliCommandToolTests
 
     private static JsonElement Json(object value) => JsonSerializer.SerializeToElement(value);
 
+    // ── Rule: a remote caller sees the status of an upstream failure, never its body ──
+
+    [Fact]
+    public async Task RemoteRun_UpstreamError_IsAToolErrorWithTheStatusButNotTheBody()
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.When($"{ApiUrl}/org/42/entities").Respond(System.Net.HttpStatusCode.InternalServerError, "application/json", """{"error":"secret-detail"}""");
+
+        var result = await Tool("entities_list").RunAsync(Args(new { }), Client(mock));
+
+        result.ExitCode.Should().Be(1);
+        result.Output.Should().Contain("500").And.NotContain("secret-detail");
+    }
+
+    [Fact]
+    public async Task LocalRun_UpstreamError_KeepsTheBody()
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.When($"{ApiUrl}/org/42/entities").Respond(System.Net.HttpStatusCode.BadRequest, "application/json", """{"error":"entity name taken"}""");
+
+        var result = await Tool("entities_list", CliToolScope.Local).RunAsync(Args(new { }), Client(mock));
+
+        result.ExitCode.Should().Be(1);
+        result.Output.Should().Contain("400").And.Contain("entity name taken");
+    }
+
+    // ── Rule: output is capped, with a hint to narrow the query ────────────────
+
+    [Fact]
+    public async Task Output_BeyondTheCap_IsCutOffWithAHint()
+    {
+        var items = string.Join(',', Enumerable.Range(1, 4000).Select(i => $$"""{"id":{{i}},"title":"{{new string('x', 100)}}"}"""));
+        var mock = new MockHttpMessageHandler();
+        mock.When($"{ApiUrl}/org/42/entities/posts/items*").Respond("application/json",
+            $$"""{"items":[{{items}}],"total_items":4000,"total_pages":1,"has_next_page":false,"page":1,"page_size":4000}""");
+
+        var result = await Tool("data_list").RunAsync(Args(new { entity = "posts" }), Client(mock));
+
+        result.ExitCode.Should().Be(0);
+        result.Output.Should().EndWith("to see the rest.]");
+        result.Output.Length.Should().BeLessThan(CliRunner.MaxOutputCharacters + 300);
+        result.Output.Should().Contain("Output cut off at 200,000 characters");
+    }
+
+    [Fact]
+    public async Task Output_WithinTheCap_IsReturnedWhole()
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.When($"{ApiUrl}/org/42/entities").Respond("application/json", """[{"name":"posts","table_name":"posts","fields":[]}]""");
+
+        var result = await Tool("entities_list").RunAsync(Args(new { }), Client(mock));
+
+        result.Output.Should().NotContain("cut off");
+    }
+
     [Fact]
     public async Task Cancelling_StopsTheCommandAtItsApiCall()
     {

@@ -8,6 +8,8 @@ public sealed record CliRunResult(int ExitCode, string Output);
 
 public static class CliRunner
 {
+    public const int MaxOutputCharacters = 200_000;
+
     static CliRunner() => AmbientConsole.Install();
 
     public static async Task<CliRunResult> RunAsync(
@@ -26,7 +28,8 @@ public static class CliRunner
             config.Settings.Console = AmbientConsole.Instance;
             config.SetExceptionHandler((ex, _) =>
             {
-                output.WriteLine($"Error: {ex.Message}");
+                var message = scope == CliToolScope.Remote && ex is AnythinkException api ? api.StatusOnlyMessage : ex.Message;
+                output.WriteLine($"Error: {message}");
                 return 1;
             });
         });
@@ -34,6 +37,16 @@ public static class CliRunner
         var exitCode = await app.RunAsync(args);
         return cancellationToken.IsCancellationRequested
             ? new CliRunResult(1, "Cancelled.")
-            : new CliRunResult(exitCode, output.ToString().Trim());
+            : new CliRunResult(exitCode, Capped(output.ToString().Trim()));
+    }
+
+    private static string Capped(string text)
+    {
+        if (text.Length <= MaxOutputCharacters)
+            return text;
+
+        var length = char.IsHighSurrogate(text[MaxOutputCharacters - 1]) ? MaxOutputCharacters - 1 : MaxOutputCharacters;
+        return text[..length]
+            + $"\n[Output cut off at {MaxOutputCharacters:N0} characters. Narrow the query (a filter, a smaller limit, fewer fields) to see the rest.]";
     }
 }

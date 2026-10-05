@@ -144,6 +144,9 @@ public abstract class BaseCommand<TSettings> : AsyncCommand<TSettings>
     {
         switch (ex)
         {
+            case AnythinkException ae when ClientContext.Remote:
+                Renderer.Error(ae.StatusOnlyMessage);
+                break;
             case AnythinkException ae:
                 Renderer.Error($"API error ({ae.StatusCode}): {ae.Message}");
                 break;
