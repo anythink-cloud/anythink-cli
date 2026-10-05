@@ -5,7 +5,7 @@ data_create [write] entity data?
 data_delete [destructive] entity id
 data_get [read-only] entity id
 data_list [read-only] entity filter? limit? page?
-data_rls [write] entity id readonly? user?
+data_rls [destructive] entity id readonly? user?
 data_update [destructive] entity id data?
 docs [read-only]
 entities_create [write] name junction? lock_records? public? rls?
@@ -72,7 +72,7 @@ workflows_list [read-only]
 workflows_step_add [write] workflow_id key action? enabled? name? params? start?
 workflows_step_delete [destructive] workflow_id step_id
 workflows_step_get [read-only] workflow_id step_id
-workflows_step_link [write] workflow_id step_id on_failure? on_success?
+workflows_step_link [destructive] workflow_id step_id on_failure? on_success?
 workflows_step_update [destructive] workflow_id step_id enabled? name? params?
 workflows_trigger [write, open-world] id entity? entity_id? payload?
 workflows_update [destructive] id description? name?

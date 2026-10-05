@@ -21,13 +21,15 @@ public static class CliToolPolicy
     private static readonly HashSet<string> ReadOnlyVerbs =
     [
         "list", "get", "me", "status", "jobs", "step-get", "query", "similar", "audit", "payments", "methods",
-        "callback-url", "api", "docs", "file-handler-example", "export"
+        "callback-url", "api", "docs", "file-handler-example"
     ];
+
+    private static readonly string[] ReadOnlyRemotely = ["workflows export"];
 
     private static readonly HashSet<string> AdditiveVerbs =
     [
-        "create", "add", "add-item", "step-add", "step-link", "file-handler-add", "integration-add", "connect",
-        "enable", "disable", "test", "rehydrate", "rls", "upload", "seed", "invite", "trigger", "execute"
+        "create", "add", "add-item", "step-add", "file-handler-add", "integration-add", "connect",
+        "enable", "disable", "test", "rehydrate", "upload", "seed", "invite", "trigger", "execute"
     ];
 
     private static readonly HashSet<string> OpenWorldVerbs = ["execute", "trigger", "invite"];
@@ -56,9 +58,11 @@ public static class CliToolPolicy
     public static bool IsPlainPathValue(string value) =>
         value.Length > 0 && value.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-' or '.') && !value.Contains("..", StringComparison.Ordinal);
 
-    public static bool IsReadOnly(CliCommand command) => ReadOnlyVerbs.Contains(command.Verb);
+    public static bool IsReadOnly(CliCommand command, CliToolScope scope) =>
+        ReadOnlyVerbs.Contains(command.Verb) || (IsRemote(scope) && ReadOnlyRemotely.Contains(command.Key));
 
-    public static bool IsDestructive(CliCommand command) => !IsReadOnly(command) && !AdditiveVerbs.Contains(command.Verb);
+    public static bool IsDestructive(CliCommand command, CliToolScope scope) =>
+        !IsReadOnly(command, scope) && !AdditiveVerbs.Contains(command.Verb);
 
     public static bool IsOpenWorld(CliCommand command) => OpenWorldVerbs.Contains(command.Verb);
 

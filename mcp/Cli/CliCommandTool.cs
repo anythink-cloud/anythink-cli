@@ -20,7 +20,7 @@ public sealed class CliCommandTool : McpServerTool
         _parameters = CliToolPolicy.Parameters(command, scope);
 
         var title = Title(command);
-        var readOnly = CliToolPolicy.IsReadOnly(command);
+        var readOnly = CliToolPolicy.IsReadOnly(command, scope);
         ProtocolTool = new Tool
         {
             Name = command.ToolName,
@@ -31,7 +31,7 @@ public sealed class CliCommandTool : McpServerTool
             {
                 Title = title,
                 ReadOnlyHint = readOnly,
-                DestructiveHint = readOnly ? null : CliToolPolicy.IsDestructive(command),
+                DestructiveHint = readOnly ? null : CliToolPolicy.IsDestructive(command, scope),
                 OpenWorldHint = CliToolPolicy.IsOpenWorld(command)
             }
         };

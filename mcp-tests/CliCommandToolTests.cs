@@ -105,12 +105,29 @@ public class CliCommandToolTests
     [InlineData("workflows_export", true, null)]
     [InlineData("integrations_oauth_configure", false, true)]
     [InlineData("entities_update", false, true)]
+    [InlineData("workflows_step_link", false, true)]
+    [InlineData("data_rls", false, true)]
     public void Annotations_FollowTheCommandVerb(string name, bool readOnly, bool? destructive)
     {
         var annotations = Tool(name).ProtocolTool.Annotations!;
 
         annotations.ReadOnlyHint.Should().Be(readOnly);
         annotations.DestructiveHint.Should().Be(destructive);
+    }
+
+    // ── Rule: a command that can write a local file isn't read-only where that option is offered ──
+
+    [Fact]
+    public void WorkflowsExport_IsReadOnlyOnlyWhereItsOutputOptionIsHidden()
+    {
+        var local = Tool("workflows_export", CliToolScope.Local);
+        var remote = Tool("workflows_export");
+
+        Properties(local).Should().Contain("output");
+        local.ProtocolTool.Annotations!.ReadOnlyHint.Should().BeFalse();
+        local.ProtocolTool.Annotations.DestructiveHint.Should().BeTrue();
+        Properties(remote).Should().NotContain("output");
+        remote.ProtocolTool.Annotations!.ReadOnlyHint.Should().BeTrue();
     }
 
     // ── Rule: a command nobody classified is treated as destructive ────────────
@@ -124,8 +141,11 @@ public class CliCommandToolTests
     {
         var command = new CliCommand(["things", verb], "", []);
 
-        CliToolPolicy.IsReadOnly(command).Should().BeFalse();
-        CliToolPolicy.IsDestructive(command).Should().BeTrue();
+        foreach (var scope in new[] { CliToolScope.Local, CliToolScope.Remote })
+        {
+            CliToolPolicy.IsReadOnly(command, scope).Should().BeFalse();
+            CliToolPolicy.IsDestructive(command, scope).Should().BeTrue();
+        }
     }
 
     [Theory]
@@ -136,9 +156,15 @@ public class CliCommandToolTests
     {
         var command = new CliCommand(["things", verb], "", []);
 
-        CliToolPolicy.IsReadOnly(command).Should().BeFalse();
-        CliToolPolicy.IsDestructive(command).Should().BeFalse();
+        CliToolPolicy.IsReadOnly(command, CliToolScope.Remote).Should().BeFalse();
+        CliToolPolicy.IsDestructive(command, CliToolScope.Remote).Should().BeFalse();
     }
+
+    [Theory]
+    [InlineData("step-link")]
+    [InlineData("rls")]
+    public void AVerbThatOverwritesWhatIsThere_IsDestructive(string verb) =>
+        CliToolPolicy.IsDestructive(new CliCommand(["things", verb], "", []), CliToolScope.Remote).Should().BeTrue();
 
     [Fact]
     public void Arguments_ArePositionalAndOptionsCarryTheirValue()
