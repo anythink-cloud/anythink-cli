@@ -750,6 +750,8 @@ public class HostedModeTests : IAsyncLifetime
     [Theory]
     [InlineData(ShopProject)]
     [InlineData("3F2504E0-4F89-11D3-9A0C-0305E82C3301")]
+    [InlineData("3f2504e04f8911d39a0c0305e82c3301")]
+    [InlineData("{3f2504e0-4f89-11d3-9a0c-0305e82c3301}")]
     public async Task SingleProjectToken_ItsOwnProjectId_IsAllowed(string project)
     {
         var token = ValidToken(projectId: ShopProject);
@@ -772,5 +774,28 @@ public class HostedModeTests : IAsyncLifetime
 
         result.IsError.Should().BeTrue();
         Text(result).Should().Contain("one project only");
+    }
+
+    // ── Rule: a token that can't be read is a refusal, never an unhandled error ──
+
+    [Theory]
+    [InlineData("not-a-jwt")]
+    [InlineData("a.b.c")]
+    [InlineData("a.b")]
+    [InlineData("....")]
+    public async Task AllProjectsToken_ExchangedTokenThatIsNotAJwt_IsRefused_AndNothingIsSent(string exchanged)
+    {
+        _exchangeOverride = () => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent($$"""{"access_token":"{{exchanged}}","expires_in":600,"token_type":"Bearer"}""", Encoding.UTF8, "application/json")
+        };
+        var any = _mock.When("https://api.shop.anythink.cloud/*").Respond("application/json", "[]");
+
+        await using var mcpClient = await McpClient.CreateAsync(Transport(AllProjectsToken()));
+        var result = await mcpClient.CallToolAsync("entities_list", new Dictionary<string, object?> { ["project"] = ShopProject });
+
+        result.IsError.Should().BeTrue();
+        Text(result).Should().Contain("Couldn't get access to that project").And.NotContain(exchanged);
+        _mock.GetMatchCount(any).Should().Be(0);
     }
 }

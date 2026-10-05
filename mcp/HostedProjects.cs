@@ -1,5 +1,6 @@
 using AnythinkCli.Client;
 using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Tokens;
 
 namespace AnythinkMcp;
 
@@ -17,7 +18,7 @@ public sealed class HostedProjects(
     {
         if (!credentials.AllProjects)
         {
-            if (!string.IsNullOrEmpty(project) && !string.Equals(project, credentials.ProjectId, StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrEmpty(project) && !SameProject(project, credentials.ProjectId))
                 throw new HostedProjectException("This connection covers one project only. Leave 'project' out.");
             return factory.GetClient(credentials);
         }
@@ -37,7 +38,16 @@ public sealed class HostedProjects(
                 : "Couldn't get access to that project. Try again.");
         }
 
-        var claims = new JsonWebToken(token);
+        JsonWebToken claims;
+        try
+        {
+            claims = new JsonWebToken(token);
+        }
+        catch (Exception ex) when (ex is ArgumentException or SecurityTokenException)
+        {
+            throw new HostedProjectException("Couldn't get access to that project. Try again.");
+        }
+
         var orgId = claims.TryGetClaim("tid", out var tid) ? tid.Value : null;
         var instanceUrl = claims.TryGetClaim("instance_url", out var url) ? url.Value : null;
         var grantedProject = claims.TryGetClaim("project_id", out var granted) && Guid.TryParse(granted.Value, out var parsed) ? parsed : (Guid?)null;
@@ -47,6 +57,9 @@ public sealed class HostedProjects(
 
         return factory.GetClient(new HostedCredentials { OrgId = orgId, InstanceUrl = instanceUrl.TrimEnd('/'), Token = token });
     }
+
+    private static bool SameProject(string requested, string? own) =>
+        Guid.TryParse(requested, out var requestedId) && Guid.TryParse(own, out var ownId) && requestedId == ownId;
 
     public async Task<string> ListAsync(CancellationToken cancellationToken)
     {

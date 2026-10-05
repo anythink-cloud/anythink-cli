@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
 
 namespace AnythinkMcp;
@@ -19,7 +20,7 @@ public sealed class HostedCredentials
 
 internal static class HostedAuth
 {
-    public static bool IsAllProjects(ClaimsPrincipal? principal) => principal?.FindFirstValue("projects") == "all";
+    public static bool IsAllProjects([NotNullWhen(true)] ClaimsPrincipal? principal) => principal?.FindFirstValue("projects") == "all";
 
     public static bool IsValidOrgId(string? value) => !string.IsNullOrEmpty(value) && value.All(char.IsAsciiDigit);
 
@@ -31,7 +32,7 @@ internal static class HostedAuth
         var principal = context.Principal;
         if (IsAllProjects(principal))
         {
-            if (string.IsNullOrEmpty(principal!.FindFirstValue("sub")) || principal.HasClaim(c => c.Type is "tid" or "project_id" or "instance_url"))
+            if (string.IsNullOrEmpty(principal.FindFirstValue("sub")) || principal.HasClaim(c => c.Type is "tid" or "project_id" or "instance_url"))
                 context.Fail("An all-projects token must name the user and no project.");
             return Task.CompletedTask;
         }
