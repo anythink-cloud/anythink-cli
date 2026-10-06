@@ -1,27 +1,53 @@
+using AnythinkCli.Client;
 using AnythinkCli.Models;
 using AnythinkCli.Output;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System.ComponentModel;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace AnythinkCli.Commands;
 
 static class AccountStatusMarkup
 {
+    public static string Name(int status) => status switch
+    {
+        0 => "active",
+        1 => "suspended",
+        2 => "canceled",
+        _ => status.ToString()
+    };
+
     public static string Render(int status) => status switch
     {
-        0 => "[green]active[/]",
-        1 => "[yellow]suspended[/]",
-        2 => "[red]canceled[/]",
-        _ => status.ToString()
+        0 => $"[green]{Name(status)}[/]",
+        1 => $"[yellow]{Name(status)}[/]",
+        2 => $"[red]{Name(status)}[/]",
+        _ => Name(status)
+    };
+
+    public static string AccessLevel(int level) => level switch
+    {
+        0 => "viewer",
+        1 => "admin",
+        2 => "owner",
+        _ => level.ToString()
     };
 }
 
 // ── accounts list ─────────────────────────────────────────────────────────────
 
-public class AccountsListCommand : BasePlatformCommand<EmptySettings>
+public class AccountsListSettings : CommandSettings
 {
-    public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
+    [Description("Output raw JSON")]
+    [CommandOption("--json")]
+    public bool Json { get; set; }
+}
+
+public class AccountsListCommand : BasePlatformCommand<AccountsListSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, AccountsListSettings settings)
     {
         try
         {
@@ -34,6 +60,20 @@ public class AccountsListCommand : BasePlatformCommand<EmptySettings>
                 {
                     accounts = await client.GetAccountsAsync();
                 });
+
+            if (settings.Json || ClientContext.Remote)
+            {
+                Renderer.PrintJson(JsonSerializer.Serialize(accounts.Select(a => new
+                {
+                    account_id = a.Id,
+                    name = a.OrganizationName,
+                    email = a.BillingEmail,
+                    currency = a.Currency,
+                    status = AccountStatusMarkup.Name(a.Status),
+                    access_level = AccountStatusMarkup.AccessLevel(a.AccessLevel)
+                }), Renderer.PrettyJson));
+                return 0;
+            }
 
             var platform = ResolvePlatform();
             Renderer.Header($"Billing Accounts ({accounts.Count})");
@@ -82,19 +122,40 @@ public class AccountsCreateSettings : CommandSettings
     [CommandOption("--currency <CODE>")]
     [Description("Currency code: gbp, usd, eur (default: gbp)")]
     public string? Currency { get; set; }
+
+    [CommandOption("--json")]
+    [Description("Output raw JSON")]
+    public bool Json { get; set; }
 }
 
 public class AccountsCreateCommand : BasePlatformCommand<AccountsCreateSettings>
 {
+    private const string DefaultCurrency = "gbp";
+
     public override async Task<int> ExecuteAsync(CommandContext context, AccountsCreateSettings settings)
     {
-        var name  = settings.Name  ?? AnsiConsole.Ask<string>("[#F97316]Organisation name:[/]");
-        var email = settings.Email ?? AnsiConsole.Ask<string>("[#F97316]Billing email:[/]");
-        var currency = settings.Currency
-            ?? AnsiConsole.Prompt(
-                Renderer.Prompt<string>()
-                    .Title("[#F97316]Currency:[/]")
-                    .AddChoices("gbp", "usd", "eur"));
+        string name, email, currency;
+        if (ClientContext.Remote)
+        {
+            if (string.IsNullOrWhiteSpace(settings.Name) || string.IsNullOrWhiteSpace(settings.Email))
+            {
+                Renderer.Error("'name' and 'email' are required.");
+                return 1;
+            }
+            name = settings.Name;
+            email = settings.Email;
+            currency = settings.Currency ?? DefaultCurrency;
+        }
+        else
+        {
+            name  = settings.Name  ?? AnsiConsole.Ask<string>("[#F97316]Organisation name:[/]");
+            email = settings.Email ?? AnsiConsole.Ask<string>("[#F97316]Billing email:[/]");
+            currency = settings.Currency
+                ?? AnsiConsole.Prompt(
+                    Renderer.Prompt<string>()
+                        .Title("[#F97316]Currency:[/]")
+                        .AddChoices("gbp", "usd", "eur"));
+        }
 
         try
         {
@@ -107,6 +168,18 @@ public class AccountsCreateCommand : BasePlatformCommand<AccountsCreateSettings>
                 {
                     account = await client.CreateAccountAsync(new CreateBillingAccountRequest(name, email, currency));
                 });
+
+            if (settings.Json || ClientContext.Remote)
+            {
+                Renderer.PrintJsonObject(new JsonObject
+                {
+                    ["account_id"] = account!.Id.ToString(),
+                    ["name"] = account.OrganizationName,
+                    ["currency"] = account.Currency,
+                    ["message"] = "Billing account created. Pass its account_id to projects_create."
+                });
+                return 0;
+            }
 
             Renderer.Success($"Billing account [#F97316]{Markup.Escape(account!.OrganizationName)}[/] created.");
             Renderer.Info($"ID: {Markup.Escape(account.Id.ToString())}");

@@ -5,21 +5,31 @@ using AnythinkCli.Output;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System.ComponentModel;
+using System.Text.Json.Nodes;
 using CliProfile = AnythinkCli.Config.Profile;
 
 namespace AnythinkCli.Commands;
 
 static class ProjectStatusMarkup
 {
+    public static string Name(int status) => status switch
+    {
+        0 => "initializing",
+        1 => "provisioning",
+        2 => "active",
+        3 => "suspended",
+        4 => "terminated",
+        5 => "error",
+        _ => status.ToString()
+    };
+
     public static string Render(int status) => status switch
     {
-        0 => "[dim]initializing[/]",
-        1 => "[yellow]provisioning[/]",
-        2 => "[green]active[/]",
-        3 => "[yellow]suspended[/]",
-        4 => "[red]terminated[/]",
-        5 => "[red]error[/]",
-        _ => status.ToString()
+        0 => $"[dim]{Name(status)}[/]",
+        1 or 3 => $"[yellow]{Name(status)}[/]",
+        2 => $"[green]{Name(status)}[/]",
+        4 or 5 => $"[red]{Name(status)}[/]",
+        _ => Name(status)
     };
 }
 
@@ -105,34 +115,61 @@ public class ProjectsCreateSettings : CommandSettings
     [CommandOption("--account <ID>")]
     [Description("Billing account ID (uses active account if omitted)")]
     public string? AccountId { get; set; }
+
+    [CommandOption("--json")]
+    [Description("Output raw JSON")]
+    public bool Json { get; set; }
 }
 
 public class ProjectsCreateCommand : BasePlatformCommand<ProjectsCreateSettings>
 {
+    private const string DefaultRegion = "lon1";
+
     public override async Task<int> ExecuteAsync(CommandContext context, ProjectsCreateSettings settings)
     {
-        var name = settings.Name ?? AnsiConsole.Ask<string>("[#F97316]Project name:[/]");
-
-        // Fetch and display plans if no --plan given
+        string name;
         Guid planId;
-        if (!string.IsNullOrEmpty(settings.PlanId) && Guid.TryParse(settings.PlanId, out var parsedId))
+        string region;
+
+        if (ClientContext.Remote)
         {
-            planId = parsedId;
+            if (string.IsNullOrWhiteSpace(settings.Name))
+            {
+                Renderer.Error("'name' is required.");
+                return 1;
+            }
+            if (!Guid.TryParse(settings.PlanId, out planId))
+            {
+                Renderer.Error("'plan_id' is required: pass a plan id from the plans tool.");
+                return 1;
+            }
+            name = settings.Name;
+            region = settings.Region ?? DefaultRegion;
         }
         else
         {
-            planId = await PickPlanInteractively();
-            if (planId == Guid.Empty) return 1;
-        }
+            name = settings.Name ?? AnsiConsole.Ask<string>("[#F97316]Project name:[/]");
 
-        var region = settings.Region ?? AnsiConsole.Prompt(
-            Renderer.Prompt<string>()
-                .Title("[#F97316]Region:[/]")
-                .AddChoices("lon1"));
+            // Fetch and display plans if no --plan given
+            if (!string.IsNullOrEmpty(settings.PlanId) && Guid.TryParse(settings.PlanId, out var parsedId))
+            {
+                planId = parsedId;
+            }
+            else
+            {
+                planId = await PickPlanInteractively();
+                if (planId == Guid.Empty) return 1;
+            }
+
+            region = settings.Region ?? AnsiConsole.Prompt(
+                Renderer.Prompt<string>()
+                    .Title("[#F97316]Region:[/]")
+                    .AddChoices(DefaultRegion));
+        }
 
         try
         {
-            var accountId = GetAccountId(settings.AccountId);
+            var accountId = await ResolveAccountIdAsync(settings.AccountId);
             var client = GetBillingClient();
             SharedTenant? project = null;
 
@@ -143,6 +180,12 @@ public class ProjectsCreateCommand : BasePlatformCommand<ProjectsCreateSettings>
                     project = await client.CreateProjectAsync(accountId,
                         new CreateSharedTenantRequest(name, planId, region, settings.Description));
                 });
+
+            if (settings.Json)
+            {
+                PrintCreated(project!, planId);
+                return 0;
+            }
 
             Renderer.Success($"Project [#F97316]{Markup.Escape(project!.Name)}[/] created!");
             Renderer.KeyValue("ID", project.Id.ToString());
@@ -159,6 +202,22 @@ public class ProjectsCreateCommand : BasePlatformCommand<ProjectsCreateSettings>
             return 0;
         }
         catch (Exception ex) { HandleError(ex); return 1; }
+    }
+
+    private static void PrintCreated(SharedTenant project, Guid requestedPlan)
+    {
+        var settingUp = project.Status is 0 or 1;
+        Renderer.PrintJsonObject(new JsonObject
+        {
+            ["project_id"] = project.Id.ToString(),
+            ["name"] = project.Name,
+            ["status"] = ProjectStatusMarkup.Name(project.Status),
+            ["plan_id"] = (project.PlanId ?? requestedPlan).ToString(),
+            ["region"] = project.Region,
+            ["message"] = settingUp
+                ? $"'{project.Name}' is being set up and will appear in projects_list in about a minute."
+                : $"'{project.Name}' was created. Check projects_list for its status."
+        });
     }
 
     private async Task<Guid> PickPlanInteractively()
@@ -360,13 +419,15 @@ public class ProjectsDeleteCommand : BasePlatformCommand<ProjectsDeleteSettings>
     {
         try
         {
-            var accountId = GetAccountId(settings.AccountId);
+            var accountId = await ResolveAccountIdAsync(settings.AccountId);
             var client = GetBillingClient();
             var projects = await client.GetProjectsAsync(accountId);
 
-            var match = projects.FirstOrDefault(p =>
-                p.Id.ToString().StartsWith(settings.Id, StringComparison.OrdinalIgnoreCase) ||
-                p.Name.Equals(settings.Id, StringComparison.OrdinalIgnoreCase));
+            var match = ClientContext.Remote
+                ? projects.FirstOrDefault(p => Guid.TryParse(settings.Id, out var id) && p.Id == id)
+                : projects.FirstOrDefault(p =>
+                    p.Id.ToString().StartsWith(settings.Id, StringComparison.OrdinalIgnoreCase) ||
+                    p.Name.Equals(settings.Id, StringComparison.OrdinalIgnoreCase));
 
             if (match == null) { Renderer.Error($"No project matching '{settings.Id}'."); return 1; }
 
