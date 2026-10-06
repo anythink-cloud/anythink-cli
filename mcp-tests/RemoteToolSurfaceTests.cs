@@ -38,12 +38,20 @@ public class RemoteToolSurfaceTests
         Surface(CliToolScope.Hosted).Should().Be(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, HostedSnapshotFile)),
             $"a CLI command or option changed what hosted clients can call; review it, then update mcp-tests/{HostedSnapshotFile}");
 
+    private static bool IsAccountToolLine(string line) =>
+        CliCommandTool.All(CliToolScope.Hosted).Where(t => t.NeedsAccountAccess).Any(t => line.StartsWith(t.ProtocolTool.Name + " ["));
+
     [Fact]
-    public void HostedTools_AreTheInternalToolsPlusAnOptionalProject() =>
-        Surface(CliToolScope.Hosted).Should().Be(string.Join('\n', Surface().TrimEnd('\n').Split('\n').Select(line =>
+    public void HostedTools_AreTheInternalToolsPlusAnOptionalProject_AndTheAccountTools()
+    {
+        var hosted = Surface(CliToolScope.Hosted).TrimEnd('\n').Split('\n');
+
+        string.Join('\n', hosted.Where(line => !IsAccountToolLine(line))).Should().Be(string.Join('\n', Surface().TrimEnd('\n').Split('\n').Select(line =>
         {
             var hint = line.IndexOf(']') + 1;
             var rest = line[hint..].TrimStart();
             return $"{line[..hint]} project?{(rest.Length > 0 ? " " + rest : "")}";
-        })) + "\n");
+        })));
+        hosted.Where(IsAccountToolLine).Should().HaveCount(5).And.AllSatisfy(line => line.Should().NotContain("project?"));
+    }
 }

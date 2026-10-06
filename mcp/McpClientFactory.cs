@@ -59,6 +59,15 @@ public class McpClientFactory
         return CreateBillingClient(platform);
     }
 
+    public BillingClient GetCallerBillingClient(string billingUrl, string token)
+    {
+        var handler = _httpHandler ?? UpstreamHandler;
+        var http = new HttpClient(handler, disposeHandler: false) { Timeout = UpstreamTimeout };
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var anonymous = new HttpClient(handler, disposeHandler: false) { Timeout = UpstreamTimeout };
+        return new BillingClient(billingUrl, http, anonymous);
+    }
+
     public AnythinkClient GetClient(HostedCredentials credentials)
     {
         if (string.IsNullOrEmpty(credentials.OrgId) || string.IsNullOrEmpty(credentials.InstanceUrl)

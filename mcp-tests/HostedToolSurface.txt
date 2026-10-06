@@ -1,3 +1,5 @@
+accounts_create [write] currency? email name
+accounts_list [read-only]
 api [read-only] project? base_url?
 api_keys_list [read-only] project?
 api_keys_revoke [destructive] project? id
@@ -38,6 +40,9 @@ menus_list [read-only] project?
 pay_methods [read-only] project?
 pay_payments [read-only] project? limit? page?
 pay_status [read-only] project?
+plans [read-only]
+projects_create [write] name account_id? description? plan_id region?
+projects_delete [destructive] id account_id?
 roles_create [write] project? name description?
 roles_delete [destructive] project? id
 roles_list [read-only] project?

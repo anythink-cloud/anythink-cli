@@ -50,6 +50,7 @@ public static class HostedMode
         builder.Services.AddSingleton(options);
         builder.Services.AddScoped<HostedCredentials>();
         builder.Services.AddScoped<HostedProjects>();
+        builder.Services.AddScoped<HostedAccounts>();
         builder.WebHost.ConfigureKestrel(kestrel => kestrel.Limits.MaxRequestBodySize = MaxRequestBodyBytes);
         builder.Services.AddSingleton<ITokenExchanger>(sp => new HostedTokenExchanger(
             exchangeHandler is null
@@ -108,10 +109,20 @@ public static class HostedMode
                 }));
         });
 
+        var hostedTools = CliCommandTool.All(CliToolScope.Hosted);
+        var accountTools = hostedTools.Where(tool => tool.NeedsAccountAccess).Select(tool => tool.ProtocolTool.Name).ToHashSet();
+
         builder.Services
             .AddMcpServer(server => server.ServerInfo = new() { Name = "anythink", Version = "1.0.0" })
             .WithTools<HostedTools>()
-            .WithTools(CliCommandTool.All(CliToolScope.Hosted))
+            .WithTools(hostedTools)
+            .WithRequestFilters(filters => filters.AddListToolsFilter(next => async (request, cancellationToken) =>
+            {
+                var result = await next(request, cancellationToken);
+                if (request.Services?.GetService<HostedAccounts>()?.HasAccess != true)
+                    result.Tools = result.Tools.Where(tool => !accountTools.Contains(tool.Name)).ToList();
+                return result;
+            }))
             .WithHttpTransport(http => http.SessionMode = HttpServerSessionMode.Stateless);
 
         var app = builder.Build();

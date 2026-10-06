@@ -13,11 +13,13 @@ public static class CliRunner
     static CliRunner() => AmbientConsole.Install();
 
     public static async Task<CliRunResult> RunAsync(
-        IReadOnlyList<string> args, AnythinkClient? client, CliToolScope scope, CancellationToken cancellationToken = default)
+        IReadOnlyList<string> args, AnythinkClient? client, CliToolScope scope, CancellationToken cancellationToken = default,
+        BillingClient? billing = null)
     {
         using var output = new StringWriter();
         AmbientConsole.Use(output);
         ClientContext.Current = client;
+        ClientContext.Billing = billing;
         ClientContext.Cancellation = cancellationToken;
         ClientContext.Remote = CliToolPolicy.IsRemote(scope);
 
