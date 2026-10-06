@@ -19,7 +19,6 @@ public class HostedAccountToolsTests : McpTestBase, IAsyncLifetime
 {
     private const string Issuer = "https://issuer.test";
     private const string PublicUrl = "https://mcp.test/mcp";
-    private const string SavedPlatformToken = "test-platform-token";
     private static readonly Guid AccountId = Guid.Parse("aaaaaaaa-1111-2222-3333-444444444444");
     private static readonly Guid OtherAccountId = Guid.Parse("bbbbbbbb-1111-2222-3333-444444444444");
     private static readonly Guid PlanId = Guid.Parse("cccccccc-1111-2222-3333-444444444444");

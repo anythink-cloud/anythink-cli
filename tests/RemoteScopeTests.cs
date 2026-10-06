@@ -75,7 +75,7 @@ public class RemoteScopeTests : IDisposable
     // ── Rule: a remote run never bills through the server's saved platform login ──
 
     private static void SaveAPlatformLogin() =>
-        ConfigService.SavePlatform(new PlatformConfig { Token = "the-servers-own-platform-token", TokenExpiresAt = DateTime.UtcNow.AddHours(1) });
+        ConfigService.SavePlatform(new PlatformConfig { Token = "saved-login", TokenExpiresAt = DateTime.UtcNow.AddHours(1) });
 
     [Fact]
     public void LocalRun_WithASavedPlatformLogin_UsesItForBilling()
