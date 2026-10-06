@@ -13,8 +13,20 @@ public class MarkupEscapingRuleTests
 
     private static readonly HashSet<string> SinkNames =
     [
-        "MarkupLine", "Markup", "Success", "Info", "Warn", "Confirm", "Title", "AddRow",
-        "StartAsync", "Start", "AddTask", "TextPrompt", "Rule", "Panel"
+        "MarkupLine",
+        "Markup",
+        "Success",
+        "Info",
+        "Warn",
+        "Confirm",
+        "Title",
+        "AddRow",
+        "StartAsync",
+        "Start",
+        "AddTask",
+        "TextPrompt",
+        "Rule",
+        "Panel"
     ];
 
     private static readonly HashSet<string> Escapers = ["Markup.Escape", "Renderer.Status"];
