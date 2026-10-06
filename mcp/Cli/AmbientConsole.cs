@@ -72,9 +72,15 @@ internal sealed class AmbientConsole : IAnsiConsole
 
     internal static string TableJson(Table table)
     {
-        var headers = table.Columns
-            .Select((column, i) => PlainText(column.Header) is { Length: > 0 } header ? header : $"Column {i + 1}")
-            .ToList();
+        var headers = new List<string>();
+        foreach (var (column, i) in table.Columns.Select((column, i) => (column, i)))
+        {
+            var header = PlainText(column.Header) is { Length: > 0 } text ? text : $"Column {i + 1}";
+            var key = header;
+            for (var n = 2; headers.Contains(key); n++)
+                key = $"{header} {n}";
+            headers.Add(key);
+        }
 
         var rows = table.Rows.Select(row =>
         {

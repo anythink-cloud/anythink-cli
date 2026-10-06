@@ -65,6 +65,31 @@ public class MachineOutputTests
         rows.Single()!["Name"]!.GetValue<string>().Should().Be("a [b] c");
     }
 
+    [Fact]
+    public void RepeatedOrEmptyHeaders_GetDistinctKeys_SoNoCellIsLost()
+    {
+        var table = new Table().AddColumn("A").AddColumn("A").AddColumn("").AddColumn("Column 3");
+        table.AddRow("first", "second", "third", "fourth");
+
+        var row = JsonNode.Parse(AmbientConsole.TableJson(table))!.AsArray().Single()!.AsObject();
+
+        row.Select(p => (p.Key, p.Value!.GetValue<string>())).Should().Equal(
+            ("A", "first"), ("A 2", "second"), ("Column 3", "third"), ("Column 3 2", "fourth"));
+    }
+
+    // ── Rule: people at a terminal still get the drawn table ──────────────────
+
+    [Fact]
+    public void ATerminalConsole_StillDrawsTablesWithBoxes()
+    {
+        var output = new StringWriter();
+        var console = AnsiConsole.Create(new AnsiConsoleSettings { Ansi = AnsiSupport.No, Out = new AnsiConsoleOutput(output) });
+
+        console.Write(AnythinkCli.Output.Renderer.BuildTable("Name").AddRow("blog_posts"));
+
+        output.ToString().Should().Contain("╭").And.Contain("blog_posts");
+    }
+
     // ── Rule: JSON is written whole, never wrapped ────────────────────────────
 
     [Fact]
