@@ -140,7 +140,7 @@ public class ProjectsCreateCommand : BasePlatformCommand<ProjectsCreateSettings>
             }
             if (!Guid.TryParse(settings.PlanId, out planId))
             {
-                Renderer.Error("'plan_id' is required: pass a plan id from the plans tool.");
+                Renderer.Error("'plan_id' must be a plan id from the plans tool.");
                 return 1;
             }
             name = settings.Name;
@@ -215,8 +215,8 @@ public class ProjectsCreateCommand : BasePlatformCommand<ProjectsCreateSettings>
             ["plan_id"] = (project.PlanId ?? requestedPlan).ToString(),
             ["region"] = project.Region,
             ["message"] = settingUp
-                ? $"'{project.Name}' is being set up and will appear in projects_list in about a minute."
-                : $"'{project.Name}' was created. Check projects_list for its status."
+                ? $"Project {project.Name} is being set up and will appear in projects_list in about a minute."
+                : $"Project {project.Name} was created. Check projects_list for its status."
         });
     }
 

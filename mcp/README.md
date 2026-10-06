@@ -80,7 +80,8 @@ Once connected, run the `login` (or `login_direct`) tool, then `accounts_use` /
 - **Auth** — `signup`, `login`, `login_direct`, `logout`
 - **Config** — `config_show`, `config_use`, `config_remove`
 - **Accounts & projects** — `accounts_list`, `accounts_create`, `accounts_use`,
-  `projects_list`, `projects_create`, `projects_use`, `projects_delete`
+  `projects_list`, `projects_create`, `projects_use`, `projects_delete` (the hosted
+  server has its own versions, described under [Account tools](#account-tools))
 - **Every project command** — one tool per CLI command, generated from the CLI itself,
   e.g. `entities_list`, `fields_add`, `data_list`, `workflows_create`. Each is marked
   read-only or destructive so clients can ask before changing anything.
@@ -148,7 +149,7 @@ returns `429`. A connection that covers all projects has the same limit per user
 every project it calls. Upstream calls share one connection pool, don't follow redirects,
 and time out after 30 seconds.
 
-Hosted mode serves `projects_list`, `project_details` and the generated command tools, leaving out
+Hosted mode serves `projects_list`, `project_details`, the account tools below and the generated command tools, leaving out
 commands that sign in, switch profiles, use the local machine (opening a browser,
 or reading and writing local files), call arbitrary routes (`fetch`) or create API
 keys. Positional values can't contain `/`, `..`, `?` or `#` (free-text arguments such as
@@ -156,6 +157,29 @@ search text and names excepted), every request is checked to stay under the proj
 API root, tool output is cut off at 200,000 characters, and an upstream error is reported
 by status only. Tools run as the signed-in user, so their role in the project decides
 what each call can do.
+
+### Account tools
+
+When the user grants account access at sign-in (the token's `scope` contains `account`),
+hosted mode also serves five tools that run against the billing API as that user, using the
+connection's own token and never this server's saved login:
+
+| Tool | What it does | Hint |
+|---|---|---|
+| `accounts_list` | List your billing accounts, with their ids | read-only |
+| `accounts_create` | Create a billing account (`name`, `email`, optional `currency`) | additive |
+| `plans` | List the plans a project can use, with their ids | read-only |
+| `projects_create` | Create a project (`name`, `plan_id`, optional `region`, `description`, `account_id`) | additive |
+| `projects_delete` | Delete a project by its full id (`id`, optional `account_id`) | destructive |
+
+These tools take no `project` argument, work on all-projects connections, and never prompt.
+There's no active account in a hosted run: leave out `account_id` when you have one account,
+or pass an id from `accounts_list` when you have several. A new project is set up in the
+background and appears in `projects_list` after about a minute. Without `account` in the
+scope the tools are left out of the tool list, and calling one anyway is refused without
+contacting the billing API. A billing error is reported by status only, except for a 400,
+where the billing API's own message (for example, that a paid plan needs a payment method)
+is passed on.
 
 The internal REST API (`GET /tools`, `POST /tools/call`) used by your internal services
 keeps running, but only on the internal port, never on the public port. It trusts
