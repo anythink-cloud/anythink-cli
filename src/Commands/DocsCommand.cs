@@ -69,13 +69,13 @@ public class DocsCommand : Command<DocsSettings>
           ["--profile NAME"],
           ["anythink logout", "anythink logout --profile my-project"]),
 
-        C("config show",  "Show all configured profiles and platform settings",
+        C("config show", "Show all configured profiles and platform settings",
           null, ["anythink config show"]),
 
-        C("config use NAME",  "Set the active project profile",
+        C("config use NAME", "Set the active project profile",
           null, ["anythink config use my-project"]),
 
-        C("config remove NAME",  "Remove a project profile",
+        C("config remove NAME", "Remove a project profile",
           null, ["anythink config remove my-project"]),
 
         C("plans",
@@ -83,7 +83,7 @@ public class DocsCommand : Command<DocsSettings>
           ["--json"],
           ["anythink plans", "anythink plans --json"]),
 
-        C("accounts list",  "List your billing accounts",
+        C("accounts list", "List your billing accounts",
           null, ["anythink accounts list"]),
 
         C("accounts create",
@@ -91,7 +91,7 @@ public class DocsCommand : Command<DocsSettings>
           ["--name NAME", "--email EMAIL", "--currency gbp|usd|eur"],
           ["anythink accounts create --name \"Acme Ltd\" --email billing@acme.com"]),
 
-        C("accounts use ID",  "Set the active billing account",
+        C("accounts use ID", "Set the active billing account",
           null, ["anythink accounts use a1b2c3d4"]),
 
         C("projects list",
@@ -115,10 +115,10 @@ public class DocsCommand : Command<DocsSettings>
           ["--yes"],
           ["anythink projects delete a1b2c3d4 --yes"]),
 
-        C("entities list",  "List all entities (database tables)",
+        C("entities list", "List all entities (database tables)",
           null, ["anythink entities list"]),
 
-        C("entities get NAME",  "Get entity schema and all fields",
+        C("entities get NAME", "Get entity schema and all fields",
           null, ["anythink entities get customers"]),
 
         C("entities create NAME",
@@ -126,29 +126,29 @@ public class DocsCommand : Command<DocsSettings>
           ["--rls (row-level security)", "--public (allow unauthenticated reads)"],
           ["anythink entities create orders --rls"]),
 
-        C("entities update NAME",  "Update entity settings",
+        C("entities update NAME", "Update entity settings",
           ["--rls", "--public"], ["anythink entities update products --public"]),
 
-        C("entities delete NAME",  "Delete entity and all data",
+        C("entities delete NAME", "Delete entity and all data",
           ["--yes"], ["anythink entities delete temp_data --yes"]),
 
-        C("fields list ENTITY",  "List fields on an entity",
+        C("fields list ENTITY", "List fields on an entity",
           null, ["anythink fields list customers"]),
 
         C("fields add ENTITY FIELD",
           "Add a field to an entity",
           ["--type TYPE", "--required", "--unique", "--default VALUE"],
           ["anythink fields add customers email --type varchar --required --unique",
-           "anythink fields add orders status --type varchar --default active"],
+              "anythink fields add orders status --type varchar --default active"],
           "Types: varchar text int bigint float bool date timestamp json uuid varchar[] int[]"),
 
-        C("fields delete ENTITY FIELD_ID",  "Delete a field",
+        C("fields delete ENTITY FIELD_ID", "Delete a field",
           ["--yes"], ["anythink fields delete customers 1234 --yes"]),
 
-        C("workflows list",  "List all workflows",
+        C("workflows list", "List all workflows",
           null, ["anythink workflows list"]),
 
-        C("workflows get ID",  "Get workflow details and steps",
+        C("workflows get ID", "Get workflow details and steps",
           null, ["anythink workflows get 76"]),
 
         C("workflows create NAME",
@@ -157,20 +157,20 @@ public class DocsCommand : Command<DocsSettings>
           ["anythink workflows create daily-sync --trigger Timed --cron \"0 6 * * *\""],
           "Trigger types: Api Timed EntityCreated EntityUpdated EntityDeleted"),
 
-        C("workflows enable ID",  "Enable a workflow",  null, ["anythink workflows enable 76"]),
+        C("workflows enable ID", "Enable a workflow", null, ["anythink workflows enable 76"]),
         C("workflows disable ID", "Disable a workflow", null, ["anythink workflows disable 76"]),
         C("workflows trigger ID", "Manually run a workflow", null, ["anythink workflows trigger 76"]),
-        C("workflows delete ID",  "Delete a workflow",  ["--yes"], ["anythink workflows delete 76 --yes"]),
+        C("workflows delete ID", "Delete a workflow", ["--yes"], ["anythink workflows delete 76 --yes"]),
 
         C("data list ENTITY",
           "List records",
           ["--page N", "--limit N", "--filter FILTER", "--json"],
           ["anythink data list blog_posts",
-           "anythink data list blog_posts --filter '{\"status\":\"draft\"}' --json",
-           "anythink data list orders --filter '{\"total\":{\"gte\":10,\"lt\":100},\"status\":[\"paid\",\"shipped\"]}'",
-           "anythink data list blog_posts --filter 'title=C:launch&published_at=NNULL:'"]),
+              "anythink data list blog_posts --filter '{\"status\":\"draft\"}' --json",
+              "anythink data list orders --filter '{\"total\":{\"gte\":10,\"lt\":100},\"status\":[\"paid\",\"shipped\"]}'",
+              "anythink data list blog_posts --filter 'title=C:launch&published_at=NNULL:'"]),
 
-        C("data get ENTITY ID",     "Get a record by ID",
+        C("data get ENTITY ID", "Get a record by ID",
           null, ["anythink data get blog_posts 42"]),
 
         C("data create ENTITY",
@@ -183,7 +183,7 @@ public class DocsCommand : Command<DocsSettings>
           ["--data JSON"],
           ["anythink data update blog_posts 42 --data '{\"status\":\"published\"}'"]),
 
-        C("data delete ENTITY ID",  "Delete a record",
+        C("data delete ENTITY ID", "Delete a record",
           ["--yes"], ["anythink data delete blog_posts 42 --yes"]),
 
         C("api",
@@ -191,7 +191,7 @@ public class DocsCommand : Command<DocsSettings>
           ["--json", "--base-url URL"],
           ["anythink api", "anythink api --json"]),
 
-        C("docs",  "Show this reference",
+        C("docs", "Show this reference",
           ["--json"], ["anythink docs", "anythink docs --json"]),
     ];
 

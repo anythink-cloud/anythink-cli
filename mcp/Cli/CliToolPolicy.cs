@@ -20,16 +20,43 @@ public static class CliToolPolicy
 
     private static readonly HashSet<string> ReadOnlyVerbs =
     [
-        "list", "get", "me", "status", "jobs", "step-get", "query", "similar", "audit", "payments", "methods",
-        "callback-url", "api", "docs", "file-handler-example"
+        "list",
+        "get",
+        "me",
+        "status",
+        "jobs",
+        "step-get",
+        "query",
+        "similar",
+        "audit",
+        "payments",
+        "methods",
+        "callback-url",
+        "api",
+        "docs",
+        "file-handler-example"
     ];
 
     private static readonly string[] ReadOnlyRemotely = ["workflows export"];
 
     private static readonly HashSet<string> AdditiveVerbs =
     [
-        "create", "add", "add-item", "step-add", "file-handler-add", "integration-add", "connect",
-        "enable", "disable", "test", "rehydrate", "upload", "seed", "invite", "trigger", "execute"
+        "create",
+        "add",
+        "add-item",
+        "step-add",
+        "file-handler-add",
+        "integration-add",
+        "connect",
+        "enable",
+        "disable",
+        "test",
+        "rehydrate",
+        "upload",
+        "seed",
+        "invite",
+        "trigger",
+        "execute"
     ];
 
     private static readonly HashSet<string> OpenWorldVerbs = ["execute", "trigger", "invite"];
