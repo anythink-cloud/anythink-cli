@@ -1,3 +1,4 @@
+using AnythinkCli.Client;
 using Spectre.Console;
 using System.Text;
 using System.Text.Json;
@@ -29,6 +30,13 @@ public static class Renderer
 
     public static void PrintJson(string json)
     {
+        // JsonText wraps long lines at the console width, which breaks the JSON for a program reading it
+        if (ClientContext.MachineOutput)
+        {
+            AnsiConsole.Profile.Out.Writer.WriteLine(json);
+            return;
+        }
+
         try
         {
             AnsiConsole.Write(new Spectre.Console.Json.JsonText(json));

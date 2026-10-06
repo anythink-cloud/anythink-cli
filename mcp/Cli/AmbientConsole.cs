@@ -1,4 +1,7 @@
 using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Spectre.Console;
 using Spectre.Console.Rendering;
 
@@ -45,11 +48,52 @@ internal sealed class AmbientConsole : IAnsiConsole
 
     public IExclusivityMode ExclusivityMode => Current.ExclusivityMode;
 
-    public RenderPipeline Pipeline => Current.Pipeline;
+    // Spinners hook the pipeline to print their status text; tool output shouldn't carry it
+    public RenderPipeline Pipeline { get; } = new();
 
     public void Clear(bool home) => Current.Clear(home);
 
-    public void Write(IRenderable renderable) => Current.Write(renderable);
+    public void Write(IRenderable renderable)
+    {
+        switch (renderable)
+        {
+            case Table table:
+                Current.Profile.Out.Writer.WriteLine(TableJson(table));
+                break;
+            case Rule rule:
+                if (!string.IsNullOrWhiteSpace(rule.Title))
+                    Current.Profile.Out.Writer.WriteLine(Markup.Remove(rule.Title).Trim());
+                break;
+            default:
+                Current.Write(renderable);
+                break;
+        }
+    }
+
+    internal static string TableJson(Table table)
+    {
+        var headers = table.Columns
+            .Select((column, i) => PlainText(column.Header) is { Length: > 0 } header ? header : $"Column {i + 1}")
+            .ToList();
+
+        var rows = table.Rows.Select(row =>
+        {
+            var item = new JsonObject();
+            foreach (var (cell, i) in row.Select((cell, i) => (cell, i)).Where(c => c.i < headers.Count))
+                item[headers[i]] = PlainText(cell);
+            return item.ToJsonString(Compact);
+        });
+
+        return "[\n" + string.Join(",\n", rows) + "\n]";
+    }
+
+    private static readonly JsonSerializerOptions Compact = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
+    private static string PlainText(IRenderable renderable)
+    {
+        var options = RenderOptions.Create(Discard, Discard.Profile.Capabilities);
+        return string.Concat(renderable.Render(options, 100_000).Select(s => s.IsLineBreak ? "\n" : s.Text)).Trim();
+    }
 
     private sealed class AmbientWriter(TextWriter fallback) : TextWriter
     {
