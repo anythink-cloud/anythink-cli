@@ -6,7 +6,7 @@ using RichardSzalay.MockHttp;
 
 namespace AnythinkMcp.Tests;
 
-public class CliCommandToolTests
+public partial class CliCommandToolTests
 {
     private const string ApiUrl = "https://api.my.anythink.cloud";
 
