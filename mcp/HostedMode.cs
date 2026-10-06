@@ -89,7 +89,7 @@ public static class HostedMode
                 {
                     Resource = options.PublicUrl,
                     AuthorizationServers = { options.Issuer },
-                    ScopesSupported = ["offline_access"],
+                    ScopesSupported = ["offline_access", "account"],
                     ResourceName = "Anythink",
                     ResourceDocumentation = "https://anythink.cloud",
                 };
