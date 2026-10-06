@@ -19,20 +19,18 @@ public sealed partial class BillingException(string message, int statusCode) : A
     internal static string? Describe(string body)
     {
         var text = body.Trim();
-        if (text.Length == 0 || text.StartsWith('<'))
+        if (text.Length == 0 || text[0] == '<')
             return null;
 
-        if (text[0] is '{' or '"')
+        try
         {
-            try
-            {
-                using var doc = JsonDocument.Parse(text);
-                text = Detail(doc.RootElement) ?? "";
-            }
-            catch (JsonException)
-            {
+            using var doc = JsonDocument.Parse(text);
+            text = Detail(doc.RootElement) ?? "";
+        }
+        catch (JsonException)
+        {
+            if (text[0] is '{' or '[' or '"')
                 return null;
-            }
         }
 
         text = string.Concat(Whitespace().Replace(text, " ").Where(c => !char.IsControl(c))).Trim();
@@ -45,6 +43,8 @@ public sealed partial class BillingException(string message, int statusCode) : A
     {
         if (element.ValueKind == JsonValueKind.String)
             return element.GetString();
+        if (element.ValueKind == JsonValueKind.Array)
+            return string.Join(" ", Items(element).Select(Detail).Where(detail => !string.IsNullOrWhiteSpace(detail)));
         if (element.ValueKind != JsonValueKind.Object)
             return null;
 
@@ -93,7 +93,7 @@ public class BillingClient : HttpApiClient
         _auth    = $"{p.MyAnythinkUrl.TrimEnd('/')}/org/{p.MyAnythinkOrgId}";
     }
 
-    public BillingClient(string billingUrl, HttpClient http, HttpClient? anonymous = null) : base(http)
+    public BillingClient(string billingUrl, HttpClient http, HttpClient anonymous) : base(http)
     {
         _billing   = billingUrl.TrimEnd('/');
         _anonymous = anonymous;
@@ -101,7 +101,9 @@ public class BillingClient : HttpApiClient
     }
 
     public BillingClient Unauthenticated() =>
-        _anonymous is null ? this : new BillingClient(_billing, _anonymous);
+        _anonymous is null
+            ? throw new InvalidOperationException("This billing client has no unauthenticated twin.")
+            : new BillingClient(_billing, _anonymous, _anonymous);
 
     protected override AnythinkException Failure(string message, int statusCode) => new BillingException(message, statusCode);
 

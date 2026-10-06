@@ -17,6 +17,8 @@ public class BillingExceptionTests
     [InlineData("A paid plan needs a payment method.", "A paid plan needs a payment method.")]
     [InlineData("""{"message":"A paid plan needs a payment method."}""", "A paid plan needs a payment method.")]
     [InlineData("""{"title":"One or more validation errors occurred.","errors":{"Name":["Name is required."]}}""", "Name is required.")]
+    [InlineData("""["Name is required.","Plan is required."]""", "Name is required. Plan is required.")]
+    [InlineData("""[{"message":"A paid plan needs a payment method."}]""", "A paid plan needs a payment method.")]
     public void ABadRequest_KeepsBillingsMessage(string body, string expected) =>
         Remote(400, body).Should().Be(expected);
 
@@ -37,6 +39,12 @@ public class BillingExceptionTests
     [InlineData("<html><body>Bad Request</body></html>")]
     [InlineData("{not json")]
     [InlineData("""{"unrelated":"field"}""")]
+    [InlineData("[]")]
+    [InlineData("[1,2,3]")]
+    [InlineData("""[{"code":7}]""")]
+    [InlineData("[Error] something broke")]
+    [InlineData("null")]
+    [InlineData("42")]
     public void ABadRequestWithNothingReadable_IsTheStatusOnly(string body) =>
         Remote(400, body).Should().Be("The billing API returned status 400.");
 
@@ -58,12 +66,40 @@ public class BillingExceptionTests
     {
         var mock = new MockHttpMessageHandler();
         mock.When("https://billing.example/v1/plans").Respond(System.Net.HttpStatusCode.BadRequest, "text/plain", "Invalid plan");
-        var client = new BillingClient("https://billing.example", new HttpClient(mock));
+        var client = new BillingClient("https://billing.example", new HttpClient(mock), new HttpClient(mock));
 
         var act = () => client.GetPlansAsync();
 
         var thrown = (await act.Should().ThrowAsync<BillingException>()).Which;
         thrown.StatusCode.Should().Be(400);
         thrown.Message.Should().Be("Invalid plan");
+    }
+
+    // ── Rule: the caller's token never goes on the public plans call ───────────
+
+    [Fact]
+    public async Task TheUnauthenticatedTwin_SendsNoAuthorizationHeader()
+    {
+        var mock = new MockHttpMessageHandler();
+        var anonymous = mock.When("https://billing.example/v1/plans").With(request => request.Headers.Authorization is null).Respond("application/json", "[]");
+        var signedIn = new HttpClient(mock);
+        signedIn.DefaultRequestHeaders.Authorization = new("Bearer", "callers-token");
+        var client = new BillingClient("https://billing.example", signedIn, new HttpClient(mock));
+
+        await client.Unauthenticated().GetPlansAsync();
+
+        mock.GetMatchCount(anonymous).Should().Be(1);
+    }
+
+    [Fact]
+    public void ABillingClientWithNoAnonymousTwin_RefusesToPretendItIsOne()
+    {
+        var signedIn = new HttpClient(new MockHttpMessageHandler());
+        signedIn.DefaultRequestHeaders.Authorization = new("Bearer", "callers-token");
+        var client = new BillingClient(new PlatformConfig { Token = "saved-login" }, signedIn);
+
+        var act = () => client.Unauthenticated();
+
+        act.Should().Throw<InvalidOperationException>();
     }
 }
