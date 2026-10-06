@@ -175,7 +175,7 @@ public class ProjectsCreateCommand : BasePlatformCommand<ProjectsCreateSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Creating project '{name}'...", async _ =>
+                .StartAsync($"Creating project '{Markup.Escape(name)}'...", async _ =>
                 {
                     project = await client.CreateProjectAsync(accountId,
                         new CreateSharedTenantRequest(name, planId, region, settings.Description));
@@ -250,7 +250,7 @@ public class ProjectsCreateCommand : BasePlatformCommand<ProjectsCreateSettings>
         {
             var price = p.MonthlyPriceCents == 0 ? "Free"
                 : $"{p.Currency.ToUpper()} {p.MonthlyPriceCents / 100m:0.00}/mo";
-            return $"{p.Name} — {price} | {p.StorageQuotaGb}GB | {p.UserQuota} users";
+            return $"{Markup.Escape(p.Name)} — {price} | {p.StorageQuotaGb}GB | {p.UserQuota} users";
         }).ToList();
 
         var selected = AnsiConsole.Prompt(
@@ -355,7 +355,7 @@ public class ProjectsUseCommand : BasePlatformCommand<ProjectsUseSettings>
             ConfigService.SetDefault(profileKey);
 
             Renderer.Success($"Now using project [#F97316]{Markup.Escape(match.Name)}[/].");
-            Renderer.Info($"Profile: {profileKey}  |  Org ID: {match.TenantId}  |  API: {baseUrl}");
+            Renderer.Info($"Profile: {Markup.Escape(profileKey)}  |  Org ID: {match.TenantId}  |  API: {Markup.Escape(baseUrl)}");
 
             // If an API key was provided we're done — no JWT needed
             if (!string.IsNullOrEmpty(settings.ApiKey))
@@ -387,7 +387,7 @@ public class ProjectsUseCommand : BasePlatformCommand<ProjectsUseSettings>
             }
             catch (AnythinkException ae)
             {
-                Renderer.Warn($"Could not get project token ({ae.StatusCode}): {ae.Message}");
+                Renderer.Warn($"Could not get project token ({ae.StatusCode}): {Markup.Escape(ae.Message)}");
                 AnsiConsole.MarkupLine("Provide an API key with [#F97316]--api-key ak_...[/] to authenticate manually.");
             }
 
@@ -441,7 +441,7 @@ public class ProjectsDeleteCommand : BasePlatformCommand<ProjectsDeleteSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Deleting '{match.Name}'...", async _ =>
+                .StartAsync($"Deleting '{Markup.Escape(match.Name)}'...", async _ =>
                 {
                     await client.DeleteProjectAsync(accountId, match.Id);
                 });

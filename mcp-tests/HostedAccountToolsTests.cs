@@ -430,6 +430,82 @@ public class HostedAccountToolsTests : McpTestBase, IAsyncLifetime
         _mock.GetMatchCount(delete).Should().Be(0);
     }
 
+    // ── Rule: names with square brackets are data, never markup ───────────────
+
+    private const int SlowBillingMilliseconds = 400;
+
+    [Fact]
+    public async Task ProjectsCreate_WithABracketedName_CreatesItOnce_AndShowsTheNameLiterally_WhenBillingIsSlow()
+    {
+        var token = AllProjectsToken();
+        var creates = 0;
+        _mock.When(HttpMethod.Post, $"{Issuer}/v1/accounts/{AccountId}/shared-tenants").Respond(async request =>
+        {
+            Interlocked.Increment(ref creates);
+            await Task.Delay(SlowBillingMilliseconds);
+            var name = JsonDocument.Parse(await request.Content!.ReadAsStringAsync()).RootElement.GetProperty("name").GetString();
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = new StringContent(
+                    JsonSerializer.Serialize(new { id = ProjectId, name, plan_id = PlanId, region = "lon1", status = 1, created_at = "2026-10-06T10:00:00Z" }),
+                    Encoding.UTF8, "application/json")
+            };
+        });
+
+        await using var mcp = await Connect(token);
+        var result = await mcp.CallToolAsync("projects_create",
+            Args(("name", "Shop [beta]"), ("plan_id", PlanId.ToString()), ("account_id", AccountId.ToString())));
+
+        result.IsError.Should().NotBe(true, Text(result));
+        Text(result).Should().Contain("Shop [beta]").And.Contain(ProjectId.ToString());
+        creates.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ProjectsDelete_OfABracketedName_DeletesItOnce_AndShowsTheNameLiterally_WhenBillingIsSlow()
+    {
+        var token = AllProjectsToken();
+        _mock.When(HttpMethod.Get, $"{Issuer}/v1/accounts/{AccountId}/shared-tenants").Respond("application/json",
+            $$"""[{"id":"{{ProjectId}}","name":"Shop [staging]","plan_id":"{{PlanId}}","region":"lon1","status":2,"created_at":"2026-10-06T10:00:00Z"}]""");
+        var deletes = 0;
+        _mock.When(HttpMethod.Delete, $"{Issuer}/v1/accounts/{AccountId}/shared-tenants/{ProjectId}").Respond(async _ =>
+        {
+            Interlocked.Increment(ref deletes);
+            await Task.Delay(SlowBillingMilliseconds);
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        });
+
+        await using var mcp = await Connect(token);
+        var result = await mcp.CallToolAsync("projects_delete", Args(("id", ProjectId.ToString()), ("account_id", AccountId.ToString())));
+
+        result.IsError.Should().NotBe(true, Text(result));
+        Text(result).Should().Contain("Shop [staging]").And.Contain("deleted");
+        deletes.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task AccountsCreate_WithABracketedName_CreatesItOnce_WhenBillingIsSlow()
+    {
+        var token = AllProjectsToken();
+        var creates = 0;
+        _mock.When(HttpMethod.Post, $"{Issuer}/v1/accounts").Respond(async _ =>
+        {
+            Interlocked.Increment(ref creates);
+            await Task.Delay(SlowBillingMilliseconds);
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = new StringContent(AccountJson(OtherAccountId, "Acme [x]"), Encoding.UTF8, "application/json")
+            };
+        });
+
+        await using var mcp = await Connect(token);
+        var result = await mcp.CallToolAsync("accounts_create", Args(("name", "Acme [x]"), ("email", "billing@acme.test")));
+
+        result.IsError.Should().NotBe(true, Text(result));
+        Text(result).Should().Contain("Acme [x]");
+        creates.Should().Be(1);
+    }
+
     // ── Rule: annotations and descriptions suit a remote caller ───────────────
 
     [Fact]
