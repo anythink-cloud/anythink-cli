@@ -118,7 +118,7 @@ public class HostedAccountToolsTests : McpTestBase, IAsyncLifetime
 
     private MockedRequest AnyBillingRequest() => _mock.When($"{Issuer}/v1/*").Respond("application/json", "[]");
 
-    private void SaveAPlatformLoginTheServerOwns()
+    private void CorruptTheSavedConfig()
     {
         SetupPlatformLogin();
         File.WriteAllText(Path.Combine(TempDir, "config.json"), "{ this is not a config file");
@@ -126,15 +126,12 @@ public class HostedAccountToolsTests : McpTestBase, IAsyncLifetime
 
     // ── Rule: with `account` in the scope, project creation is billing's POST, as the caller ──
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task WithAccountScope_ProjectsCreate_PostsToBillingWithTheCallersToken_AndNeverReadsTheSavedConfig(bool allProjects)
+    [Fact]
+    public async Task WithAccountScope_ProjectsCreate_PostsToBillingWithTheCallersToken_AndNeverReadsTheSavedConfig()
     {
-        SaveAPlatformLoginTheServerOwns();
-        var token = allProjects ? AllProjectsToken() : SingleProjectToken();
+        CorruptTheSavedConfig();
+        var token = AllProjectsToken();
         var create = ProjectCreatedAs(token, AccountId);
-        var elsewhere = _mock.When($"{BillingUrl}/*").Respond("application/json", "[]");
 
         await using var mcp = await Connect(token);
         var result = await mcp.CallToolAsync("projects_create",
@@ -142,7 +139,6 @@ public class HostedAccountToolsTests : McpTestBase, IAsyncLifetime
 
         result.IsError.Should().NotBe(true, Text(result));
         _mock.GetMatchCount(create).Should().Be(1);
-        _mock.GetMatchCount(elsewhere).Should().Be(0);
         using var body = JsonDocument.Parse(_createdBody!);
         body.RootElement.GetProperty("name").GetString().Should().Be("Shop");
         body.RootElement.GetProperty("plan_id").GetString().Should().Be(PlanId.ToString());
@@ -201,32 +197,95 @@ public class HostedAccountToolsTests : McpTestBase, IAsyncLifetime
         names.Should().NotIntersectWith(AccountToolNames).And.Contain("entities_list").And.Contain("projects_list");
     }
 
+    private static readonly (string Name, Func<Dictionary<string, object?>?> Arguments)[] EveryAccountCall =
+    [
+        ("projects_create", () => Args(("name", "Shop"), ("plan_id", PlanId.ToString()))),
+        ("projects_delete", () => Args(("id", ProjectId.ToString()))),
+        ("accounts_create", () => Args(("name", "Beta"), ("email", "billing@beta.test"))),
+        ("accounts_list", () => null),
+        ("plans", () => null),
+    ];
+
+    private async Task<string> EveryAccountToolIsRefused_AndNothingIsSent(string token)
+    {
+        using var trap = new LoopbackTrap();
+        SetupPlatformLogin(billingUrl: trap.Url);
+        var anything = AnyBillingRequest();
+        var refusal = "";
+
+        await using var mcp = await Connect(token);
+        foreach (var (name, arguments) in EveryAccountCall)
+        {
+            var result = await mcp.CallToolAsync(name, arguments());
+
+            result.IsError.Should().BeTrue(name);
+            refusal = Text(result);
+        }
+
+        _mock.GetMatchCount(anything).Should().Be(0);
+        (await trap.WaitForAConnectionAsync(TimeSpan.FromMilliseconds(300))).Should().BeFalse("the saved login must not be used");
+        return refusal;
+    }
+
     [Theory]
     [MemberData(nameof(ScopesWithoutAccount))]
     public async Task WithoutAccountInTheScope_CallingAnAccountToolAnywayIsRefused_AndNothingIsSent(string? scope)
     {
-        SaveAPlatformLoginTheServerOwns();
-        var anything = AnyBillingRequest();
-        var elsewhere = _mock.When($"{BillingUrl}/*").Respond("application/json", "[]");
+        var refusal = await EveryAccountToolIsRefused_AndNothingIsSent(AllProjectsToken(scope));
 
-        await using var mcp = await Connect(AllProjectsToken(scope));
-        foreach (var (name, arguments) in new (string, Dictionary<string, object?>?)[]
-                 {
-                     ("projects_create", Args(("name", "Shop"), ("plan_id", PlanId.ToString()))),
-                     ("projects_delete", Args(("id", ProjectId.ToString()))),
-                     ("accounts_create", Args(("name", "Beta"), ("email", "billing@beta.test"))),
-                     ("accounts_list", null),
-                     ("plans", null),
-                 })
-        {
-            var result = await mcp.CallToolAsync(name, arguments);
+        refusal.Should().Contain("doesn't include account access").And.Contain("Manage projects and billing");
+    }
 
-            result.IsError.Should().BeTrue(name);
-            Text(result).Should().Contain("doesn't include account access").And.Contain("Manage projects and billing");
-        }
+    // ── Rule: a one-project connection never gets account powers ───────────────
 
-        _mock.GetMatchCount(anything).Should().Be(0);
-        _mock.GetMatchCount(elsewhere).Should().Be(0);
+    [Fact]
+    public async Task OnAOneProjectConnection_EvenWithAccountInTheScope_TheAccountToolsAreHidden()
+    {
+        await using var mcp = await Connect(SingleProjectToken());
+
+        var names = (await mcp.ListToolsAsync()).Select(t => t.Name).ToList();
+
+        names.Should().NotIntersectWith(AccountToolNames).And.Contain("entities_list");
+    }
+
+    [Fact]
+    public async Task OnAOneProjectConnection_EvenWithAccountInTheScope_CallingAnAccountToolAnywayIsRefused_AndNothingIsSent()
+    {
+        var refusal = await EveryAccountToolIsRefused_AndNothingIsSent(SingleProjectToken());
+
+        refusal.Should().Contain("limited to one project").And.Contain("all your projects");
+    }
+
+    // ── Rule: each connection's tool list follows its own token ─────────────────
+
+    [Fact]
+    public async Task TwoConnectionsWithDifferentScopes_SeeDifferentToolLists_OnTheSameApp()
+    {
+        await using var withAccount = await Connect(AllProjectsToken(WithAccount));
+        await using var withoutAccount = await Connect(AllProjectsToken("offline_access"));
+        await using var oneProject = await Connect(SingleProjectToken());
+
+        async Task<List<string>> Names(McpClient mcp) => (await mcp.ListToolsAsync()).Select(t => t.Name).ToList();
+        var first = await Names(withAccount);
+        var second = await Names(withoutAccount);
+        var third = await Names(oneProject);
+        var again = await Names(withAccount);
+
+        first.Should().Contain(AccountToolNames);
+        second.Should().NotIntersectWith(AccountToolNames);
+        third.Should().NotIntersectWith(AccountToolNames);
+        again.Should().BeEquivalentTo(first);
+        first.Except(AccountToolNames).Should().BeEquivalentTo(second);
+    }
+
+    [Fact]
+    public async Task TheProtectedResourceMetadata_AdvertisesTheAccountScope()
+    {
+        var response = await _client.GetAsync("/.well-known/oauth-protected-resource");
+
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        doc.RootElement.GetProperty("scopes_supported").EnumerateArray().Select(e => e.GetString())
+            .Should().BeEquivalentTo("offline_access", "account");
     }
 
     [Theory]
@@ -382,7 +441,7 @@ public class HostedAccountToolsTests : McpTestBase, IAsyncLifetime
     [Fact]
     public async Task AccountsCreate_DoesNotWriteTheServersConfig_OrSwitchItsActiveAccount()
     {
-        SaveAPlatformLoginTheServerOwns();
+        CorruptTheSavedConfig();
         var configBefore = File.ReadAllText(Path.Combine(TempDir, "config.json"));
         var token = AllProjectsToken();
         _mock.When(HttpMethod.Post, $"{Issuer}/v1/accounts").Respond("application/json", AccountJson(OtherAccountId, "Beta"));
@@ -416,7 +475,23 @@ public class HostedAccountToolsTests : McpTestBase, IAsyncLifetime
     [Theory]
     [InlineData("dddddddd")]
     [InlineData("Shop")]
-    public async Task ProjectsDelete_NeverMatchesAPrefixOrAName(string id)
+    public async Task ProjectsDelete_NeverMatchesAPrefixOrAName_AndSaysToUseTheFullId(string id)
+    {
+        var token = AllProjectsToken();
+        var anything = AnyBillingRequest();
+        var delete = _mock.When(HttpMethod.Delete, $"{Issuer}/v1/accounts/*").Respond(HttpStatusCode.NoContent);
+
+        await using var mcp = await Connect(token);
+        var result = await mcp.CallToolAsync("projects_delete", Args(("id", id), ("account_id", AccountId.ToString())));
+
+        result.IsError.Should().BeTrue();
+        Text(result).Should().Contain("'id' must be the full project id from projects_list");
+        _mock.GetMatchCount(delete).Should().Be(0);
+        _mock.GetMatchCount(anything).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ProjectsDelete_OfAFullIdThatIsntTheAccounts_FindsNothing_AndDeletesNothing()
     {
         var token = AllProjectsToken();
         _mock.When(HttpMethod.Get, $"{Issuer}/v1/accounts/{AccountId}/shared-tenants").Respond("application/json",
@@ -424,9 +499,10 @@ public class HostedAccountToolsTests : McpTestBase, IAsyncLifetime
         var delete = _mock.When(HttpMethod.Delete, $"{Issuer}/v1/accounts/*").Respond(HttpStatusCode.NoContent);
 
         await using var mcp = await Connect(token);
-        var result = await mcp.CallToolAsync("projects_delete", Args(("id", id), ("account_id", AccountId.ToString())));
+        var result = await mcp.CallToolAsync("projects_delete", Args(("id", Guid.NewGuid().ToString()), ("account_id", AccountId.ToString())));
 
         result.IsError.Should().BeTrue();
+        Text(result).Should().Contain("No project matching");
         _mock.GetMatchCount(delete).Should().Be(0);
     }
 

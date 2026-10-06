@@ -41,15 +41,25 @@ public class RemoteScopeToolTests : McpTestBase
     [InlineData("plans")]
     public async Task HostedAccountRun_WithoutACallerBillingClient_DoesNotUseTheServersSavedPlatformLogin(string name)
     {
-        SetupPlatformLogin();
-        var mock = new MockHttpMessageHandler();
-        var any = mock.When("*").Respond("application/json", "[]");
+        using var trap = new LoopbackTrap();
+        SetupPlatformLogin(billingUrl: trap.Url);
 
         var result = await Tool(name, CliToolScope.Hosted).RunAsync(NoArguments, client: null);
 
         result.ExitCode.Should().Be(1);
         result.Output.Should().Contain("aren't available to remote callers");
-        mock.GetMatchCount(any).Should().Be(0);
+        (await trap.WaitForAConnectionAsync(TimeSpan.FromMilliseconds(300))).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ATerminalRun_WithTheSameSavedLogin_DoesReachIt_SoTheTrapCanCatchAFallback()
+    {
+        using var trap = new LoopbackTrap();
+        SetupPlatformLogin(billingUrl: trap.Url);
+
+        await CliRunner.RunAsync(["plans", "--json"], client: null, CliToolScope.Local);
+
+        (await trap.WaitForAConnectionAsync(TimeSpan.FromSeconds(10))).Should().BeTrue();
     }
 
     [Fact]
