@@ -1,3 +1,5 @@
+using AnythinkCli.Commands;
+
 namespace AnythinkMcp.Cli;
 
 public enum CliToolScope { Local, Internal, Hosted }
@@ -28,14 +30,14 @@ public static class CliToolPolicy
     {
         ["projects create name"] = ("name", "Name for the new project.", true),
         ["projects create plan"] = ("plan_id", "Plan id from the plans tool.", true),
-        ["projects create region"] = ("region", "Deployment region. Defaults to lon1.", false),
+        ["projects create region"] = ("region", $"Deployment region. Defaults to {ProjectsCreateCommand.DefaultRegion}.", false),
         ["projects create description"] = ("description", "Short description of the project.", false),
         ["projects create account"] = ("account_id", AccountIdDescription, false),
         ["projects delete id"] = ("id", "Full id of the project to delete, from projects_list.", true),
         ["projects delete account"] = ("account_id", AccountIdDescription, false),
         ["accounts create name"] = ("name", "Organisation name for the account.", true),
         ["accounts create email"] = ("email", "Billing email address for invoices.", true),
-        ["accounts create currency"] = ("currency", "Currency code: gbp, usd or eur. Defaults to gbp.", false)
+        ["accounts create currency"] = ("currency", $"Currency code: gbp, usd or eur. Defaults to {AccountsCreateCommand.DefaultCurrency}.", false)
     };
 
     private static readonly string[] ExcludedRemotely =

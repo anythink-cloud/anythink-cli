@@ -123,7 +123,7 @@ public class ProjectsCreateSettings : CommandSettings
 
 public class ProjectsCreateCommand : BasePlatformCommand<ProjectsCreateSettings>
 {
-    private const string DefaultRegion = "lon1";
+    public const string DefaultRegion = "lon1";
 
     public override async Task<int> ExecuteAsync(CommandContext context, ProjectsCreateSettings settings)
     {
@@ -214,9 +214,13 @@ public class ProjectsCreateCommand : BasePlatformCommand<ProjectsCreateSettings>
             ["status"] = ProjectStatusMarkup.Name(project.Status),
             ["plan_id"] = (project.PlanId ?? requestedPlan).ToString(),
             ["region"] = project.Region,
-            ["message"] = settingUp
-                ? $"Project {project.Name} is being set up and will appear in projects_list in about a minute."
-                : $"Project {project.Name} was created. Check projects_list for its status."
+            ["message"] = (settingUp, ClientContext.Remote) switch
+            {
+                (true, true) => $"Project {project.Name} is being set up and will appear in projects_list in about a minute.",
+                (true, false) => $"Project {project.Name} is being set up and will be ready in about a minute.",
+                (false, true) => $"Project {project.Name} was created. Check projects_list for its status.",
+                _ => $"Project {project.Name} was created."
+            }
         });
     }
 
@@ -417,6 +421,12 @@ public class ProjectsDeleteCommand : BasePlatformCommand<ProjectsDeleteSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, ProjectsDeleteSettings settings)
     {
+        if (ClientContext.Remote && !Guid.TryParse(settings.Id, out _))
+        {
+            Renderer.Error("'id' must be the full project id from projects_list.");
+            return 1;
+        }
+
         try
         {
             var accountId = await ResolveAccountIdAsync(settings.AccountId);
@@ -424,7 +434,7 @@ public class ProjectsDeleteCommand : BasePlatformCommand<ProjectsDeleteSettings>
             var projects = await client.GetProjectsAsync(accountId);
 
             var match = ClientContext.Remote
-                ? projects.FirstOrDefault(p => Guid.TryParse(settings.Id, out var id) && p.Id == id)
+                ? projects.FirstOrDefault(p => p.Id == Guid.Parse(settings.Id))
                 : projects.FirstOrDefault(p =>
                     p.Id.ToString().StartsWith(settings.Id, StringComparison.OrdinalIgnoreCase) ||
                     p.Name.Equals(settings.Id, StringComparison.OrdinalIgnoreCase));
@@ -434,7 +444,7 @@ public class ProjectsDeleteCommand : BasePlatformCommand<ProjectsDeleteSettings>
             if (!settings.Yes)
             {
                 var confirm = AnsiConsole.Confirm(
-                    $"[yellow]Delete project[/] [bold red]{match.Name}[/][yellow]? All data will be destroyed.[/]",
+                    $"[yellow]Delete project[/] [bold red]{Markup.Escape(match.Name)}[/][yellow]? All data will be destroyed.[/]",
                     defaultValue: false);
                 if (!confirm) { Renderer.Info("Cancelled."); return 0; }
             }

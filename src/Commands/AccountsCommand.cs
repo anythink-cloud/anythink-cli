@@ -130,7 +130,7 @@ public class AccountsCreateSettings : CommandSettings
 
 public class AccountsCreateCommand : BasePlatformCommand<AccountsCreateSettings>
 {
-    private const string DefaultCurrency = "gbp";
+    public const string DefaultCurrency = "gbp";
 
     public override async Task<int> ExecuteAsync(CommandContext context, AccountsCreateSettings settings)
     {
@@ -171,12 +171,17 @@ public class AccountsCreateCommand : BasePlatformCommand<AccountsCreateSettings>
 
             if (settings.Json || ClientContext.Remote)
             {
+                if (!ClientContext.Remote)
+                    SetActive(account!);
+
                 Renderer.PrintJsonObject(new JsonObject
                 {
                     ["account_id"] = account!.Id.ToString(),
                     ["name"] = account.OrganizationName,
                     ["currency"] = account.Currency,
-                    ["message"] = "Billing account created. Pass its account_id to projects_create."
+                    ["message"] = ClientContext.Remote
+                        ? "Billing account created. Pass its account_id to projects_create."
+                        : "Billing account created and set as the active account."
                 });
                 return 0;
             }
@@ -184,14 +189,19 @@ public class AccountsCreateCommand : BasePlatformCommand<AccountsCreateSettings>
             Renderer.Success($"Billing account [#F97316]{Markup.Escape(account!.OrganizationName)}[/] created.");
             Renderer.Info($"ID: {Markup.Escape(account.Id.ToString())}");
 
-            var (platformKey, platform) = ResolvePlatformContext();
-            platform.AccountId = account.Id.ToString();
-            SaveAndActivatePlatform(platformKey, platform);
+            SetActive(account);
             Renderer.Success("Set as active account.");
             AnsiConsole.MarkupLine("\nRun [bold #F97316]anythink projects create \"My Project\"[/] to create your first project.");
             return 0;
         }
         catch (Exception ex) { HandleError(ex); return 1; }
+    }
+
+    private void SetActive(BillingAccount account)
+    {
+        var (platformKey, platform) = ResolvePlatformContext();
+        platform.AccountId = account.Id.ToString();
+        SaveAndActivatePlatform(platformKey, platform);
     }
 }
 

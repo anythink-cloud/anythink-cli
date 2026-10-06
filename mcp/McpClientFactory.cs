@@ -61,11 +61,8 @@ public class McpClientFactory
 
     public BillingClient GetCallerBillingClient(string billingUrl, string token)
     {
-        var handler = _httpHandler ?? UpstreamHandler;
-        var http = new HttpClient(handler, disposeHandler: false) { Timeout = UpstreamTimeout };
-        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        var anonymous = new HttpClient(handler, disposeHandler: false) { Timeout = UpstreamTimeout };
-        return new BillingClient(billingUrl, http, anonymous);
+        var (authenticated, anonymous) = CreateUpstreamClients(token);
+        return new BillingClient(billingUrl, authenticated, anonymous);
     }
 
     public AnythinkClient GetClient(HostedCredentials credentials)
@@ -79,11 +76,17 @@ public class McpClientFactory
 
     private AnythinkClient CreateRequestClient(string orgId, string baseUrl, string token)
     {
+        var (authenticated, anonymous) = CreateUpstreamClients(token);
+        return new AnythinkClient(orgId, baseUrl, authenticated, anonymous);
+    }
+
+    private (HttpClient Authenticated, HttpClient Anonymous) CreateUpstreamClients(string token)
+    {
         var handler = _httpHandler ?? UpstreamHandler;
-        var http = new HttpClient(handler, disposeHandler: false) { Timeout = UpstreamTimeout };
-        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var authenticated = new HttpClient(handler, disposeHandler: false) { Timeout = UpstreamTimeout };
+        authenticated.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         var anonymous = new HttpClient(handler, disposeHandler: false) { Timeout = UpstreamTimeout };
-        return new AnythinkClient(orgId, baseUrl, http, anonymous);
+        return (authenticated, anonymous);
     }
 
     public AnythinkClient GetRequestClient()
