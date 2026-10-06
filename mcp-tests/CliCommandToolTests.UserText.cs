@@ -101,6 +101,21 @@ public partial class CliCommandToolTests
         sent.Should().ContainSingle().Which.Method.Should().Be(HttpMethod.Put);
     }
 
+    // Renderer.AddRow escapes the cell itself, so a value escaped first shows its brackets twice.
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task ApiKeysList_NameWithBrackets_IsShownOnceInTheTable(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        RespondSlowly(mock, _ =>
+            """[{"id":1,"user_id":2,"name":"Shop [beta]","key":"k","expires_at":"2099-01-01T00:00:00Z","revoked":false,"permissions":[]}]""");
+
+        var result = await Tool("api_keys_list", scope).RunAsync(Args(new { }), Client(mock));
+
+        result.ExitCode.Should().Be(0, result.Output);
+        result.Output.Should().Contain("Shop [beta]").And.NotContain("[[");
+    }
+
     [Theory]
     [MemberData(nameof(RemoteScopes))]
     public async Task IntegrationsTest_ServerMessageWithBrackets_IsShownLiterally(CliToolScope scope)

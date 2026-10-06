@@ -27,7 +27,7 @@ public static class Renderer
         if (value is null)
             AnsiConsole.MarkupLine($"  [dim]{Markup.Escape(key)}:[/] [dim]—[/]");
         else
-            AnsiConsole.MarkupLine($"  [dim]{Markup.Escape(key)}:[/] [{color}]{Markup.Escape(value)}[/]");
+            AnsiConsole.MarkupLine($"  [dim]{Markup.Escape(key)}:[/] [{Markup.Escape(color)}]{Markup.Escape(value)}[/]");
     }
 
     public static void PrintJson(string json)

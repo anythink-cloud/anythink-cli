@@ -49,9 +49,9 @@ public class MenusListCommand : BaseCommand<EmptySettings>
                 {
                     Renderer.AddRow(table,
                         item.Id.ToString(),
-                        Markup.Escape(item.DisplayName),
+                        item.DisplayName,
                         item.Icon,
-                        Markup.Escape(item.Href),
+                        item.Href,
                         "—"
                     );
 
@@ -61,9 +61,9 @@ public class MenusListCommand : BaseCommand<EmptySettings>
                         {
                             Renderer.AddRow(table,
                                 kid.Id.ToString(),
-                                $"  └ {Markup.Escape(kid.DisplayName)}",
+                                $"  └ {kid.DisplayName}",
                                 kid.Icon,
-                                Markup.Escape(kid.Href),
+                                kid.Href,
                                 item.Id.ToString()
                             );
                         }

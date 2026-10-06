@@ -143,4 +143,25 @@ public class RendererTests
 
         output.ToString().Trim().Should().Be(text);
     }
+
+    // ── Rule: table cells are escaped once, by AddRow ──
+
+    [Fact]
+    public void AddRow_TextWithBrackets_RendersAsTyped()
+    {
+        var output = new StringWriter();
+        var console = AnsiConsole.Create(new AnsiConsoleSettings
+        {
+            Ansi = AnsiSupport.No,
+            ColorSystem = ColorSystemSupport.NoColors,
+            Out = new AnsiConsoleOutput(output)
+        });
+        console.Profile.Width = 4096;
+        var table = Renderer.BuildTable("Name");
+
+        Renderer.AddRow(table, "Shop [beta]");
+        console.Write(table);
+
+        output.ToString().Should().Contain("Shop [beta]").And.NotContain("[[");
+    }
 }

@@ -41,7 +41,7 @@ public class ApiKeysListCommand : BaseCommand<EmptySettings>
                     : k.ExpiresAt < DateTime.UtcNow ? "expired" : "active";
                 Renderer.AddRow(table,
                     k.Id.ToString(),
-                    Markup.Escape(k.Name),
+                    k.Name,
                     k.Permissions.Count.ToString(),
                     k.ExpiresAt.ToString("yyyy-MM-dd"),
                     status
@@ -278,7 +278,7 @@ public class ApiKeysRevokeCommand : BaseCommand<ApiKeyRevokeSettings>
 
                 Renderer.Header($"Revoke API key {settings.Id}");
                 var summary = Renderer.BuildTable("Property", "Value");
-                Renderer.AddRow(summary, "Name", Markup.Escape(key.Name));
+                Renderer.AddRow(summary, "Name", key.Name);
                 Renderer.AddRow(summary, "Permissions", key.Permissions.Count.ToString());
                 Renderer.AddRow(summary, "Expires", key.ExpiresAt.ToString("yyyy-MM-dd"));
                 AnsiConsole.Write(summary);
