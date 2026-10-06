@@ -126,11 +126,13 @@ public class HostedAccountToolsTests : McpTestBase, IAsyncLifetime
 
     // ── Rule: with `account` in the scope, project creation is billing's POST, as the caller ──
 
-    [Fact]
-    public async Task WithAccountScope_ProjectsCreate_PostsToBillingWithTheCallersToken_AndNeverReadsTheSavedConfig()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task WithAccountScope_ProjectsCreate_PostsToBillingWithTheCallersToken_AndNeverReadsTheSavedConfig(bool allProjects)
     {
         CorruptTheSavedConfig();
-        var token = AllProjectsToken();
+        var token = allProjects ? AllProjectsToken() : SingleProjectToken();
         var create = ProjectCreatedAs(token, AccountId);
 
         await using var mcp = await Connect(token);
@@ -236,24 +238,79 @@ public class HostedAccountToolsTests : McpTestBase, IAsyncLifetime
         refusal.Should().Contain("doesn't include account access").And.Contain("Manage projects and billing");
     }
 
-    // ── Rule: a one-project connection never gets account powers ───────────────
+    // ── Rule: a one-project connection gets the account tools whenever the scope allows them ──
 
     [Fact]
-    public async Task OnAOneProjectConnection_EvenWithAccountInTheScope_TheAccountToolsAreHidden()
+    public async Task OnAOneProjectConnection_WithAccountInTheScope_TheAccountToolsAreListed()
     {
         await using var mcp = await Connect(SingleProjectToken());
 
         var names = (await mcp.ListToolsAsync()).Select(t => t.Name).ToList();
 
-        names.Should().NotIntersectWith(AccountToolNames).And.Contain("entities_list");
+        names.Should().Contain(AccountToolNames).And.Contain("entities_list");
     }
 
     [Fact]
-    public async Task OnAOneProjectConnection_EvenWithAccountInTheScope_CallingAnAccountToolAnywayIsRefused_AndNothingIsSent()
+    public async Task OnAOneProjectConnection_WithAccountInTheScope_EveryAccountToolRunsAsTheCaller()
     {
-        var refusal = await EveryAccountToolIsRefused_AndNothingIsSent(SingleProjectToken());
+        var token = SingleProjectToken();
+        var accounts = AccountsAre(token, AccountId);
+        var plans = _mock.When(HttpMethod.Get, $"{Issuer}/v1/plans").Respond("application/json", "[]");
+        var delete = _mock.When(HttpMethod.Delete, $"{Issuer}/v1/accounts/{AccountId}/shared-tenants/{ProjectId}")
+            .WithHeaders("Authorization", $"Bearer {token}").Respond(HttpStatusCode.NoContent);
+        _mock.When(HttpMethod.Get, $"{Issuer}/v1/accounts/{AccountId}/shared-tenants").Respond("application/json",
+            $$"""[{"id":"{{ProjectId}}","name":"Shop","plan_id":"{{PlanId}}","region":"lon1","status":2,"created_at":"2026-10-06T10:00:00Z"}]""");
 
-        refusal.Should().Contain("limited to one project").And.Contain("all your projects");
+        await using var mcp = await Connect(token);
+        (await mcp.CallToolAsync("accounts_list")).IsError.Should().NotBe(true);
+        (await mcp.CallToolAsync("plans")).IsError.Should().NotBe(true);
+        (await mcp.CallToolAsync("projects_delete", Args(("id", ProjectId.ToString())))).IsError.Should().NotBe(true);
+
+        _mock.GetMatchCount(accounts).Should().BeGreaterThan(0);
+        _mock.GetMatchCount(plans).Should().Be(1);
+        _mock.GetMatchCount(delete).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task OnAOneProjectConnection_WithoutAccountInTheScope_TheAccountToolsAreHidden_AndRefused()
+    {
+        var refusal = await EveryAccountToolIsRefused_AndNothingIsSent(SingleProjectToken("offline_access"));
+
+        refusal.Should().Contain("doesn't include account access");
+        await using var mcp = await Connect(SingleProjectToken("offline_access"));
+        (await mcp.ListToolsAsync()).Select(t => t.Name).Should().NotIntersectWith(AccountToolNames);
+    }
+
+    // ── Rule: a new project's message doesn't promise a list the connection can't show ──
+
+    private async Task<string> CreateAProject(string token)
+    {
+        ProjectCreatedAs(token, AccountId);
+
+        await using var mcp = await Connect(token);
+        var result = await mcp.CallToolAsync("projects_create",
+            Args(("name", "Shop"), ("plan_id", PlanId.ToString()), ("account_id", AccountId.ToString())));
+
+        result.IsError.Should().NotBe(true, Text(result));
+        return Text(result);
+    }
+
+    [Fact]
+    public async Task ProjectsCreate_OnAOneProjectConnection_SaysWhereToWorkInTheNewProject_NotThatItWillAppearInProjectsList()
+    {
+        var text = await CreateAProject(SingleProjectToken());
+
+        text.Should().Contain(ProjectId.ToString()).And.Contain("will be ready in about a minute")
+            .And.Contain("This connection covers one project, so reconnect with All projects to work in it here.")
+            .And.NotContain("projects_list");
+    }
+
+    [Fact]
+    public async Task ProjectsCreate_OnAnAllProjectsConnection_StillSaysItWillAppearInProjectsList()
+    {
+        var text = await CreateAProject(AllProjectsToken());
+
+        text.Should().Contain("will appear in projects_list in about a minute").And.NotContain("reconnect");
     }
 
     // ── Rule: each connection's tool list follows its own token ─────────────────
@@ -263,17 +320,20 @@ public class HostedAccountToolsTests : McpTestBase, IAsyncLifetime
     {
         await using var withAccount = await Connect(AllProjectsToken(WithAccount));
         await using var withoutAccount = await Connect(AllProjectsToken("offline_access"));
-        await using var oneProject = await Connect(SingleProjectToken());
+        await using var oneProjectWithAccount = await Connect(SingleProjectToken());
+        await using var oneProjectWithout = await Connect(SingleProjectToken("offline_access"));
 
         async Task<List<string>> Names(McpClient mcp) => (await mcp.ListToolsAsync()).Select(t => t.Name).ToList();
         var first = await Names(withAccount);
         var second = await Names(withoutAccount);
-        var third = await Names(oneProject);
+        var third = await Names(oneProjectWithAccount);
+        var fourth = await Names(oneProjectWithout);
         var again = await Names(withAccount);
 
         first.Should().Contain(AccountToolNames);
         second.Should().NotIntersectWith(AccountToolNames);
-        third.Should().NotIntersectWith(AccountToolNames);
+        third.Should().Contain(AccountToolNames);
+        fourth.Should().NotIntersectWith(AccountToolNames);
         again.Should().BeEquivalentTo(first);
         first.Except(AccountToolNames).Should().BeEquivalentTo(second);
     }

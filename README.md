@@ -914,7 +914,7 @@ The MCP server provides dedicated tools for authentication, account/project mana
 | `projects_delete` | Delete a project |
 | `cli` | Run any CLI command (entities, data, workflows, roles, etc.) |
 
-The hosted MCP server (`anythink-mcp --hosted`) has no sign-in or profile tools. Its `accounts_list`, `accounts_create`, `plans`, `projects_create` and `projects_delete` tools run as the signed-in user and appear only when the user grants account access on a connection that covers all their projects; see the [MCP server docs](mcp/README.md#account-tools).
+The hosted MCP server (`anythink-mcp --hosted`) has no sign-in or profile tools. Its `accounts_list`, `accounts_create`, `plans`, `projects_create` and `projects_delete` tools run as the signed-in user and appear only when the user grants account access; see the [MCP server docs](mcp/README.md#account-tools).
 
 ---
 

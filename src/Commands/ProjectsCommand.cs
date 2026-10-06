@@ -204,9 +204,13 @@ public class ProjectsCreateCommand : BasePlatformCommand<ProjectsCreateSettings>
         catch (Exception ex) { HandleError(ex); return 1; }
     }
 
+    private const string OneProjectNote =
+        " This connection covers one project, so reconnect with All projects to work in it here.";
+
     private static void PrintCreated(SharedTenant project, Guid requestedPlan)
     {
         var settingUp = project.Status is 0 or 1;
+        var oneProject = ClientContext.Remote && ClientContext.SingleProjectConnection;
         Renderer.PrintJsonObject(new JsonObject
         {
             ["project_id"] = project.Id.ToString(),
@@ -214,11 +218,13 @@ public class ProjectsCreateCommand : BasePlatformCommand<ProjectsCreateSettings>
             ["status"] = ProjectStatusMarkup.Name(project.Status),
             ["plan_id"] = (project.PlanId ?? requestedPlan).ToString(),
             ["region"] = project.Region,
-            ["message"] = (settingUp, ClientContext.Remote) switch
+            ["message"] = (settingUp, ClientContext.Remote, oneProject) switch
             {
-                (true, true) => $"Project {project.Name} is being set up and will appear in projects_list in about a minute.",
-                (true, false) => $"Project {project.Name} is being set up and will be ready in about a minute.",
-                (false, true) => $"Project {project.Name} was created. Check projects_list for its status.",
+                (true, true, false) => $"Project {project.Name} is being set up and will appear in projects_list in about a minute.",
+                (true, true, true) => $"Project {project.Name} is being set up and will be ready in about a minute.{OneProjectNote}",
+                (true, false, _) => $"Project {project.Name} is being set up and will be ready in about a minute.",
+                (false, true, false) => $"Project {project.Name} was created. Check projects_list for its status.",
+                (false, true, true) => $"Project {project.Name} was created.{OneProjectNote}",
                 _ => $"Project {project.Name} was created."
             }
         });

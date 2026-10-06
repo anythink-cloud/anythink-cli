@@ -160,8 +160,8 @@ what each call can do.
 
 ### Account tools
 
-When the user grants account access at sign-in (the token's `scope` contains `account`) on a
-connection that covers all their projects, hosted mode also serves five tools that run against the billing API as that user, using the
+When the user grants account access at sign-in (the token's `scope` contains `account`),
+hosted mode also serves five tools that run against the billing API as that user, using the
 connection's own token and never this server's saved login:
 
 | Tool | What it does | Hint |
@@ -172,14 +172,16 @@ connection's own token and never this server's saved login:
 | `projects_create` | Create a project (`name`, `plan_id`, optional `region`, `description`, `account_id`) | additive |
 | `projects_delete` | Delete a project by its full id (`id`, optional `account_id`) | destructive |
 
-These tools take no `project` argument, work on all-projects connections, and never prompt.
+These tools take no `project` argument, work on both one-project and all-projects connections, and never prompt.
 There's no active account in a hosted run: leave out `account_id` when you have one account,
 or pass an id from `accounts_list` when you have several. A new project is set up in the
-background and appears in `projects_list` after about a minute. Without `account` in the
-scope, or on a connection limited to one project (a deliberate confinement that account
-powers would escape), the tools are left out of the tool list, and calling one anyway is
-refused without contacting the billing API. The server advertises `account` in the
-protected-resource metadata's `scopes_supported`. A billing error is reported by status only, except for a 400,
+background and, on an all-projects connection, appears in `projects_list` after about a
+minute. On a connection limited to one project the tools work the same way, but a project
+created there isn't reachable from that connection, so the result says to reconnect with
+all projects to work in it.
+Without `account` in the scope the tools are left out of the tool list, and calling one
+anyway is refused without contacting the billing API. The server advertises `account` in
+the protected-resource metadata's `scopes_supported`. A billing error is reported by status only, except for a 400,
 where the billing API's own message (for example, that a paid plan needs a payment method)
 is passed on.
 

@@ -56,9 +56,15 @@ public sealed class CliCommandTool : McpServerTool
         CliRunResult result;
         try
         {
-            result = NeedsAccountAccess
-                ? await RunAsync(arguments, client: null, cancellationToken, request.Services!.GetRequiredService<HostedAccounts>().Client())
-                : await RunAsync(arguments, await ResolveClientAsync(request.Services!, arguments, cancellationToken), cancellationToken);
+            if (NeedsAccountAccess)
+            {
+                var accounts = request.Services!.GetRequiredService<HostedAccounts>();
+                result = await RunAsync(arguments, client: null, cancellationToken, accounts.Client(), !accounts.CoversAllProjects);
+            }
+            else
+            {
+                result = await RunAsync(arguments, await ResolveClientAsync(request.Services!, arguments, cancellationToken), cancellationToken);
+            }
         }
         catch (Exception ex) when (ex is InvalidOperationException or HostedProjectException)
         {
@@ -74,7 +80,7 @@ public sealed class CliCommandTool : McpServerTool
 
     public async Task<CliRunResult> RunAsync(
         IEnumerable<KeyValuePair<string, JsonElement>>? arguments, AnythinkClient? client, CancellationToken cancellationToken = default,
-        BillingClient? billing = null)
+        BillingClient? billing = null, bool singleProjectConnection = false)
     {
         IReadOnlyList<string> args;
         try
@@ -86,7 +92,7 @@ public sealed class CliCommandTool : McpServerTool
             return new CliRunResult(1, $"Error: {ex.Message}");
         }
 
-        return await CliRunner.RunAsync(args, client, _scope, cancellationToken, billing);
+        return await CliRunner.RunAsync(args, client, _scope, cancellationToken, billing, singleProjectConnection);
     }
 
     internal IReadOnlyList<string> BuildArgs(IEnumerable<KeyValuePair<string, JsonElement>>? arguments)

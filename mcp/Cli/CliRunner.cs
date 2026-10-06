@@ -14,12 +14,13 @@ public static class CliRunner
 
     public static async Task<CliRunResult> RunAsync(
         IReadOnlyList<string> args, AnythinkClient? client, CliToolScope scope, CancellationToken cancellationToken = default,
-        BillingClient? billing = null)
+        BillingClient? billing = null, bool singleProjectConnection = false)
     {
         using var output = new StringWriter();
         AmbientConsole.Use(output);
         ClientContext.Current = client;
         ClientContext.Billing = billing;
+        ClientContext.SingleProjectConnection = singleProjectConnection;
         ClientContext.Cancellation = cancellationToken;
         ClientContext.Remote = CliToolPolicy.IsRemote(scope);
 
