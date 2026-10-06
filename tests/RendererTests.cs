@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using AnythinkCli.Output;
 using FluentAssertions;
+using Spectre.Console;
 
 namespace AnythinkCli.Tests;
 
@@ -119,5 +120,27 @@ public class RendererTests
         // name is non-empty (whitespace), so it will be returned as-is per current logic
         // This documents the current behaviour — trimming is intentionally not done
         Renderer.NameFromJwt(token).Should().Be("   ");
+    }
+
+    // ── Rule: spinner text is plain text, so brackets in it are shown as typed ──
+
+    [Theory]
+    [InlineData("Creating role 'Shop [beta]'...")]
+    [InlineData("Deleting [red]x[/]...")]
+    [InlineData("Fetching a]b...")]
+    public void Status_TextWithBrackets_ParsesAsMarkupAndRendersAsTyped(string text)
+    {
+        var output = new StringWriter();
+        var console = AnsiConsole.Create(new AnsiConsoleSettings
+        {
+            Ansi = AnsiSupport.No,
+            ColorSystem = ColorSystemSupport.NoColors,
+            Out = new AnsiConsoleOutput(output)
+        });
+        console.Profile.Width = 4096;
+
+        console.Write(new Markup(Renderer.Status(text)));
+
+        output.ToString().Trim().Should().Be(text);
     }
 }

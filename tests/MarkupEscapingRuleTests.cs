@@ -6,14 +6,9 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace AnythinkCli.Tests;
 
-/// <summary>
-/// Spectre parses spinner text and message lines as markup, so a name like "Shop [beta]" throws
-/// ("Could not find color or style 'beta'"). In a spinner that happens on a background thread and
-/// takes the whole process down, hosted MCP server included.
-/// </summary>
 public class MarkupEscapingRuleTests
 {
-    // These two files are being rewritten by #67, which removes this exclusion when it rebases.
+    // #67 is rewriting these two files and removes this exclusion when it rebases.
     private static readonly string[] SkippedUntilPr67 = ["ProjectsCommand.cs", "AccountsCommand.cs"];
 
     private static readonly HashSet<string> SinkNames =
@@ -32,7 +27,7 @@ public class MarkupEscapingRuleTests
         var violations = new List<string>();
         var inspected = new List<string>();
 
-        foreach (var (tree, model) in CommandTrees())
+        foreach (var (tree, model) in SourceTrees())
         {
             foreach (var node in tree.GetRoot().DescendantNodes())
             {
@@ -40,6 +35,12 @@ public class MarkupEscapingRuleTests
                     continue;
 
                 inspected.Add(sink.Name);
+                if (sink.Unresolved)
+                {
+                    violations.Add($"{Path.GetFileName(tree.FilePath)}:{node.GetLocation().GetLineSpan().StartLinePosition.Line + 1}  {sink.Name} did not resolve, so the scan is blind to it");
+                    continue;
+                }
+
                 foreach (var argument in sink.Arguments.Where(a => model.GetTypeInfo(a.Expression).Type?.SpecialType == SpecialType.System_String))
                     if (!IsMarkupSafe(argument.Expression, model))
                         violations.Add($"{Path.GetFileName(tree.FilePath)}:{node.GetLocation().GetLineSpan().StartLinePosition.Line + 1}  {sink.Name}({Regex.Replace(argument.Expression.ToString(), @"\s+", " ")})");
@@ -53,7 +54,7 @@ public class MarkupEscapingRuleTests
 
     // ── Scanner ──────────────────────────────────────────────────────────────
 
-    private record Sink(string Name, IEnumerable<ArgumentSyntax> Arguments);
+    private record Sink(string Name, IEnumerable<ArgumentSyntax> Arguments, bool Unresolved = false);
 
     private static Sink? SinkOf(SyntaxNode node, SemanticModel model)
     {
@@ -82,8 +83,11 @@ public class MarkupEscapingRuleTests
         var isSpectre = ns == "Spectre.Console";
         var isRenderer = type == "Renderer";
 
-        // Renderer.AddRow and the Renderer helpers that escape for the caller are not sinks.
-        if (symbol is null || !(isSpectre || (isRenderer && name is "Success" or "Info" or "Warn")))
+        if (symbol is null)
+            return new Sink(name, arguments, Unresolved: true);
+
+        // Renderer.AddRow and the other Renderer helpers escape for the caller, so they are not sinks.
+        if (!(isSpectre || (isRenderer && name is "Success" or "Info" or "Warn")))
             return null;
 
         return new Sink(name, arguments);
@@ -126,7 +130,7 @@ public class MarkupEscapingRuleTests
                 || type.ToDisplayString() is "System.Guid" or "System.DateTime" or "System.DateTimeOffset" or "System.TimeSpan");
     }
 
-    private static IEnumerable<(SyntaxTree Tree, SemanticModel Model)> CommandTrees()
+    private static IEnumerable<(SyntaxTree Tree, SemanticModel Model)> SourceTrees()
     {
         var sourceDir = Path.Combine(RepoRoot(), "src");
         var trees = Directory.EnumerateFiles(sourceDir, "*.cs", SearchOption.AllDirectories)

@@ -6,11 +6,10 @@ using RichardSzalay.MockHttp;
 namespace AnythinkMcp.Tests;
 
 // ── Rule: a value containing square brackets is shown as typed, never parsed as markup ──
-// Spinner text is parsed on Spectre's refresh thread, so an unescaped value there kills the host
-// once the API takes longer than the first refresh. A message line throws after the change was applied.
 
 public partial class CliCommandToolTests
 {
+    // The API has to outlast Spectre's first spinner refresh for a bad status string to crash the host.
     private static readonly TimeSpan SlowApi = TimeSpan.FromMilliseconds(250);
 
     private static List<(HttpMethod Method, string Path, string Body)> RespondSlowly(
@@ -87,8 +86,7 @@ public partial class CliCommandToolTests
         sent.Should().ContainSingle().Which.Path.Should().Be("/org/42/secrets");
     }
 
-    // ── The change is applied before the success line is printed, so a throw there reports a failure for work that happened ──
-
+    // The change is applied before the success line prints, so a throw there reports failure for work that happened.
     [Fact]
     public async Task DataRls_EntityWithBrackets_ReportsSuccessAfterTheChangeIsApplied()
     {
