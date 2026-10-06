@@ -79,7 +79,7 @@ public class IntegrationsGetCommand : BaseCommand<IntegrationGetSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Fetching '{settings.Provider}'...", async _ =>
+                .StartAsync(Renderer.Status($"Fetching '{settings.Provider}'..."), async _ =>
                 {
                     def = await client.GetIntegrationDefinitionAsync(settings.Provider);
                 });
@@ -211,7 +211,7 @@ public class IntegrationsConnectCommand : BaseCommand<IntegrationConnectSettings
             IntegrationDefinition? def = null;
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Looking up '{settings.Provider}'...", async _ =>
+                .StartAsync(Renderer.Status($"Looking up '{settings.Provider}'..."), async _ =>
                 {
                     def = await client.GetIntegrationDefinitionAsync(settings.Provider);
                 });
@@ -252,7 +252,7 @@ public class IntegrationsConnectCommand : BaseCommand<IntegrationConnectSettings
             IntegrationConnection? created = null;
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Creating connection to {def.DisplayName}...", async _ =>
+                .StartAsync(Renderer.Status($"Creating connection to {def.DisplayName}..."), async _ =>
                 {
                     created = await client.CreateApiKeyConnectionAsync(new CreateApiKeyConnectionRequest(
                         def.Id,
@@ -299,7 +299,7 @@ public class IntegrationsTestCommand : BaseCommand<IntegrationConnectionIdSettin
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Testing connection {settings.ConnectionId}...", async _ =>
+                .StartAsync(Renderer.Status($"Testing connection {settings.ConnectionId}..."), async _ =>
                 {
                     result = await client.TestIntegrationConnectionAsync(settings.ConnectionId);
                 });
@@ -375,7 +375,7 @@ public class IntegrationsDisableCommand : BaseCommand<IntegrationConnectionIdSet
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Disabling connection {settings.ConnectionId}...", async _ =>
+                .StartAsync(Renderer.Status($"Disabling connection {settings.ConnectionId}..."), async _ =>
                 {
                     updated = await client.UpdateIntegrationConnectionAsync(settings.ConnectionId, new UpdateConnectionRequest(IsEnabled: false));
                 });
@@ -448,7 +448,7 @@ public class IntegrationsDisconnectCommand : BaseCommand<IntegrationDisconnectSe
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Deleting connection {settings.ConnectionId}...", async _ =>
+                .StartAsync(Renderer.Status($"Deleting connection {settings.ConnectionId}..."), async _ =>
                 {
                     await client.DeleteIntegrationConnectionAsync(settings.ConnectionId);
                 });
@@ -484,7 +484,7 @@ public class IntegrationsOAuthStatusCommand : BaseCommand<IntegrationOAuthProvid
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Fetching OAuth settings for '{settings.Provider}'...", async _ =>
+                .StartAsync(Renderer.Status($"Fetching OAuth settings for '{settings.Provider}'..."), async _ =>
                 {
                     s = await client.GetIntegrationOAuthSettingsAsync(settings.Provider);
                 });
@@ -577,7 +577,7 @@ public class IntegrationsOAuthConfigureCommand : BaseCommand<IntegrationOAuthCon
             var client = GetClient();
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Saving OAuth settings for '{settings.Provider}'...", async _ =>
+                .StartAsync(Renderer.Status($"Saving OAuth settings for '{settings.Provider}'..."), async _ =>
                 {
                     await client.SetIntegrationOAuthSettingsAsync(settings.Provider, new SetOAuthSettingsRequest(
                         ClientId:        clientId,
@@ -647,7 +647,7 @@ public class IntegrationsOAuthConnectCommand : BaseCommand<IntegrationOAuthConne
             IntegrationOAuthSettings? oauth = null;
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Looking up '{settings.Provider}'...", async _ =>
+                .StartAsync(Renderer.Status($"Looking up '{settings.Provider}'..."), async _ =>
                 {
                     def = await client.GetIntegrationDefinitionAsync(settings.Provider);
                     if (def != null)
@@ -906,7 +906,7 @@ public class IntegrationsExecuteCommand : BaseCommand<IntegrationExecuteSettings
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Executing {settings.Provider}/{settings.Operation}...", async _ =>
+                .StartAsync(Renderer.Status($"Executing {settings.Provider}/{settings.Operation}..."), async _ =>
                 {
                     result = await client.ExecuteIntegrationAsync(settings.Provider, new ExecuteIntegrationRequest(
                         Operation: settings.Operation,

@@ -127,7 +127,7 @@ public class MenuAddItemCommand : BaseCommand<MenuAddItemSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Adding '{displayName}' to menu {settings.MenuId}...", async _ =>
+                .StartAsync(Renderer.Status($"Adding '{displayName}' to menu {settings.MenuId}..."), async _ =>
                 {
                     item = await client.CreateMenuItemAsync(settings.MenuId, new CreateMenuItemRequest(
                         displayName,

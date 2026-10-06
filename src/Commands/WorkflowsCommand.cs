@@ -77,7 +77,7 @@ public class WorkflowsGetCommand : BaseCommand<WorkflowIdSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Fetching workflow {settings.Id}...", async _ =>
+                .StartAsync(Renderer.Status($"Fetching workflow {settings.Id}..."), async _ =>
                 {
                     wf = await client.GetWorkflowAsync(settings.Id);
                 });
@@ -150,7 +150,7 @@ public class WorkflowsJobsCommand : BaseCommand<WorkflowIdSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Fetching jobs for workflow {settings.Id}...", async _ =>
+                .StartAsync(Renderer.Status($"Fetching jobs for workflow {settings.Id}..."), async _ =>
                 {
                     result = await client.GetWorkflowJobsAsync(settings.Id);
                 });
@@ -387,7 +387,7 @@ public class WorkflowsStepUpdateCommand : BaseCommand<WorkflowStepUpdateSettings
             WorkflowStep? updated = null;
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Updating step {settings.StepId}...", async _ =>
+                .StartAsync(Renderer.Status($"Updating step {settings.StepId}..."), async _ =>
                 {
                     updated = await client.UpdateWorkflowStepFullAsync(settings.WorkflowId, settings.StepId, body);
                 });
@@ -460,7 +460,7 @@ public class WorkflowsStepAddCommand : BaseCommand<WorkflowStepAddSettings>
             WorkflowStep? step = null;
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Adding step '{settings.Key}'...", async _ =>
+                .StartAsync(Renderer.Status($"Adding step '{settings.Key}'..."), async _ =>
                 {
                     step = await client.AddWorkflowStepAsync(settings.WorkflowId,
                         new CreateWorkflowStepRequest(
@@ -629,7 +629,7 @@ public class WorkflowsCreateCommand : BaseCommand<WorkflowCreateSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Creating workflow '{settings.Name}'...", async _ =>
+                .StartAsync(Renderer.Status($"Creating workflow '{settings.Name}'..."), async _ =>
                 {
                     wf = await client.CreateWorkflowAsync(new CreateWorkflowRequest(
                         settings.Name,
@@ -686,7 +686,7 @@ public class WorkflowsUpdateCommand : BaseCommand<WorkflowUpdateSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Updating workflow {settings.Id}...", async _ =>
+                .StartAsync(Renderer.Status($"Updating workflow {settings.Id}..."), async _ =>
                 {
                     wf = await client.UpdateWorkflowAsync(settings.Id, new UpdateWorkflowRequest(
                         settings.Name,
@@ -717,7 +717,7 @@ public class WorkflowsEnableCommand : BaseCommand<WorkflowIdSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Enabling workflow {settings.Id}...", async _ =>
+                .StartAsync(Renderer.Status($"Enabling workflow {settings.Id}..."), async _ =>
                 {
                     await client.EnableWorkflowAsync(settings.Id);
                 });
@@ -743,7 +743,7 @@ public class WorkflowsDisableCommand : BaseCommand<WorkflowIdSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Disabling workflow {settings.Id}...", async _ =>
+                .StartAsync(Renderer.Status($"Disabling workflow {settings.Id}..."), async _ =>
                 {
                     await client.DisableWorkflowAsync(settings.Id);
                 });
@@ -794,7 +794,7 @@ public class WorkflowsTriggerCommand : BaseCommand<WorkflowTriggerSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Triggering workflow {settings.Id}...", async _ =>
+                .StartAsync(Renderer.Status($"Triggering workflow {settings.Id}..."), async _ =>
                 {
                     await client.TriggerWorkflowAsync(settings.Id, payload);
                 });
@@ -855,7 +855,7 @@ public class WorkflowsDeleteCommand : BaseCommand<WorkflowDeleteSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Deleting workflow {settings.Id}...", async _ =>
+                .StartAsync(Renderer.Status($"Deleting workflow {settings.Id}..."), async _ =>
                 {
                     await client.DeleteWorkflowAsync(settings.Id);
                 });
@@ -957,7 +957,7 @@ public class WorkflowsSeedCommand : BaseCommand<WorkflowsSeedSettings>
             Workflow? wf = null;
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Creating workflow '{spec.Name}'...", async _ =>
+                .StartAsync(Renderer.Status($"Creating workflow '{spec.Name}'..."), async _ =>
                 {
                     wf = await client.CreateWorkflowAsync(new CreateWorkflowRequest(
                         spec.Name,
@@ -984,7 +984,7 @@ public class WorkflowsSeedCommand : BaseCommand<WorkflowsSeedSettings>
                 WorkflowStep? step = null;
                 await AnsiConsole.Status()
                     .Spinner(Spinner.Known.Dots)
-                    .StartAsync($"Adding step '{s.Key}'...", async _ =>
+                    .StartAsync(Renderer.Status($"Adding step '{s.Key}'..."), async _ =>
                     {
                         step = await client.AddWorkflowStepAsync(wf!.Id,
                             new CreateWorkflowStepRequest(
@@ -1121,7 +1121,7 @@ public class WorkflowsExportCommand : BaseCommand<WorkflowsExportSettings>
             var client = GetClient();
             string raw = "";
             await AnsiConsole.Status().Spinner(Spinner.Known.Dots)
-                .StartAsync($"Fetching workflow {settings.Id}...", async _ =>
+                .StartAsync(Renderer.Status($"Fetching workflow {settings.Id}..."), async _ =>
                 {
                     raw = await client.FetchRawAsync($"{client.BaseUrl}/org/{client.OrgId}/workflows/{settings.Id}");
                 });
@@ -1285,7 +1285,7 @@ public class WorkflowsStepLinkCommand : BaseCommand<WorkflowStepLinkSettings>
             WorkflowStep? updated = null;
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Linking step {settings.StepId}...", async _ =>
+                .StartAsync(Renderer.Status($"Linking step {settings.StepId}..."), async _ =>
                 {
                     var body = new Dictionary<string, object?>
                     {
@@ -1392,7 +1392,7 @@ public class WorkflowsStepDeleteCommand : BaseCommand<WorkflowStepDeleteSettings
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Deleting step {settings.StepId}...", async _ =>
+                .StartAsync(Renderer.Status($"Deleting step {settings.StepId}..."), async _ =>
                 {
                     await client.DeleteWorkflowStepAsync(settings.WorkflowId, settings.StepId);
                 });
@@ -1592,7 +1592,7 @@ public class WorkflowsFileHandlerAddCommand : BaseCommand<WorkflowFileHandlerAdd
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Adding FileHandler step '{settings.Key}'...", async _ =>
+                .StartAsync(Renderer.Status($"Adding FileHandler step '{settings.Key}'..."), async _ =>
                 {
                     step = await client.AddWorkflowStepAsync(settings.WorkflowId,
                         new CreateWorkflowStepRequest(
@@ -1610,7 +1610,7 @@ public class WorkflowsFileHandlerAddCommand : BaseCommand<WorkflowFileHandlerAdd
             {
                 await AnsiConsole.Status()
                     .Spinner(Spinner.Known.Dots)
-                    .StartAsync($"Linking step {step!.Id}...", async _ =>
+                    .StartAsync(Renderer.Status($"Linking step {step!.Id}..."), async _ =>
                     {
                         var body = new Dictionary<string, object?>
                         {
@@ -1722,7 +1722,7 @@ public class WorkflowsIntegrationAddCommand : BaseCommand<WorkflowIntegrationAdd
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Adding Integration step '{settings.Key}'...", async _ =>
+                .StartAsync(Renderer.Status($"Adding Integration step '{settings.Key}'..."), async _ =>
                 {
                     step = await client.AddWorkflowStepAsync(settings.WorkflowId,
                         new CreateWorkflowStepRequest(
@@ -1740,7 +1740,7 @@ public class WorkflowsIntegrationAddCommand : BaseCommand<WorkflowIntegrationAdd
             {
                 await AnsiConsole.Status()
                     .Spinner(Spinner.Known.Dots)
-                    .StartAsync($"Linking step {step!.Id}...", async _ =>
+                    .StartAsync(Renderer.Status($"Linking step {step!.Id}..."), async _ =>
                     {
                         var body = new Dictionary<string, object?>
                         {

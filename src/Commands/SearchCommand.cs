@@ -127,7 +127,7 @@ public class SearchSimilarCommand : BaseCommand<SearchSimilarSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Finding documents similar to {settings.Entity}/{settings.Id}...", async _ =>
+                .StartAsync(Renderer.Status($"Finding documents similar to {settings.Entity}/{settings.Id}..."), async _ =>
                 {
                     items = await client.SearchSimilarAsync(settings.Entity, settings.Id, settings.Limit, settings.Public);
                 });
@@ -192,7 +192,7 @@ public class SearchRehydrateCommand : BaseCommand<SearchEntityOptionalSettings>
             var client = GetClient();
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Triggering rehydrate for {scope}...", async _ =>
+                .StartAsync(Renderer.Status($"Triggering rehydrate for {scope}..."), async _ =>
                 {
                     await client.RehydrateSearchIndexAsync(settings.Entity);
                 });
@@ -232,7 +232,7 @@ public class SearchPurgeCommand : BaseCommand<SearchEntityOptionalSettings>
             var client = GetClient();
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Purging {scope}...", async _ =>
+                .StartAsync(Renderer.Status($"Purging {scope}..."), async _ =>
                 {
                     await client.PurgeSearchIndexAsync(settings.Entity);
                 });
@@ -292,7 +292,7 @@ public class SearchAuditCommand : BaseCommand<SearchAuditSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Auditing public search for '{settings.Entity}'...", async _ =>
+                .StartAsync(Renderer.Status($"Auditing public search for '{settings.Entity}'..."), async _ =>
                 {
                     entity = await client.GetEntityAsync(settings.Entity);
                     fields = await client.GetFieldsAsync(settings.Entity);

@@ -105,7 +105,7 @@ public class FilesGetCommand : BaseCommand<FileGetSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Fetching file {settings.Id}...", async _ =>
+                .StartAsync(Renderer.Status($"Fetching file {settings.Id}..."), async _ =>
                 {
                     file = await client.GetFileAsync(settings.Id);
                 });
@@ -218,7 +218,7 @@ public class FilesDeleteCommand : BaseCommand<FileDeleteSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Deleting file {settings.Id}...", async _ =>
+                .StartAsync(Renderer.Status($"Deleting file {settings.Id}..."), async _ =>
                 {
                     await client.DeleteFileAsync(settings.Id);
                 });

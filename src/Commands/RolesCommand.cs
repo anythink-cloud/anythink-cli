@@ -78,7 +78,7 @@ public class RolesCreateCommand : BaseCommand<RoleCreateSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Creating role '{settings.Name}'...", async _ =>
+                .StartAsync(Renderer.Status($"Creating role '{settings.Name}'..."), async _ =>
                 {
                     role = await client.CreateRoleAsync(new CreateRoleRequest(
                         settings.Name,
@@ -134,7 +134,7 @@ public class RolesDeleteCommand : BaseCommand<RoleDeleteSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Deleting role {settings.Id}...", async _ =>
+                .StartAsync(Renderer.Status($"Deleting role {settings.Id}..."), async _ =>
                 {
                     await client.DeleteRoleAsync(settings.Id);
                 });

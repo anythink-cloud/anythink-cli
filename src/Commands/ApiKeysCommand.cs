@@ -168,7 +168,7 @@ public class ApiKeysCreateCommand : BaseCommand<ApiKeyCreateSettings>
             ApiKeyResponse? created = null;
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Creating API key '{settings.Name}'...", async _ =>
+                .StartAsync(Renderer.Status($"Creating API key '{settings.Name}'..."), async _ =>
                 {
                     created = await client.CreateApiKeyAsync(new CreateApiKeyRequest(
                         settings.Name,
@@ -292,7 +292,7 @@ public class ApiKeysRevokeCommand : BaseCommand<ApiKeyRevokeSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Revoking API key {settings.Id}...", async _ =>
+                .StartAsync(Renderer.Status($"Revoking API key {settings.Id}..."), async _ =>
                 {
                     await client.RevokeApiKeyAsync(settings.Id);
                 });

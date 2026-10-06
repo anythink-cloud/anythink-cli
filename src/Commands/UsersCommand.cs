@@ -116,7 +116,7 @@ public class UsersGetCommand : BaseCommand<UserGetSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Fetching user {settings.Id}...", async _ =>
+                .StartAsync(Renderer.Status($"Fetching user {settings.Id}..."), async _ =>
                 {
                     user = await client.GetUserAsync(settings.Id);
                 });
@@ -176,7 +176,7 @@ public class UsersInviteCommand : BaseCommand<UserInviteSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Creating user and sending invite to {settings.Email}...", async _ =>
+                .StartAsync(Renderer.Status($"Creating user and sending invite to {settings.Email}..."), async _ =>
                 {
                     user = await client.CreateUserAsync(new CreateUserRequest(
                         settings.FirstName,
@@ -235,7 +235,7 @@ public class UsersDeleteCommand : BaseCommand<UserDeleteSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Deleting user {settings.Id}...", async _ =>
+                .StartAsync(Renderer.Status($"Deleting user {settings.Id}..."), async _ =>
                 {
                     await client.DeleteUserAsync(settings.Id);
                 });

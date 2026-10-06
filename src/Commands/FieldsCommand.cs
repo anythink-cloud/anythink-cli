@@ -26,7 +26,7 @@ public class FieldsListCommand : BaseCommand<FieldsEntitySettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Fetching fields for '{settings.Entity}'...", async _ =>
+                .StartAsync(Renderer.Status($"Fetching fields for '{settings.Entity}'..."), async _ =>
                 {
                     fields = await client.GetFieldsAsync(settings.Entity);
                 });
@@ -90,7 +90,7 @@ public class FieldsGetCommand : BaseCommand<FieldsGetSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Fetching field '{settings.FieldName}' on '{settings.Entity}'...", async _ =>
+                .StartAsync(Renderer.Status($"Fetching field '{settings.FieldName}' on '{settings.Entity}'..."), async _ =>
                 {
                     fields = await client.GetFieldsAsync(settings.Entity);
                 });
@@ -307,7 +307,7 @@ public class FieldsAddCommand : BaseCommand<FieldAddSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Adding field '{settings.Name}' to '{settings.Entity}'...", async _ =>
+                .StartAsync(Renderer.Status($"Adding field '{settings.Name}' to '{settings.Entity}'..."), async _ =>
                 {
                     FieldOptionsRequest? fieldOptions = null;
                     if (!string.IsNullOrWhiteSpace(settings.Options) || settings.Multiple)
@@ -432,7 +432,7 @@ public class FieldsUpdateCommand : BaseCommand<FieldUpdateSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Updating field '{settings.FieldName}' on '{settings.Entity}'...", async _ =>
+                .StartAsync(Renderer.Status($"Updating field '{settings.FieldName}' on '{settings.Entity}'..."), async _ =>
                 {
                     var fields = await client.GetFieldsAsync(settings.Entity);
                     var field = fields.FirstOrDefault(x => x.Name == settings.FieldName)
