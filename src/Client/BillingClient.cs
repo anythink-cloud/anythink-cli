@@ -93,7 +93,6 @@ public class BillingClient : HttpApiClient
         _auth    = $"{p.MyAnythinkUrl.TrimEnd('/')}/org/{p.MyAnythinkOrgId}";
     }
 
-    /// <summary>A caller's own client: the bearer is already on <paramref name="http"/>, and nothing outside <paramref name="billingUrl"/> is reachable.</summary>
     public BillingClient(string billingUrl, HttpClient http, HttpClient? anonymous = null) : base(http)
     {
         _billing   = billingUrl.TrimEnd('/');

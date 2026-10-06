@@ -36,6 +36,22 @@ public class RemoteScopeToolTests : McpTestBase
         result.Output.Should().Contain("aren't available to remote callers");
     }
 
+    [Theory]
+    [InlineData("accounts_list")]
+    [InlineData("plans")]
+    public async Task HostedAccountRun_WithoutACallerBillingClient_DoesNotUseTheServersSavedPlatformLogin(string name)
+    {
+        SetupPlatformLogin();
+        var mock = new MockHttpMessageHandler();
+        var any = mock.When("*").Respond("application/json", "[]");
+
+        var result = await Tool(name, CliToolScope.Hosted).RunAsync(NoArguments, client: null);
+
+        result.ExitCode.Should().Be(1);
+        result.Output.Should().Contain("aren't available to remote callers");
+        mock.GetMatchCount(any).Should().Be(0);
+    }
+
     [Fact]
     public async Task LocalRun_WithoutAClient_StillReportsMissingCredentials()
     {
