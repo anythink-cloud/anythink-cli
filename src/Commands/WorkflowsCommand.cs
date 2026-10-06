@@ -10,13 +10,28 @@ namespace AnythinkCli.Commands;
 
 // ── workflows list ────────────────────────────────────────────────────────────
 
-public class WorkflowsListCommand : BaseCommand<EmptySettings>
+public class WorkflowListSettings : CommandSettings
 {
-    public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
+    [CommandOption("--json")]
+    [Description("Output the workflows as raw JSON instead of a table")]
+    public bool Json { get; set; }
+}
+
+public class WorkflowsListCommand : BaseCommand<WorkflowListSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, WorkflowListSettings settings)
     {
         try
         {
             var client = GetClient();
+
+            if (settings.Json)
+            {
+                var raw = await client.FetchRawAsync($"{client.BaseUrl}/org/{client.OrgId}/workflows");
+                Console.WriteLine(JsonNode.Parse(raw)?.ToJsonString(Renderer.PrettyJson));
+                return 0;
+            }
+
             List<Workflow> workflows = [];
 
             await AnsiConsole.Status()
@@ -40,7 +55,7 @@ public class WorkflowsListCommand : BaseCommand<EmptySettings>
                 table.AddRow(
                     Markup.Escape(w.Id.ToString()),
                     Markup.Escape(w.Name),
-                    Markup.Escape(w.Trigger),
+                    Markup.Escape(WorkflowTriggers.Summary(w)),
                     Markup.Escape((w.Steps?.Count ?? 0).ToString()),
                     w.Enabled ? "[green]yes[/]" : "[red]no[/]"
                 );
@@ -66,13 +81,28 @@ public class WorkflowIdSettings : CommandSettings
     public int Id { get; set; }
 }
 
-public class WorkflowsGetCommand : BaseCommand<WorkflowIdSettings>
+public class WorkflowGetSettings : WorkflowIdSettings
 {
-    public override async Task<int> ExecuteAsync(CommandContext context, WorkflowIdSettings settings)
+    [CommandOption("--json")]
+    [Description("Output the workflow as raw JSON instead of a summary")]
+    public bool Json { get; set; }
+}
+
+public class WorkflowsGetCommand : BaseCommand<WorkflowGetSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, WorkflowGetSettings settings)
     {
         try
         {
             var client = GetClient();
+
+            if (settings.Json)
+            {
+                var raw = await client.FetchRawAsync($"{client.BaseUrl}/org/{client.OrgId}/workflows/{settings.Id}");
+                Console.WriteLine(JsonNode.Parse(raw)?.ToJsonString(Renderer.PrettyJson));
+                return 0;
+            }
+
             Workflow? wf = null;
 
             await AnsiConsole.Status()
@@ -84,26 +114,18 @@ public class WorkflowsGetCommand : BaseCommand<WorkflowIdSettings>
 
             Renderer.Header($"Workflow: {wf!.Name}");
             Renderer.KeyValue("ID", wf.Id.ToString());
-            Renderer.KeyValue("Trigger", wf.Trigger);
+            Renderer.KeyValue("Trigger", WorkflowTriggers.Summary(wf));
             Renderer.KeyValue("Enabled", wf.Enabled ? "yes" : "no", wf.Enabled ? "green" : "red");
             if (!string.IsNullOrEmpty(wf.Description))
                 Renderer.KeyValue("Description", wf.Description);
 
-            if (wf.Options is System.Text.Json.JsonElement opts
-                && opts.ValueKind == System.Text.Json.JsonValueKind.Object)
+            var triggers = WorkflowTriggers.Effective(wf);
+            foreach (var trigger in triggers)
             {
-                if (opts.TryGetProperty("event", out var evt))
-                    Renderer.KeyValue("Event", evt.GetString() ?? "");
-                if (opts.TryGetProperty("event_entity", out var ent))
-                    Renderer.KeyValue("Entity", ent.GetString() ?? "");
-                if (opts.TryGetProperty("filter", out var f)
-                    && f.ValueKind != System.Text.Json.JsonValueKind.Null
-                    && f.ValueKind != System.Text.Json.JsonValueKind.Undefined)
-                {
-                    var pretty = System.Text.Json.JsonSerializer.Serialize(f,
-                        new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-                    Renderer.KeyValue("Filter", pretty);
-                }
+                if (WorkflowTriggers.Filter(trigger) is not { } filter) continue;
+                var pretty = System.Text.Json.JsonSerializer.Serialize(filter,
+                    new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                Renderer.KeyValue(triggers.Count > 1 ? $"Filter ({trigger.Type})" : "Filter", pretty);
             }
 
             var steps = wf.Steps ?? [];
@@ -548,7 +570,7 @@ public class WorkflowCreateSettings : CommandSettings
     public string? Cron { get; set; }
 
     [CommandOption("--entity <ENTITY>")]
-    [Description("Entity name for Event trigger")]
+    [Description("Entity name for an Event or Manual trigger")]
     public string? EventEntity { get; set; }
 
     [CommandOption("--event <EVENT>")]
@@ -606,22 +628,6 @@ public class WorkflowsCreateCommand : BaseCommand<WorkflowCreateSettings>
             }
         }
 
-        object options = trigger switch
-        {
-            "Timed" => new
-            {
-                cron_expression = settings.Cron ?? "0 9 * * *",
-                event_entity = ""
-            },
-            "Event" => (object)new EventWorkflowOptions(
-                settings.Event ?? "EntityCreated",
-                settings.EventEntity ?? "",
-                filter
-            ),
-            "Api" => new { api_route = settings.ApiRoute ?? "", event_entity = settings.EventEntity ?? "" },
-            _ => new { }
-        };
-
         try
         {
             var client = GetClient();
@@ -634,11 +640,8 @@ public class WorkflowsCreateCommand : BaseCommand<WorkflowCreateSettings>
                     wf = await client.CreateWorkflowAsync(new CreateWorkflowRequest(
                         settings.Name,
                         settings.Description,
-                        trigger,
                         settings.Enabled,
-                        options,
-                        trigger == "Api" ? settings.ApiRoute : null
-                    ));
+                        [BuildTrigger(trigger, settings, filter)]));
                 });
 
             Renderer.Success($"Workflow [#F97316]{Markup.Escape(wf!.Name)}[/] created (id: {Markup.Escape(wf.Id.ToString())}).");
@@ -649,6 +652,27 @@ public class WorkflowsCreateCommand : BaseCommand<WorkflowCreateSettings>
             HandleError(ex);
             return 1;
         }
+    }
+
+    internal static WorkflowTriggerRequest BuildTrigger(
+        string trigger, WorkflowCreateSettings settings, System.Text.Json.JsonElement? filter)
+    {
+        object config = trigger switch
+        {
+            "Timed" => new { cron_expression = settings.Cron ?? "0 9 * * *" },
+            "Event" => new EventWorkflowOptions(
+                settings.Event ?? "EntityCreated",
+                settings.EventEntity ?? "",
+                filter),
+            "Api" => new { api_route = settings.ApiRoute ?? "" },
+            "Manual" => new
+            {
+                manual_entities = string.IsNullOrEmpty(settings.EventEntity) ? Array.Empty<string>() : [settings.EventEntity]
+            },
+            _ => new { }
+        };
+
+        return new WorkflowTriggerRequest(trigger, true, config);
     }
 }
 
@@ -931,7 +955,7 @@ public class WorkflowsSeedCommand : BaseCommand<WorkflowsSeedSettings>
         }
         if (spec is null || string.IsNullOrEmpty(spec.Name) || spec.Steps is null)
         {
-            Renderer.Error("Workflow JSON must include name, trigger, and steps[].");
+            Renderer.Error("Workflow JSON must include name, trigger (or triggers), and steps[].");
             return 1;
         }
 
@@ -946,9 +970,7 @@ public class WorkflowsSeedCommand : BaseCommand<WorkflowsSeedSettings>
             return 1;
         }
 
-        var enabled = settings.Enabled ?? spec.Enabled;
-        var trigger = spec.Trigger ?? "Manual";
-        var options = spec.Options ?? (object)new { };
+        var request = BuildSeedRequest(spec, settings.Enabled ?? spec.Enabled);
 
         try
         {
@@ -959,13 +981,7 @@ public class WorkflowsSeedCommand : BaseCommand<WorkflowsSeedSettings>
                 .Spinner(Spinner.Known.Dots)
                 .StartAsync($"Creating workflow '{spec.Name}'...", async _ =>
                 {
-                    wf = await client.CreateWorkflowAsync(new CreateWorkflowRequest(
-                        spec.Name,
-                        spec.Description,
-                        trigger,
-                        enabled,
-                        options,
-                        trigger == "Api" ? spec.ApiRoute : null));
+                    wf = await client.CreateWorkflowAsync(request);
                 });
             Renderer.Success($"Workflow [#F97316]{Markup.Escape(wf!.Name)}[/] created (id: {wf.Id}).");
 
@@ -1054,16 +1070,26 @@ public class WorkflowsSeedCommand : BaseCommand<WorkflowsSeedSettings>
             return 1;
         }
     }
+
+    internal static CreateWorkflowRequest BuildSeedRequest(WorkflowSeedSpec spec, bool enabled)
+    {
+        List<WorkflowTriggerRequest> triggers = spec.Triggers is { Count: > 0 }
+            ? WorkflowTriggers.ForRequest(spec.Triggers)
+            : [WorkflowTriggers.FromLegacy(spec.Trigger ?? "Manual", spec.Options, spec.ApiRoute)];
+
+        return new CreateWorkflowRequest(spec.Name, spec.Description, enabled, triggers);
+    }
 }
 
-class WorkflowSeedSpec
+internal class WorkflowSeedSpec
 {
     [System.Text.Json.Serialization.JsonPropertyName("schema_version")] public int SchemaVersion { get; set; } = 1;
     [System.Text.Json.Serialization.JsonPropertyName("name")]           public string Name { get; set; } = "";
     [System.Text.Json.Serialization.JsonPropertyName("description")]    public string? Description { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("trigger")]        public string? Trigger { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("enabled")]        public bool Enabled { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("options")]        public object? Options { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("options")]        public System.Text.Json.JsonElement? Options { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("triggers")]       public List<WorkflowTrigger>? Triggers { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("api_route")]      public string? ApiRoute { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("steps")]          public List<WorkflowSeedStep>? Steps { get; set; }
 }
