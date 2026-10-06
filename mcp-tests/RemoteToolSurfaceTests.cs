@@ -7,6 +7,7 @@ public class RemoteToolSurfaceTests
 {
     private const string SnapshotFile = "RemoteToolSurface.txt";
     private const string HostedSnapshotFile = "HostedToolSurface.txt";
+    private const string LocalSnapshotFile = "LocalToolSurface.txt";
 
     internal static string Surface(CliToolScope scope = CliToolScope.Internal) => string.Join('\n', CliCommandTool.All(scope)
         .Select(tool =>
@@ -26,6 +27,11 @@ public class RemoteToolSurfaceTests
     public void RemoteTools_MatchTheReviewedSnapshot() =>
         Surface().Should().Be(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, SnapshotFile)),
             $"a CLI command or option changed what remote clients can call; review it, then update mcp-tests/{SnapshotFile}");
+
+    [Fact]
+    public void LocalTools_MatchTheReviewedSnapshot() =>
+        Surface(CliToolScope.Local).Should().Be(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, LocalSnapshotFile)),
+            $"a CLI command or option changed what local clients can call; review it, then update mcp-tests/{LocalSnapshotFile}");
 
     [Fact]
     public void HostedTools_MatchTheReviewedSnapshot() =>

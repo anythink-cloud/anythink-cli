@@ -32,6 +32,7 @@
   <ItemGroup>
     <None Update="RemoteToolSurface.txt" CopyToOutputDirectory="PreserveNewest" />
     <None Update="HostedToolSurface.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="LocalToolSurface.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

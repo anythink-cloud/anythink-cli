@@ -1,0 +1,86 @@
+api [read-only] base_url?
+api_keys_create [write] name expires_in? no_expiry_cap? permissions? save_as?
+api_keys_list [read-only]
+api_keys_revoke [destructive] id
+data_create [write] entity data?
+data_delete [destructive] entity id
+data_get [read-only] entity id
+data_list [read-only] entity all? filter? limit? page?
+data_rls [destructive] entity id readonly? user?
+data_update [destructive] entity id data?
+docs [read-only]
+entities_create [write] name junction? lock_records? public? rls?
+entities_delete [destructive] name
+entities_get [read-only] name
+entities_list [read-only]
+entities_update [destructive] name lock_records? public? rls?
+fetch [destructive] path body? method?
+fields_add [write] entity name default? description? display? indexed? label? multiple? name_field? on_delete? options? public? required? searchable? target? type? unique?
+fields_delete [destructive] entity field_name
+fields_get [read-only] entity field_name
+fields_list [read-only] entity
+fields_update [destructive] entity field_name default? description? display? indexed? label? multiple? no_indexed? no_multiple? no_public? no_required? no_searchable? options? public? required? searchable?
+files_delete [destructive] id
+files_get [read-only] id
+files_list [read-only] limit? page?
+files_upload [write] path public?
+integrations_connect [write] provider api_key? name? user_connection?
+integrations_connections_list [read-only] provider?
+integrations_disable [write] connection_id
+integrations_disconnect [destructive] connection_id
+integrations_enable [write] connection_id
+integrations_execute [write, open-world] provider operation input? inputs?
+integrations_get [read-only] provider
+integrations_list [read-only]
+integrations_oauth_callback_url [read-only]
+integrations_oauth_configure [destructive] provider client_id? client_secret? disable? use_social_sign_in?
+integrations_oauth_connect [write] provider name? no_open? port? timeout? user_connection?
+integrations_oauth_status [read-only] provider
+integrations_test [write] connection_id
+menus_add_item [write] menu_id entity icon? name? parent?
+menus_list [read-only]
+oauth_google_configure [destructive]
+oauth_google_status [read-only]
+pay_connect [write]
+pay_methods [read-only]
+pay_payments [read-only] limit? page?
+pay_status [read-only]
+roles_create [write] name description?
+roles_delete [destructive] id
+roles_list [read-only]
+roles_permissions_add [write] role_id entity actions?
+roles_permissions_list [read-only] role_id
+roles_permissions_remove [destructive] role_id entity actions?
+search_audit [read-only] entity query? sample?
+search_purge [destructive] entity?
+search_query [read-only] text entities? facet? filter? highlight? limit? page? public? sort?
+search_rehydrate [write] entity?
+search_similar [read-only] entity id limit? public?
+secrets_create [write] key value?
+secrets_delete [destructive] key
+secrets_list [read-only]
+secrets_update [destructive] key value?
+users_delete [destructive] id
+users_get [read-only] id
+users_invite [write, open-world] email first_name last_name role_id?
+users_list [read-only]
+users_me [read-only]
+workflows_create [write] name api_route? cron? description? enabled? entity? event? filter? filter_file? trigger?
+workflows_delete [destructive] id
+workflows_disable [write] id
+workflows_enable [write] id
+workflows_export [destructive] id output?
+workflows_file_handler_add [write] workflow_id step_key enabled? entity? existing_file_id? field? file_name? folder_id? is_public? link_mode? name? on_failure? on_success? operation? overwrite_if_present? record_id? source_url? start?
+workflows_file_handler_example [read-only]
+workflows_get [read-only] id
+workflows_integration_add [write] workflow_id step_key connection_id? credential_field? credential_source? enabled? input? inputs? model? name? on_failure? on_success? operation? provider? start?
+workflows_jobs [read-only] id
+workflows_list [read-only]
+workflows_seed [write] file enabled? var?
+workflows_step_add [write] workflow_id key action? enabled? name? params? start?
+workflows_step_delete [destructive] workflow_id step_id
+workflows_step_get [read-only] workflow_id step_id
+workflows_step_link [destructive] workflow_id step_id on_failure? on_success?
+workflows_step_update [destructive] workflow_id step_id enabled? name? params?
+workflows_trigger [write, open-world] id entity? entity_id? payload?
+workflows_update [destructive] id description? name?
