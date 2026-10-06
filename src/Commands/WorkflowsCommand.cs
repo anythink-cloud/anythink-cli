@@ -1308,7 +1308,7 @@ public class WorkflowsStepLinkCommand : BaseCommand<WorkflowStepLinkSettings>
             if (settings.OnFailureStepId.HasValue)
                 parts.Add($"on_failure → {settings.OnFailureStepId}");
 
-            Renderer.Success($"Step [#F97316]{settings.StepId}[/] linked: {string.Join(", ", parts)}.");
+            Renderer.Success($"Step [#F97316]{settings.StepId}[/] linked: {Markup.Escape(string.Join(", ", parts))}.");
             return 0;
         }
         catch (Exception ex)
@@ -1369,7 +1369,7 @@ public class WorkflowsStepDeleteCommand : BaseCommand<WorkflowStepDeleteSettings
 
             if (!settings.Yes)
             {
-                Renderer.Header($"Delete step {settings.StepId} ({Markup.Escape(step.Key)})");
+                Renderer.Header($"Delete step {settings.StepId} ({step.Key})");
                 var summary = Renderer.BuildTable("Property", "Value");
                 Renderer.AddRow(summary, "Action", step.Action);
                 Renderer.AddRow(summary, "Inbound links", inboundLinks.Count.ToString());
@@ -1380,7 +1380,7 @@ public class WorkflowsStepDeleteCommand : BaseCommand<WorkflowStepDeleteSettings
                 {
                     AnsiConsole.MarkupLine("[yellow]Warning:[/] these steps link to this one and the API will reject the delete until they are re-linked:");
                     foreach (var link in inboundLinks)
-                        AnsiConsole.MarkupLine($"  [yellow]•[/] step [bold]{link.Id}[/] ({Markup.Escape(link.Key)}) — {DescribeLink(link, settings.StepId)}");
+                        AnsiConsole.MarkupLine($"  [yellow]•[/] step [bold]{link.Id}[/] ({Markup.Escape(link.Key)}) — {Markup.Escape(DescribeLink(link, settings.StepId))}");
                 }
 
                 if (!AnsiConsole.Confirm("[red]Delete this step?[/]", defaultValue: false))

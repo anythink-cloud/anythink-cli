@@ -333,7 +333,7 @@ public class DataDeleteCommand : BaseCommand<DataDeleteSettings>
         if (!settings.Yes)
         {
             var confirm = AnsiConsole.Confirm(
-                $"[yellow]Delete[/] [bold red]{settings.Entity}/{settings.Id}[/][yellow]?[/]",
+                $"[yellow]Delete[/] [bold red]{Markup.Escape(settings.Entity)}/{settings.Id}[/][yellow]?[/]",
                 defaultValue: false);
             if (!confirm) { Renderer.Info("Cancelled."); return 0; }
         }
@@ -429,7 +429,7 @@ public class DataRlsCommand : BaseCommand<DataRlsSettings>
                         await client.SetItemRlsUserAsync(settings.Entity, settings.Id, settings.UserId.Value, settings.ReadOnly);
                     });
 
-                Renderer.Success($"RLS access set for user {settings.UserId} on {settings.Entity}/{settings.Id} (readonly: {settings.ReadOnly}).");
+                Renderer.Success($"RLS access set for user {settings.UserId} on {Markup.Escape(settings.Entity)}/{settings.Id} (readonly: {settings.ReadOnly}).");
             }
 
             return 0;

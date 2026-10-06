@@ -259,7 +259,7 @@ public class EntitiesDeleteCommand : BaseCommand<EntityDeleteSettings>
         if (!settings.Yes)
         {
             var confirm = AnsiConsole.Confirm(
-                $"[yellow]Delete entity[/] [bold red]{settings.Name}[/][yellow]? This will drop all data.[/]",
+                $"[yellow]Delete entity[/] [bold red]{Markup.Escape(settings.Name)}[/][yellow]? This will drop all data.[/]",
                 defaultValue: false);
             if (!confirm)
             {

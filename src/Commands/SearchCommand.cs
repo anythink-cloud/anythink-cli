@@ -180,7 +180,7 @@ public class SearchRehydrateCommand : BaseCommand<SearchEntityOptionalSettings>
 
             if (!settings.Yes)
             {
-                AnsiConsole.MarkupLine($"This will rehydrate the {scope} — re-pushing all matching records into the search engine.");
+                AnsiConsole.MarkupLine($"This will rehydrate the {Markup.Escape(scope)} — re-pushing all matching records into the search engine.");
                 AnsiConsole.MarkupLine("[dim]Existing entries are replaced; no data loss, but may take time on large entities.[/]");
                 if (!AnsiConsole.Confirm("Proceed?", defaultValue: false))
                 {
@@ -197,7 +197,7 @@ public class SearchRehydrateCommand : BaseCommand<SearchEntityOptionalSettings>
                     await client.RehydrateSearchIndexAsync(settings.Entity);
                 });
 
-            Renderer.Success($"Rehydrate triggered for {scope}.");
+            Renderer.Success($"Rehydrate triggered for {Markup.Escape(scope)}.");
             Renderer.Info("Indexing runs in the background. Watch progress in the dashboard or via 'search query' once complete.");
             return 0;
         }
@@ -221,7 +221,7 @@ public class SearchPurgeCommand : BaseCommand<SearchEntityOptionalSettings>
 
             if (!settings.Yes)
             {
-                AnsiConsole.MarkupLine($"[red]This will PURGE {scope}.[/] All search entries are deleted; you'll need to rehydrate to restore.");
+                AnsiConsole.MarkupLine($"[red]This will PURGE {Markup.Escape(scope)}.[/] All search entries are deleted; you'll need to rehydrate to restore.");
                 if (!AnsiConsole.Confirm("Proceed?", defaultValue: false))
                 {
                     Renderer.Info("Cancelled.");
@@ -237,7 +237,7 @@ public class SearchPurgeCommand : BaseCommand<SearchEntityOptionalSettings>
                     await client.PurgeSearchIndexAsync(settings.Entity);
                 });
 
-            Renderer.Success($"Purged {scope}.");
+            Renderer.Success($"Purged {Markup.Escape(scope)}.");
             Renderer.Info("Run 'search rehydrate' (with the same scope) to repopulate when you're ready.");
             return 0;
         }

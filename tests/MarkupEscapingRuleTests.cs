@@ -107,6 +107,7 @@ public class MarkupEscapingRuleTests
             ConditionalExpressionSyntax c => Safe(c.WhenTrue) && Safe(c.WhenFalse),
             SwitchExpressionSyntax sw => sw.Arms.All(arm => Safe(arm.Expression)),
             InvocationExpressionSyntax call => Escapers.Contains(call.Expression.ToString()),
+            MemberAccessExpressionSyntax { Name.Identifier.Text: "MarkupMessage" } => true,
             IdentifierNameSyntax name => model.GetSymbolInfo(name).Symbol is ILocalSymbol local
                 && local.DeclaringSyntaxReferences.Select(r => r.GetSyntax()).OfType<VariableDeclaratorSyntax>()
                     .All(d => d.Initializer is { } init && Safe(init.Value)),
@@ -146,7 +147,8 @@ public class MarkupEscapingRuleTests
             new CSharpCompilationOptions(OutputKind.ConsoleApplication, nullableContextOptions: NullableContextOptions.Enable));
 
         return trees
-            .Where(t => t.FilePath.Contains($"{Path.DirectorySeparatorChar}Commands{Path.DirectorySeparatorChar}")
+            .Where(t => t.FilePath.Length > 0
+                     && Path.GetFileName(t.FilePath) != "Renderer.cs"
                      && !SkippedUntilPr67.Contains(Path.GetFileName(t.FilePath)))
             .Select(t => (t, compilation.GetSemanticModel(t)));
     }

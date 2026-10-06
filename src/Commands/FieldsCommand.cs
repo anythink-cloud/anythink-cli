@@ -518,7 +518,7 @@ public class FieldsDeleteCommand : BaseCommand<FieldDeleteSettings>
         if (!settings.Yes)
         {
             var confirm = AnsiConsole.Confirm(
-                $"[yellow]Delete field[/] [bold red]{settings.FieldName}[/] [yellow]from[/] [bold]{settings.Entity}[/][yellow]?[/]",
+                $"[yellow]Delete field[/] [bold red]{Markup.Escape(settings.FieldName)}[/] [yellow]from[/] [bold]{Markup.Escape(settings.Entity)}[/][yellow]?[/]",
                 defaultValue: false);
             if (!confirm) { Renderer.Info("Cancelled."); return 0; }
         }

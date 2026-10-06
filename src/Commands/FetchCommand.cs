@@ -32,7 +32,7 @@ public class FetchCommand : BaseCommand<FetchSettings>
             var path = settings.Path.StartsWith("/") ? settings.Path : "/" + settings.Path;
             var url = $"{client.BaseUrl}/org/{client.OrgId}{path}";
 
-            Renderer.Info($"[bold]{settings.Method}[/] {url}");
+            Renderer.Info($"[bold]{Markup.Escape(settings.Method)}[/] {Markup.Escape(url)}");
 
             var result = await client.FetchRawAsync(url, settings.Method, settings.Body);
 

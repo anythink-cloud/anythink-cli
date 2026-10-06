@@ -150,7 +150,7 @@ public class ApiKeysCreateCommand : BaseCommand<ApiKeyCreateSettings>
 
             if (!settings.Yes)
             {
-                Renderer.Header($"Create API key: {Markup.Escape(settings.Name)}");
+                Renderer.Header($"Create API key: {settings.Name}");
                 var summary = Renderer.BuildTable("Property", "Value");
                 Renderer.AddRow(summary, "Expires in", $"{settings.ExpiresInDays} days");
                 Renderer.AddRow(summary, "Permissions", string.Join(", ", resolved.Select(p => p.Name)));
@@ -207,7 +207,7 @@ public class ApiKeysCreateCommand : BaseCommand<ApiKeyCreateSettings>
                 });
 
                 Renderer.Success($"Created API key '{Markup.Escape(created.Name)}' (id: {created.Id}) and saved as profile '{Markup.Escape(settings.SaveAs)}'.");
-                Renderer.Info("Use it with: anythink --profile " + settings.SaveAs + " <command>");
+                Renderer.Info($"Use it with: anythink --profile {Markup.Escape(settings.SaveAs)} <command>");
                 return 0;
             }
 
@@ -272,7 +272,7 @@ public class ApiKeysRevokeCommand : BaseCommand<ApiKeyRevokeSettings>
                 }
                 if (key.Revoked)
                 {
-                    Renderer.Info($"API key {settings.Id} ('{key.Name}') is already revoked.");
+                    Renderer.Info($"API key {settings.Id} ('{Markup.Escape(key.Name)}') is already revoked.");
                     return 0;
                 }
 
