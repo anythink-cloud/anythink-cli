@@ -55,7 +55,7 @@ public class HostedAccountToolsTests : McpTestBase, IAsyncLifetime
         _client.BaseAddress = new Uri("https://mcp.test/");
     }
 
-    public new async Task DisposeAsync()
+    public async Task DisposeAsync()
     {
         _client.Dispose();
         await _app.StopAsync();
