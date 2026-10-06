@@ -240,7 +240,7 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
             {
                 var choices = accounts.Select(a => $"{a.OrganizationName}  ({a.BillingEmail})").ToList();
                 var picked = AnsiConsole.Prompt(
-                    Renderer.Prompt<string>().Title("[#F97316]Select billing account:[/]").AddChoices(choices));
+                    Renderer.Prompt<string>().Title("[#F97316]Select billing account:[/]").UseConverter(Markup.Escape).AddChoices(choices));
                 platform.AccountId = accounts[choices.IndexOf(picked)].Id.ToString();
                 SaveAndActivatePlatform(platformKey, platform);
             }
