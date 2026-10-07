@@ -73,7 +73,7 @@ public class MenuToolsTests
         mock.Expect(method, Org + path).Respond("application/json", body);
 
     private static MockedRequest EntityExists(MockHttpMessageHandler mock, string name) =>
-        Json(mock, HttpMethod.Get, $"/entities/{name}",
+        Json(mock, HttpMethod.Get, $"/entities/{name}?includeSystem=true",
             $$"""{"name":"{{name}}","table_name":"default_{{name}}","enable_rls":false,"is_system":false,"is_junction":false,"is_public":false,"lock_new_records":false,"fields":[],"id":7}""");
 
     private static MockedRequest NoContent(MockHttpMessageHandler mock, HttpMethod method, string path, string body) =>
@@ -242,7 +242,7 @@ public class MenuToolsTests
     public async Task AddItem_ForAnEntityThatDoesNotExist_SaysSoAndWritesNothing(CliToolScope scope)
     {
         var mock = new MockHttpMessageHandler();
-        mock.Expect(HttpMethod.Get, Org + "/entities/gone").Respond(HttpStatusCode.NotFound);
+        mock.Expect(HttpMethod.Get, Org + "/entities/gone?includeSystem=true").Respond(HttpStatusCode.NotFound);
 
         var result = await Run(scope, "menus_add_item", new { menu_id = 92, entity = "gone" }, mock);
 
@@ -257,7 +257,7 @@ public class MenuToolsTests
     {
         var mock = new MockHttpMessageHandler();
         Json(mock, HttpMethod.Get, "/menus/92", Menu92);
-        mock.Expect(HttpMethod.Get, Org + "/entities/gone").Respond(HttpStatusCode.NotFound);
+        mock.Expect(HttpMethod.Get, Org + "/entities/gone?includeSystem=true").Respond(HttpStatusCode.NotFound);
 
         var result = await Run(scope, "menus_update_item", new { menu_id = 92, item_id = 300, entity = "gone" }, mock);
 
@@ -278,6 +278,58 @@ public class MenuToolsTests
         var result = await Run(scope, "menus_update_item", new { menu_id = 92, item_id = 300, href = "/org/42/settings" }, mock);
 
         result.ExitCode.Should().Be(0, result.Output);
+        mock.VerifyNoOutstandingExpectation();
+    }
+
+    // ── Rule: the CLI is never stricter than the API, so only a 404 stops an item pointing at an entity ──
+
+    [Theory]
+    [InlineData(403)]
+    [InlineData(500)]
+    public async Task AddItem_WhenTheEntityCannotBeChecked_StillAddsTheItemAndWarns(int status)
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.Expect(HttpMethod.Get, Org + "/entities/tags?includeSystem=true").Respond((HttpStatusCode)status);
+        Json(mock, HttpMethod.Post, "/menus/92/items", """{"id":303,"menu_id":92,"display_name":"Tags","icon":"Tag","href":"/x","parent_id":null,"sort_order":3,"items":[]}""");
+
+        var result = await Run(CliToolScope.Internal, "menus_add_item", new { menu_id = 92, entity = "tags" }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        result.Output.Should().Contain("303").And.Contain("Couldn't check that entity 'tags' exists");
+        mock.VerifyNoOutstandingExpectation();
+    }
+
+    [Theory]
+    [InlineData(403)]
+    [InlineData(500)]
+    public async Task UpdateItem_WhenTheEntityCannotBeChecked_StillUpdatesTheItemAndWarns(int status)
+    {
+        var mock = new MockHttpMessageHandler();
+        Json(mock, HttpMethod.Get, "/menus/92", Menu92);
+        mock.Expect(HttpMethod.Get, Org + "/entities/articles?includeSystem=true").Respond((HttpStatusCode)status);
+        NoContent(mock, HttpMethod.Put, "/menus/92/items/300",
+            """{"display_name":"[draft] Posts","icon":"FileText","href":"/org/42/entities/articles","parent_id":0}""");
+
+        var result = await Run(CliToolScope.Internal, "menus_update_item", new { menu_id = 92, item_id = 300, entity = "articles" }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        result.Output.Should().Contain("Couldn't check that entity 'articles' exists");
+        mock.VerifyNoOutstandingExpectation();
+    }
+
+    [Fact]
+    public async Task AddItem_ForASystemEntity_IsNotReportedMissing()
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.Expect(HttpMethod.Get, Org + "/entities/anythink_users?includeSystem=true")
+            .Respond("application/json", """{"name":"anythink_users","table_name":"anythink_users","enable_rls":false,"is_system":true,"is_junction":false,"is_public":false,"lock_new_records":false,"fields":[],"id":1}""");
+        mock.When(HttpMethod.Get, Org + "/entities/anythink_users").Respond(HttpStatusCode.NotFound);
+        Json(mock, HttpMethod.Post, "/menus/92/items", """{"id":304,"menu_id":92,"display_name":"Anythink Users","icon":"Users","href":"/x","parent_id":null,"sort_order":4,"items":[]}""");
+
+        var result = await Run(CliToolScope.Internal, "menus_add_item", new { menu_id = 92, entity = "anythink_users" }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        result.Output.Should().NotContain("not found");
         mock.VerifyNoOutstandingExpectation();
     }
 

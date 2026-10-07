@@ -102,8 +102,8 @@ public class AnythinkClient : HttpApiClient
     public async Task<List<Entity>> GetEntitiesAsync()
         => (await GetAsync<List<Entity>>(_org + "/entities")) ?? [];
 
-    public async Task<Entity> GetEntityAsync(string name)
-        => (await GetAsync<Entity>(_org + $"/entities/{Seg(name)}"))
+    public async Task<Entity> GetEntityAsync(string name, bool includeSystem = false)
+        => (await GetAsync<Entity>(_org + $"/entities/{Seg(name)}" + (includeSystem ? "?includeSystem=true" : "")))
            ?? throw new AnythinkException($"Entity '{name}' not found.", 404);
 
     public Task<Entity> CreateEntityAsync(CreateEntityRequest req)

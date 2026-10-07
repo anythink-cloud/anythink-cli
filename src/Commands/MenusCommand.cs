@@ -119,7 +119,8 @@ public class MenuAddItemCommand : BaseCommand<MenuAddItemSettings>
         {
             var client = GetClient();
 
-            if (!await MenuTree.EntityExistsAsync(client, settings.Entity))
+            var lookup = await MenuTree.LookUpEntityAsync(client, settings.Entity);
+            if (lookup == MenuTree.EntityLookup.Missing)
             {
                 Renderer.Error(MenuTree.EntityMissing(settings.Entity));
                 return 1;
@@ -146,6 +147,8 @@ public class MenuAddItemCommand : BaseCommand<MenuAddItemSettings>
                 });
 
             Renderer.Success($"Menu item [#F97316]{Markup.Escape(item!.DisplayName)}[/] (id: {item.Id}) added to menu {settings.MenuId}.");
+            if (lookup == MenuTree.EntityLookup.Unchecked)
+                Renderer.Warn(Markup.Escape(MenuTree.EntityUnchecked(settings.Entity)));
             return 0;
         }
         catch (Exception ex)
@@ -468,9 +471,10 @@ public class MenuUpdateItemCommand : BaseCommand<MenuUpdateItemSettings>
                 return 1;
             }
 
-            if (settings.Entity is not null && !await MenuTree.EntityExistsAsync(client, settings.Entity))
+            var lookup = settings.Entity is null ? MenuTree.EntityLookup.Found : await MenuTree.LookUpEntityAsync(client, settings.Entity);
+            if (lookup == MenuTree.EntityLookup.Missing)
             {
-                Renderer.Error(MenuTree.EntityMissing(settings.Entity));
+                Renderer.Error(MenuTree.EntityMissing(settings.Entity!));
                 return 1;
             }
 
@@ -505,6 +509,8 @@ public class MenuUpdateItemCommand : BaseCommand<MenuUpdateItemSettings>
 
             var placedNote = Markup.Escape(!moved ? "" : parentId == 0 ? "; now last at the top level" : $"; now last under item {parentId}");
             Renderer.Success($"Menu item [#F97316]{Markup.Escape(request.DisplayName)}[/] (id: {item.Id}) updated in menu {settings.MenuId}{placedNote}.");
+            if (lookup == MenuTree.EntityLookup.Unchecked)
+                Renderer.Warn(Markup.Escape(MenuTree.EntityUnchecked(settings.Entity!)));
             return 0;
         }
         catch (Exception ex)
@@ -734,18 +740,31 @@ internal static class MenuTree
         }
     }
 
-    public static async Task<bool> EntityExistsAsync(AnythinkClient client, string entity)
+    public enum EntityLookup { Found, Missing, Unchecked }
+
+    // Only a 404 means the entity is missing; the API decides everything else, so a lookup that fails any other way doesn't block.
+    public static async Task<EntityLookup> LookUpEntityAsync(AnythinkClient client, string entity)
     {
         try
         {
-            await client.GetEntityAsync(entity);
-            return true;
+            await client.GetEntityAsync(entity, includeSystem: true);
+            return EntityLookup.Found;
         }
         catch (AnythinkException ex) when (ex.StatusCode == 404)
         {
-            return false;
+            return EntityLookup.Missing;
+        }
+        catch (Exception ex) when (ex is AnythinkException or HttpRequestException)
+        {
+            return EntityLookup.Unchecked;
         }
     }
+
+    public static string EntityMissing(string entity) =>
+        $"Entity '{entity}' not found, so the menu item would point at nothing. Check the name with 'anythink entities list'.";
+
+    public static string EntityUnchecked(string entity) =>
+        $"Couldn't check that entity '{entity}' exists, so the menu item was saved as given. Check the name with 'anythink entities list'.";
 
     // Context only (roles, warnings): a failed lookup must not stop the command it is decorating.
     public static async Task<List<MenuResponse>> TryGetMenusAsync(AnythinkClient client)
@@ -785,9 +804,6 @@ internal static class MenuTree
             ? null
             : $"Role {roleId} already has a menu ('{other.Name}', id: {other.Id}). A role is shown only its first menu, so this one may not appear.";
     }
-
-    public static string EntityMissing(string entity) =>
-        $"Entity '{entity}' not found, so the menu item would point at nothing. Check the name with 'anythink entities list'.";
 
     public static IEnumerable<MenuNode> Walk(IReadOnlyList<MenuItemResponse> items, int depth = 0)
     {
