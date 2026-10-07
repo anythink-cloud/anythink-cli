@@ -607,7 +607,7 @@ anythink menus reorder <menu_ids>                          Set the order of menu
 
 `reorder-items` and `reorder` take comma-separated IDs in the order you want them (`301,299,300`). The items you name take the first places within their group; items you leave out follow in their current order, and `reorder-items` needs all the items to share one parent. Locked items (the built-in ones) can't be changed, removed or moved; they keep their place, and the items between them reuse their own position numbers (they are only renumbered when two of them tie).
 
-`add-item --entity` and `update-item --entity` check that the entity exists first, so an item never points at nothing. Moving an item to a new parent with `update-item --parent` puts it last among its new siblings.
+`add-item` and `update-item --entity` look the entity up first (system entities count), and stop only if it doesn't exist; if the lookup itself fails (for example, no permission), the item is saved and a warning says the entity couldn't be checked. Moving an item to a new parent with `update-item --parent` puts it last among its new siblings.
 
 Removing an item also removes its direct child items. The command says so, and refuses when those children are locked or have items of their own.
 
