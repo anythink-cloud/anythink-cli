@@ -314,7 +314,7 @@ public static class ChartSpec
         foreach (var (key, (flag, allowed, label)) in Enumerations)
         {
             if (body[key] is JsonValue node && node.TryGetValue<string>(out var text) && !allowed.Contains(text))
-                problems.Add($"'{text}' isn't a {label} ({flag}). Use one of: {ChartVocabulary.List(allowed)}.");
+                problems.Add($"'{text}' isn't a valid {label} ({flag}). Use one of: {ChartVocabulary.List(allowed)}.");
         }
 
         if (create && Present(body, "name") is null)
@@ -436,7 +436,7 @@ public static class ChartSpec
     private static bool Matches(JsonNode node, Kind kind) => node.GetValueKind() switch
     {
         JsonValueKind.String => kind is Kind.Text or Kind.Moment,
-        JsonValueKind.Number => kind is Kind.Number || (kind is Kind.Whole && node is JsonValue n && n.TryGetValue<long>(out _)),
+        JsonValueKind.Number => kind is Kind.Number || (kind is Kind.Whole && long.TryParse(node.ToJsonString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out _)),
         JsonValueKind.True or JsonValueKind.False => kind is Kind.Flag,
         JsonValueKind.Array => kind is Kind.List,
         JsonValueKind.Null => true,
