@@ -342,7 +342,7 @@ public class MenuDeleteCommand : BaseCommand<MenuDeleteSettings>
 
             var itemCount = MenuTree.Walk(menu.Items).Count();
             var name = Markup.Escape(menu.Name);
-            var itemsNote = itemCount == 0 ? "" : $" and its {MenuTree.Count(itemCount, "item")}";
+            var itemsNote = Markup.Escape(itemCount == 0 ? "" : $" and its {MenuTree.Count(itemCount, "item")}");
 
             if (!settings.Yes && !AnsiConsole.Confirm(
                     $"[yellow]Delete menu[/] [bold red]{name}[/] [yellow](id: {menu.Id}){itemsNote}?[/]",
@@ -523,15 +523,15 @@ public class MenuRemoveItemCommand : BaseCommand<MenuRemoveItemSettings>
             var stuck = item.Items.Where(c => c.Locked || c.Items.Count > 0).Select(c => c.Id).ToList();
             if (stuck.Count > 0)
             {
-                Renderer.Error($"Menu item {item.Id} can't be removed while its child {MenuTree.Count(stuck.Count, "item")} " +
-                               $"({string.Join(", ", stuck)}) are locked or have items of their own. Remove or move those first.");
+                Renderer.Error($"Menu item {item.Id} can't be removed: child items that are locked or have items of their own " +
+                               $"({string.Join(", ", stuck)}) must be removed or moved first.");
                 return 1;
             }
 
             var name = Markup.Escape(item.DisplayName);
-            var childrenNote = item.Items.Count == 0
+            var childrenNote = Markup.Escape(item.Items.Count == 0
                 ? ""
-                : $" and its {MenuTree.Count(item.Items.Count, "child item")} ({string.Join(", ", item.Items.Select(c => c.Id))})";
+                : $" and its {MenuTree.Count(item.Items.Count, "child item")} ({string.Join(", ", item.Items.Select(c => c.Id))})");
 
             if (!settings.Yes && !AnsiConsole.Confirm(
                     $"[yellow]Remove menu item[/] [bold red]{name}[/] [yellow](id: {item.Id}){childrenNote} from menu {menu.Id}?[/]",
