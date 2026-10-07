@@ -85,6 +85,11 @@ public static class ChartSpec
         Normalise(body, problems);
         Validate(body, create, problems);
 
+        // A new chart has nothing to clear, so a null is only noise; an update uses it to clear a setting.
+        if (existing is null)
+            foreach (var key in body.Where(p => p.Value is null).Select(p => p.Key).ToList())
+                body.Remove(key);
+
         return new ChartBuild(problems.Count == 0 ? body : null, problems);
     }
 
