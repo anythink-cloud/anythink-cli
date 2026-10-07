@@ -183,14 +183,17 @@ public class MenuGetCommand : BaseCommand<MenuGetSettings>
                 return 1;
             }
 
+            // The single-menu read has no role, so it comes from the list (when that can be read).
+            var roleId = (await MenuTree.TryGetMenusAsync(client)).FirstOrDefault(m => m.Id == menu.Id)?.RoleId;
+
             if (settings.Json)
             {
                 Console.WriteLine(JsonSerializer.Serialize(
-                    new { id = menu.Id, name = menu.Name, items = menu.Items }, Renderer.PrettyJson));
+                    new { id = menu.Id, name = menu.Name, role_id = roleId, items = menu.Items }, Renderer.PrettyRelaxedJson));
                 return 0;
             }
 
-            Renderer.Header($"{menu.Name} (id: {menu.Id})");
+            Renderer.Header(roleId is { } role ? $"{menu.Name} (id: {menu.Id}, role: {role})" : $"{menu.Name} (id: {menu.Id})");
 
             if (menu.Items.Count == 0)
             {
@@ -241,6 +244,7 @@ public class MenuCreateCommand : BaseCommand<MenuCreateSettings>
         try
         {
             var client = GetClient();
+            var existing = await MenuTree.TryGetMenusAsync(client);
             MenuResponse? menu = null;
 
             await AnsiConsole.Status()
@@ -251,6 +255,8 @@ public class MenuCreateCommand : BaseCommand<MenuCreateSettings>
                 });
 
             Renderer.Success($"Menu [#F97316]{Markup.Escape(menu!.Name)}[/] (id: {menu.Id}) created for role {settings.RoleId}.");
+            if (MenuTree.SharedRoleWarning(existing, settings.RoleId) is { } warning)
+                Renderer.Warn(Markup.Escape(warning));
             return 0;
         }
         catch (Exception ex)
@@ -292,7 +298,8 @@ public class MenuUpdateCommand : BaseCommand<MenuUpdateSettings>
         {
             var client = GetClient();
             // The list is the only read that includes each menu's role, and the update replaces both fields.
-            var current = (await client.GetMenusAsync()).FirstOrDefault(m => m.Id == settings.MenuId);
+            var menus = await client.GetMenusAsync();
+            var current = menus.FirstOrDefault(m => m.Id == settings.MenuId);
             if (current is null)
             {
                 Renderer.Error($"Menu {settings.MenuId} not found.");
@@ -309,6 +316,8 @@ public class MenuUpdateCommand : BaseCommand<MenuUpdateSettings>
                 });
 
             Renderer.Success($"Menu [#F97316]{Markup.Escape(request.Name)}[/] (id: {settings.MenuId}) updated; shown to role {request.RoleId}.");
+            if (request.RoleId != current.RoleId && MenuTree.SharedRoleWarning(menus, request.RoleId, settings.MenuId) is { } warning)
+                Renderer.Warn(Markup.Escape(warning));
             return 0;
         }
         catch (Exception ex)
@@ -346,12 +355,14 @@ public class MenuDeleteCommand : BaseCommand<MenuDeleteSettings>
                 return 1;
             }
 
-            var itemCount = MenuTree.Walk(menu.Items).Count();
+            var impact = MenuTree.DeleteImpact(menu, await MenuTree.TryGetMenusAsync(client));
             var name = Markup.Escape(menu.Name);
-            var itemsNote = Markup.Escape(itemCount == 0 ? "" : $" and its {MenuTree.Count(itemCount, "item")}");
+            var itemsNote = Markup.Escape(impact.ItemsNote);
+            var roleNote = Markup.Escape(impact.RoleWillBeNote);
+            var roleDoneNote = Markup.Escape(impact.RoleNowNote);
 
             if (!settings.Yes && !AnsiConsole.Confirm(
-                    $"[yellow]Delete menu[/] [bold red]{name}[/] [yellow](id: {menu.Id}){itemsNote}?[/]",
+                    $"[yellow]Delete menu[/] [bold red]{name}[/] [yellow](id: {menu.Id}){itemsNote}?{roleNote}[/]",
                     defaultValue: false))
             {
                 Renderer.Info("Cancelled.");
@@ -365,7 +376,7 @@ public class MenuDeleteCommand : BaseCommand<MenuDeleteSettings>
                     await client.DeleteMenuAsync(settings.MenuId);
                 });
 
-            Renderer.Success($"Menu [#F97316]{name}[/] (id: {menu.Id}){itemsNote} deleted.");
+            Renderer.Success($"Menu [#F97316]{name}[/] (id: {menu.Id}){itemsNote} deleted.{roleDoneNote}");
             return 0;
         }
         catch (Exception ex)
@@ -734,6 +745,45 @@ internal static class MenuTree
         {
             return false;
         }
+    }
+
+    // Context only (roles, warnings): a failed lookup must not stop the command it is decorating.
+    public static async Task<List<MenuResponse>> TryGetMenusAsync(AnythinkClient client)
+    {
+        try
+        {
+            return await client.GetMenusAsync();
+        }
+        catch (AnythinkException)
+        {
+            return [];
+        }
+    }
+
+    public sealed record DeleteSummary(string ItemsNote, string RoleWillBeNote, string RoleNowNote);
+
+    public static DeleteSummary DeleteImpact(MenuResponse menu, IReadOnlyList<MenuResponse> menus)
+    {
+        var itemCount = Walk(menu.Items).Count();
+        var lockedCount = Walk(menu.Items).Count(n => n.Item.Locked);
+        var itemsNote = itemCount == 0
+            ? ""
+            : $" and its {Count(itemCount, "item")}" + (lockedCount > 0 ? $", including {Count(lockedCount, "locked built-in item")}" : "");
+
+        var roleId = menus.FirstOrDefault(m => m.Id == menu.Id)?.RoleId;
+        var emptied = roleId is { } role && menus.All(m => m.Id == menu.Id || m.RoleId != role);
+        return new DeleteSummary(
+            itemsNote,
+            emptied ? $" Role {roleId} will be left with no menu." : "",
+            emptied ? $" Role {roleId} now has no menu." : "");
+    }
+
+    public static string? SharedRoleWarning(IEnumerable<MenuResponse> menus, int roleId, int exceptMenuId = 0)
+    {
+        var other = menus.FirstOrDefault(m => m.RoleId == roleId && m.Id != exceptMenuId);
+        return other is null
+            ? null
+            : $"Role {roleId} already has a menu ('{other.Name}', id: {other.Id}). A role is shown only its first menu, so this one may not appear.";
     }
 
     public static string EntityMissing(string entity) =>

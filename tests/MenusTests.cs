@@ -201,6 +201,65 @@ public class MenusTests
         error.Should().Contain("locked");
     }
 
+    // ── Rule: deleting a menu says what goes with it, in the question and in the result ──
+
+    [Fact]
+    public void DeleteImpact_CountsEveryNestedItem_AndSaysHowManyAreLockedBuiltInOnes()
+    {
+        var menu = Menu(Item(1, null, 0, true), Item(2, null, 1, false, Item(3, 2, 0), Item(4, 2, 1, true)));
+
+        var impact = MenuTree.DeleteImpact(menu, [new(1, "Admin", 5, [])]);
+
+        impact.ItemsNote.Should().Be(" and its 4 items, including 2 locked built-in items");
+    }
+
+    [Fact]
+    public void DeleteImpact_ForAMenuWithNoLockedItems_DoesNotMentionLockedOnes()
+    {
+        var menu = Menu(Item(1, null, 0));
+
+        MenuTree.DeleteImpact(menu, [new(1, "Admin", 5, [])]).ItemsNote.Should().Be(" and its 1 item");
+    }
+
+    [Fact]
+    public void DeleteImpact_ForAnEmptyMenu_SaysNothingAboutItems()
+    {
+        MenuTree.DeleteImpact(Menu(), [new(1, "Admin", 5, [])]).ItemsNote.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void DeleteImpact_WhenItIsTheRolesOnlyMenu_SaysTheRoleIsLeftWithNone()
+    {
+        var impact = MenuTree.DeleteImpact(Menu(), [new(1, "Admin", 5, []), new(2, "Staff", 6, [])]);
+
+        impact.RoleWillBeNote.Should().Be(" Role 5 will be left with no menu.");
+        impact.RoleNowNote.Should().Be(" Role 5 now has no menu.");
+    }
+
+    [Fact]
+    public void DeleteImpact_WhenTheRoleHasAnotherMenu_OrTheRoleIsUnknown_SaysNothingAboutTheRole()
+    {
+        MenuTree.DeleteImpact(Menu(), [new(1, "Admin", 5, []), new(2, "Other", 5, [])]).RoleWillBeNote.Should().BeEmpty();
+        MenuTree.DeleteImpact(Menu(), []).RoleWillBeNote.Should().BeEmpty();
+    }
+
+    // ── Rule: a second menu for a role warns, because the role is only shown its first ──
+
+    [Fact]
+    public void SharedRoleWarning_NamesTheMenuThatAlreadyHasTheRole()
+    {
+        MenuResponse[] menus = [new(90, "Public", 3, []), new(91, "Staff", 4, [])];
+
+        MenuTree.SharedRoleWarning(menus, 4).Should().Be("Role 4 already has a menu ('Staff', id: 91). A role is shown only its first menu, so this one may not appear.");
+        MenuTree.SharedRoleWarning(menus, 9).Should().BeNull();
+    }
+
+    [Fact]
+    public void SharedRoleWarning_IgnoresTheMenuBeingChanged()
+    {
+        MenuTree.SharedRoleWarning([new(91, "Staff", 4, [])], 4, exceptMenuId: 91).Should().BeNull();
+    }
+
     // ── Rule: an item moved under a new parent goes after that parent's other children ──
 
     [Fact]

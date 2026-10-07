@@ -87,11 +87,12 @@ public class MenuToolsTests
     {
         var mock = new MockHttpMessageHandler();
         Json(mock, HttpMethod.Get, "/menus/92", Menu92);
+        Json(mock, HttpMethod.Get, "/menus", MenuList);
 
         var result = await RunCli(scope, mock, "menus", "get", "92");
 
         result.ExitCode.Should().Be(0, result.Output);
-        result.Output.Should().Contain("Admin").And.Contain("299").And.Contain("301").And.Contain("Levels").And.Contain("yes");
+        result.Output.Should().Contain("Admin (id: 92, role: 5)").And.Contain("299").And.Contain("301").And.Contain("Levels").And.Contain("yes");
         mock.VerifyNoOutstandingExpectation();
     }
 
@@ -101,6 +102,7 @@ public class MenuToolsTests
     {
         var mock = new MockHttpMessageHandler();
         Json(mock, HttpMethod.Get, "/menus/92", Menu92);
+        Json(mock, HttpMethod.Get, "/menus", MenuList);
 
         var result = await Run(scope, "menus_get", new { menu_id = 92 }, mock);
 
@@ -118,13 +120,14 @@ public class MenuToolsTests
     public async Task Create_PostsTheNameAndTheRole(CliToolScope scope)
     {
         var mock = new MockHttpMessageHandler();
+        Json(mock, HttpMethod.Get, "/menus", MenuList);
         mock.Expect(HttpMethod.Post, Org + "/menus").WithContent("""{"name":"Staff area","role_id":239}""")
             .Respond("application/json", """{"id":93,"name":"Staff area","role_id":239,"items":[]}""");
 
         var result = await Run(scope, "menus_create", new { name = "Staff area", role_id = 239 }, mock);
 
         result.ExitCode.Should().Be(0, result.Output);
-        result.Output.Should().Contain("Staff area").And.Contain("93");
+        result.Output.Should().Contain("Staff area").And.Contain("93").And.NotContain("already has a menu");
         mock.VerifyNoOutstandingExpectation();
     }
 
@@ -174,12 +177,13 @@ public class MenuToolsTests
     {
         var mock = new MockHttpMessageHandler();
         Json(mock, HttpMethod.Get, "/menus/92", Menu92);
+        Json(mock, HttpMethod.Get, "/menus", MenuList);
         mock.Expect(HttpMethod.Delete, Org + "/menus/92").Respond(HttpStatusCode.NoContent);
 
         var result = await Run(scope, "menus_delete", new { menu_id = 92 }, mock);
 
         result.ExitCode.Should().Be(0, result.Output);
-        result.Output.Should().Contain("and its 4 items");
+        result.Output.Should().Contain("and its 4 items, including 1 locked built-in item");
         mock.VerifyNoOutstandingExpectation();
     }
 
@@ -527,6 +531,176 @@ public class MenuToolsTests
         mock.VerifyNoOutstandingExpectation();
     }
 
+    // ── Rule: deleting a menu says what goes with it, including the locked built-in items and the role's menu ──
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task Delete_OfTheOnlyMenuForARole_SaysTheRoleIsLeftWithNoMenu(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        Json(mock, HttpMethod.Get, "/menus/92", Menu92);
+        Json(mock, HttpMethod.Get, "/menus", MenuList);
+        mock.Expect(HttpMethod.Delete, Org + "/menus/92").Respond(HttpStatusCode.NoContent);
+
+        var result = await Run(scope, "menus_delete", new { menu_id = 92 }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        result.Output.Should().Contain("Role 5 now has no menu");
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task Delete_OfOneOfTwoMenusForARole_DoesNotSayTheRoleIsLeftWithNoMenu(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        Json(mock, HttpMethod.Get, "/menus/92", Menu92);
+        Json(mock, HttpMethod.Get, "/menus", """[{"id":91,"name":"Other","role_id":5,"items":[]},{"id":92,"name":"Admin","role_id":5,"items":[]}]""");
+        mock.Expect(HttpMethod.Delete, Org + "/menus/92").Respond(HttpStatusCode.NoContent);
+
+        var result = await Run(scope, "menus_delete", new { menu_id = 92 }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        result.Output.Should().NotContain("no menu");
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task Delete_WhenTheMenuListCannotBeRead_StillDeletesWithoutTheRoleNote(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        Json(mock, HttpMethod.Get, "/menus/92", Menu92);
+        mock.Expect(HttpMethod.Get, Org + "/menus").Respond(HttpStatusCode.InternalServerError);
+        mock.Expect(HttpMethod.Delete, Org + "/menus/92").Respond(HttpStatusCode.NoContent);
+
+        var result = await Run(scope, "menus_delete", new { menu_id = 92 }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        result.Output.Should().Contain("deleted").And.NotContain("no menu");
+        mock.VerifyNoOutstandingExpectation();
+    }
+
+    // ── Rule: a role is shown one menu, so giving it a second one warns that it may not appear ──
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task Create_ForARoleThatAlreadyHasAMenu_CreatesItAndWarnsItMayNotAppear(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        Json(mock, HttpMethod.Get, "/menus", MenuList);
+        Json(mock, HttpMethod.Post, "/menus", """{"id":95,"name":"Second","role_id":3,"items":[]}""");
+
+        var result = await Run(scope, "menus_create", new { name = "Second", role_id = 3 }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        result.Output.Should().Contain("Second").And.Contain("Role 3 already has a menu ('Public', id: 90)").And.Contain("may not appear");
+        mock.VerifyNoOutstandingExpectation();
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task Create_WhenTheMenuListCannotBeRead_StillCreatesTheMenuWithoutAWarning(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.Expect(HttpMethod.Get, Org + "/menus").Respond(HttpStatusCode.InternalServerError);
+        Json(mock, HttpMethod.Post, "/menus", """{"id":95,"name":"Second","role_id":3,"items":[]}""");
+
+        var result = await Run(scope, "menus_create", new { name = "Second", role_id = 3 }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        result.Output.Should().NotContain("already has a menu");
+        mock.VerifyNoOutstandingExpectation();
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task Create_WarningNamesTheOtherMenuLiterally_EvenWithSquareBrackets(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        Json(mock, HttpMethod.Get, "/menus", """[{"id":90,"name":"[old] Public","role_id":3,"items":[]}]""");
+        Json(mock, HttpMethod.Post, "/menus", """{"id":95,"name":"Second","role_id":3,"items":[]}""");
+
+        var result = await Run(scope, "menus_create", new { name = "Second", role_id = 3 }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        result.Output.Should().Contain("('[old] Public', id: 90)");
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task Update_MovingAMenuToARoleThatHasOne_WarnsItMayNotAppear(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        Json(mock, HttpMethod.Get, "/menus", MenuList);
+        NoContent(mock, HttpMethod.Put, "/menus/92", """{"name":"Admin","role_id":4}""");
+
+        var result = await Run(scope, "menus_update", new { menu_id = 92, role = 4 }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        result.Output.Should().Contain("Role 4 already has a menu ('Staff', id: 91)");
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task Update_KeepingTheSameRole_DoesNotWarn(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        Json(mock, HttpMethod.Get, "/menus", MenuList);
+        NoContent(mock, HttpMethod.Put, "/menus/92", """{"name":"Admin","role_id":5}""");
+
+        var result = await Run(scope, "menus_update", new { menu_id = 92, role = 5 }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        result.Output.Should().NotContain("already has a menu");
+    }
+
+    // ── Rule: get --json keeps text readable and says which role the menu is for ──
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task Get_AsJson_IncludesTheMenusRole(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        Json(mock, HttpMethod.Get, "/menus/92", Menu92);
+        Json(mock, HttpMethod.Get, "/menus", MenuList);
+
+        var result = await Run(scope, "menus_get", new { menu_id = 92 }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        using var json = JsonDocument.Parse(result.Output);
+        json.RootElement.GetProperty("role_id").GetInt32().Should().Be(5);
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task Get_AsJson_WhenTheMenuListCannotBeRead_LeavesTheRoleNull(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        Json(mock, HttpMethod.Get, "/menus/92", Menu92);
+        mock.Expect(HttpMethod.Get, Org + "/menus").Respond(HttpStatusCode.InternalServerError);
+
+        var result = await Run(scope, "menus_get", new { menu_id = 92 }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        using var json = JsonDocument.Parse(result.Output);
+        json.RootElement.GetProperty("role_id").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task Get_AsJson_DoesNotEscapeQuotesAngleBracketsOrNonAsciiInLabels(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        Json(mock, HttpMethod.Get, "/menus/92", """
+            {"id":92,"name":"Admin","items":[{"id":1,"menu_id":92,"display_name":"Fish & \"chips\" <b> café","icon":"X","href":"/a?b=1&c=2","parent_id":null,"sort_order":0,"items":[]}]}
+            """);
+        Json(mock, HttpMethod.Get, "/menus", MenuList);
+
+        var result = await Run(scope, "menus_get", new { menu_id = 92 }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        result.Output.Should().Contain("\"display_name\": \"Fish & \\\"chips\\\" <b> café\"").And.Contain("/a?b=1&c=2").And.NotContain("\\u");
+    }
+
     // ── Rule: removing an item that has children says what goes with it ─────────
 
     [Theory]
@@ -660,6 +834,7 @@ public class MenuToolsTests
     {
         var mock = new MockHttpMessageHandler();
         Json(mock, HttpMethod.Get, "/menus/92", Menu92);
+        Json(mock, HttpMethod.Get, "/menus", MenuList);
 
         var result = await RunCli(scope, mock, "menus", "get", "92");
 
@@ -700,6 +875,7 @@ public class MenuToolsTests
     public async Task Create_WithABracketedName_ConfirmsItLiterally(CliToolScope scope)
     {
         var mock = new MockHttpMessageHandler();
+        Json(mock, HttpMethod.Get, "/menus", MenuList);
         SlowJson(mock, HttpMethod.Post, "/menus", """{"id":94,"name":"[beta] Staff","role_id":4,"items":[]}""");
 
         var result = await Run(scope, "menus_create", new { name = "[beta] Staff", role_id = 4 }, mock);
@@ -756,6 +932,7 @@ public class MenuToolsTests
     {
         var mock = new MockHttpMessageHandler();
         Json(mock, HttpMethod.Get, "/menus/92", """{"id":92,"name":"[old] Admin","items":[]}""");
+        Json(mock, HttpMethod.Get, "/menus", MenuList);
         mock.Expect(HttpMethod.Delete, Org + "/menus/92").Respond(HttpStatusCode.NoContent);
 
         var result = await Run(scope, "menus_delete", new { menu_id = 92 }, mock);
