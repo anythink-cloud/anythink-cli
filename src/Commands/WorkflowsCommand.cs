@@ -753,10 +753,9 @@ public class WorkflowsUpdateCommand : BaseCommand<WorkflowUpdateSettings>
                 .Spinner(Spinner.Known.Dots)
                 .StartAsync($"Updating workflow {settings.Id}...", async _ =>
                 {
-                    wf = await client.UpdateWorkflowAsync(settings.Id, new UpdateWorkflowRequest(
-                        settings.Name,
-                        settings.Description
-                    ));
+                    var existing = await client.GetWorkflowAsync(settings.Id);
+                    wf = await client.UpdateWorkflowAsync(settings.Id,
+                        BuildUpdateRequest(existing, settings.Name, settings.Description));
                 });
 
             Renderer.Success($"Workflow [#F97316]{Markup.Escape(wf!.Name)}[/] updated.");
@@ -768,6 +767,15 @@ public class WorkflowsUpdateCommand : BaseCommand<WorkflowUpdateSettings>
             return 1;
         }
     }
+
+    // The API replaces the whole workflow on PUT, so everything not being changed is sent back as it was.
+    internal static UpdateWorkflowRequest BuildUpdateRequest(Workflow existing, string? name, string? description) => new(
+        name ?? existing.Name,
+        description ?? existing.Description,
+        existing.Group,
+        existing.Enabled,
+        existing.EditorState,
+        WorkflowTriggers.ForRequest(existing, keepRunState: true));
 }
 
 // ── workflows enable / disable ────────────────────────────────────────────────
