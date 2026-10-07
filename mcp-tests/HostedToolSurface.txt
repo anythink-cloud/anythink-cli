@@ -34,7 +34,15 @@ integrations_oauth_configure [destructive] project? provider client_id? client_s
 integrations_oauth_status [read-only] project? provider
 integrations_test [write] project? connection_id
 menus_add_item [write] project? menu_id entity icon? name? parent?
+menus_create [write] project? name role_id
+menus_delete [destructive] project? menu_id
+menus_get [read-only] project? menu_id
 menus_list [read-only] project?
+menus_remove_item [destructive] project? menu_id item_id
+menus_reorder [destructive] project? menu_ids
+menus_reorder_items [destructive] project? menu_id item_ids
+menus_update [destructive] project? menu_id name? role?
+menus_update_item [destructive] project? menu_id item_id entity? href? icon? name? parent?
 pay_methods [read-only] project?
 pay_payments [read-only] project? limit? page?
 pay_status [read-only] project?
