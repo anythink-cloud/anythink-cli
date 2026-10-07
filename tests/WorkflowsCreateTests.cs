@@ -94,7 +94,10 @@ public class WorkflowsCreateTests
 
         await Create(handler, new WorkflowCreateSettings
         {
-            Name = "w", Trigger = "Event", EventEntity = "blog_posts", Event = "EntityUpdated",
+            Name = "w",
+            Trigger = "Event",
+            EventEntity = "blog_posts",
+            Event = "EntityUpdated",
             Filter = """{"field":"status","operator":"eq","value":"reviewed"}""",
         });
 
@@ -124,7 +127,10 @@ public class WorkflowsCreateTests
 
         var (code, output) = await Create(handler, new WorkflowCreateSettings
         {
-            Name = "w", Trigger = "Timed", Cron = "0 9 * * *", EventEntity = "sources",
+            Name = "w",
+            Trigger = "Timed",
+            Cron = "0 9 * * *",
+            EventEntity = "sources",
         });
 
         code.Should().Be(0);

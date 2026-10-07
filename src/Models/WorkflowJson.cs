@@ -21,18 +21,31 @@ public static class WorkflowJson
 
     private static readonly HashSet<string> WorkflowStorage =
     [
-        "tenant_id", "created_at", "updated_at", "editor_state",
-        "jobs", "last_run_at", "last_run_status",
+        "tenant_id",
+        "created_at",
+        "updated_at",
+        "editor_state",
+        "jobs",
+        "last_run_at",
+        "last_run_status",
         "options_json",
-        "locked", "created_by", "updated_by",
+        "locked",
+        "created_by",
+        "updated_by",
     ];
 
     private static readonly HashSet<string> StepStorage =
     [
-        "workflow_id", "tenant_id", "created_at", "updated_at",
-        "on_success_step", "on_failure_step",
+        "workflow_id",
+        "tenant_id",
+        "created_at",
+        "updated_at",
+        "on_success_step",
+        "on_failure_step",
         "parameters_json",
-        "locked", "created_by", "updated_by",
+        "locked",
+        "created_by",
+        "updated_by",
     ];
 
     private static readonly HashSet<string> TriggerStorage = ["tenant_id", "workflow_id", "config_json"];
@@ -172,11 +185,11 @@ public static class WorkflowJson
     private static object? ToObject(JsonElement e) => e.ValueKind switch
     {
         JsonValueKind.Object => e.EnumerateObject().ToDictionary(p => p.Name, p => ToObject(p.Value)),
-        JsonValueKind.Array  => e.EnumerateArray().Select(ToObject).ToList(),
+        JsonValueKind.Array => e.EnumerateArray().Select(ToObject).ToList(),
         JsonValueKind.String => e.GetString(),
         JsonValueKind.Number => e.TryGetInt64(out var l) ? l : e.GetDouble(),
-        JsonValueKind.True   => true,
-        JsonValueKind.False  => false,
-        _                    => null,
+        JsonValueKind.True => true,
+        JsonValueKind.False => false,
+        _ => null,
     };
 }
