@@ -601,7 +601,7 @@ public class WorkflowsCreateCommand : BaseCommand<WorkflowCreateSettings>
             requested = AnsiConsole.Prompt(
                 Renderer.Prompt<string>()
                     .Title("Select [#F97316]trigger type[/]:")
-                    .AddChoices(WorkflowTriggers.Types));
+                    .AddChoices("Manual", "Timed", "Event", "Api"));
         }
 
         var trigger = WorkflowTriggers.CanonicalType(requested);
