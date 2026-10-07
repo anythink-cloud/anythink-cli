@@ -168,15 +168,15 @@ public class WorkflowTriggersTests
     }
 
     [Fact]
-    public void ForRequest_KeepsRunStateOnlyWhenAskedTo()
+    public void ForRequest_ForAnUpdate_KeepsTheLastRunButNotTheNextRun()
     {
         var wf = Parse("""
             {"id":1,"name":"w","enabled":true,
-             "triggers":[{"type":"Timed","enabled":true,"config":{"cron_expression":"0 9 * * *","next_run_at":"2026-10-07T09:00:00Z"}}]}
+             "triggers":[{"type":"Timed","enabled":true,"config":{"cron_expression":"0 9 * * *","last_run_at":"2026-10-06T09:00:00Z","next_run_at":"2026-10-07T09:00:00Z"}}]}
             """);
 
-        var kept = JsonNode.Parse(JsonSerializer.Serialize(WorkflowTriggers.ForRequest(wf, keepRunState: true).Single().Config))!.AsObject();
+        var kept = JsonNode.Parse(JsonSerializer.Serialize(WorkflowTriggers.ForRequest(wf, keepLastRun: true).Single().Config))!.AsObject();
 
-        kept.Select(p => p.Key).Should().Equal("cron_expression", "next_run_at");
+        kept.Select(p => p.Key).Should().Equal("cron_expression", "last_run_at");
     }
 }

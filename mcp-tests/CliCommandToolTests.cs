@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using AnythinkCli.Client;
 using AnythinkMcp.Cli;
@@ -466,6 +467,24 @@ public class CliCommandToolTests
         var summary = JsonDocument.Parse(result.Output).RootElement[0];
         summary.GetProperty("step_count").GetInt32().Should().Be(2);
         summary.GetProperty("triggers")[0].GetProperty("config").TryGetProperty("next_run_at", out _).Should().BeFalse();
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task WorkflowsUpdate_WorkflowWithAnIncompleteTrigger_SaysWhatIsMissingInsteadOfAnApiStatus(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.When(HttpMethod.Get, $"{ApiUrl}/org/42/workflows/7").Respond("application/json", """
+            {"id":7,"name":"nightly","enabled":true,
+             "triggers":[{"id":3,"type":"Manual","enabled":true,"config":{"manual_entities":[]}}]}
+            """);
+        var put = mock.When(HttpMethod.Put, $"{ApiUrl}/org/42/workflows/7").Respond(HttpStatusCode.BadRequest);
+
+        var result = await Tool("workflows_update", scope).RunAsync(Args(new { id = 7, description = "new" }), Client(mock));
+
+        result.ExitCode.Should().Be(1);
+        result.Output.Should().Contain("Trigger 1: Manual trigger has no entities").And.Contain("dashboard");
+        mock.GetMatchCount(put).Should().Be(0);
     }
 
     [Fact]

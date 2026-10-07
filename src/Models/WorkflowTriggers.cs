@@ -7,7 +7,8 @@ public static class WorkflowTriggers
 {
     public static readonly string[] Types = ["Manual", "Timed", "Event", "Api"];
 
-    private static readonly string[] RunState = ["last_run_at", "next_run_at"];
+    private const string LastRun = "last_run_at";
+    private const string NextRun = "next_run_at";
     private static readonly string[] EntityEvents = ["EntityCreated", "EntityUpdated", "EntityDeleted"];
 
     public static string? CanonicalType(string? type) =>
@@ -64,25 +65,25 @@ public static class WorkflowTriggers
             ? filter
             : null;
 
-    public static List<WorkflowTriggerRequest> ForRequest(Workflow wf, bool keepRunState = false) =>
-        ForRequest(Effective(wf), keepRunState);
+    public static List<WorkflowTriggerRequest> ForRequest(Workflow wf, bool keepLastRun = false) =>
+        ForRequest(Effective(wf), keepLastRun);
 
-    // Run state belongs to the source project when copying; an update to the same workflow keeps it.
-    public static List<WorkflowTriggerRequest> ForRequest(IEnumerable<WorkflowTrigger> triggers, bool keepRunState = false) =>
+    // Run state belongs to the source project when copying. An update keeps last_run_at but not next_run_at, which the API recomputes.
+    public static List<WorkflowTriggerRequest> ForRequest(IEnumerable<WorkflowTrigger> triggers, bool keepLastRun = false) =>
         triggers
             .Select(t => new WorkflowTriggerRequest(
-                CanonicalType(t.Type) ?? t.Type ?? "", t.Enabled, ConfigFor(t.Config, keepRunState)))
+                CanonicalType(t.Type) ?? t.Type ?? "", t.Enabled, ConfigFor(t.Config, keepLastRun)))
             .ToList();
 
     public static WorkflowTriggerRequest FromLegacy(string type, JsonElement? options, string? apiRoute)
     {
-        var config = ConfigFor(options, keepRunState: false);
+        var config = ConfigFor(options, keepLastRun: false);
         if (IsType(type, "Api") && !string.IsNullOrEmpty(apiRoute))
             config["api_route"] = apiRoute;
         return new WorkflowTriggerRequest(CanonicalType(type) ?? type, true, config);
     }
 
-    public static JsonObject WithoutRunState(JsonElement? config) => ConfigFor(config, keepRunState: false);
+    public static JsonObject WithoutRunState(JsonElement? config) => ConfigFor(config, keepLastRun: false);
 
     public static string? MissingField(WorkflowTriggerRequest trigger)
     {
@@ -133,15 +134,15 @@ public static class WorkflowTriggers
     private static bool IsType(string? type, string expected) =>
         string.Equals(type, expected, StringComparison.OrdinalIgnoreCase);
 
-    private static JsonObject ConfigFor(JsonElement? config, bool keepRunState)
+    private static JsonObject ConfigFor(JsonElement? config, bool keepLastRun)
     {
         if (config is not { ValueKind: JsonValueKind.Object } element)
             return new JsonObject();
 
         var node = JsonNode.Parse(element.GetRawText())!.AsObject();
-        if (!keepRunState)
-            foreach (var key in RunState)
-                node.Remove(key);
+        node.Remove(NextRun);
+        if (!keepLastRun)
+            node.Remove(LastRun);
         return node;
     }
 

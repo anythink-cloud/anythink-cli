@@ -747,15 +747,27 @@ public class WorkflowsUpdateCommand : BaseCommand<WorkflowUpdateSettings>
         try
         {
             var client = GetClient();
-            Workflow? wf = null;
+            Workflow? existing = null;
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync($"Reading workflow {settings.Id}...", async _ =>
+                {
+                    existing = await client.GetWorkflowAsync(settings.Id);
+                });
 
+            var request = BuildUpdateRequest(existing!, settings.Name, settings.Description);
+            if (IncompleteTriggers(existing!.Name, request.Triggers!) is { } blocked)
+            {
+                Renderer.Error(blocked);
+                return 1;
+            }
+
+            Workflow? wf = null;
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
                 .StartAsync($"Updating workflow {settings.Id}...", async _ =>
                 {
-                    var existing = await client.GetWorkflowAsync(settings.Id);
-                    wf = await client.UpdateWorkflowAsync(settings.Id,
-                        BuildUpdateRequest(existing, settings.Name, settings.Description));
+                    wf = await client.UpdateWorkflowAsync(settings.Id, request);
                 });
 
             Renderer.Success($"Workflow [#F97316]{Markup.Escape(wf!.Name)}[/] updated.");
@@ -768,6 +780,19 @@ public class WorkflowsUpdateCommand : BaseCommand<WorkflowUpdateSettings>
         }
     }
 
+    internal static string? IncompleteTriggers(string workflowName, IReadOnlyList<WorkflowTriggerRequest> triggers)
+    {
+        var problems = triggers
+            .Select((trigger, index) => (Number: index + 1, Problems: WorkflowTriggers.Problems([trigger])))
+            .SelectMany(t => t.Problems.Select(p => $"Trigger {t.Number}: {p}"))
+            .ToList();
+
+        return problems.Count == 0
+            ? null
+            : $"Workflow '{workflowName}' can't be updated until its triggers are complete. {string.Join("; ", problems)}. " +
+              "Fix the trigger in the dashboard first, then run this again.";
+    }
+
     // The API replaces the whole workflow on PUT, so everything not being changed is sent back as it was.
     internal static UpdateWorkflowRequest BuildUpdateRequest(Workflow existing, string? name, string? description) => new(
         name ?? existing.Name,
@@ -775,7 +800,7 @@ public class WorkflowsUpdateCommand : BaseCommand<WorkflowUpdateSettings>
         existing.Group,
         existing.Enabled,
         existing.EditorState,
-        WorkflowTriggers.ForRequest(existing, keepRunState: true));
+        WorkflowTriggers.ForRequest(existing, keepLastRun: true));
 }
 
 // ── workflows enable / disable ────────────────────────────────────────────────
