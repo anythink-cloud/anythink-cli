@@ -575,7 +575,7 @@ Manage dashboard sidebar menus in the active project. Menus control what entitie
 
 ```
 anythink menus list                                        List all menus with tree structure
-anythink menus get <menu_id> [--json]                      Show one menu with its items and child items
+anythink menus get <menu_id> [--json]                      Show one menu (and its role) with its items and child items
 anythink menus create <name> <role_id>                     Create a menu shown to a role
 anythink menus update <menu_id> [--name <text>] [--role <id>]
                                                            Rename a menu or change its role
@@ -605,9 +605,13 @@ anythink menus reorder <menu_ids>                          Set the order of menu
 | `--href <path>`   | Point the item at any path (instead of `--entity`)         |
 | `--parent <id>`   | Parent item ID to nest under; `0` moves it to the top level |
 
-`reorder-items` and `reorder` take comma-separated IDs in the order you want them (`301,299,300`). Items you leave out follow in their current order, and `reorder-items` needs all the items to share one parent. Locked items (the built-in ones) can't be changed, removed or moved.
+`reorder-items` and `reorder` take comma-separated IDs in the order you want them (`301,299,300`). Items you leave out follow in their current order, and `reorder-items` needs all the items to share one parent. Locked items (the built-in ones) can't be changed, removed or moved; they keep their place and the other items are numbered around them.
+
+`add-item --entity` and `update-item --entity` check that the entity exists first, so an item never points at nothing. Moving an item to a new parent with `update-item --parent` puts it last among its new siblings.
 
 Removing an item also removes its direct child items. The command says so, and refuses when those children are locked or have items of their own.
+
+A role is shown only its first menu, so `create` (and `update --role`) warns when the role already has one. `delete` removes the menu's locked built-in items with it, and says when the role is left with no menu.
 
 **Examples**
 
