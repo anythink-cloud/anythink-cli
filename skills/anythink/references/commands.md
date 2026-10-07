@@ -58,7 +58,9 @@ Permissions are `{entity}:{action}` — see `references/access-control.md`.
 | Command | Purpose |
 | --- | --- |
 | `files list` / `get <id>` / `upload <path> [--public]` / `delete <id>` | File storage |
-| `menus list` / `menus add-item <menu_id> <entity> [--icon <Icon> --parent <id>]` | Dashboard navigation |
+| `menus list` / `get <menu_id>` / `create <name> <role_id>` / `update <menu_id> [--name ... --role ...]` / `delete <menu_id>` | Dashboard menus |
+| `menus add-item <menu_id> <entity> [--icon <Icon> --parent <id>]` / `update-item <menu_id> <item_id> [--name ... --icon ... --entity\|--href ... --parent <id>]` / `remove-item <menu_id> <item_id>` | Dashboard menu items |
+| `menus reorder-items <menu_id> <item_id,...>` / `menus reorder <menu_id,...>` | Order items (one parent at a time) and menus |
 | `pay status` / `connect` / `payments` / `methods` | Payments (Stripe Connect) |
 | `oauth google status\|configure` | First-party OAuth provider config |
 | `plans` | List plans |
