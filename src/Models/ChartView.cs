@@ -72,6 +72,7 @@ public static class ChartView
     public static string? PayloadError(JsonNode? payload)
     {
         if (payload is not JsonObject obj) return null;
-        return obj["error"] is JsonValue error && error.TryGetValue<string>(out var text) && !string.IsNullOrWhiteSpace(text) ? text : null;
+        if (obj["error"] is JsonValue error && error.TryGetValue<string>(out var text) && !string.IsNullOrWhiteSpace(text)) return text;
+        return PayloadError(obj["primary"]);
     }
 }

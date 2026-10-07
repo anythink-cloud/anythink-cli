@@ -24,13 +24,13 @@ public static class DashboardLayout
     public static IReadOnlyList<string> Check(WidgetPlacement place)
     {
         var problems = new List<string>();
-        if (place.X is < 0) problems.Add("--x can't be negative.");
-        if (place.Y is < 0) problems.Add("--y can't be negative.");
+        if (place.X is < 0) problems.Add("--column can't be negative.");
+        if (place.Y is < 0) problems.Add("--row can't be negative.");
         if (place.Width is < 1) problems.Add("--width must be at least 1.");
         if (place.Height is < 1) problems.Add("--height must be at least 1.");
         if (place.Width is > Columns) problems.Add($"--width can't be more than {Columns}, the number of columns in the grid.");
         if ((place.X ?? 0) + (place.Width ?? DefaultWidth) > Columns && problems.Count == 0)
-            problems.Add($"The widget would run past the right edge: --x plus --width can't be more than {Columns}.");
+            problems.Add($"The widget would run past the right edge: --column plus --width can't be more than {Columns}.");
         return problems;
     }
 
