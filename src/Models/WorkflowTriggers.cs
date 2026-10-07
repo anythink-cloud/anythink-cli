@@ -5,7 +5,13 @@ namespace AnythinkCli.Models;
 
 public static class WorkflowTriggers
 {
+    public static readonly string[] Types = ["Manual", "Timed", "Event", "Api"];
+
     private static readonly string[] RunState = ["last_run_at", "next_run_at"];
+    private static readonly string[] EntityEvents = ["EntityCreated", "EntityUpdated", "EntityDeleted"];
+
+    public static string? CanonicalType(string? type) =>
+        Types.FirstOrDefault(t => string.Equals(t, type?.Trim(), StringComparison.OrdinalIgnoreCase));
 
     public static IReadOnlyList<WorkflowTrigger> Effective(Workflow wf)
     {
@@ -13,7 +19,9 @@ public static class WorkflowTriggers
             return wf.Triggers;
         if (string.IsNullOrWhiteSpace(wf.Trigger))
             return [];
-        return [new WorkflowTrigger(null, wf.Trigger, true, wf.Options)];
+
+        var legacy = FromLegacy(wf.Trigger, wf.Options, wf.ApiRoute);
+        return [new WorkflowTrigger(null, legacy.Type, legacy.Enabled, JsonSerializer.SerializeToElement(legacy.Config))];
     }
 
     public static string Summary(Workflow wf)
@@ -42,6 +50,13 @@ public static class WorkflowTriggers
     public static bool HasEnabledApiTrigger(Workflow wf) =>
         Effective(wf).Any(t => t.Enabled && IsType(t.Type, "Api"));
 
+    public static IEnumerable<string> ApiRoutes(Workflow wf) =>
+        Effective(wf)
+            .Where(t => t.Enabled && IsType(t.Type, "Api"))
+            .Select(t => Text(t.Config, "api_route")?.TrimStart('/'))
+            .Where(route => !string.IsNullOrEmpty(route))
+            .Select(route => route!);
+
     public static JsonElement? Filter(WorkflowTrigger trigger) =>
         trigger.Config is { ValueKind: JsonValueKind.Object } config
         && config.TryGetProperty("filter", out var filter)
@@ -49,33 +64,84 @@ public static class WorkflowTriggers
             ? filter
             : null;
 
-    public static List<WorkflowTriggerRequest> ForRequest(Workflow wf) => ForRequest(Effective(wf));
+    public static List<WorkflowTriggerRequest> ForRequest(Workflow wf, bool keepRunState = false) =>
+        ForRequest(Effective(wf), keepRunState);
 
-    public static List<WorkflowTriggerRequest> ForRequest(IEnumerable<WorkflowTrigger> triggers) =>
+    // Run state belongs to the source project when copying; an update to the same workflow keeps it.
+    public static List<WorkflowTriggerRequest> ForRequest(IEnumerable<WorkflowTrigger> triggers, bool keepRunState = false) =>
         triggers
-            .Select(t => new WorkflowTriggerRequest(t.Type ?? "", t.Enabled, ConfigFor(t.Config)))
+            .Select(t => new WorkflowTriggerRequest(
+                CanonicalType(t.Type) ?? t.Type ?? "", t.Enabled, ConfigFor(t.Config, keepRunState)))
             .ToList();
 
     public static WorkflowTriggerRequest FromLegacy(string type, JsonElement? options, string? apiRoute)
     {
-        var config = ConfigFor(options);
+        var config = ConfigFor(options, keepRunState: false);
         if (IsType(type, "Api") && !string.IsNullOrEmpty(apiRoute))
             config["api_route"] = apiRoute;
-        return new WorkflowTriggerRequest(type, true, config);
+        return new WorkflowTriggerRequest(CanonicalType(type) ?? type, true, config);
     }
+
+    public static JsonObject WithoutRunState(JsonElement? config) => ConfigFor(config, keepRunState: false);
+
+    public static string? MissingField(WorkflowTriggerRequest trigger)
+    {
+        var config = JsonSerializer.SerializeToNode(trigger.Config) as JsonObject;
+
+        return CanonicalType(trigger.Type) switch
+        {
+            "Manual" => HasEntries(config, "manual_entities") ? null : "manual_entities",
+            "Api" => HasText(config, "api_route") ? null : "api_route",
+            "Timed" => HasText(config, "cron_expression") ? null : "cron_expression",
+            "Event" => MissingEventField(config),
+            _ => null,
+        };
+    }
+
+    public static List<string> Problems(IEnumerable<WorkflowTriggerRequest> triggers) =>
+        triggers
+            .Select(t => (Trigger: t, Field: MissingField(t)))
+            .Where(m => m.Field is not null)
+            .Select(m => Describe(CanonicalType(m.Trigger.Type) ?? m.Trigger.Type, m.Field!))
+            .ToList();
+
+    private static string Describe(string type, string field) => field switch
+    {
+        "manual_entities" => $"{type} trigger has no entities (manual_entities needs at least one)",
+        "event_entity" => $"{type} trigger has no event_entity (entity events need one)",
+        _ => $"{type} trigger has no {field}",
+    };
+
+    private static string? MissingEventField(JsonObject? config)
+    {
+        if (!HasValue(config, "event")) return "event";
+        var isEntityEvent = config!["event"] is JsonValue v
+            && v.TryGetValue<string>(out var name)
+            && EntityEvents.Contains(name, StringComparer.OrdinalIgnoreCase);
+        return isEntityEvent && !HasText(config, "event_entity") ? "event_entity" : null;
+    }
+
+    private static bool HasValue(JsonObject? config, string name) =>
+        config?[name] is { } node && !(node is JsonValue v && v.TryGetValue<string>(out var s) && string.IsNullOrWhiteSpace(s));
+
+    private static bool HasText(JsonObject? config, string name) =>
+        config?[name] is JsonValue v && v.TryGetValue<string>(out var s) && !string.IsNullOrWhiteSpace(s);
+
+    private static bool HasEntries(JsonObject? config, string name) =>
+        config?[name] is JsonArray list && list.Any(e => e is JsonValue v && v.TryGetValue<string>(out var s) && !string.IsNullOrWhiteSpace(s));
 
     private static bool IsType(string? type, string expected) =>
         string.Equals(type, expected, StringComparison.OrdinalIgnoreCase);
 
-    // Run state belongs to the source project; the target recomputes its own.
-    private static JsonObject ConfigFor(JsonElement? config)
+    private static JsonObject ConfigFor(JsonElement? config, bool keepRunState)
     {
         if (config is not { ValueKind: JsonValueKind.Object } element)
             return new JsonObject();
 
         var node = JsonNode.Parse(element.GetRawText())!.AsObject();
-        foreach (var key in RunState)
-            node.Remove(key);
+        if (!keepRunState)
+            foreach (var key in RunState)
+                node.Remove(key);
         return node;
     }
 

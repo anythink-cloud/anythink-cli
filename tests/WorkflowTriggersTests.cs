@@ -104,4 +104,79 @@ public class WorkflowTriggersTests
 
         config.Select(p => p.Key).Should().Equal("cron_expression");
     }
+
+    // ── Older servers keep the API route as a top-level field ───────────────
+
+    [Fact]
+    public void Summary_LegacyApiWorkflow_ShowsTheTopLevelApiRoute()
+    {
+        var wf = Parse("""{"id":1,"name":"w","enabled":true,"trigger":"Api","api_route":"hooks/in"}""");
+
+        WorkflowTriggers.Summary(wf).Should().Be("Api: /hooks/in");
+    }
+
+    [Fact]
+    public void ForRequest_LegacyApiWorkflow_SendsTheTopLevelApiRouteInTheTriggerConfig()
+    {
+        var wf = Parse("""{"id":1,"name":"w","enabled":true,"trigger":"Api","api_route":"hooks/in"}""");
+
+        var trigger = WorkflowTriggers.ForRequest(wf).Single();
+
+        JsonNode.Parse(JsonSerializer.Serialize(trigger.Config))!["api_route"]!.GetValue<string>().Should().Be("hooks/in");
+    }
+
+    // ── Required trigger config ─────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("Manual", """{"manual_entities":[]}""", "manual_entities")]
+    [InlineData("Manual", """{}""", "manual_entities")]
+    [InlineData("Manual", """{"manual_entities":["sources"]}""", null)]
+    [InlineData("Api", """{"api_route":""}""", "api_route")]
+    [InlineData("Api", """{"api_route":"hooks/in"}""", null)]
+    [InlineData("Timed", """{}""", "cron_expression")]
+    [InlineData("Timed", """{"cron_expression":"0 9 * * *"}""", null)]
+    [InlineData("Event", """{"event":"EntityCreated","event_entity":""}""", "event_entity")]
+    [InlineData("Event", """{"event":"EntityDeleted"}""", "event_entity")]
+    [InlineData("Event", """{"event":"EntityCreated","event_entity":"blog_posts"}""", null)]
+    [InlineData("Event", """{"event":"UserRegistered"}""", null)]
+    [InlineData("Event", """{"event_entity":"blog_posts"}""", "event")]
+    [InlineData("manual", """{}""", "manual_entities")]
+    public void MissingField_NamesTheConfigTheTriggerTypeRequires(string type, string config, string? expected)
+    {
+        var trigger = new WorkflowTriggerRequest(type, true, JsonNode.Parse(config)!);
+
+        WorkflowTriggers.MissingField(trigger).Should().Be(expected);
+    }
+
+    [Fact]
+    public void Problems_ManualTriggerWithNoEntities_SaysSo()
+    {
+        var wf = Parse("""{"id":1,"name":"w","enabled":true,"triggers":[{"type":"Manual","enabled":true,"config":{"manual_entities":[]}}]}""");
+
+        WorkflowTriggers.Problems(WorkflowTriggers.ForRequest(wf)).Should()
+            .Equal("Manual trigger has no entities (manual_entities needs at least one)");
+    }
+
+    [Theory]
+    [InlineData("timed", "Timed")]
+    [InlineData(" API ", "Api")]
+    [InlineData("EVENT", "Event")]
+    [InlineData("Webhook", null)]
+    public void CanonicalType_MatchesCaseInsensitively(string input, string? expected)
+    {
+        WorkflowTriggers.CanonicalType(input).Should().Be(expected);
+    }
+
+    [Fact]
+    public void ForRequest_KeepsRunStateOnlyWhenAskedTo()
+    {
+        var wf = Parse("""
+            {"id":1,"name":"w","enabled":true,
+             "triggers":[{"type":"Timed","enabled":true,"config":{"cron_expression":"0 9 * * *","next_run_at":"2026-10-07T09:00:00Z"}}]}
+            """);
+
+        var kept = JsonNode.Parse(JsonSerializer.Serialize(WorkflowTriggers.ForRequest(wf, keepRunState: true).Single().Config))!.AsObject();
+
+        kept.Select(p => p.Key).Should().Equal("cron_expression", "next_run_at");
+    }
 }

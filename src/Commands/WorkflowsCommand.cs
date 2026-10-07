@@ -558,7 +558,7 @@ public class WorkflowCreateSettings : CommandSettings
     public string Name { get; set; } = "";
 
     [CommandOption("--trigger <TRIGGER>")]
-    [Description("Trigger type: Manual, Timed, Event, Api")]
+    [Description("Trigger type: Manual (default), Timed, Event, Api. Not case-sensitive")]
     public string Trigger { get; set; } = "Manual";
 
     [CommandOption("--description <DESC>")]
@@ -566,11 +566,11 @@ public class WorkflowCreateSettings : CommandSettings
     public string? Description { get; set; }
 
     [CommandOption("--cron <CRON>")]
-    [Description("Cron expression (for Timed trigger, e.g. '0 9 * * *')")]
+    [Description("Cron expression, required for a Timed trigger (e.g. '0 9 * * *')")]
     public string? Cron { get; set; }
 
     [CommandOption("--entity <ENTITY>")]
-    [Description("Entity name for an Event or Manual trigger")]
+    [Description("Entity name, required for an Event or Manual trigger")]
     public string? EventEntity { get; set; }
 
     [CommandOption("--event <EVENT>")]
@@ -578,7 +578,7 @@ public class WorkflowCreateSettings : CommandSettings
     public string? Event { get; set; }
 
     [CommandOption("--api-route <ROUTE>")]
-    [Description("Custom API route (for Api trigger)")]
+    [Description("API route, required for an Api trigger")]
     public string? ApiRoute { get; set; }
 
     [CommandOption("--enabled")]
@@ -598,13 +598,20 @@ public class WorkflowsCreateCommand : BaseCommand<WorkflowCreateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, WorkflowCreateSettings settings)
     {
-        var trigger = settings.Trigger;
-        if (string.IsNullOrEmpty(trigger))
+        var requested = settings.Trigger;
+        if (string.IsNullOrEmpty(requested))
         {
-            trigger = AnsiConsole.Prompt(
+            requested = AnsiConsole.Prompt(
                 Renderer.Prompt<string>()
                     .Title("Select [#F97316]trigger type[/]:")
-                    .AddChoices("Manual", "Timed", "Event", "Api"));
+                    .AddChoices(WorkflowTriggers.Types));
+        }
+
+        var trigger = WorkflowTriggers.CanonicalType(requested);
+        if (trigger is null)
+        {
+            Renderer.Error($"Unknown trigger type '{requested}'. Use {string.Join(", ", WorkflowTriggers.Types)}.");
+            return 1;
         }
 
         System.Text.Json.JsonElement? filter = null;
@@ -628,6 +635,16 @@ public class WorkflowsCreateCommand : BaseCommand<WorkflowCreateSettings>
             }
         }
 
+        var request = BuildTrigger(trigger, settings, filter);
+        if (WorkflowTriggers.MissingField(request) is { } missing)
+        {
+            Renderer.Error(MissingOptionMessage(trigger, missing));
+            return 1;
+        }
+
+        foreach (var ignored in IgnoredOptions(trigger, settings))
+            Renderer.Warn(Markup.Escape(ignored));
+
         try
         {
             var client = GetClient();
@@ -635,13 +652,13 @@ public class WorkflowsCreateCommand : BaseCommand<WorkflowCreateSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Creating workflow '{settings.Name}'...", async _ =>
+                .StartAsync($"Creating workflow '{Markup.Escape(settings.Name)}'...", async _ =>
                 {
                     wf = await client.CreateWorkflowAsync(new CreateWorkflowRequest(
                         settings.Name,
                         settings.Description,
                         settings.Enabled,
-                        [BuildTrigger(trigger, settings, filter)]));
+                        [request]));
                 });
 
             Renderer.Success($"Workflow [#F97316]{Markup.Escape(wf!.Name)}[/] created (id: {Markup.Escape(wf.Id.ToString())}).");
@@ -659,7 +676,7 @@ public class WorkflowsCreateCommand : BaseCommand<WorkflowCreateSettings>
     {
         object config = trigger switch
         {
-            "Timed" => new { cron_expression = settings.Cron ?? "0 9 * * *" },
+            "Timed" => new { cron_expression = settings.Cron },
             "Event" => new EventWorkflowOptions(
                 settings.Event ?? "EntityCreated",
                 settings.EventEntity ?? "",
@@ -673,6 +690,33 @@ public class WorkflowsCreateCommand : BaseCommand<WorkflowCreateSettings>
         };
 
         return new WorkflowTriggerRequest(trigger, true, config);
+    }
+
+    internal static string MissingOptionMessage(string trigger, string field) => field switch
+    {
+        "manual_entities" => "A Manual trigger needs --entity <ENTITY>, the entity the workflow runs on.",
+        "event_entity" => "An Event trigger needs --entity <ENTITY>, the entity whose events start the workflow.",
+        "api_route" => "An Api trigger needs --api-route <ROUTE>.",
+        "cron_expression" => "A Timed trigger needs --cron <CRON>, for example '0 9 * * *'.",
+        _ => $"A {trigger} trigger needs {field}.",
+    };
+
+    internal static List<string> IgnoredOptions(string trigger, WorkflowCreateSettings settings)
+    {
+        var ignored = new List<string>();
+
+        void Check(bool given, string option, params string[] usedBy)
+        {
+            if (given && !usedBy.Contains(trigger))
+                ignored.Add($"{option} is ignored for a {trigger} trigger.");
+        }
+
+        Check(!string.IsNullOrEmpty(settings.EventEntity), "--entity", "Event", "Manual");
+        Check(!string.IsNullOrEmpty(settings.Cron), "--cron", "Timed");
+        Check(!string.IsNullOrEmpty(settings.ApiRoute), "--api-route", "Api");
+        Check(!string.IsNullOrEmpty(settings.Event), "--event", "Event");
+        Check(!string.IsNullOrEmpty(settings.Filter) || !string.IsNullOrEmpty(settings.FilterFile), "--filter", "Event");
+        return ignored;
     }
 }
 
