@@ -189,7 +189,7 @@ public class MenuGetCommand : BaseCommand<MenuGetSettings>
             if (settings.Json)
             {
                 Console.WriteLine(JsonSerializer.Serialize(
-                    new { id = menu.Id, name = menu.Name, role_id = roleId, items = menu.Items }, Renderer.PrettyRelaxedJson));
+                    new { id = menu.Id, name = menu.Name, role_id = roleId, items = menu.Items }, JsonOutput.PrettyRelaxed));
                 return 0;
             }
 

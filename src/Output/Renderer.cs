@@ -1,6 +1,5 @@
 using Spectre.Console;
 using System.Text;
-using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -9,8 +8,6 @@ namespace AnythinkCli.Output;
 public static class Renderer
 {
     public static readonly JsonSerializerOptions PrettyJson = new() { WriteIndented = true };
-
-    public static readonly JsonSerializerOptions PrettyRelaxedJson = new(PrettyJson) { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
     public static void Success(string msg) => AnsiConsole.MarkupLine($"[green]✓[/] {msg}");
     public static void Info(string msg)    => AnsiConsole.MarkupLine($"[blue]i[/] {msg}");
