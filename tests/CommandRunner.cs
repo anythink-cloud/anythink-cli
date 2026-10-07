@@ -5,7 +5,7 @@ using Spectre.Console;
 
 namespace AnythinkCli.Tests;
 
-[CollectionDefinition("ConsoleOutput")]
+[CollectionDefinition("ConsoleOutput", DisableParallelization = true)]
 public class ConsoleOutputCollection { }
 
 internal sealed class RecordingHandler(Func<HttpRequestMessage, string, (HttpStatusCode, string)> respond) : HttpMessageHandler

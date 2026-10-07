@@ -13,11 +13,20 @@ public static class WorkflowTriggers
 
     public static readonly string[] Events =
     [
-        "EntityCreated", "EntityUpdated", "EntityDeleted",
-        "UserRegistered", "UserInvited",
-        "SubscriptionCreated", "SubscriptionActivated", "SubscriptionExpired",
-        "PaymentCreated", "PaymentSucceeded", "PaymentFailed",
-        "PaymentMethodCaptured", "PaymentMethodCaptureFailed", "PaymentMethodRemoved",
+        "EntityCreated",
+        "EntityUpdated",
+        "EntityDeleted",
+        "UserRegistered",
+        "UserInvited",
+        "SubscriptionCreated",
+        "SubscriptionActivated",
+        "SubscriptionExpired",
+        "PaymentCreated",
+        "PaymentSucceeded",
+        "PaymentFailed",
+        "PaymentMethodCaptured",
+        "PaymentMethodCaptureFailed",
+        "PaymentMethodRemoved",
         "PushActionTaken",
     ];
 
