@@ -55,7 +55,7 @@ public static class DashboardSpec
         if (body["is_default"]?.GetValueKind() == JsonValueKind.True && body["is_shared"]?.GetValueKind() == JsonValueKind.True)
             problems.Add("The project's default dashboard is already visible to everyone, so it can't also be marked shared.");
 
-        if (!create && body.Count == 0)
+        if (!create && body.Count == 0 && problems.Count == 0)
             problems.Add("Nothing to update. Pass --name, --description, --shared, --allow-shared-edit or --config.");
 
         return new DashboardBuild(problems.Count == 0 ? body : null, problems);
