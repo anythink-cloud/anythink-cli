@@ -571,7 +571,7 @@ public class WorkflowCreateSettings : CommandSettings
     public string? EventEntity { get; set; }
 
     [CommandOption("--event <EVENT>")]
-    [Description("Event type: EntityCreated, EntityUpdated, EntityDeleted")]
+    [Description("Event for an Event trigger: EntityCreated (default), EntityUpdated, EntityDeleted, UserRegistered, PaymentSucceeded and others. Not case-sensitive")]
     public string? Event { get; set; }
 
     [CommandOption("--api-route <ROUTE>")]
@@ -632,6 +632,12 @@ public class WorkflowsCreateCommand : BaseCommand<WorkflowCreateSettings>
             }
         }
 
+        if (trigger == "Event" && !string.IsNullOrEmpty(settings.Event) && WorkflowTriggers.CanonicalEvent(settings.Event) is null)
+        {
+            Renderer.Error($"Unknown event '{settings.Event}'. Use one of: {string.Join(", ", WorkflowTriggers.Events)}.");
+            return 1;
+        }
+
         var request = BuildTrigger(trigger, settings, filter);
         if (WorkflowTriggers.MissingField(request) is { } missing)
         {
@@ -675,7 +681,7 @@ public class WorkflowsCreateCommand : BaseCommand<WorkflowCreateSettings>
         {
             "Timed" => new { cron_expression = settings.Cron },
             "Event" => new EventWorkflowOptions(
-                settings.Event ?? "EntityCreated",
+                WorkflowTriggers.CanonicalEvent(settings.Event) ?? settings.Event ?? "EntityCreated",
                 settings.EventEntity ?? "",
                 filter),
             "Api" => new { api_route = settings.ApiRoute ?? "" },

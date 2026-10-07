@@ -419,11 +419,11 @@ anythink workflows delete <id>         Delete a workflow
 | Type     | Fires                                 | Required flag          | Other flags                          |
 | -------- | ------------------------------------- | ---------------------- | ------------------------------------ |
 | `Manual` | When run by hand, on an entity        | `--entity <name>`      |                                      |
-| `Event`  | When a record is created/changed/deleted | `--entity <name>`   | `--event <event>`, `--filter <json>` |
+| `Event`  | When an event happens, such as a record being created | `--entity <name>` for the `Entity...` events | `--event <event>`, `--filter <json>` |
 | `Timed`  | On a cron schedule                    | `--cron <expr>`        |                                      |
 | `Api`    | When its API route is called          | `--api-route <route>`  |                                      |
 
-`--event` is one of `EntityCreated` (default), `EntityUpdated` or `EntityDeleted`. A trigger missing its required flag is rejected before anything is sent, and a flag that doesn't apply to the chosen type is ignored with a warning.
+`--event` (not case-sensitive) is `EntityCreated` (default), `EntityUpdated`, `EntityDeleted`, `UserRegistered`, `UserInvited`, `SubscriptionCreated`, `SubscriptionActivated`, `SubscriptionExpired`, `PaymentCreated`, `PaymentSucceeded`, `PaymentFailed`, `PaymentMethodCaptured`, `PaymentMethodCaptureFailed`, `PaymentMethodRemoved` or `PushActionTaken`; only the three `Entity...` events need `--entity`. A trigger missing its required flag is rejected before anything is sent, and a flag that doesn't apply to the chosen type is ignored with a warning.
 
 **Other options — `workflows create`**
 

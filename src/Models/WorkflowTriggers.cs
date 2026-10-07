@@ -11,8 +11,21 @@ public static class WorkflowTriggers
     private const string NextRun = "next_run_at";
     private static readonly string[] EntityEvents = ["EntityCreated", "EntityUpdated", "EntityDeleted"];
 
+    public static readonly string[] Events =
+    [
+        "EntityCreated", "EntityUpdated", "EntityDeleted",
+        "UserRegistered", "UserInvited",
+        "SubscriptionCreated", "SubscriptionActivated", "SubscriptionExpired",
+        "PaymentCreated", "PaymentSucceeded", "PaymentFailed",
+        "PaymentMethodCaptured", "PaymentMethodCaptureFailed", "PaymentMethodRemoved",
+        "PushActionTaken",
+    ];
+
     public static string? CanonicalType(string? type) =>
         Types.FirstOrDefault(t => string.Equals(t, type?.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    public static string? CanonicalEvent(string? name) =>
+        Events.FirstOrDefault(e => string.Equals(e, name?.Trim(), StringComparison.OrdinalIgnoreCase));
 
     public static IReadOnlyList<WorkflowTrigger> Effective(Workflow wf)
     {

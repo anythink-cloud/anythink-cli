@@ -118,6 +118,42 @@ public class WorkflowsCreateTests
             .Select(e => e!.GetValue<string>()).Should().Equal("sources");
     }
 
+    // ── --event is checked against the events the API knows ──────────────────
+
+    [Fact]
+    public async Task Create_UnknownEvent_IsRejectedListingTheKnownEvents()
+    {
+        var handler = Api();
+
+        var (code, output) = await Create(handler, new WorkflowCreateSettings { Name = "w", Trigger = "Event", EventEntity = "posts", Event = "EntityCreatd" });
+
+        code.Should().Be(1);
+        handler.Requests.Should().BeEmpty();
+        output.Should().Contain("Unknown event 'EntityCreatd'").And.Contain("EntityUpdated").And.Contain("PaymentSucceeded");
+    }
+
+    [Fact]
+    public async Task Create_EventName_IsMatchedCaseInsensitivelyAndSentInTheCanonicalSpelling()
+    {
+        var handler = Api();
+
+        var (code, _) = await Create(handler, new WorkflowCreateSettings { Name = "w", Trigger = "Event", EventEntity = "posts", Event = "entityupdated" });
+
+        code.Should().Be(0);
+        SentBody(handler)["triggers"]![0]!["config"]!["event"]!.GetValue<string>().Should().Be("EntityUpdated");
+    }
+
+    [Fact]
+    public async Task Create_EventThatIsNotAboutAnEntity_NeedsNoEntity()
+    {
+        var handler = Api();
+
+        var (code, _) = await Create(handler, new WorkflowCreateSettings { Name = "w", Trigger = "Event", Event = "UserRegistered" });
+
+        code.Should().Be(0);
+        SentBody(handler)["triggers"]![0]!["config"]!["event"]!.GetValue<string>().Should().Be("UserRegistered");
+    }
+
     // ── Options that don't apply are called out, not silently dropped ────────
 
     [Fact]
