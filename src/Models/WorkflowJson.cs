@@ -7,7 +7,7 @@ namespace AnythinkCli.Models;
 
 public static class WorkflowJson
 {
-    // Scripts in step parameters stay readable instead of being '-escaped.
+    // Keeps scripts readable: quotes and angle brackets aren't turned into \uXXXX escapes.
     public static readonly JsonSerializerOptions Pretty = new()
     {
         WriteIndented = true,
@@ -70,7 +70,7 @@ public static class WorkflowJson
         }
 
         var exported = new Dictionary<string, object?> { ["schema_version"] = 1 };
-        Copy(root, exported, WorkflowStorage, ["id"], export: true);
+        Copy(root, exported, WorkflowStorage, ["id"], keepIds: false, keepRunState: false);
 
         var steps = Steps(root, StepStorage, ["id", "on_success_step_id", "on_failure_step_id"], (step, source) =>
         {
@@ -82,14 +82,14 @@ public static class WorkflowJson
         return JsonSerializer.Serialize(exported, PrettyOmitNull);
     }
 
-    // Everything `export` keeps, plus the ids needed to follow up with step and trigger commands.
+    // Everything `export` keeps, plus the ids to follow up with step and trigger commands and each trigger's last and next run.
     public static string ForGet(string rawWorkflowJson)
     {
         using var doc = JsonDocument.Parse(rawWorkflowJson);
         var root = doc.RootElement;
 
         var result = new Dictionary<string, object?>();
-        Copy(root, result, WorkflowStorage, [], export: false);
+        Copy(root, result, WorkflowStorage, [], keepIds: true, keepRunState: true);
         result["steps"] = Steps(root, StepStorage, [], (_, _) => { });
 
         return JsonSerializer.Serialize(result, PrettyOmitNull);
@@ -116,18 +116,19 @@ public static class WorkflowJson
         return JsonSerializer.Serialize(summaries, Pretty);
     }
 
-    private static void Copy(JsonElement root, Dictionary<string, object?> target, HashSet<string> strip, string[] stripToo, bool export)
+    private static void Copy(
+        JsonElement root, Dictionary<string, object?> target, HashSet<string> strip, string[] stripToo, bool keepIds, bool keepRunState)
     {
         foreach (var prop in root.EnumerateObject())
         {
             if (strip.Contains(prop.Name) || stripToo.Contains(prop.Name) || prop.Name == "steps") continue;
             target[prop.Name] = prop.Name == "triggers" && prop.Value.ValueKind == JsonValueKind.Array
-                ? Triggers(prop.Value, export)
+                ? Triggers(prop.Value, keepIds, keepRunState)
                 : ToObject(prop.Value);
         }
     }
 
-    private static List<Dictionary<string, object?>> Triggers(JsonElement triggers, bool export)
+    private static List<Dictionary<string, object?>> Triggers(JsonElement triggers, bool keepIds, bool keepRunState)
     {
         var result = new List<Dictionary<string, object?>>();
         foreach (var trigger in triggers.EnumerateArray())
@@ -136,8 +137,8 @@ public static class WorkflowJson
             var copy = new Dictionary<string, object?>();
             foreach (var prop in trigger.EnumerateObject())
             {
-                if (TriggerStorage.Contains(prop.Name) || (export && prop.Name == "id")) continue;
-                copy[prop.Name] = prop.Name == "config" && prop.Value.ValueKind == JsonValueKind.Object
+                if (TriggerStorage.Contains(prop.Name) || (!keepIds && prop.Name == "id")) continue;
+                copy[prop.Name] = prop.Name == "config" && prop.Value.ValueKind == JsonValueKind.Object && !keepRunState
                     ? WorkflowTriggers.WithoutRunState(prop.Value)
                     : ToObject(prop.Value);
             }

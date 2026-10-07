@@ -169,7 +169,20 @@ public class WorkflowsReadCommandsTests
         var trigger = workflow["triggers"]![0]!.AsObject();
         trigger.ContainsKey("config_json").Should().BeFalse();
         trigger.ContainsKey("workflow_id").Should().BeFalse();
-        trigger["config"]!.AsObject().ContainsKey("last_run_at").Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetJson_TriggersKeepTheirLastAndNextRunSoAnAssistantCanSayWhenItRunsNext()
+    {
+        var workflow = FifteenStepWorkflow();
+        workflow["triggers"]![0]!["config"]!["next_run_at"] = "2026-10-08T08:00:00Z";
+
+        var (_, output) = await CommandRunner.RunAsync(ReturningJson(workflow.ToJsonString()),
+            () => new WorkflowsGetCommand().ExecuteAsync(null!, new WorkflowGetSettings { Id = 7, Json = true }));
+
+        var config = JsonNode.Parse(output)!["triggers"]![0]!["config"]!;
+        config["last_run_at"]!.GetValue<string>().Should().Be("2026-10-06T08:00:00Z");
+        config["next_run_at"]!.GetValue<string>().Should().Be("2026-10-08T08:00:00Z");
     }
 
     [Fact]
