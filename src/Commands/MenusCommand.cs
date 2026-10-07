@@ -119,6 +119,12 @@ public class MenuAddItemCommand : BaseCommand<MenuAddItemSettings>
         {
             var client = GetClient();
 
+            if (!await MenuTree.EntityExistsAsync(client, settings.Entity))
+            {
+                Renderer.Error(MenuTree.EntityMissing(settings.Entity));
+                return 1;
+            }
+
             var displayName = settings.DisplayName
                 ?? string.Join(' ', settings.Entity.Split('_').Select(w =>
                     char.ToUpper(w[0]) + w[1..]));
@@ -451,6 +457,12 @@ public class MenuUpdateItemCommand : BaseCommand<MenuUpdateItemSettings>
                 return 1;
             }
 
+            if (settings.Entity is not null && !await MenuTree.EntityExistsAsync(client, settings.Entity))
+            {
+                Renderer.Error(MenuTree.EntityMissing(settings.Entity));
+                return 1;
+            }
+
             var request = new CreateMenuItemRequest(
                 settings.DisplayName ?? item.DisplayName,
                 settings.Icon ?? item.Icon,
@@ -710,6 +722,22 @@ internal static class MenuTree
             return null;
         }
     }
+
+    public static async Task<bool> EntityExistsAsync(AnythinkClient client, string entity)
+    {
+        try
+        {
+            await client.GetEntityAsync(entity);
+            return true;
+        }
+        catch (AnythinkException ex) when (ex.StatusCode == 404)
+        {
+            return false;
+        }
+    }
+
+    public static string EntityMissing(string entity) =>
+        $"Entity '{entity}' not found, so the menu item would point at nothing. Check the name with 'anythink entities list'.";
 
     public static IEnumerable<MenuNode> Walk(IReadOnlyList<MenuItemResponse> items, int depth = 0)
     {

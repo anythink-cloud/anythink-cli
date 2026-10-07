@@ -72,6 +72,10 @@ public class MenuToolsTests
     private static MockedRequest Json(MockHttpMessageHandler mock, HttpMethod method, string path, string body) =>
         mock.Expect(method, Org + path).Respond("application/json", body);
 
+    private static MockedRequest EntityExists(MockHttpMessageHandler mock, string name) =>
+        Json(mock, HttpMethod.Get, $"/entities/{name}",
+            $$"""{"name":"{{name}}","table_name":"default_{{name}}","enable_rls":false,"is_system":false,"is_junction":false,"is_public":false,"lock_new_records":false,"fields":[],"id":7}""");
+
     private static MockedRequest NoContent(MockHttpMessageHandler mock, HttpMethod method, string path, string body) =>
         mock.Expect(method, Org + path).WithContent(body).Respond(HttpStatusCode.NoContent);
 
@@ -184,6 +188,7 @@ public class MenuToolsTests
     public async Task AddItem_PostsTheEntityLinkUnderTheParent(CliToolScope scope)
     {
         var mock = new MockHttpMessageHandler();
+        EntityExists(mock, "check_ins");
         mock.Expect(HttpMethod.Post, Org + "/menus/92/items")
             .WithContent("""{"display_name":"Check Ins","icon":"Award","href":"/org/42/entities/check_ins","parent_id":299}""")
             .Respond("application/json", """{"id":302,"menu_id":92,"display_name":"Check Ins","icon":"Award","href":"/x","parent_id":299,"sort_order":2,"items":[]}""");
@@ -216,10 +221,57 @@ public class MenuToolsTests
     {
         var mock = new MockHttpMessageHandler();
         Json(mock, HttpMethod.Get, "/menus/92", Menu92);
+        EntityExists(mock, "articles");
         NoContent(mock, HttpMethod.Put, "/menus/92/items/300",
             """{"display_name":"[draft] Posts","icon":"FileText","href":"/org/42/entities/articles","parent_id":0}""");
 
         var result = await Run(scope, "menus_update_item", new { menu_id = 92, item_id = 300, entity = "articles" }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        mock.VerifyNoOutstandingExpectation();
+    }
+
+    // ── Rule: an item is never pointed at an entity that doesn't exist ──
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task AddItem_ForAnEntityThatDoesNotExist_SaysSoAndWritesNothing(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.Expect(HttpMethod.Get, Org + "/entities/gone").Respond(HttpStatusCode.NotFound);
+
+        var result = await Run(scope, "menus_add_item", new { menu_id = 92, entity = "gone" }, mock);
+
+        result.ExitCode.Should().Be(1);
+        result.Output.Should().Contain("Entity 'gone' not found, so the menu item would point at nothing");
+        mock.VerifyNoOutstandingExpectation();
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task UpdateItem_WithAnEntityThatDoesNotExist_SaysSoAndWritesNothing(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        Json(mock, HttpMethod.Get, "/menus/92", Menu92);
+        mock.Expect(HttpMethod.Get, Org + "/entities/gone").Respond(HttpStatusCode.NotFound);
+
+        var result = await Run(scope, "menus_update_item", new { menu_id = 92, item_id = 300, entity = "gone" }, mock);
+
+        result.ExitCode.Should().Be(1);
+        result.Output.Should().Contain("Entity 'gone' not found, so the menu item would point at nothing");
+        mock.VerifyNoOutstandingExpectation();
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task UpdateItem_WithAHref_DoesNotCheckForAnEntity(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        Json(mock, HttpMethod.Get, "/menus/92", Menu92);
+        NoContent(mock, HttpMethod.Put, "/menus/92/items/300",
+            """{"display_name":"[draft] Posts","icon":"FileText","href":"/org/42/settings","parent_id":0}""");
+
+        var result = await Run(scope, "menus_update_item", new { menu_id = 92, item_id = 300, href = "/org/42/settings" }, mock);
 
         result.ExitCode.Should().Be(0, result.Output);
         mock.VerifyNoOutstandingExpectation();
@@ -633,6 +685,7 @@ public class MenuToolsTests
     public async Task AddItem_WithABracketedLabel_ConfirmsItLiterally(CliToolScope scope)
     {
         var mock = new MockHttpMessageHandler();
+        EntityExists(mock, "tags");
         SlowJson(mock, HttpMethod.Post, "/menus/92/items",
             """{"id":303,"menu_id":92,"display_name":"[draft] Tags","icon":"Tag","href":"/x","parent_id":null,"sort_order":3,"items":[]}""");
 
