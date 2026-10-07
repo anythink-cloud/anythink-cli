@@ -86,6 +86,30 @@ public class WorkflowsMigrateRequestTests
         skipReason.Should().Be("Workflow 'old_default': Manual trigger has no entities (manual_entities needs at least one)");
     }
 
+    // ── Exit code: a workflow left behind is a partial failure, like the other things that can fail ──
+
+    [Fact]
+    public void ExitCode_WorkflowsSkipped_IsAPartialFailure()
+    {
+        MigrateCommand.ExitCode(0, 0, 0, 0, workflowsSkipped: 1).Should().Be(2);
+    }
+
+    [Theory]
+    [InlineData(1, 0, 0, 0)]
+    [InlineData(0, 1, 0, 0)]
+    [InlineData(0, 0, 1, 0)]
+    [InlineData(0, 0, 0, 1)]
+    public void ExitCode_AnyOtherFailure_IsAPartialFailure(int fields, int files, int records, int errors)
+    {
+        MigrateCommand.ExitCode(fields, files, records, errors, 0).Should().Be(2);
+    }
+
+    [Fact]
+    public void ExitCode_NothingWentWrong_IsZero()
+    {
+        MigrateCommand.ExitCode(0, 0, 0, 0, 0).Should().Be(0);
+    }
+
     [Fact]
     public void BuildWorkflowRequest_CompleteWorkflow_IsCopiedWithItsGroupAndAllTriggers()
     {

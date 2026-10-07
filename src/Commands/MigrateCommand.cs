@@ -1113,8 +1113,11 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         else
             Renderer.Info("Nothing new — target is already up to date.");
 
-        return (fieldsFailed.Value > 0 || filesFailed.Value > 0 || recordsFailed.Value > 0 || errors.Count > 0) ? 2 : 0;
+        return ExitCode(fieldsFailed.Value, filesFailed.Value, recordsFailed.Value, errors.Count, workflowsSkipped.Count);
     }
+
+    internal static int ExitCode(int fieldsFailed, int filesFailed, int recordsFailed, int errors, int workflowsSkipped) =>
+        fieldsFailed > 0 || filesFailed > 0 || recordsFailed > 0 || errors > 0 || workflowsSkipped > 0 ? 2 : 0;
 
     internal static (CreateWorkflowRequest Request, string? SkipReason) BuildWorkflowRequest(Workflow wf)
     {
