@@ -141,7 +141,7 @@ public class ApiListCommand : BaseCommand<ApiListSettings>
         ];
     }
 
-    private static object BuildEndpointList(
+    internal static object BuildEndpointList(
         string base_, string orgId,
         List<Models.Entity> entities,
         List<Models.Workflow> workflows)
@@ -168,6 +168,9 @@ public class ApiListCommand : BaseCommand<ApiListSettings>
             return routes;
         });
 
-        return new { base_url = base_, org_id = orgId, routes = staticRoutes.Concat<object>(dynRoutes) };
+        var workflowRoutes = WorkflowApiRoutes(base_, workflows)
+            .Select(r => new { method = "POST", path = r.Path, description = $"Run workflow {r.Workflow}", workflow = r.Workflow, type = "workflow" });
+
+        return new { base_url = base_, org_id = orgId, routes = staticRoutes.Concat<object>(dynRoutes).Concat(workflowRoutes) };
     }
 }

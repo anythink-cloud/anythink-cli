@@ -217,4 +217,22 @@ public class WorkflowApiRoutesTests
             ("https://api.example.com/org/1/workflows/api/hooks/other", "intake"),
             ("https://api.example.com/org/1/workflows/api/old/route", "legacy"));
     }
+
+    [Fact]
+    public void BuildEndpointList_IncludesTheWorkflowApiRoutesForAssistantsThatReadJson()
+    {
+        var workflows = new[]
+        {
+            Parse("""{"id":1,"name":"intake","enabled":true,"triggers":[{"type":"Api","enabled":true,"config":{"api_route":"hooks/in"}}]}"""),
+            Parse("""{"id":2,"name":"manual_only","enabled":true,"triggers":[{"type":"Manual","enabled":true,"config":{"manual_entities":["a"]}}]}"""),
+        };
+
+        var json = JsonSerializer.Serialize(ApiListCommand.BuildEndpointList("https://api.example.com/org/1", "1", [], workflows.ToList()));
+
+        var routes = JsonNode.Parse(json)!["routes"]!.AsArray().Select(r => r!.AsObject()).Where(r => r["type"]!.GetValue<string>() == "workflow").ToList();
+        var route = routes.Should().ContainSingle().Subject;
+        route["method"]!.GetValue<string>().Should().Be("POST");
+        route["path"]!.GetValue<string>().Should().Be("https://api.example.com/org/1/workflows/api/hooks/in");
+        route["workflow"]!.GetValue<string>().Should().Be("intake");
+    }
 }
