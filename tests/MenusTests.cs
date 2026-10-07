@@ -127,14 +127,106 @@ public class MenusTests
     // ── Rule: a reorder keeps the unnamed siblings after the named ones, in their current order ──
 
     [Fact]
-    public void PlanItemOrder_PutsNamedItemsFirst_ThenTheRestInTheirCurrentOrder()
+    public void PlanItemOrder_PutsNamedItemsFirst_ThenTheRestInTheirCurrentOrder_SendingOnlyWhatMoves()
     {
         var menu = Menu(Item(1, null, 5), Item(2, null, 2), Item(3, null, 9), Item(4, null, 7));
 
         var (plan, error) = MenuTree.PlanItemOrder(menu, [3, 1]);
 
         error.Should().BeNull();
-        plan!.Select(p => (p.ItemId, p.SortOrder)).Should().Equal((3, 0), (1, 1), (2, 2), (4, 3));
+        plan!.Select(p => (p.ItemId, p.SortOrder)).Should().Equal((3, 0), (1, 1), (4, 3));
+    }
+
+    [Fact]
+    public void PlanItemOrder_ForItemsAlreadyInThatOrder_PlansNothing()
+    {
+        var menu = Menu(Item(1, null, 0), Item(2, null, 1), Item(3, null, 2));
+
+        var (plan, error) = MenuTree.PlanItemOrder(menu, [1, 2]);
+
+        error.Should().BeNull();
+        plan.Should().BeEmpty();
+    }
+
+    // ── Rule: locked items stay where they are and are never planned; movable items are numbered around them ──
+
+    [Fact]
+    public void PlanItemOrder_NumbersMovableItemsAfterALockedFirstItem()
+    {
+        var menu = Menu(Item(1, null, 0, true), Item(2, null, 1), Item(3, null, 2));
+
+        var (plan, _) = MenuTree.PlanItemOrder(menu, [3]);
+
+        plan!.Select(p => (p.ItemId, p.SortOrder)).Should().Equal((3, 1), (2, 2));
+    }
+
+    [Fact]
+    public void PlanItemOrder_AroundALockedMiddleItem_KeepsItsSlotAndNumbersEachSideAroundIt()
+    {
+        var menu = Menu(Item(1, null, 0), Item(2, null, 5, true), Item(3, null, 9));
+
+        var (plan, _) = MenuTree.PlanItemOrder(menu, [3]);
+
+        plan!.Select(p => (p.ItemId, p.SortOrder)).Should().Equal((3, 4), (1, 6));
+    }
+
+    [Fact]
+    public void PlanItemOrder_BeforeALockedLastItem_NumbersBelowIt()
+    {
+        var menu = Menu(Item(1, null, 0), Item(2, null, 1), Item(3, null, 2, true));
+
+        var (plan, _) = MenuTree.PlanItemOrder(menu, [2]);
+
+        plan!.Select(p => (p.ItemId, p.SortOrder)).Should().Equal((2, 0), (1, 1));
+        plan.Should().NotContain(p => p.ItemId == 3);
+    }
+
+    [Fact]
+    public void PlanItemOrder_WithNoRoomBetweenTwoLockedItems_IsRefusedRatherThanTied()
+    {
+        var menu = Menu(Item(1, null, 0, true), Item(2, null, 1), Item(3, null, 1), Item(4, null, 2, true));
+
+        var (plan, error) = MenuTree.PlanItemOrder(menu, [3]);
+
+        plan.Should().BeNull();
+        error.Should().Be("There isn't room to move items between locked items 1 and 4.");
+    }
+
+    [Fact]
+    public void PlanItemOrder_RefusesToMoveALockedItem()
+    {
+        var (plan, error) = MenuTree.PlanItemOrder(Menu(Item(1, null, 0, true)), [1]);
+
+        plan.Should().BeNull();
+        error.Should().Contain("locked");
+    }
+
+    // ── Rule: an item moved under a new parent goes after that parent's other children ──
+
+    [Fact]
+    public void PlaceLast_GoesAfterTheHighestSiblingNumber_EvenWhenALockedSiblingHoldsIt()
+    {
+        var menu = Menu(Item(1, null, 0, false, Item(2, 1, 4), Item(3, 1, 7, true)), Item(4, null, 1));
+
+        var placed = MenuTree.PlaceLast(menu, MenuTree.Find(menu, 4)!.Item, 1);
+
+        placed.Should().Be(new ReorderMenuItemRequest(4, 8, 1));
+    }
+
+    [Fact]
+    public void PlaceLast_UnderAParentWithNoChildren_StartsAtZero()
+    {
+        var menu = Menu(Item(1, null, 0), Item(2, null, 1));
+
+        MenuTree.PlaceLast(menu, MenuTree.Find(menu, 2)!.Item, 1).Should().Be(new ReorderMenuItemRequest(2, 0, 1));
+    }
+
+    [Fact]
+    public void PlaceLast_AtTheTopLevel_ComesAfterTheOtherTopLevelItemsWithNoParent()
+    {
+        var menu = Menu(Item(1, null, 3), Item(2, null, 5, false, Item(3, 2, 0)));
+
+        MenuTree.PlaceLast(menu, MenuTree.Find(menu, 3)!.Item, 0).Should().Be(new ReorderMenuItemRequest(3, 6, null));
     }
 
     [Fact]

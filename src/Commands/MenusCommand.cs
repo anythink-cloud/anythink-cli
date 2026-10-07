@@ -457,6 +457,8 @@ public class MenuUpdateItemCommand : BaseCommand<MenuUpdateItemSettings>
                 settings.Entity is not null ? MenuTree.EntityHref(client, settings.Entity) : settings.Href ?? item.Href,
                 parentId);
 
+            var moved = parentId != (item.ParentId ?? 0);
+
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
                 .StartAsync($"Updating menu item {item.Id}...", async _ =>
@@ -464,7 +466,22 @@ public class MenuUpdateItemCommand : BaseCommand<MenuUpdateItemSettings>
                     await client.UpdateMenuItemAsync(settings.MenuId, item.Id, request);
                 });
 
-            Renderer.Success($"Menu item [#F97316]{Markup.Escape(request.DisplayName)}[/] (id: {item.Id}) updated in menu {settings.MenuId}.");
+            if (moved)
+            {
+                try
+                {
+                    await client.ReorderMenuItemsAsync(settings.MenuId, [MenuTree.PlaceLast(menu, item, parentId)]);
+                }
+                catch (Exception ex)
+                {
+                    Renderer.Warn("The item was updated, but it could not be placed last among its new siblings.");
+                    HandleError(ex);
+                    return 1;
+                }
+            }
+
+            var placedNote = Markup.Escape(!moved ? "" : parentId == 0 ? "; now last at the top level" : $"; now last under item {parentId}");
+            Renderer.Success($"Menu item [#F97316]{Markup.Escape(request.DisplayName)}[/] (id: {item.Id}) updated in menu {settings.MenuId}{placedNote}.");
             return 0;
         }
         catch (Exception ex)
@@ -599,6 +616,12 @@ public class MenuReorderItemsCommand : BaseCommand<MenuReorderItemsSettings>
                 return 1;
             }
 
+            if (plan.Count == 0)
+            {
+                Renderer.Info("The items are already in that order.");
+                return 0;
+            }
+
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
                 .StartAsync($"Reordering items in menu {settings.MenuId}...", async _ =>
@@ -606,7 +629,7 @@ public class MenuReorderItemsCommand : BaseCommand<MenuReorderItemsSettings>
                     await client.ReorderMenuItemsAsync(settings.MenuId, plan);
                 });
 
-            Renderer.Success($"Items in menu {settings.MenuId} reordered: {string.Join(", ", plan.Select(p => p.ItemId))}.");
+            Renderer.Success($"Items in menu {settings.MenuId} reordered; moved {Markup.Escape(string.Join(", ", plan.Select(p => p.ItemId)))}.");
             return 0;
         }
         catch (Exception ex)
@@ -655,7 +678,7 @@ public class MenuReorderCommand : BaseCommand<MenuReorderSettings>
                     await client.ReorderMenusAsync(plan);
                 });
 
-            Renderer.Success($"Menus reordered: {string.Join(", ", plan.Select(p => p.MenuId))}.");
+            Renderer.Success($"Menus reordered: {Markup.Escape(string.Join(", ", plan.Select(p => p.MenuId)))}.");
             return 0;
         }
         catch (Exception ex)
@@ -756,11 +779,54 @@ internal static class MenuTree
             named.Add(node);
         }
 
-        var rest = named[0].Siblings.Where(s => !ids.Contains(s.Id)).OrderBy(s => s.SortOrder);
-        var order = named.Select(n => n.Item).Concat(rest)
-            .Select((item, index) => new ReorderMenuItemRequest(item.Id, index, item.ParentId))
-            .ToList();
-        return (order, null);
+        var slots = named[0].Siblings.OrderBy(s => s.SortOrder).ToList();
+        var order = named.Select(n => n.Item).Concat(slots.Where(s => !s.Locked && !ids.Contains(s.Id))).ToList();
+        return Number(slots, order);
+    }
+
+    // The update keeps the old sort order, which can tie with a new sibling; last is where add-item puts new items.
+    public static ReorderMenuItemRequest PlaceLast(MenuResponse menu, MenuItemResponse item, int parentId)
+    {
+        var siblings = (parentId == 0 ? menu.Items : Find(menu, parentId)!.Item.Items).Where(s => s.Id != item.Id).ToList();
+        return new ReorderMenuItemRequest(item.Id, siblings.Count == 0 ? 0 : siblings.Max(s => s.SortOrder) + 1, parentId == 0 ? null : parentId);
+    }
+
+    // Locked items keep their place and number (the API ignores them), so the movable ones are numbered around them.
+    private static (List<ReorderMenuItemRequest>? Plan, string? Error) Number(
+        IReadOnlyList<MenuItemResponse> slots, IReadOnlyList<MenuItemResponse> order)
+    {
+        var plan = new List<ReorderMenuItemRequest>();
+        var next = 0;
+        for (var i = 0; i < slots.Count;)
+        {
+            if (slots[i].Locked)
+            {
+                i++;
+                continue;
+            }
+
+            var end = i;
+            while (end < slots.Count && !slots[end].Locked)
+                end++;
+
+            var count = end - i;
+            int? lower = i > 0 ? slots[i - 1].SortOrder : null;
+            int? upper = end < slots.Count ? slots[end].SortOrder : null;
+            if (lower is { } below && upper is { } above && above - below - 1 < count)
+                return (null, $"There isn't room to move items between locked items {slots[i - 1].Id} and {slots[end].Id}.");
+
+            var first = lower is { } l ? l + 1 : upper is { } u ? u - count : 0;
+            for (var n = 0; n < count; n++)
+            {
+                var item = order[next++];
+                if (item.SortOrder != first + n)
+                    plan.Add(new ReorderMenuItemRequest(item.Id, first + n, item.ParentId));
+            }
+
+            i = end;
+        }
+
+        return (plan, null);
     }
 
     public static (List<ReorderMenuRequest>? Plan, string? Error) PlanMenuOrder(IReadOnlyList<MenuResponse> menus, IReadOnlyList<int> ids)

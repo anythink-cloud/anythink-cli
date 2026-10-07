@@ -29,6 +29,14 @@ public class MenuToolsTests
         ]}
         """;
 
+    private const string MenuWithALockedItemBetween = """
+        {"id":92,"name":"Admin","items":[
+          {"id":401,"menu_id":92,"display_name":"A","icon":"X","href":"/a","parent_id":null,"sort_order":0,"locked":false,"items":[]},
+          {"id":402,"menu_id":92,"display_name":"Built-in","icon":"X","href":"/b","parent_id":null,"sort_order":5,"locked":true,"items":[]},
+          {"id":403,"menu_id":92,"display_name":"C","icon":"X","href":"/c","parent_id":null,"sort_order":9,"locked":false,"items":[]}
+        ]}
+        """;
+
     private const string MenuList = """
         [{"id":90,"name":"Public","role_id":3,"sort_order":0,"items":[]},
          {"id":91,"name":"Staff","role_id":4,"sort_order":1,"items":[]},
@@ -217,18 +225,71 @@ public class MenuToolsTests
         mock.VerifyNoOutstandingExpectation();
     }
 
+    // ── Rule: an item moved to a new parent ends up last among its new siblings ──
+
     [Theory]
     [MemberData(nameof(RemoteScopes))]
-    public async Task UpdateItem_WithAParentOfZero_MovesTheItemToTheTopLevel(CliToolScope scope)
+    public async Task UpdateItem_WithAParentOfZero_MovesTheItemLastAtTheTopLevel(CliToolScope scope)
     {
         var mock = new MockHttpMessageHandler();
         Json(mock, HttpMethod.Get, "/menus/92", Menu92);
         NoContent(mock, HttpMethod.Put, "/menus/92/items/301",
             """{"display_name":"Levels","icon":"Layers","href":"/org/42/entities/levels","parent_id":0}""");
+        NoContent(mock, HttpMethod.Put, "/menus/92/items/reorder", """[{"item_id":301,"sort_order":3}]""");
 
         var result = await Run(scope, "menus_update_item", new { menu_id = 92, item_id = 301, parent = 0 }, mock);
 
         result.ExitCode.Should().Be(0, result.Output);
+        result.Output.Should().Contain("now last at the top level");
+        mock.VerifyNoOutstandingExpectation();
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task UpdateItem_WithANewParent_PutsTheItemAfterItsNewSiblings_KeepingTheParent(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        Json(mock, HttpMethod.Get, "/menus/92", Menu92);
+        NoContent(mock, HttpMethod.Put, "/menus/92/items/300",
+            """{"display_name":"[draft] Posts","icon":"FileText","href":"/org/42/entities/posts","parent_id":299}""");
+        NoContent(mock, HttpMethod.Put, "/menus/92/items/reorder", """[{"item_id":300,"sort_order":2,"parent_id":299}]""");
+
+        var result = await Run(scope, "menus_update_item", new { menu_id = 92, item_id = 300, parent = 299 }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        result.Output.Should().Contain("now last under item 299");
+        mock.VerifyNoOutstandingExpectation();
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task UpdateItem_UnderAParentWithNoChildren_StartsItsNumberingAtZero(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        Json(mock, HttpMethod.Get, "/menus/92", Menu92);
+        NoContent(mock, HttpMethod.Put, "/menus/92/items/299",
+            """{"display_name":"Badges","icon":"Award","href":"/org/42/entities/badges","parent_id":300}""");
+        NoContent(mock, HttpMethod.Put, "/menus/92/items/reorder", """[{"item_id":299,"sort_order":0,"parent_id":300}]""");
+
+        var result = await Run(scope, "menus_update_item", new { menu_id = 92, item_id = 299, parent = 300 }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        mock.VerifyNoOutstandingExpectation();
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task UpdateItem_WhenPlacingTheItemLastFails_SaysItWasStillUpdated(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        Json(mock, HttpMethod.Get, "/menus/92", Menu92);
+        mock.Expect(HttpMethod.Put, Org + "/menus/92/items/300").Respond(HttpStatusCode.NoContent);
+        mock.Expect(HttpMethod.Put, Org + "/menus/92/items/reorder").Respond(HttpStatusCode.InternalServerError);
+
+        var result = await Run(scope, "menus_update_item", new { menu_id = 92, item_id = 300, parent = 299 }, mock);
+
+        result.ExitCode.Should().Be(1);
+        result.Output.Should().Contain("The item was updated, but it could not be placed last");
         mock.VerifyNoOutstandingExpectation();
     }
 
@@ -262,18 +323,49 @@ public class MenuToolsTests
         mock.VerifyNoOutstandingExpectation();
     }
 
+    // ── Rule: locked items keep their place; only the movable items are numbered, around them, and sent ──
+
     [Theory]
     [MemberData(nameof(RemoteScopes))]
-    public async Task ReorderItems_SendsEachPosition_AndKeepsEachItemsParent(CliToolScope scope)
+    public async Task ReorderItems_NumbersTheMovedItemsAfterALockedOne_AndDoesNotSendIt(CliToolScope scope)
     {
         var mock = new MockHttpMessageHandler();
         Json(mock, HttpMethod.Get, "/menus/92", Menu92);
-        NoContent(mock, HttpMethod.Put, "/menus/92/items/reorder",
-            """[{"item_id":300,"sort_order":0},{"item_id":299,"sort_order":1},{"item_id":10,"sort_order":2}]""");
+        NoContent(mock, HttpMethod.Put, "/menus/92/items/reorder", """[{"item_id":300,"sort_order":1},{"item_id":299,"sort_order":2}]""");
 
         var result = await Run(scope, "menus_reorder_items", new { menu_id = 92, item_ids = "300,299" }, mock);
 
         result.ExitCode.Should().Be(0, result.Output);
+        result.Output.Should().Contain("moved 300, 299");
+        mock.VerifyNoOutstandingExpectation();
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task ReorderItems_AroundALockedItemInTheMiddle_KeepsItsPlaceAndNumber(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        Json(mock, HttpMethod.Get, "/menus/92", MenuWithALockedItemBetween);
+        NoContent(mock, HttpMethod.Put, "/menus/92/items/reorder", """[{"item_id":403,"sort_order":4},{"item_id":401,"sort_order":6}]""");
+
+        var result = await Run(scope, "menus_reorder_items", new { menu_id = 92, item_ids = "403" }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        result.Output.Should().NotContain("402");
+        mock.VerifyNoOutstandingExpectation();
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task ReorderItems_ForItemsAlreadyInThatOrder_SendsNothing(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        Json(mock, HttpMethod.Get, "/menus/92", Menu92);
+
+        var result = await Run(scope, "menus_reorder_items", new { menu_id = 92, item_ids = "299,300" }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        result.Output.Should().Contain("already in that order");
         mock.VerifyNoOutstandingExpectation();
     }
 
