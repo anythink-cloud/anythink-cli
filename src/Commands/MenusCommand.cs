@@ -501,7 +501,8 @@ public class MenuUpdateItemCommand : BaseCommand<MenuUpdateItemSettings>
                 }
                 catch (Exception ex)
                 {
-                    Renderer.Warn("The item was updated, but it could not be placed last among its new siblings.");
+                    Renderer.Warn(Markup.Escape("The item was updated, but it could not be placed last among its new siblings. " +
+                        $"Running update-item again won't retry that; to place it, run '{MenuTree.PlaceLastCommand(menu, item, parentId, settings.MenuId)}'."));
                     HandleError(ex);
                     return 1;
                 }
@@ -876,6 +877,15 @@ internal static class MenuTree
         var slots = named[0].Siblings.OrderBy(s => s.SortOrder).ToList();
         var order = named.Select(n => n.Item).Concat(slots.Where(s => !s.Locked && !ids.Contains(s.Id))).ToList();
         return Number(slots, order);
+    }
+
+    public static string PlaceLastCommand(MenuResponse menu, MenuItemResponse item, int parentId, int menuId)
+    {
+        var siblings = (parentId == 0 ? menu.Items : Find(menu, parentId)!.Item.Items)
+            .Where(s => s.Id != item.Id && !s.Locked)
+            .OrderBy(s => s.SortOrder)
+            .Select(s => s.Id);
+        return $"anythink menus reorder-items {menuId} {string.Join(",", siblings.Append(item.Id))}";
     }
 
     // The update keeps the old sort order, which can tie with a new sibling; last is where add-item puts new items.

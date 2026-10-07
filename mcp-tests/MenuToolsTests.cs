@@ -405,7 +405,8 @@ public class MenuToolsTests
         var result = await Run(scope, "menus_update_item", new { menu_id = 92, item_id = 300, parent = 299 }, mock);
 
         result.ExitCode.Should().Be(1);
-        result.Output.Should().Contain("The item was updated, but it could not be placed last");
+        result.Output.Should().Contain("The item was updated, but it could not be placed last")
+            .And.Contain("run 'anythink menus reorder-items 92 301,300'");
         mock.VerifyNoOutstandingExpectation();
     }
 

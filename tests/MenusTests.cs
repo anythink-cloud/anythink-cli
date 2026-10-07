@@ -353,6 +353,22 @@ public class MenusTests
     }
 
     [Fact]
+    public void PlaceLastCommand_ListsTheMovableSiblingsInOrderThenTheItem_SoReorderItemsPutsItLast()
+    {
+        var menu = Menu(Item(1, null, 0, false, Item(2, 1, 5), Item(3, 1, 7, true), Item(5, 1, 2)), Item(4, null, 1));
+
+        MenuTree.PlaceLastCommand(menu, MenuTree.Find(menu, 4)!.Item, 1, 9).Should().Be("anythink menus reorder-items 9 5,2,4");
+    }
+
+    [Fact]
+    public void PlaceLastCommand_AtTheTopLevel_ListsTheOtherTopLevelItems()
+    {
+        var menu = Menu(Item(1, null, 3), Item(2, null, 1, false, Item(3, 2, 0)));
+
+        MenuTree.PlaceLastCommand(menu, MenuTree.Find(menu, 3)!.Item, 0, 9).Should().Be("anythink menus reorder-items 9 2,1,3");
+    }
+
+    [Fact]
     public void PlaceLast_UnderAParentWithNoChildren_StartsAtZero()
     {
         var menu = Menu(Item(1, null, 0), Item(2, null, 1));
