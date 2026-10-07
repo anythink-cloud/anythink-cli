@@ -37,6 +37,14 @@ public class MenuToolsTests
         ]}
         """;
 
+    private const string MenuWithTwoChildren = """
+        {"id":92,"name":"Admin","items":[
+          {"id":299,"menu_id":92,"display_name":"Badges","icon":"Award","href":"/b","parent_id":null,"sort_order":1,"locked":false,"items":[
+            {"id":301,"menu_id":92,"display_name":"Levels","icon":"Layers","href":"/l","parent_id":299,"sort_order":1,"locked":false,"items":[]},
+            {"id":302,"menu_id":92,"display_name":"Steps","icon":"Layers","href":"/s","parent_id":299,"sort_order":2,"locked":false,"items":[]}]}
+        ]}
+        """;
+
     private const string MenuList = """
         [{"id":90,"name":"Public","role_id":3,"sort_order":0,"items":[]},
          {"id":91,"name":"Staff","role_id":4,"sort_order":1,"items":[]},
@@ -450,11 +458,11 @@ public class MenuToolsTests
 
     [Theory]
     [MemberData(nameof(RemoteScopes))]
-    public async Task ReorderItems_AroundALockedItemInTheMiddle_KeepsItsPlaceAndNumber(CliToolScope scope)
+    public async Task ReorderItems_AroundALockedItemInTheMiddle_ReusesTheNumbersOnEachSide(CliToolScope scope)
     {
         var mock = new MockHttpMessageHandler();
         Json(mock, HttpMethod.Get, "/menus/92", MenuWithALockedItemBetween);
-        NoContent(mock, HttpMethod.Put, "/menus/92/items/reorder", """[{"item_id":403,"sort_order":4},{"item_id":401,"sort_order":6}]""");
+        NoContent(mock, HttpMethod.Put, "/menus/92/items/reorder", """[{"item_id":403,"sort_order":0},{"item_id":401,"sort_order":9}]""");
 
         var result = await Run(scope, "menus_reorder_items", new { menu_id = 92, item_ids = "403" }, mock);
 
@@ -482,10 +490,11 @@ public class MenuToolsTests
     public async Task ReorderItems_ForChildren_CarriesTheParentIdSoTheyStayNested(CliToolScope scope)
     {
         var mock = new MockHttpMessageHandler();
-        Json(mock, HttpMethod.Get, "/menus/92", Menu92);
-        NoContent(mock, HttpMethod.Put, "/menus/92/items/reorder", """[{"item_id":301,"sort_order":0,"parent_id":299}]""");
+        Json(mock, HttpMethod.Get, "/menus/92", MenuWithTwoChildren);
+        NoContent(mock, HttpMethod.Put, "/menus/92/items/reorder",
+            """[{"item_id":302,"sort_order":1,"parent_id":299},{"item_id":301,"sort_order":2,"parent_id":299}]""");
 
-        var result = await Run(scope, "menus_reorder_items", new { menu_id = 92, item_ids = "301" }, mock);
+        var result = await Run(scope, "menus_reorder_items", new { menu_id = 92, item_ids = "302" }, mock);
 
         result.ExitCode.Should().Be(0, result.Output);
         mock.VerifyNoOutstandingExpectation();

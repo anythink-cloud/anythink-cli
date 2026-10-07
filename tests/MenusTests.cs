@@ -128,14 +128,14 @@ public class MenusTests
     // ── Rule: a reorder keeps the unnamed siblings after the named ones, in their current order ──
 
     [Fact]
-    public void PlanItemOrder_PutsNamedItemsFirst_ThenTheRestInTheirCurrentOrder_SendingOnlyWhatMoves()
+    public void PlanItemOrder_PutsNamedItemsFirst_ThenTheRestInTheirCurrentOrder_ReusingTheGroupsNumbers_AndSendingOnlyWhatMoves()
     {
         var menu = Menu(Item(1, null, 5), Item(2, null, 2), Item(3, null, 9), Item(4, null, 7));
 
         var (plan, error) = MenuTree.PlanItemOrder(menu, [3, 1]);
 
         error.Should().BeNull();
-        plan!.Select(p => (p.ItemId, p.SortOrder)).Should().Equal((3, 0), (1, 1), (4, 3));
+        plan!.Select(p => (p.ItemId, p.SortOrder)).Should().Equal((3, 2), (2, 7), (4, 9));
     }
 
     [Fact]
@@ -162,13 +162,76 @@ public class MenusTests
     }
 
     [Fact]
-    public void PlanItemOrder_AroundALockedMiddleItem_KeepsItsSlotAndNumbersEachSideAroundIt()
+    public void PlanItemOrder_AroundALockedMiddleItem_KeepsItsSlotAndReusesTheNumberOnEachSide()
     {
         var menu = Menu(Item(1, null, 0), Item(2, null, 5, true), Item(3, null, 9));
 
         var (plan, _) = MenuTree.PlanItemOrder(menu, [3]);
 
-        plan!.Select(p => (p.ItemId, p.SortOrder)).Should().Equal((3, 4), (1, 6));
+        plan!.Select(p => (p.ItemId, p.SortOrder)).Should().Equal((3, 0), (1, 9));
+    }
+
+    // ── Rule: a group between locked items keeps its own numbers when they are all different, and is renumbered only when they tie ──
+
+    [Fact]
+    public void PlanItemOrder_ItemsAtZeroAndOneWithALockedItemAtZero_SwapTheirNumbers()
+    {
+        var menu = Menu(Item(10, null, 0, true), Item(1, null, 0), Item(2, null, 1));
+
+        var (plan, _) = MenuTree.PlanItemOrder(menu, [2]);
+
+        plan!.Select(p => (p.ItemId, p.SortOrder)).Should().Equal((2, 0), (1, 1));
+    }
+
+    [Fact]
+    public void PlanItemOrder_ItemsAtZeroAndOneWithALockedItemAtTen_SwapTheirNumbers_NotMovedNextToIt()
+    {
+        var menu = Menu(Item(1, null, 0), Item(2, null, 1), Item(10, null, 10, true));
+
+        var (plan, _) = MenuTree.PlanItemOrder(menu, [2]);
+
+        plan!.Select(p => (p.ItemId, p.SortOrder)).Should().Equal((2, 0), (1, 1));
+    }
+
+    [Fact]
+    public void PlanItemOrder_AnItemBeforeALockedOneAndTwoAfter_KeepEachSidesNumbers()
+    {
+        var menu = Menu(Item(1, null, 0), Item(10, null, 1, true), Item(2, null, 2), Item(3, null, 3));
+
+        var (plan, _) = MenuTree.PlanItemOrder(menu, [3]);
+
+        plan!.Select(p => (p.ItemId, p.SortOrder)).Should().Equal((3, 0), (1, 2), (2, 3));
+    }
+
+    [Fact]
+    public void PlanItemOrder_ItemsThatTieAfterALockedOne_AreNumberedFromJustAfterIt()
+    {
+        var menu = Menu(Item(9, null, 0, true), Item(1, null, 0), Item(2, null, 0));
+
+        var (plan, _) = MenuTree.PlanItemOrder(menu, [2]);
+
+        plan!.Select(p => (p.ItemId, p.SortOrder)).Should().Equal((2, 1), (1, 2));
+    }
+
+    [Fact]
+    public void PlanItemOrder_ItemsThatTieBeforeALockedOne_AreNumberedJustBelowIt()
+    {
+        var menu = Menu(Item(1, null, 3), Item(2, null, 3), Item(9, null, 9, true));
+
+        var (plan, _) = MenuTree.PlanItemOrder(menu, [2]);
+
+        plan!.Select(p => (p.ItemId, p.SortOrder)).Should().Equal((2, 7), (1, 8));
+    }
+
+    [Fact]
+    public void PlanItemOrder_AGroupThatDoesNotChange_IsLeftAloneEvenWhenItsNumbersTie()
+    {
+        var menu = Menu(Item(1, null, 0), Item(2, null, 0), Item(9, null, 5, true), Item(3, null, 6), Item(4, null, 7));
+
+        var (plan, error) = MenuTree.PlanItemOrder(menu, [1, 2, 4]);
+
+        error.Should().BeNull();
+        plan!.Select(p => (p.ItemId, p.SortOrder)).Should().Equal((4, 6), (3, 7));
     }
 
     [Fact]
@@ -190,7 +253,7 @@ public class MenusTests
         var (plan, error) = MenuTree.PlanItemOrder(menu, [3]);
 
         plan.Should().BeNull();
-        error.Should().Be("There isn't room to move items between locked items 1 and 4.");
+        error.Should().Contain("There isn't room to number the items between locked items 1 and 4").And.Contain("menus update-item");
     }
 
     [Fact]

@@ -605,7 +605,7 @@ anythink menus reorder <menu_ids>                          Set the order of menu
 | `--href <path>`   | Point the item at any path (instead of `--entity`)         |
 | `--parent <id>`   | Parent item ID to nest under; `0` moves it to the top level |
 
-`reorder-items` and `reorder` take comma-separated IDs in the order you want them (`301,299,300`). Items you leave out follow in their current order, and `reorder-items` needs all the items to share one parent. Locked items (the built-in ones) can't be changed, removed or moved; they keep their place and the other items are numbered around them.
+`reorder-items` and `reorder` take comma-separated IDs in the order you want them (`301,299,300`). The items you name take the first places within their group; items you leave out follow in their current order, and `reorder-items` needs all the items to share one parent. Locked items (the built-in ones) can't be changed, removed or moved; they keep their place, and the items between them reuse their own position numbers (they are only renumbered when two of them tie).
 
 `add-item --entity` and `update-item --entity` check that the entity exists first, so an item never points at nothing. Moving an item to a new parent with `update-item --parent` puts it last among its new siblings.
 

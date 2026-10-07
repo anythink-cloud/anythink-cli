@@ -614,7 +614,7 @@ public class MenuReorderItemsSettings : CommandSettings
     public int MenuId { get; set; }
 
     [CommandArgument(1, "<ITEM_IDS>")]
-    [Description("Comma-separated item IDs in the order they should appear, e.g. 301,299,300. All must share one parent; siblings you leave out follow in their current order")]
+    [Description("Comma-separated item IDs in the order they should appear, e.g. 301,299,300. All must share one parent. The items you name take the first places within their group; siblings you leave out follow in their current order, and locked items keep their place")]
     public string ItemIds { get; set; } = "";
 }
 
@@ -885,7 +885,7 @@ internal static class MenuTree
         return new ReorderMenuItemRequest(item.Id, siblings.Count == 0 ? 0 : siblings.Max(s => s.SortOrder) + 1, parentId == 0 ? null : parentId);
     }
 
-    // Locked items keep their place and number (the API ignores them), so the movable ones are numbered around them.
+    // Locked items keep their place and number (the API ignores them); each run of movable items between them reuses its own numbers unless they tie.
     private static (List<ReorderMenuItemRequest>? Plan, string? Error) Number(
         IReadOnlyList<MenuItemResponse> slots, IReadOnlyList<MenuItemResponse> order)
     {
@@ -904,18 +904,31 @@ internal static class MenuTree
                 end++;
 
             var count = end - i;
-            int? lower = i > 0 ? slots[i - 1].SortOrder : null;
-            int? upper = end < slots.Count ? slots[end].SortOrder : null;
-            if (lower is { } below && upper is { } above && above - below - 1 < count)
-                return (null, $"There isn't room to move items between locked items {slots[i - 1].Id} and {slots[end].Id}.");
-
-            var first = lower is { } l ? l + 1 : upper is { } u ? u - count : 0;
-            for (var n = 0; n < count; n++)
+            var current = slots.Skip(i).Take(count).ToList();
+            var arranged = order.Skip(next).Take(count).ToList();
+            next += count;
+            if (arranged.Select(item => item.Id).SequenceEqual(current.Select(item => item.Id)))
             {
-                var item = order[next++];
-                if (item.SortOrder != first + n)
-                    plan.Add(new ReorderMenuItemRequest(item.Id, first + n, item.ParentId));
+                i = end;
+                continue;
             }
+
+            var numbers = current.Select(item => item.SortOrder).ToList();
+            if (numbers.Distinct().Count() != count)
+            {
+                int? lower = i > 0 ? slots[i - 1].SortOrder : null;
+                int? upper = end < slots.Count ? slots[end].SortOrder : null;
+                if (lower is { } below && upper is { } above && above - below - 1 < count)
+                    return (null, $"There isn't room to number the items between locked items {slots[i - 1].Id} and {slots[end].Id}, and locked items can't be renumbered. " +
+                                  "Move some of those items to another parent with 'menus update-item', or reorder only items outside that pair.");
+
+                var first = lower is { } l ? l + 1 : upper is { } u ? u - count : 0;
+                numbers = Enumerable.Range(first, count).ToList();
+            }
+
+            for (var n = 0; n < count; n++)
+                if (arranged[n].SortOrder != numbers[n])
+                    plan.Add(new ReorderMenuItemRequest(arranged[n].Id, numbers[n], arranged[n].ParentId));
 
             i = end;
         }
