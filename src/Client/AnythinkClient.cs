@@ -139,6 +139,9 @@ public class AnythinkClient : HttpApiClient
         => (await GetAsync<Workflow>(_org + $"/workflows/{id}"))
            ?? throw new AnythinkException($"Workflow {id} not found.", 404);
 
+    public Task<string> GetWorkflowRawAsync(int id)
+        => FetchRawAsync(_org + $"/workflows/{id}");
+
     public Task<Workflow> CreateWorkflowAsync(CreateWorkflowRequest req)
         => PostAsync<Workflow>(_org + "/workflows", req);
 

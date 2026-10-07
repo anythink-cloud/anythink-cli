@@ -27,8 +27,7 @@ public class WorkflowsListCommand : BaseCommand<WorkflowListSettings>
 
             if (settings.Json)
             {
-                var raw = await client.FetchRawAsync($"{client.BaseUrl}/org/{client.OrgId}/workflows");
-                Console.WriteLine(JsonNode.Parse(raw)?.ToJsonString(Renderer.PrettyJson));
+                Console.WriteLine(WorkflowJson.ForList(await client.GetWorkflowsAsync()));
                 return 0;
             }
 
@@ -98,8 +97,7 @@ public class WorkflowsGetCommand : BaseCommand<WorkflowGetSettings>
 
             if (settings.Json)
             {
-                var raw = await client.FetchRawAsync($"{client.BaseUrl}/org/{client.OrgId}/workflows/{settings.Id}");
-                Console.WriteLine(JsonNode.Parse(raw)?.ToJsonString(Renderer.PrettyJson));
+                Console.WriteLine(WorkflowJson.ForGet(await client.GetWorkflowRawAsync(settings.Id)));
                 return 0;
             }
 
@@ -120,12 +118,11 @@ public class WorkflowsGetCommand : BaseCommand<WorkflowGetSettings>
                 Renderer.KeyValue("Description", wf.Description);
 
             var triggers = WorkflowTriggers.Effective(wf);
-            foreach (var trigger in triggers)
+            for (var i = 0; i < triggers.Count; i++)
             {
-                if (WorkflowTriggers.Filter(trigger) is not { } filter) continue;
-                var pretty = System.Text.Json.JsonSerializer.Serialize(filter,
-                    new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-                Renderer.KeyValue(triggers.Count > 1 ? $"Filter ({trigger.Type})" : "Filter", pretty);
+                if (WorkflowTriggers.Filter(triggers[i]) is not { } filter) continue;
+                var pretty = System.Text.Json.JsonSerializer.Serialize(filter, WorkflowJson.Pretty);
+                Renderer.KeyValue(triggers.Count > 1 ? $"Filter (trigger {i + 1}, {triggers[i].Type})" : "Filter", pretty);
             }
 
             var steps = wf.Steps ?? [];
@@ -1015,6 +1012,11 @@ public class WorkflowsSeedCommand : BaseCommand<WorkflowsSeedSettings>
         }
 
         var request = BuildSeedRequest(spec, settings.Enabled ?? spec.Enabled);
+        if (WorkflowTriggers.Problems(request.Triggers) is { Count: > 0 } problems)
+        {
+            Renderer.Error($"Workflow '{spec.Name}': {string.Join("; ", problems)}.");
+            return 1;
+        }
 
         try
         {
@@ -1121,7 +1123,7 @@ public class WorkflowsSeedCommand : BaseCommand<WorkflowsSeedSettings>
             ? WorkflowTriggers.ForRequest(spec.Triggers)
             : [WorkflowTriggers.FromLegacy(spec.Trigger ?? "Manual", spec.Options, spec.ApiRoute)];
 
-        return new CreateWorkflowRequest(spec.Name, spec.Description, enabled, triggers);
+        return new CreateWorkflowRequest(spec.Name, spec.Description, enabled, triggers, spec.Group);
     }
 }
 
@@ -1130,6 +1132,7 @@ internal class WorkflowSeedSpec
     [System.Text.Json.Serialization.JsonPropertyName("schema_version")] public int SchemaVersion { get; set; } = 1;
     [System.Text.Json.Serialization.JsonPropertyName("name")]           public string Name { get; set; } = "";
     [System.Text.Json.Serialization.JsonPropertyName("description")]    public string? Description { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("group")]          public string? Group { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("trigger")]        public string? Trigger { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("enabled")]        public bool Enabled { get; set; }
     [System.Text.Json.Serialization.JsonPropertyName("options")]        public System.Text.Json.JsonElement? Options { get; set; }
@@ -1166,24 +1169,6 @@ public class WorkflowsExportSettings : CommandSettings
 
 public class WorkflowsExportCommand : BaseCommand<WorkflowsExportSettings>
 {
-    // Workflow + step fields that are storage- or run-only and shouldn't
-    // round-trip. The server populates these; the seed side ignores them.
-    private static readonly HashSet<string> StripWorkflowFields = new()
-    {
-        "id", "tenant_id", "created_at", "updated_at", "editor_state",
-        "jobs", "last_run_at", "last_run_status",
-        "options_json",                              // stringified duplicate of options
-        "locked", "created_by", "updated_by",        // audit metadata, not definition
-    };
-    private static readonly HashSet<string> StripStepFields = new()
-    {
-        "id", "workflow_id", "tenant_id", "created_at", "updated_at",
-        "on_success_step_id", "on_failure_step_id",
-        "on_success_step", "on_failure_step",        // server-side nested expansion
-        "parameters_json",                            // re-emitted as parsed `parameters`
-        "locked", "created_by", "updated_by",        // audit metadata, not definition
-    };
-
     public override async Task<int> ExecuteAsync(CommandContext context, WorkflowsExportSettings settings)
     {
         try
@@ -1193,7 +1178,7 @@ public class WorkflowsExportCommand : BaseCommand<WorkflowsExportSettings>
             await AnsiConsole.Status().Spinner(Spinner.Known.Dots)
                 .StartAsync($"Fetching workflow {settings.Id}...", async _ =>
                 {
-                    raw = await client.FetchRawAsync($"{client.BaseUrl}/org/{client.OrgId}/workflows/{settings.Id}");
+                    raw = await client.GetWorkflowRawAsync(settings.Id);
                 });
 
             var json = TransformExport(raw);
@@ -1217,94 +1202,7 @@ public class WorkflowsExportCommand : BaseCommand<WorkflowsExportSettings>
         }
     }
 
-    /// <summary>
-    /// Pure transform: server workflow JSON → exportable spec JSON.
-    /// Strips run/storage-only fields, parses parameters_json into parameters,
-    /// and replaces on_success/failure step IDs with their step keys.
-    /// </summary>
-    public static string TransformExport(string rawWorkflowJson)
-    {
-        using var doc = System.Text.Json.JsonDocument.Parse(rawWorkflowJson);
-        var root = doc.RootElement;
-
-        var idToKey = new Dictionary<int, string>();
-        if (root.TryGetProperty("steps", out var stepsArr) && stepsArr.ValueKind == System.Text.Json.JsonValueKind.Array)
-        {
-            foreach (var s in stepsArr.EnumerateArray())
-            {
-                if (s.TryGetProperty("id", out var idEl) && idEl.TryGetInt32(out var id)
-                    && s.TryGetProperty("key", out var keyEl) && keyEl.GetString() is { } k)
-                {
-                    idToKey[id] = k;
-                }
-            }
-        }
-
-        var exported = new Dictionary<string, object?> { ["schema_version"] = 1 };
-        foreach (var prop in root.EnumerateObject())
-        {
-            if (StripWorkflowFields.Contains(prop.Name)) continue;
-            if (prop.Name == "steps") continue;
-            exported[prop.Name] = JsonValueOf(prop.Value);
-        }
-
-        var exportedSteps = new List<Dictionary<string, object?>>();
-        if (root.TryGetProperty("steps", out var steps2) && steps2.ValueKind == System.Text.Json.JsonValueKind.Array)
-        {
-            foreach (var s in steps2.EnumerateArray())
-            {
-                var step = new Dictionary<string, object?>();
-                foreach (var prop in s.EnumerateObject())
-                {
-                    if (StripStepFields.Contains(prop.Name)) continue;
-                    step[prop.Name] = JsonValueOf(prop.Value);
-                }
-
-                if (s.TryGetProperty("parameters_json", out var pj) && pj.ValueKind == System.Text.Json.JsonValueKind.String)
-                {
-                    var pjStr = pj.GetString();
-                    if (!string.IsNullOrEmpty(pjStr))
-                    {
-                        using var pdoc = System.Text.Json.JsonDocument.Parse(pjStr);
-                        step["parameters"] = JsonValueOf(pdoc.RootElement);
-                    }
-                }
-
-                if (s.TryGetProperty("on_success_step_id", out var ss)
-                    && ss.ValueKind == System.Text.Json.JsonValueKind.Number
-                    && ss.TryGetInt32(out var ssi)
-                    && idToKey.TryGetValue(ssi, out var ssKey))
-                    step["on_success"] = ssKey;
-                if (s.TryGetProperty("on_failure_step_id", out var fs)
-                    && fs.ValueKind == System.Text.Json.JsonValueKind.Number
-                    && fs.TryGetInt32(out var fsi)
-                    && idToKey.TryGetValue(fsi, out var fsKey))
-                    step["on_failure"] = fsKey;
-
-                exportedSteps.Add(step);
-            }
-        }
-        exported["steps"] = exportedSteps;
-
-        return System.Text.Json.JsonSerializer.Serialize(exported, new System.Text.Json.JsonSerializerOptions
-        {
-            WriteIndented          = true,
-            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
-        });
-    }
-
-    // Convert a JsonElement into a plain object tree (Dictionary / List / primitives)
-    // so the outer Serializer emits proper JSON instead of escaped raw text.
-    private static object? JsonValueOf(System.Text.Json.JsonElement e) => e.ValueKind switch
-    {
-        System.Text.Json.JsonValueKind.Object => e.EnumerateObject().ToDictionary(p => p.Name, p => JsonValueOf(p.Value)),
-        System.Text.Json.JsonValueKind.Array  => e.EnumerateArray().Select(JsonValueOf).ToList(),
-        System.Text.Json.JsonValueKind.String => e.GetString(),
-        System.Text.Json.JsonValueKind.Number => e.TryGetInt64(out var l) ? l : e.GetDouble(),
-        System.Text.Json.JsonValueKind.True   => true,
-        System.Text.Json.JsonValueKind.False  => false,
-        _                                      => null,
-    };
+    public static string TransformExport(string rawWorkflowJson) => WorkflowJson.ForExport(rawWorkflowJson);
 }
 
 // ── workflows steps link ─────────────────────────────────────────────────────

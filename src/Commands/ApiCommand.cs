@@ -80,14 +80,14 @@ public class ApiListCommand : BaseCommand<ApiListSettings>
             AnsiConsole.Write(dynTable);
 
             // Workflow API routes
-            var apiWorkflows = workflows.Where(WorkflowTriggers.HasEnabledApiTrigger).ToList();
-            if (apiWorkflows.Count > 0)
+            var apiRoutes = WorkflowApiRoutes(base_, workflows);
+            if (apiRoutes.Count > 0)
             {
                 AnsiConsole.WriteLine();
                 Renderer.Header("Workflow API Routes");
                 var wfTable = Renderer.BuildTable("Method", "Path", "Workflow");
-                foreach (var w in apiWorkflows)
-                    Renderer.AddRow(wfTable, "POST", $"{base_}/workflows/api/[route]", w.Name);
+                foreach (var (path, workflow) in apiRoutes)
+                    Renderer.AddRow(wfTable, "POST", path, workflow);
                 AnsiConsole.Write(wfTable);
             }
 
@@ -101,6 +101,11 @@ public class ApiListCommand : BaseCommand<ApiListSettings>
             return 1;
         }
     }
+
+    internal static List<(string Path, string Workflow)> WorkflowApiRoutes(string base_, IEnumerable<Workflow> workflows) =>
+        workflows
+            .SelectMany(w => WorkflowTriggers.ApiRoutes(w).Select(route => ($"{base_}/workflows/api/{route}", w.Name)))
+            .ToList();
 
     private static IEnumerable<(string Method, string Path, string Desc)> StaticRoutes(string base_)
     {
