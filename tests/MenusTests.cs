@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using AnythinkCli.Client;
 using AnythinkCli.Commands;
 using AnythinkCli.Models;
@@ -199,6 +200,22 @@ public class MenusTests
 
         plan.Should().BeNull();
         error.Should().Contain("locked");
+    }
+
+    // ── Rule: a joined list of ids reaching a markup line is escaped like any other text ──
+
+    [Fact]
+    public void MenusCommand_EscapesEveryJoinedListItPutsIntoAMarkupLine()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "AnythinkCli.sln")))
+            dir = dir.Parent;
+        var source = File.ReadAllLines(Path.Combine(dir!.FullName, "src", "Commands", "MenusCommand.cs"));
+
+        var unescaped = source.Where(line =>
+            Regex.IsMatch(line, @"Renderer\.(Success|Info|Warn)\(") && line.Contains("string.Join(") && !line.Contains("Markup.Escape(string.Join("));
+
+        unescaped.Should().BeEmpty();
     }
 
     // ── Rule: deleting a menu says what goes with it, in the question and in the result ──
