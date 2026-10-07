@@ -492,7 +492,8 @@ public record MenuItemResponse(
     [property: JsonPropertyName("href")]         string                 Href,
     [property: JsonPropertyName("parent_id")]    int?                   ParentId,
     [property: JsonPropertyName("sort_order")]   int                    SortOrder,
-    [property: JsonPropertyName("items")]        List<MenuItemResponse> Items
+    [property: JsonPropertyName("items")]        List<MenuItemResponse> Items,
+    [property: JsonPropertyName("locked")]       bool                   Locked = false
 );
 
 public record CreateMenuRequest(
@@ -505,6 +506,17 @@ public record CreateMenuItemRequest(
     [property: JsonPropertyName("icon")]         string Icon,
     [property: JsonPropertyName("href")]         string Href,
     [property: JsonPropertyName("parent_id")]    int    ParentId
+);
+
+public record ReorderMenuRequest(
+    [property: JsonPropertyName("menu_id")]    int MenuId,
+    [property: JsonPropertyName("sort_order")] int SortOrder
+);
+
+public record ReorderMenuItemRequest(
+    [property: JsonPropertyName("item_id")]    int  ItemId,
+    [property: JsonPropertyName("sort_order")] int  SortOrder,
+    [property: JsonPropertyName("parent_id")]  int? ParentId
 );
 
 // ── Organisation / Tenant Settings ───────────────────────────────────────────

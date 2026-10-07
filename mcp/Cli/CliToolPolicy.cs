@@ -14,7 +14,10 @@ public static class CliToolPolicy
         ["workflows create --filter-file", "workflows export --output", "data list --all"];
 
     private static readonly string[] FreeTextArguments =
-        ["search query text", "workflows create name", "roles create name", "users invite email", "users invite first_name", "users invite last_name"];
+    [
+        "search query text", "workflows create name", "roles create name", "users invite email", "users invite first_name", "users invite last_name",
+        "menus create name", "menus reorder menu_ids", "menus reorder-items item_ids"
+    ];
 
     private static readonly string[] AutomaticFlags = ["--json", "--yes"];
 
