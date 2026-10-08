@@ -341,7 +341,7 @@ public class ProjectsUseCommand : BasePlatformCommand<ProjectsUseSettings>
 
             if (match.Status != 2) // 2 = Active
             {
-                Renderer.Warn($"Project status is {ProjectStatusText.Name(match.Status)} — it may not be ready yet.");
+                Renderer.Warn($"Project status is {Markup.Escape(ProjectStatusText.Name(match.Status))} — it may not be ready yet.");
             }
 
             if (match.TenantId == null)
