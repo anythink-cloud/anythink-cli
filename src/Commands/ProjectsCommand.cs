@@ -10,7 +10,7 @@ using CliProfile = AnythinkCli.Config.Profile;
 
 namespace AnythinkCli.Commands;
 
-static class ProjectStatusMarkup
+static class ProjectStatusText
 {
     public static string Name(int status) => status switch
     {
@@ -23,14 +23,14 @@ static class ProjectStatusMarkup
         _ => status.ToString()
     };
 
-    public static string Render(int status) => status switch
+    public static Text Cell(int status) => new(Name(status), status switch
     {
-        0 => $"[dim]{Name(status)}[/]",
-        1 or 3 => $"[yellow]{Name(status)}[/]",
-        2 => $"[green]{Name(status)}[/]",
-        4 or 5 => $"[red]{Name(status)}[/]",
-        _ => Name(status)
-    };
+        0 => new Style(decoration: Decoration.Dim),
+        1 or 3 => new Style(Color.Yellow),
+        2 => new Style(Color.Green),
+        4 or 5 => new Style(Color.Red),
+        _ => Style.Plain
+    });
 }
 
 // ── projects list ─────────────────────────────────────────────────────────────
@@ -75,13 +75,13 @@ public class ProjectsListCommand : BasePlatformCommand<ProjectsListSettings>
             {
                 var isActive = p.TenantId?.ToString() == activeOrgId;
                 table.AddRow(
-                    Markup.Escape(p.Id.ToString()[..8] + "…"),
-                    $"[bold]{Markup.Escape(p.Name)}[/]",
-                    ProjectStatusMarkup.Render(p.Status),
-                    Markup.Escape(p.Region ?? "—"),
-                    Markup.Escape(p.TenantId?.ToString() ?? "—"),
-                    Markup.Escape(p.ApiUrl ?? "—"),
-                    isActive ? "[green]●[/]" : ""
+                    new Text(p.Id.ToString()[..8] + "…"),
+                    new Text(p.Name, new Style(decoration: Decoration.Bold)),
+                    ProjectStatusText.Cell(p.Status),
+                    new Text(p.Region ?? "—"),
+                    new Text(p.TenantId?.ToString() ?? "—"),
+                    new Text(p.ApiUrl ?? "—"),
+                    new Text(isActive ? "●" : "", new Style(Color.Green))
                 );
             }
             AnsiConsole.Write(table);
@@ -189,14 +189,14 @@ public class ProjectsCreateCommand : BasePlatformCommand<ProjectsCreateSettings>
 
             Renderer.Success($"Project [#F97316]{Markup.Escape(project!.Name)}[/] created!");
             Renderer.KeyValue("ID", project.Id.ToString());
-            Renderer.KeyValue("Status", ProjectStatusMarkup.Render(project.Status));
+            Renderer.KeyValue("Status", ProjectStatusText.Name(project.Status));
             Renderer.KeyValue("Region", project.Region ?? "—");
 
             if (project.Status is 0 or 1) // 0=Initializing, 1=Provisioning
             {
                 AnsiConsole.MarkupLine("\n[yellow]Your project is being provisioned.[/]");
                 AnsiConsole.MarkupLine("Run [bold #F97316]anythink projects list[/] to check status.");
-                AnsiConsole.MarkupLine("Once [green]active[/], run [bold #F97316]anythink projects use {0}[/] to connect.", project.Id.ToString()[..8]);
+                AnsiConsole.MarkupLine("Once [green]active[/], run [bold #F97316]anythink projects use {0}[/] to connect.", Markup.Escape(project.Id.ToString()[..8]));
             }
 
             return 0;
@@ -215,7 +215,7 @@ public class ProjectsCreateCommand : BasePlatformCommand<ProjectsCreateSettings>
         {
             ["project_id"] = project.Id.ToString(),
             ["name"] = project.Name,
-            ["status"] = ProjectStatusMarkup.Name(project.Status),
+            ["status"] = ProjectStatusText.Name(project.Status),
             ["plan_id"] = (project.PlanId ?? requestedPlan).ToString(),
             ["region"] = project.Region,
             ["message"] = (settingUp, ClientContext.Remote, oneProject) switch
@@ -260,12 +260,13 @@ public class ProjectsCreateCommand : BasePlatformCommand<ProjectsCreateSettings>
         {
             var price = p.MonthlyPriceCents == 0 ? "Free"
                 : $"{p.Currency.ToUpper()} {p.MonthlyPriceCents / 100m:0.00}/mo";
-            return $"{Markup.Escape(p.Name)} — {price} | {p.StorageQuotaGb}GB | {p.UserQuota} users";
+            return $"{p.Name} — {price} | {p.StorageQuotaGb}GB | {p.UserQuota} users";
         }).ToList();
 
         var selected = AnsiConsole.Prompt(
             Renderer.Prompt<string>()
                 .Title("[#F97316]Choose a plan:[/]")
+                .UseConverter(Markup.Escape)
                 .AddChoices(choices));
 
         var idx = choices.IndexOf(selected);
@@ -313,12 +314,13 @@ public class ProjectsUseCommand : BasePlatformCommand<ProjectsUseSettings>
             {
                 // Interactive picker
                 var choices = projects.OrderBy(p => p.Name).Select(p =>
-                    $"{Markup.Escape(p.Name)}  (org: {p.TenantId?.ToString() ?? "—"})  ({p.Id.ToString()[..8]}…)"
+                    $"{p.Name}  (org: {p.TenantId?.ToString() ?? "—"})  ({p.Id.ToString()[..8]}…)"
                 ).ToList();
 
                 var selected = AnsiConsole.Prompt(
                     Renderer.Prompt<string>()
                         .Title("[#F97316]Select project:[/]")
+                        .UseConverter(Markup.Escape)
                         .AddChoices(choices));
 
                 var idx = choices.IndexOf(selected);
@@ -340,7 +342,7 @@ public class ProjectsUseCommand : BasePlatformCommand<ProjectsUseSettings>
 
             if (match.Status != 2) // 2 = Active
             {
-                Renderer.Warn($"Project status is {ProjectStatusMarkup.Render(match.Status)} — it may not be ready yet.");
+                Renderer.Warn($"Project status is {ProjectStatusText.Name(match.Status)} — it may not be ready yet.");
             }
 
             if (match.TenantId == null)

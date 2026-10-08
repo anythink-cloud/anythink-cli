@@ -25,7 +25,7 @@ public record BillingAccount(
     [property: JsonPropertyName("organization_name")]   string    OrganizationName,
     [property: JsonPropertyName("billing_email")]       string    BillingEmail,
     [property: JsonPropertyName("currency")]            string    Currency,
-    [property: JsonPropertyName("status")]              int       Status,          // 0=Active 1=Suspended 2=Canceled
+    [property: JsonPropertyName("status")]              int       Status,          // 0=Active 1=PastDue 2=Suspended 3=Closed
     [property: JsonPropertyName("access_level")]        int       AccessLevel,     // 0=Viewer 1=Admin 2=Owner
     [property: JsonPropertyName("current_balance_cents")] long    CurrentBalanceCents,
     [property: JsonPropertyName("next_invoice_date")]   DateTime? NextInvoiceDate

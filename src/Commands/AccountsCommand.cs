@@ -9,23 +9,24 @@ using System.Text.Json.Nodes;
 
 namespace AnythinkCli.Commands;
 
-static class AccountStatusMarkup
+static class AccountStatusText
 {
     public static string Name(int status) => status switch
     {
         0 => "active",
-        1 => "suspended",
-        2 => "canceled",
+        1 => "past due",
+        2 => "suspended",
+        3 => "closed",
         _ => status.ToString()
     };
 
-    public static string Render(int status) => status switch
+    public static Text Cell(int status) => new(Name(status), status switch
     {
-        0 => $"[green]{Name(status)}[/]",
-        1 => $"[yellow]{Name(status)}[/]",
-        2 => $"[red]{Name(status)}[/]",
-        _ => Name(status)
-    };
+        0 => new Style(Color.Green),
+        1 => new Style(Color.Yellow),
+        2 or 3 => new Style(Color.Red),
+        _ => Style.Plain
+    });
 
     public static string AccessLevel(int level) => level switch
     {
@@ -69,8 +70,8 @@ public class AccountsListCommand : BasePlatformCommand<AccountsListSettings>
                     name = a.OrganizationName,
                     email = a.BillingEmail,
                     currency = a.Currency,
-                    status = AccountStatusMarkup.Name(a.Status),
-                    access_level = AccountStatusMarkup.AccessLevel(a.AccessLevel)
+                    status = AccountStatusText.Name(a.Status),
+                    access_level = AccountStatusText.AccessLevel(a.AccessLevel)
                 }), Renderer.PrettyJson));
                 return 0;
             }
@@ -90,12 +91,12 @@ public class AccountsListCommand : BasePlatformCommand<AccountsListSettings>
             {
                 var isActive = a.Id.ToString() == platform.AccountId;
                 table.AddRow(
-                    Markup.Escape(a.Id.ToString()[..8] + "…"),
-                    Markup.Escape(a.OrganizationName),
-                    Markup.Escape(a.BillingEmail),
-                    Markup.Escape(a.Currency.ToUpper()),
-                    AccountStatusMarkup.Render(a.Status),
-                    isActive ? "[green]●[/]" : ""
+                    new Text(a.Id.ToString()[..8] + "…"),
+                    new Text(a.OrganizationName),
+                    new Text(a.BillingEmail),
+                    new Text(a.Currency.ToUpper()),
+                    AccountStatusText.Cell(a.Status),
+                    new Text(isActive ? "●" : "", new Style(Color.Green))
                 );
             }
             AnsiConsole.Write(table);
@@ -242,12 +243,13 @@ public class AccountsUseCommand : BasePlatformCommand<AccountsUseSettings>
             {
                 // Interactive picker
                 var choices = accounts
-                    .Select(a => $"{Markup.Escape(a.OrganizationName)}  <{Markup.Escape(a.BillingEmail)}>  ({a.Id.ToString()[..8]}…)")
+                    .Select(a => $"{a.OrganizationName}  <{a.BillingEmail}>  ({a.Id.ToString()[..8]}…)")
                     .ToList();
 
                 var selected = AnsiConsole.Prompt(
                     Renderer.Prompt<string>()
                         .Title("[#F97316]Select billing account:[/]")
+                        .UseConverter(Markup.Escape)
                         .AddChoices(choices));
 
                 var idx = choices.IndexOf(selected);
