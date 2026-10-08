@@ -1,4 +1,4 @@
-using System.Text.Encodings.Web;
+using AnythinkCli.Output;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -7,14 +7,7 @@ namespace AnythinkCli.Models;
 
 public static class WorkflowJson
 {
-    // Keeps scripts readable: quotes and angle brackets aren't turned into \uXXXX escapes.
-    public static readonly JsonSerializerOptions Pretty = new()
-    {
-        WriteIndented = true,
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-    };
-
-    private static readonly JsonSerializerOptions PrettyOmitNull = new(Pretty)
+    private static readonly JsonSerializerOptions PrettyOmitNull = new(JsonOutput.PrettyRelaxed)
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
@@ -113,7 +106,7 @@ public static class WorkflowJson
             ["step_count"] = w.Steps?.Count ?? 0,
         }).ToList();
 
-        return JsonSerializer.Serialize(summaries, Pretty);
+        return JsonSerializer.Serialize(summaries, JsonOutput.PrettyRelaxed);
     }
 
     private static void Copy(

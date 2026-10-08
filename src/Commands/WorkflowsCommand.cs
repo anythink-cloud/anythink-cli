@@ -121,7 +121,7 @@ public class WorkflowsGetCommand : BaseCommand<WorkflowGetSettings>
             for (var i = 0; i < triggers.Count; i++)
             {
                 if (WorkflowTriggers.Filter(triggers[i]) is not { } filter) continue;
-                var pretty = System.Text.Json.JsonSerializer.Serialize(filter, WorkflowJson.Pretty);
+                var pretty = System.Text.Json.JsonSerializer.Serialize(filter, JsonOutput.PrettyRelaxed);
                 Renderer.KeyValue(triggers.Count > 1 ? $"Filter (trigger {i + 1}, {triggers[i].Type})" : "Filter", pretty);
             }
 
