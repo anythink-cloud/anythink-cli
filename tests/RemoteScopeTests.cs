@@ -25,7 +25,7 @@ public class RemoteScopeTests : IDisposable
         {
             OrgId = "1",
             InstanceApiUrl = "https://api.example.com",
-            ApiKey = "ak_the_servers_own_key"
+            ApiKey = "ak_server_key"
         });
     }
 
