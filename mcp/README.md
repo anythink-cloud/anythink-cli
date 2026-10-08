@@ -112,6 +112,7 @@ Configuration is via environment variables:
 |---|---|---|
 | `MCP_PUBLIC_URL` | yes | The resource URL clients connect to, e.g. `https://mcp.anythink.cloud/mcp`. Must match exactly what's registered with the OAuth authorisation server. |
 | `MCP_AUTH_ISSUER` | yes | The Anythink OAuth authorisation server's issuer URL. |
+| `MCP_BILLING_URL` | no | Base URL of the Anythink billing service that account tools call with the caller's own token. Must be an absolute https URL. Defaults to `MCP_AUTH_ISSUER`. |
 | `MCP_AUTH_AUDIENCE` | no | The audience tokens must carry. Defaults to `MCP_PUBLIC_URL`. |
 | `MCP_EXCHANGE_CLIENT_ID` | yes | Client id of this server's confidential client at the authorisation server, used for token exchange. |
 | `MCP_EXCHANGE_CLIENT_SECRET` | yes | Secret for that client. Never logged. |

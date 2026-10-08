@@ -13,6 +13,6 @@ public sealed class HostedAccounts(HostedCredentials credentials, McpClientFacto
 
     public BillingClient Client() =>
         HasAccess
-            ? factory.GetCallerBillingClient(options.Issuer, credentials.InboundToken!)
+            ? factory.GetCallerBillingClient(options.BillingBaseUrl, credentials.InboundToken!)
             : throw new HostedProjectException(NoAccessMessage);
 }

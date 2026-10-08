@@ -15,6 +15,7 @@ internal static class HostedConfig
         {
             PublicUrl = publicUrl,
             Issuer = Required("MCP_AUTH_ISSUER"),
+            BillingUrl = ReadBillingUrl(get),
             Audience = Optional("MCP_AUTH_AUDIENCE") ?? publicUrl,
             Exchange = new TokenExchangeOptions
             {
@@ -29,6 +30,12 @@ internal static class HostedConfig
             AllowLoopbackInstance = LoopbackOptIn(get),
         };
     }
+
+    private static string? ReadBillingUrl(Func<string, string?> get) =>
+        Optional(get, "MCP_BILLING_URL") is not { } url ? null
+        : Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps
+            ? url.TrimEnd('/')
+            : throw new InvalidOperationException("MCP_BILLING_URL must be an absolute https URL.");
 
     public static bool LoopbackOptIn(Func<string, string?> get)
     {

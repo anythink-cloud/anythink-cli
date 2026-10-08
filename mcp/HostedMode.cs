@@ -26,6 +26,8 @@ public static class HostedMode
     {
         public required string PublicUrl { get; init; }
         public required string Issuer { get; init; }
+        public string? BillingUrl { get; init; }
+        public string BillingBaseUrl => BillingUrl ?? Issuer;
         public required string Audience { get; init; }
         public required TokenExchangeOptions Exchange { get; init; }
         public IReadOnlyList<string> AllowedInstanceHostSuffixes { get; init; } = DefaultInstanceHostSuffixes;
