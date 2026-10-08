@@ -22,11 +22,20 @@ public class MachineOutputTests
 
     private static JsonObject Entity(string name, int fields) => new()
     {
-        ["id"] = 1, ["name"] = name, ["table_name"] = "_" + name,
-        ["enable_rls"] = false, ["is_system"] = false, ["is_public"] = false, ["lock_new_records"] = false,
+        ["id"] = 1,
+        ["name"] = name,
+        ["table_name"] = "_" + name,
+        ["enable_rls"] = false,
+        ["is_system"] = false,
+        ["is_public"] = false,
+        ["lock_new_records"] = false,
         ["fields"] = new JsonArray(Enumerable.Range(0, fields).Select(i => (JsonNode)new JsonObject
         {
-            ["id"] = i, ["name"] = $"field_{i}", ["database_type"] = "varchar", ["display_type"] = "input", ["is_required"] = i % 2 == 0,
+            ["id"] = i,
+            ["name"] = $"field_{i}",
+            ["database_type"] = "varchar",
+            ["display_type"] = "input",
+            ["is_required"] = i % 2 == 0,
         }).ToArray()),
     };
 
