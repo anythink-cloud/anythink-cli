@@ -1,7 +1,7 @@
-using System.Net;
 using System.Text.Json.Nodes;
 using AnythinkCli.Commands;
 using FluentAssertions;
+using RichardSzalay.MockHttp;
 
 namespace AnythinkCli.Tests;
 
@@ -17,15 +17,23 @@ public class WorkflowsUpdateTests
          "steps":[{"id":1,"key":"a","name":"A","action":"RunScript","enabled":true,"is_start_step":true}]}
         """;
 
-    private static RecordingHandler Api() => new((request, _) =>
-        (HttpStatusCode.OK, request.Method == HttpMethod.Put ? Existing.Replace("old text", "new text") : Existing));
+    private sealed record Backend(MockHttpMessageHandler Mock, MockedRequest Get, MockedRequest Put, List<string> PutBodies);
 
-    private static async Task<(RecordingHandler Handler, int Code, JsonObject Put)> Update(WorkflowUpdateSettings settings)
+    private static Backend Api(string existing = Existing)
     {
-        var handler = Api();
-        var (code, _) = await CommandRunner.RunAsync(handler, () => new WorkflowsUpdateCommand().ExecuteAsync(null!, settings));
-        var put = handler.Requests.SingleOrDefault(r => r.Method == HttpMethod.Put).Body;
-        return (handler, code, put is null ? new JsonObject() : JsonNode.Parse(put)!.AsObject());
+        var mock = new MockHttpMessageHandler();
+        var puts = new List<string>();
+        var get = mock.ReplyWith(HttpMethod.Get, $"{CommandRunner.Org}/workflows/31", existing);
+        var put = mock.ReplyWith(HttpMethod.Put, $"{CommandRunner.Org}/workflows/31", existing.Replace("old text", "new text"), puts);
+        return new Backend(mock, get, put, puts);
+    }
+
+    private static async Task<(Backend Backend, int Code, JsonObject Put)> Update(WorkflowUpdateSettings settings)
+    {
+        var backend = Api();
+        var (code, _) = await CommandRunner.RunAsync(backend.Mock, () => new WorkflowsUpdateCommand().ExecuteAsync(null!, settings));
+        var put = backend.PutBodies.SingleOrDefault();
+        return (backend, code, put is null ? new JsonObject() : JsonNode.Parse(put)!.AsObject());
     }
 
     [Fact]
@@ -52,17 +60,18 @@ public class WorkflowsUpdateTests
     [Fact]
     public async Task Update_WorkflowWithAnIncompleteTrigger_SaysWhichTriggerAndWhatIsMissingInsteadOfSendingIt()
     {
-        var handler = new RecordingHandler((_, _) => (HttpStatusCode.OK, """
+        var backend = Api("""
             {"id":31,"name":"nightly","enabled":true,
              "triggers":[{"id":8,"type":"Timed","enabled":true,"config":{"cron_expression":"0 2 * * *"}},
                          {"id":9,"type":"Manual","enabled":true,"config":{"manual_entities":[]}}]}
-            """));
+            """);
 
-        var (code, output) = await CommandRunner.RunAsync(handler,
+        var (code, output) = await CommandRunner.RunAsync(backend.Mock,
             () => new WorkflowsUpdateCommand().ExecuteAsync(null!, new WorkflowUpdateSettings { Id = 31, Description = "new text" }));
 
         code.Should().Be(1);
-        handler.Requests.Should().ContainSingle(r => r.Method == HttpMethod.Get).And.NotContain(r => r.Method == HttpMethod.Put);
+        backend.Mock.GetMatchCount(backend.Get).Should().Be(1);
+        backend.Mock.GetMatchCount(backend.Put).Should().Be(0);
         output.Should().Contain("Workflow 'nightly' can't be updated")
             .And.Contain("Trigger 2: Manual trigger has no entities")
             .And.NotContain("Trigger 1")
@@ -81,9 +90,10 @@ public class WorkflowsUpdateTests
     [Fact]
     public async Task Update_WithNothingToChange_SendsNothing()
     {
-        var (handler, code, _) = await Update(new WorkflowUpdateSettings { Id = 31 });
+        var (backend, code, _) = await Update(new WorkflowUpdateSettings { Id = 31 });
 
         code.Should().Be(1);
-        handler.Requests.Should().BeEmpty();
+        backend.Mock.GetMatchCount(backend.Get).Should().Be(0);
+        backend.Mock.GetMatchCount(backend.Put).Should().Be(0);
     }
 }

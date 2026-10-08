@@ -1,33 +1,37 @@
-using System.Net;
 using System.Text.Json.Nodes;
 using AnythinkCli.Commands;
 using FluentAssertions;
+using RichardSzalay.MockHttp;
 
 namespace AnythinkCli.Tests;
 
 [Collection("ConsoleOutput")]
 public class WorkflowsCreateTests
 {
-    private static RecordingHandler Api() =>
-        new((_, _) => (HttpStatusCode.OK, """{"id":5,"name":"w","enabled":false,"steps":[]}"""));
+    private static MockHttpMessageHandler Api(List<string> sent)
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.ReplyWith(HttpMethod.Post, $"{CommandRunner.Org}/workflows", """{"id":5,"name":"w","enabled":false,"steps":[]}""", sent);
+        return mock;
+    }
 
-    private static Task<(int Code, string Output)> Create(RecordingHandler handler, WorkflowCreateSettings settings) =>
-        CommandRunner.RunAsync(handler, () => new WorkflowsCreateCommand().ExecuteAsync(null!, settings));
+    private static Task<(int Code, string Output)> Create(MockHttpMessageHandler mock, WorkflowCreateSettings settings) =>
+        CommandRunner.RunAsync(mock, () => new WorkflowsCreateCommand().ExecuteAsync(null!, settings));
 
-    private static JsonObject SentBody(RecordingHandler handler) =>
-        JsonNode.Parse(handler.Requests.Single(r => r.Method == HttpMethod.Post).Body)!.AsObject();
+    private static JsonObject SentBody(List<string> sent) => JsonNode.Parse(sent.Single())!.AsObject();
 
     // ── Required trigger config is checked before anything is sent ───────────
 
     [Fact]
     public async Task Create_ManualTriggerWithoutEntity_IsRejectedBeforeCallingTheApi()
     {
-        var handler = Api();
+        var sent = new List<string>();
+        var mock = Api(sent);
 
-        var (code, output) = await Create(handler, new WorkflowCreateSettings { Name = "w" });
+        var (code, output) = await Create(mock, new WorkflowCreateSettings { Name = "w" });
 
         code.Should().Be(1);
-        handler.Requests.Should().BeEmpty();
+        sent.Should().BeEmpty();
         output.Should().Contain("Manual trigger needs --entity");
     }
 
@@ -37,36 +41,39 @@ public class WorkflowsCreateTests
     [InlineData("Timed", "A Timed trigger needs --cron")]
     public async Task Create_TriggerMissingItsRequiredOption_IsRejectedNamingTheFlag(string trigger, string expected)
     {
-        var handler = Api();
+        var sent = new List<string>();
+        var mock = Api(sent);
 
-        var (code, output) = await Create(handler, new WorkflowCreateSettings { Name = "w", Trigger = trigger });
+        var (code, output) = await Create(mock, new WorkflowCreateSettings { Name = "w", Trigger = trigger });
 
         code.Should().Be(1);
-        handler.Requests.Should().BeEmpty();
+        sent.Should().BeEmpty();
         output.Should().Contain(expected);
     }
 
     [Fact]
     public async Task Create_UnknownTriggerType_IsRejectedListingTheValidOnes()
     {
-        var handler = Api();
+        var sent = new List<string>();
+        var mock = Api(sent);
 
-        var (code, output) = await Create(handler, new WorkflowCreateSettings { Name = "w", Trigger = "Webhook" });
+        var (code, output) = await Create(mock, new WorkflowCreateSettings { Name = "w", Trigger = "Webhook" });
 
         code.Should().Be(1);
-        handler.Requests.Should().BeEmpty();
+        sent.Should().BeEmpty();
         output.Should().Contain("Unknown trigger type 'Webhook'").And.Contain("Manual, Timed, Event, Api");
     }
 
     [Fact]
     public async Task Create_TriggerType_IsMatchedCaseInsensitivelyAndSentInTheCanonicalSpelling()
     {
-        var handler = Api();
+        var sent = new List<string>();
+        var mock = Api(sent);
 
-        var (code, _) = await Create(handler, new WorkflowCreateSettings { Name = "w", Trigger = "timed", Cron = "0 9 * * *" });
+        var (code, _) = await Create(mock, new WorkflowCreateSettings { Name = "w", Trigger = "timed", Cron = "0 9 * * *" });
 
         code.Should().Be(0);
-        SentBody(handler)["triggers"]![0]!["type"]!.GetValue<string>().Should().Be("Timed");
+        SentBody(sent)["triggers"]![0]!["type"]!.GetValue<string>().Should().Be("Timed");
     }
 
     // ── The bodies that are sent ─────────────────────────────────────────────
@@ -74,11 +81,12 @@ public class WorkflowsCreateTests
     [Fact]
     public async Task Create_ApiTrigger_SendsTheRouteInTheTriggerConfigAndNoLegacyFields()
     {
-        var handler = Api();
+        var sent = new List<string>();
+        var mock = Api(sent);
 
-        await Create(handler, new WorkflowCreateSettings { Name = "w", Trigger = "Api", ApiRoute = "hooks/in" });
+        await Create(mock, new WorkflowCreateSettings { Name = "w", Trigger = "Api", ApiRoute = "hooks/in" });
 
-        var body = SentBody(handler);
+        var body = SentBody(sent);
         body["trigger"].Should().BeNull();
         body["api_route"].Should().BeNull();
         var trigger = body["triggers"]!.AsArray().Should().ContainSingle().Subject!;
@@ -90,9 +98,10 @@ public class WorkflowsCreateTests
     [Fact]
     public async Task Create_EventTrigger_SendsEventEntityAndFilterInTheTriggerConfig()
     {
-        var handler = Api();
+        var sent = new List<string>();
+        var mock = Api(sent);
 
-        await Create(handler, new WorkflowCreateSettings
+        await Create(mock, new WorkflowCreateSettings
         {
             Name = "w",
             Trigger = "Event",
@@ -101,7 +110,7 @@ public class WorkflowsCreateTests
             Filter = """{"field":"status","operator":"eq","value":"reviewed"}""",
         });
 
-        var config = SentBody(handler)["triggers"]![0]!["config"]!;
+        var config = SentBody(sent)["triggers"]![0]!["config"]!;
         config["event"]!.GetValue<string>().Should().Be("EntityUpdated");
         config["event_entity"]!.GetValue<string>().Should().Be("blog_posts");
         config["filter"]!["field"]!.GetValue<string>().Should().Be("status");
@@ -110,11 +119,12 @@ public class WorkflowsCreateTests
     [Fact]
     public async Task Create_ManualTrigger_SendsTheEntityInManualEntities()
     {
-        var handler = Api();
+        var sent = new List<string>();
+        var mock = Api(sent);
 
-        await Create(handler, new WorkflowCreateSettings { Name = "w", EventEntity = "sources" });
+        await Create(mock, new WorkflowCreateSettings { Name = "w", EventEntity = "sources" });
 
-        SentBody(handler)["triggers"]![0]!["config"]!["manual_entities"]!.AsArray()
+        SentBody(sent)["triggers"]![0]!["config"]!["manual_entities"]!.AsArray()
             .Select(e => e!.GetValue<string>()).Should().Equal("sources");
     }
 
@@ -123,35 +133,38 @@ public class WorkflowsCreateTests
     [Fact]
     public async Task Create_UnknownEvent_IsRejectedListingTheKnownEvents()
     {
-        var handler = Api();
+        var sent = new List<string>();
+        var mock = Api(sent);
 
-        var (code, output) = await Create(handler, new WorkflowCreateSettings { Name = "w", Trigger = "Event", EventEntity = "posts", Event = "EntityCreatd" });
+        var (code, output) = await Create(mock, new WorkflowCreateSettings { Name = "w", Trigger = "Event", EventEntity = "posts", Event = "EntityCreatd" });
 
         code.Should().Be(1);
-        handler.Requests.Should().BeEmpty();
+        sent.Should().BeEmpty();
         output.Should().Contain("Unknown event 'EntityCreatd'").And.Contain("EntityUpdated").And.Contain("PaymentSucceeded");
     }
 
     [Fact]
     public async Task Create_EventName_IsMatchedCaseInsensitivelyAndSentInTheCanonicalSpelling()
     {
-        var handler = Api();
+        var sent = new List<string>();
+        var mock = Api(sent);
 
-        var (code, _) = await Create(handler, new WorkflowCreateSettings { Name = "w", Trigger = "Event", EventEntity = "posts", Event = "entityupdated" });
+        var (code, _) = await Create(mock, new WorkflowCreateSettings { Name = "w", Trigger = "Event", EventEntity = "posts", Event = "entityupdated" });
 
         code.Should().Be(0);
-        SentBody(handler)["triggers"]![0]!["config"]!["event"]!.GetValue<string>().Should().Be("EntityUpdated");
+        SentBody(sent)["triggers"]![0]!["config"]!["event"]!.GetValue<string>().Should().Be("EntityUpdated");
     }
 
     [Fact]
     public async Task Create_EventThatIsNotAboutAnEntity_NeedsNoEntity()
     {
-        var handler = Api();
+        var sent = new List<string>();
+        var mock = Api(sent);
 
-        var (code, _) = await Create(handler, new WorkflowCreateSettings { Name = "w", Trigger = "Event", Event = "UserRegistered" });
+        var (code, _) = await Create(mock, new WorkflowCreateSettings { Name = "w", Trigger = "Event", Event = "UserRegistered" });
 
         code.Should().Be(0);
-        SentBody(handler)["triggers"]![0]!["config"]!["event"]!.GetValue<string>().Should().Be("UserRegistered");
+        SentBody(sent)["triggers"]![0]!["config"]!["event"]!.GetValue<string>().Should().Be("UserRegistered");
     }
 
     // ── Options that don't apply are called out, not silently dropped ────────
@@ -159,9 +172,10 @@ public class WorkflowsCreateTests
     [Fact]
     public async Task Create_EntityGivenForATimedTrigger_IsIgnoredWithAWarning()
     {
-        var handler = Api();
+        var sent = new List<string>();
+        var mock = Api(sent);
 
-        var (code, output) = await Create(handler, new WorkflowCreateSettings
+        var (code, output) = await Create(mock, new WorkflowCreateSettings
         {
             Name = "w",
             Trigger = "Timed",
@@ -171,6 +185,6 @@ public class WorkflowsCreateTests
 
         code.Should().Be(0);
         output.Should().Contain("--entity is ignored for a Timed trigger");
-        SentBody(handler)["triggers"]![0]!["config"]!.AsObject().Select(p => p.Key).Should().Equal("cron_expression");
+        SentBody(sent)["triggers"]![0]!["config"]!.AsObject().Select(p => p.Key).Should().Equal("cron_expression");
     }
 }

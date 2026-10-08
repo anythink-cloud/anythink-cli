@@ -1,8 +1,8 @@
-using System.Net;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using AnythinkCli.Commands;
 using FluentAssertions;
+using RichardSzalay.MockHttp;
 
 namespace AnythinkCli.Tests;
 
@@ -77,7 +77,12 @@ internal static class WorkflowFixtures
 [Collection("ConsoleOutput")]
 public class WorkflowsReadCommandsTests
 {
-    private static RecordingHandler ReturningJson(string json) => new((_, _) => (HttpStatusCode.OK, json));
+    private static MockHttpMessageHandler ReturningJson(string json)
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.When("*").Respond("application/json", json);
+        return mock;
+    }
 
     private static JsonObject FifteenStepWorkflow() => WorkflowFixtures.Workflow(7, 15, WorkflowFixtures.LongScript());
 

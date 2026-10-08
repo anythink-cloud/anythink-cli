@@ -1,9 +1,9 @@
-using System.Net;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using AnythinkCli.Commands;
 using AnythinkCli.Models;
 using FluentAssertions;
+using RichardSzalay.MockHttp;
 
 namespace AnythinkCli.Tests;
 
@@ -21,28 +21,34 @@ public class WorkflowsSeedCommandTests : IDisposable
         return path;
     }
 
-    private static RecordingHandler Api() =>
-        new((_, _) => (HttpStatusCode.OK, """{"id":9,"name":"smoke","enabled":false,"steps":[]}"""));
+    private static MockHttpMessageHandler Api(List<string> sent)
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.ReplyWith(HttpMethod.Post, $"{CommandRunner.Org}/workflows", """{"id":9,"name":"smoke","enabled":false,"steps":[]}""", sent);
+        return mock;
+    }
 
-    private static Task<(int Code, string Output)> Seed(RecordingHandler handler, string path) =>
-        CommandRunner.RunAsync(handler, () => new WorkflowsSeedCommand().ExecuteAsync(null!, new WorkflowsSeedSettings { File = path }));
+    private static Task<(int Code, string Output)> Seed(MockHttpMessageHandler mock, string path) =>
+        CommandRunner.RunAsync(mock, () => new WorkflowsSeedCommand().ExecuteAsync(null!, new WorkflowsSeedSettings { File = path }));
 
     [Fact]
     public async Task Seed_ManualTriggerWithNoEntities_FailsNamingTheWorkflowAndTheMissingField()
     {
-        var handler = Api();
+        var sent = new List<string>();
+        var mock = Api(sent);
 
-        var (code, output) = await Seed(handler, WriteSeed("""{"name":"smoke","trigger":"Manual","steps":[]}"""));
+        var (code, output) = await Seed(mock, WriteSeed("""{"name":"smoke","trigger":"Manual","steps":[]}"""));
 
         code.Should().Be(1);
-        handler.Requests.Should().BeEmpty();
+        sent.Should().BeEmpty();
         output.Should().Contain("Workflow 'smoke'").And.Contain("manual_entities");
     }
 
     [Fact]
     public async Task Seed_TriggerInTheListMissingItsConfig_FailsNamingTheWorkflowAndTheMissingField()
     {
-        var handler = Api();
+        var sent = new List<string>();
+        var mock = Api(sent);
         var seed = WriteSeed("""
             {"name":"smoke","steps":[
               {"key":"a","action":"RunScript"}],
@@ -50,25 +56,26 @@ public class WorkflowsSeedCommandTests : IDisposable
                          {"type":"Api","enabled":true,"config":{}}]}
             """);
 
-        var (code, output) = await Seed(handler, seed);
+        var (code, output) = await Seed(mock, seed);
 
         code.Should().Be(1);
-        handler.Requests.Should().BeEmpty();
+        sent.Should().BeEmpty();
         output.Should().Contain("Workflow 'smoke'").And.Contain("Api trigger has no api_route");
     }
 
     [Fact]
     public async Task Seed_Group_IsSentWithTheWorkflow()
     {
-        var handler = Api();
+        var sent = new List<string>();
+        var mock = Api(sent);
         var seed = WriteSeed("""
             {"name":"smoke","group":"content","trigger":"Manual","options":{"manual_entities":["sources"]},"steps":[]}
             """);
 
-        var (code, _) = await Seed(handler, seed);
+        var (code, _) = await Seed(mock, seed);
 
         code.Should().Be(0);
-        JsonNode.Parse(handler.Requests.Single(r => r.Method == HttpMethod.Post).Body)!["group"]!.GetValue<string>().Should().Be("content");
+        JsonNode.Parse(sent.Single())!["group"]!.GetValue<string>().Should().Be("content");
     }
 }
 
