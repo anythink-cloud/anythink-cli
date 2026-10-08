@@ -6,7 +6,7 @@ using System.Text.Json.Nodes;
 
 namespace AnythinkCli.Client;
 
-public partial class AnythinkClient : HttpApiClient
+public class AnythinkClient : HttpApiClient
 {
     public  string OrgId   { get; }
     public  string BaseUrl { get; }

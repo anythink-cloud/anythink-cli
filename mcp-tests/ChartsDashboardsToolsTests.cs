@@ -150,7 +150,12 @@ public class ChartsDashboardsToolsTests
 
         var result = await Run(scope, "charts_create", new
         {
-            name = "Orders by status", entity = "orders", type = "pie", group_by = "status", timeframe = "30d", limit = 10,
+            name = "Orders by status",
+            entity = "orders",
+            type = "pie",
+            group_by = "status",
+            timeframe = "30d",
+            limit = 10,
             filter = new[] { "region:eq:uk" },
         }, mock);
 
@@ -172,7 +177,9 @@ public class ChartsDashboardsToolsTests
 
         var result = await Run(scope, "charts_create", new
         {
-            name = "Signup funnel", entity = "users", type = "funnel",
+            name = "Signup funnel",
+            entity = "users",
+            type = "funnel",
             config = """{"funnelStages":[{"label":"Signed up"},{"label":"Paid","filters":[{"field":"plan","op":"ne","value":"free"}]}],"funnelStyle":"vertical"}""",
         }, mock);
 
@@ -913,7 +920,11 @@ public class ChartsDashboardsToolsTests
     {
         var widgets = new JsonArray(Enumerable.Range(1, 10).Select(i => (JsonNode)new JsonObject
         {
-            ["id"] = i, ["type"] = "chart", ["title"] = $"Chart {i}", ["config_json"] = $$"""{"chartId":{{i}}}""", ["sort_order"] = i,
+            ["id"] = i,
+            ["type"] = "chart",
+            ["title"] = $"Chart {i}",
+            ["config_json"] = $$"""{"chartId":{{i}}}""",
+            ["sort_order"] = i,
         }).ToArray());
         var data = new JsonObject();
         foreach (var i in Enumerable.Range(1, 10))
@@ -975,10 +986,25 @@ public class ChartsDashboardsToolsTests
         var names = CliCommandTool.All(scope).Select(t => t.ProtocolTool.Name).ToList();
 
         names.Should().Contain([
-            "charts_list", "charts_get", "charts_create", "charts_update", "charts_delete", "charts_preview", "charts_platform_metrics",
-            "dashboards_list", "dashboards_get", "dashboards_mine", "dashboards_create", "dashboards_update", "dashboards_delete",
-            "dashboards_data", "dashboards_set_home", "dashboards_promote_to_default", "dashboards_widget_preview",
-            "dashboards_add_chart", "dashboards_remove_widget"]);
+            "charts_list",
+            "charts_get",
+            "charts_create",
+            "charts_update",
+            "charts_delete",
+            "charts_preview",
+            "charts_platform_metrics",
+            "dashboards_list",
+            "dashboards_get",
+            "dashboards_mine",
+            "dashboards_create",
+            "dashboards_update",
+            "dashboards_delete",
+            "dashboards_data",
+            "dashboards_set_home",
+            "dashboards_promote_to_default",
+            "dashboards_widget_preview",
+            "dashboards_add_chart",
+            "dashboards_remove_widget"]);
     }
 
     // ── Rule: remote callers can pass a name with spaces, but not a path trick as an id ──

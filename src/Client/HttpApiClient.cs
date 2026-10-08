@@ -84,9 +84,6 @@ public abstract class HttpApiClient
                ?? throw new AnythinkException("Empty response.", (int)r.StatusCode);
     }
 
-    protected async Task<T?> PostOptionalAsync<T>(string url, object? body = null) =>
-        await DeserializeAsync<T>(await Http.PostAsync(Target(url), Serialize(body ?? new { }), ClientContext.Cancellation));
-
     protected async Task<T?> PutAsync<T>(string url, object body)
     {
         var r = await Http.PutAsync(Target(url), Serialize(body), ClientContext.Cancellation);
