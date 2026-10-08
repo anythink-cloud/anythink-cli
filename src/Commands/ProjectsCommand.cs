@@ -150,7 +150,6 @@ public class ProjectsCreateCommand : BasePlatformCommand<ProjectsCreateSettings>
         {
             name = settings.Name ?? AnsiConsole.Ask<string>("[#F97316]Project name:[/]");
 
-            // Fetch and display plans if no --plan given
             if (!string.IsNullOrEmpty(settings.PlanId) && Guid.TryParse(settings.PlanId, out var parsedId))
             {
                 planId = parsedId;
