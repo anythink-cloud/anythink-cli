@@ -150,8 +150,8 @@ public abstract class BaseCommand<TSettings> : AsyncCommand<TSettings>
             case AnythinkException ae:
                 Renderer.Error($"API error ({ae.StatusCode}): {ae.Message}");
                 break;
-            case CliException:
-                AnsiConsole.MarkupLine($"[red]✗[/] {ex.Message}");
+            case CliException cli:
+                AnsiConsole.MarkupLine($"[red]✗[/] {cli.MarkupMessage}");
                 break;
             default:
                 Renderer.Error(ex.Message);

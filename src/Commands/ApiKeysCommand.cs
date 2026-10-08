@@ -41,7 +41,7 @@ public class ApiKeysListCommand : BaseCommand<EmptySettings>
                     : k.ExpiresAt < DateTime.UtcNow ? "expired" : "active";
                 Renderer.AddRow(table,
                     k.Id.ToString(),
-                    Markup.Escape(k.Name),
+                    k.Name,
                     k.Permissions.Count.ToString(),
                     k.ExpiresAt.ToString("yyyy-MM-dd"),
                     status
@@ -150,7 +150,7 @@ public class ApiKeysCreateCommand : BaseCommand<ApiKeyCreateSettings>
 
             if (!settings.Yes)
             {
-                Renderer.Header($"Create API key: {Markup.Escape(settings.Name)}");
+                Renderer.Header($"Create API key: {settings.Name}");
                 var summary = Renderer.BuildTable("Property", "Value");
                 Renderer.AddRow(summary, "Expires in", $"{settings.ExpiresInDays} days");
                 Renderer.AddRow(summary, "Permissions", string.Join(", ", resolved.Select(p => p.Name)));
@@ -168,7 +168,7 @@ public class ApiKeysCreateCommand : BaseCommand<ApiKeyCreateSettings>
             ApiKeyResponse? created = null;
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Creating API key '{settings.Name}'...", async _ =>
+                .StartAsync(Renderer.Status($"Creating API key '{settings.Name}'..."), async _ =>
                 {
                     created = await client.CreateApiKeyAsync(new CreateApiKeyRequest(
                         settings.Name,
@@ -207,7 +207,7 @@ public class ApiKeysCreateCommand : BaseCommand<ApiKeyCreateSettings>
                 });
 
                 Renderer.Success($"Created API key '{Markup.Escape(created.Name)}' (id: {created.Id}) and saved as profile '{Markup.Escape(settings.SaveAs)}'.");
-                Renderer.Info("Use it with: anythink --profile " + settings.SaveAs + " <command>");
+                Renderer.Info($"Use it with: anythink --profile {Markup.Escape(settings.SaveAs)} <command>");
                 return 0;
             }
 
@@ -272,13 +272,13 @@ public class ApiKeysRevokeCommand : BaseCommand<ApiKeyRevokeSettings>
                 }
                 if (key.Revoked)
                 {
-                    Renderer.Info($"API key {settings.Id} ('{key.Name}') is already revoked.");
+                    Renderer.Info($"API key {settings.Id} ('{Markup.Escape(key.Name)}') is already revoked.");
                     return 0;
                 }
 
                 Renderer.Header($"Revoke API key {settings.Id}");
                 var summary = Renderer.BuildTable("Property", "Value");
-                Renderer.AddRow(summary, "Name", Markup.Escape(key.Name));
+                Renderer.AddRow(summary, "Name", key.Name);
                 Renderer.AddRow(summary, "Permissions", key.Permissions.Count.ToString());
                 Renderer.AddRow(summary, "Expires", key.ExpiresAt.ToString("yyyy-MM-dd"));
                 AnsiConsole.Write(summary);
@@ -292,7 +292,7 @@ public class ApiKeysRevokeCommand : BaseCommand<ApiKeyRevokeSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Revoking API key {settings.Id}...", async _ =>
+                .StartAsync(Renderer.Status($"Revoking API key {settings.Id}..."), async _ =>
                 {
                     await client.RevokeApiKeyAsync(settings.Id);
                 });
