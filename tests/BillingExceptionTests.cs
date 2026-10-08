@@ -31,7 +31,7 @@ public class BillingExceptionTests
     [InlineData(502)]
     public void AnyOtherFailure_IsTheStatusOnly_NeverTheBody(int status) =>
         Remote(status, """{"error":"secret-detail at Billing.Internal.Service"}""")
-            .Should().Be($"The billing API returned status {status}.");
+            .Should().Be($"The billing service returned status {status}.");
 
     [Theory]
     [InlineData("")]
@@ -46,7 +46,7 @@ public class BillingExceptionTests
     [InlineData("null")]
     [InlineData("42")]
     public void ABadRequestWithNothingReadable_IsTheStatusOnly(string body) =>
-        Remote(400, body).Should().Be("The billing API returned status 400.");
+        Remote(400, body).Should().Be("The billing service returned status 400.");
 
     [Fact]
     public void ABadRequestMessage_IsOneShortLineOfText()
@@ -59,7 +59,7 @@ public class BillingExceptionTests
 
     [Fact]
     public void AnUnreadableSuccess_SaysSoWithoutTheBody() =>
-        Remote(200, "garbage-body").Should().Be("The billing API returned a response this command couldn't read.");
+        Remote(200, "garbage-body").Should().Be("The billing service returned a response this command couldn't read.");
 
     [Fact]
     public async Task TheBillingClient_ReportsFailuresAsBillingExceptions_ThatKeepTheFullBodyForLocalUse()

@@ -12,8 +12,8 @@ public sealed partial class BillingException(string message, int statusCode) : A
     public override string StatusOnlyMessage => StatusCode switch
     {
         400 when Describe(Message) is { } detail => detail,
-        >= 200 and < 300 => "The billing API returned a response this command couldn't read.",
-        _ => $"The billing API returned status {StatusCode}."
+        >= 200 and < 300 => "The billing service returned a response this command couldn't read.",
+        _ => $"The billing service returned status {StatusCode}."
     };
 
     internal static string? Describe(string body)

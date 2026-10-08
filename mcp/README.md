@@ -161,7 +161,7 @@ what each call can do.
 ### Account tools
 
 When the user grants account access at sign-in (the token's `scope` contains `account`),
-hosted mode also serves five tools that run against the billing API as that user, using the
+hosted mode also serves five tools that run against the billing service as that user, using the
 connection's own token and never this server's saved login:
 
 | Tool | What it does | Hint |
@@ -180,9 +180,9 @@ minute. On a connection limited to one project the tools work the same way, but 
 created there isn't reachable from that connection, so the result says to reconnect with
 all projects to work in it.
 Without `account` in the scope the tools are left out of the tool list, and calling one
-anyway is refused without contacting the billing API. The server advertises `account` in
+anyway is refused without contacting the billing service. The server advertises `account` in
 the protected-resource metadata's `scopes_supported`. A billing error is reported by status only, except for a 400,
-where the billing API's own message (for example, that a paid plan needs a payment method)
+where the billing service's own message (for example, that a paid plan needs a payment method)
 is passed on.
 
 The internal REST API (`GET /tools`, `POST /tools/call`) used by your internal services
