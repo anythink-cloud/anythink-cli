@@ -458,6 +458,101 @@ public class ChartsDashboardsToolsTests
         result.Output.Trim().Should().Be("null");
     }
 
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task ChartsCreate_SendsNumbersAndSwitchesAsNumbersAndSwitches(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        var sent = Reply(mock, HttpMethod.Post, "/charts", Chart12, status: HttpStatusCode.Created);
+
+        var result = await Run(scope, "charts_create", new
+        {
+            name = "Goal",
+            entity = "orders",
+            type = "stat",
+            target = 500,
+            target_mode = "goal",
+            cumulative = false,
+            compare = true,
+            compare_days = 7,
+            compare_overlay = true,
+        }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        Matches(sent.Json,
+            """
+            {"dataSource":"entity","name":"Goal","chartType":"stat","entityName":"orders","target":500,"targetMode":"goal",
+             "cumulative":false,"compareEnabled":true,"comparePreviousDays":7,"compareShowOverlay":true}
+            """);
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task ChartsCreate_OfAPlatformChart_PostsTheMetricAndNoEntity(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        var sent = Reply(mock, HttpMethod.Post, "/charts", Chart12, status: HttpStatusCode.Created);
+
+        var result = await Run(scope, "charts_create",
+            new { name = "Workflow runs", source = "platform", platform_metric = "workflow_runs", platform_period = "week", type = "line" }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        Matches(sent.Json, """{"dataSource":"platform","name":"Workflow runs","chartType":"line","platformMetric":"workflow_runs","platformPeriod":"week"}""");
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task ChartsCreate_WithACustomRange_SendsTheDatesTheWayTheDashboardDoes(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        var sent = Reply(mock, HttpMethod.Post, "/charts", Chart12, status: HttpStatusCode.Created);
+
+        var result = await Run(scope, "charts_create",
+            new { name = "Q1", entity = "orders", type = "stat", from = "2026-01-01", to = "2026-03-31" }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        Matches(sent.Json,
+            """
+            {"dataSource":"entity","name":"Q1","chartType":"stat","entityName":"orders","timeframePreset":"custom",
+             "timeframeFrom":"2026-01-01T00:00:00Z","timeframeTo":"2026-03-31T23:59:59Z"}
+            """);
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task DashboardsCreate_WithWidgetsInConfig_PostsThemWithTheirSettingsAsText(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        var sent = Reply(mock, HttpMethod.Post, "/dashboards", Dashboard3, status: HttpStatusCode.Created);
+
+        var result = await Run(scope, "dashboards_create", new
+        {
+            name = "Ops",
+            config = """{"widgets":[{"type":"markdown","title":"Notes","config":{"body":"Hello"}},{"type":"list","title":"Latest orders","config":{"entityName":"orders","limit":5}}]}""",
+        }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        Matches(sent.Json,
+            """
+            {"name":"Ops","widgets":[{"type":"markdown","title":"Notes","config_json":"{\"body\":\"Hello\"}","sort_order":0},
+                                     {"type":"list","title":"Latest orders","config_json":"{\"entityName\":\"orders\",\"limit\":5}","sort_order":1}]}
+            """);
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task DashboardsUpdate_WithALayoutInConfig_PutsItInTheFormTheDashboardReads(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        var sent = Reply(mock, HttpMethod.Put, "/dashboards/3", Dashboard3);
+
+        var result = await Run(scope, "dashboards_update", new { id = 3, config = """{"layout":[{"widget_id":41,"x":0,"y":0,"w":12,"h":4}]}""" }, mock);
+
+        result.ExitCode.Should().Be(0, result.Output);
+        sent.Json["layout_json"]!.GetValue<string>().Should().Be("""[{"widgetId":41,"x":0,"y":0,"w":12,"h":4}]""");
+        sent.Json.AsObject().Select(p => p.Key).Should().Equal("layout_json");
+    }
+
     // ── Rule: adding a chart keeps the dashboard's other widgets and settings unchanged ──
 
     [Theory]
