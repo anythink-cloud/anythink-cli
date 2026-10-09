@@ -321,6 +321,17 @@ app.Configure(config =>
             .WithDescription("Delete a record")
             .WithExample("data", "delete", "blog_posts", "42", "--yes");
 
+        data.AddCommand<DataExportCommand>("export")
+            .WithDescription("Export records to a CSV, JSON or JSONL file (streamed page by page)")
+            .WithExample("data", "export", "customers", "customers.csv")
+            .WithExample("data", "export", "orders", "orders.jsonl", "--filter", "status=paid", "--fields", "id,total")
+            .WithExample("data", "export", "customers", "-", "--format", "json");
+
+        data.AddCommand<DataImportCommand>("import")
+            .WithDescription("Create records from a CSV, JSON array or JSONL file. Always run with --dry-run first.")
+            .WithExample("data", "import", "customers", "customers.csv", "--dry-run")
+            .WithExample("data", "import", "customers", "customers.csv", "--yes", "--errors", "rejected.csv");
+
         data.AddCommand<DataRlsCommand>("rls")
             .WithDescription("View or set RLS (row-level security) user access on a record")
             .WithExample("data", "rls", "completed_workouts", "3")

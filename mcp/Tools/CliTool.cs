@@ -32,6 +32,7 @@ public class CliTool
         "Use this for commands not covered by dedicated tools (entities, fields, data, workflows, " +
         "roles, menus, secrets, users, files, pay, oauth, migrate, fetch, api, docs, etc.). " +
         "Pass the command exactly as you would after 'anythink', e.g. 'entities list' or 'data list posts'. " +
+        "'data import' creates records (not destructive): run it with --dry-run first and only add '--yes' after the user approves the dry run. " +
         "Menu commands: 'menus list' shows dashboard menus with tree structure; " +
         "'menus add-item <menu_id> <entity> --icon <Icon> --parent <parent_id>' adds an entity to a dashboard menu. " +
         "For destructive commands add '--yes' to skip confirmation prompts. " +
@@ -68,6 +69,8 @@ public class CliTool
         var subArgs = args.Skip(1).ToList();
         var jsonMode = subArgs.Remove("--json");
 
+        if (HttpModeRefusal(subcommand, subArgs) is { } refusal) return refusal;
+
         try
         {
             var client = _factory.GetClient();
@@ -92,6 +95,11 @@ public class CliTool
             return $"Error: {ex.Message}";
         }
     }
+
+    internal static string? HttpModeRefusal(string subcommand, List<string> subArgs) =>
+        subcommand == "data" && subArgs.FirstOrDefault()?.ToLowerInvariant() is "import" or "export"
+            ? $"'data {subArgs[0]}' reads and writes local files, so it is not available in HTTP mode. Use the stdio MCP server or run the CLI directly."
+            : null;
 
     private static async Task<string> HandleEntities(AnythinkClient client, List<string> args, bool json)
     {
