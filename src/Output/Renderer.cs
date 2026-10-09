@@ -11,9 +11,9 @@ public static class Renderer
     public static readonly JsonSerializerOptions PrettyJson = new() { WriteIndented = true };
 
     public static void Success(string msg) => AnsiConsole.MarkupLine($"[green]✓[/] {msg}");
-    public static void Info(string msg)    => AnsiConsole.MarkupLine($"[blue]i[/] {msg}");
-    public static void Warn(string msg)    => AnsiConsole.MarkupLine($"[yellow]![/] {msg}");
-    public static void Error(string msg)   => AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(msg)}");
+    public static void Info(string msg) => AnsiConsole.MarkupLine($"[blue]i[/] {msg}");
+    public static void Warn(string msg) => AnsiConsole.MarkupLine($"[yellow]![/] {msg}");
+    public static void Error(string msg) => AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(msg)}");
 
     public static void Header(string title)
     {

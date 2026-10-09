@@ -18,5 +18,11 @@
     }
   ],
   "title": "Anythink all-in-one backend: data, auth, files, workflows, payments, APIs",
-  "websiteUrl": "https://anythink.cloud"
+  "websiteUrl": "https://anythink.cloud",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.anythink.cloud/mcp"
+    }
+  ]
 }

@@ -88,7 +88,7 @@ public class AccountsCreateCommand : BasePlatformCommand<AccountsCreateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, AccountsCreateSettings settings)
     {
-        var name  = settings.Name  ?? AnsiConsole.Ask<string>("[#F97316]Organisation name:[/]");
+        var name = settings.Name ?? AnsiConsole.Ask<string>("[#F97316]Organisation name:[/]");
         var email = settings.Email ?? AnsiConsole.Ask<string>("[#F97316]Billing email:[/]");
         var currency = settings.Currency
             ?? AnsiConsole.Prompt(

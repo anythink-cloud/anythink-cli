@@ -19,8 +19,8 @@ public static class ProfileContext
 public static class ApiDefaults
 {
     public const string MyAnythinkApiUrl = "https://api.my.anythink.cloud";
-    public const string MyAnythinkOrgId  = "20804318";
-    public const string BillingApiUrl    = "https://api.billing.anythink.cloud";
+    public const string MyAnythinkOrgId = "20804318";
+    public const string BillingApiUrl = "https://api.billing.anythink.cloud";
 
     /// <summary>Key under which a fresh production platform session is stored.</summary>
     public const string ProductionKey = "production";
@@ -29,15 +29,15 @@ public static class ApiDefaults
 /// <summary>Credentials for a specific project (per-org API access).</summary>
 public class Profile
 {
-    [JsonPropertyName("org_id")]            public string    OrgId          { get; set; } = null!;
-    [JsonPropertyName("api_key")]           public string?   ApiKey         { get; set; }
-    [JsonPropertyName("access_token")]      public string?   AccessToken    { get; set; }
-    [JsonPropertyName("refresh_token")]     public string?   RefreshToken   { get; set; }
-    [JsonPropertyName("token_expires_at")]  public DateTime? TokenExpiresAt { get; set; }
-    [JsonPropertyName("instance_api_url")]  public string    InstanceApiUrl { get; set; } = null!;
-    [JsonPropertyName("alias")]             public string?   Alias          { get; set; }
+    [JsonPropertyName("org_id")] public string OrgId { get; set; } = null!;
+    [JsonPropertyName("api_key")] public string? ApiKey { get; set; }
+    [JsonPropertyName("access_token")] public string? AccessToken { get; set; }
+    [JsonPropertyName("refresh_token")] public string? RefreshToken { get; set; }
+    [JsonPropertyName("token_expires_at")] public DateTime? TokenExpiresAt { get; set; }
+    [JsonPropertyName("instance_api_url")] public string InstanceApiUrl { get; set; } = null!;
+    [JsonPropertyName("alias")] public string? Alias { get; set; }
 
-    [JsonPropertyName("platform_key")]      public string?   PlatformKey    { get; set; }
+    [JsonPropertyName("platform_key")] public string? PlatformKey { get; set; }
 
     /// <summary>
     /// True iff the AccessToken is missing or past its expiry. ApiKey state is
@@ -90,13 +90,13 @@ public class Profile
 /// <summary>One platform session — URLs + central token. Multiple coexist.</summary>
 public class PlatformConfig
 {
-    [JsonPropertyName("myanythink_org_id")]   public string    MyAnythinkOrgId { get; set; } = ApiDefaults.MyAnythinkOrgId;
-    [JsonPropertyName("myanythink_url")]      public string    MyAnythinkUrl   { get; set; } = ApiDefaults.MyAnythinkApiUrl;
-    [JsonPropertyName("billing_url")]         public string    BillingUrl      { get; set; } = ApiDefaults.BillingApiUrl;
-    [JsonPropertyName("token")]               public string?   Token           { get; set; }
-    [JsonPropertyName("token_expires_at")]    public DateTime? TokenExpiresAt  { get; set; }
-    [JsonPropertyName("account_id")]          public string?   AccountId       { get; set; }
-    [JsonPropertyName("display_name")]        public string?   DisplayName     { get; set; }
+    [JsonPropertyName("myanythink_org_id")] public string MyAnythinkOrgId { get; set; } = ApiDefaults.MyAnythinkOrgId;
+    [JsonPropertyName("myanythink_url")] public string MyAnythinkUrl { get; set; } = ApiDefaults.MyAnythinkApiUrl;
+    [JsonPropertyName("billing_url")] public string BillingUrl { get; set; } = ApiDefaults.BillingApiUrl;
+    [JsonPropertyName("token")] public string? Token { get; set; }
+    [JsonPropertyName("token_expires_at")] public DateTime? TokenExpiresAt { get; set; }
+    [JsonPropertyName("account_id")] public string? AccountId { get; set; }
+    [JsonPropertyName("display_name")] public string? DisplayName { get; set; }
 
     [JsonIgnore]
     public bool IsTokenExpired =>
@@ -105,13 +105,13 @@ public class PlatformConfig
 
 public class CliConfigData
 {
-    [JsonPropertyName("default_profile")] public string                             DefaultProfile { get; set; } = "";
-    [JsonPropertyName("active_platform")] public string                             ActivePlatform { get; set; } = ApiDefaults.ProductionKey;
-    [JsonPropertyName("platforms")]       public Dictionary<string, PlatformConfig> Platforms      { get; set; } = new();
-    [JsonPropertyName("profiles")]        public Dictionary<string, Profile>        Profiles       { get; set; } = new();
+    [JsonPropertyName("default_profile")] public string DefaultProfile { get; set; } = "";
+    [JsonPropertyName("active_platform")] public string ActivePlatform { get; set; } = ApiDefaults.ProductionKey;
+    [JsonPropertyName("platforms")] public Dictionary<string, PlatformConfig> Platforms { get; set; } = new();
+    [JsonPropertyName("profiles")] public Dictionary<string, Profile> Profiles { get; set; } = new();
 
     /// <summary>Read-only migration target for the old singleton field. Cleared after Load().</summary>
-    [JsonPropertyName("platform")]        public PlatformConfig?                    LegacyPlatform { get; set; }
+    [JsonPropertyName("platform")] public PlatformConfig? LegacyPlatform { get; set; }
 }
 
 public static class ConfigService
@@ -127,7 +127,7 @@ public static class ConfigService
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
-        WriteIndented          = true,
+        WriteIndented = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
@@ -258,7 +258,7 @@ public static class ConfigService
         var platform = match.Value ?? new PlatformConfig
         {
             MyAnythinkUrl = myUrl,
-            BillingUrl    = billUrl,
+            BillingUrl = billUrl,
         };
 
         // When we're SEEDING a new platform (no saved match), capture the
@@ -306,12 +306,12 @@ public static class ConfigService
         var c = new PlatformConfig
         {
             MyAnythinkOrgId = p.MyAnythinkOrgId,
-            MyAnythinkUrl   = p.MyAnythinkUrl,
-            BillingUrl      = p.BillingUrl,
-            Token           = p.Token,
-            TokenExpiresAt  = p.TokenExpiresAt,
-            AccountId       = p.AccountId,
-            DisplayName     = p.DisplayName,
+            MyAnythinkUrl = p.MyAnythinkUrl,
+            BillingUrl = p.BillingUrl,
+            Token = p.Token,
+            TokenExpiresAt = p.TokenExpiresAt,
+            AccountId = p.AccountId,
+            DisplayName = p.DisplayName,
         };
 
         var envToken = SafeEnv("ANYTHINK_PLATFORM_TOKEN");
@@ -354,8 +354,8 @@ public static class ConfigService
     public static void SavePlatform(PlatformConfig platform)
     {
         var config = Load();
-        var match  = config.Platforms.FirstOrDefault(kv => UrlsMatch(kv.Value.MyAnythinkUrl, platform.MyAnythinkUrl));
-        var key    = match.Key ?? DerivePlatformKey(platform.MyAnythinkUrl);
+        var match = config.Platforms.FirstOrDefault(kv => UrlsMatch(kv.Value.MyAnythinkUrl, platform.MyAnythinkUrl));
+        var key = match.Key ?? DerivePlatformKey(platform.MyAnythinkUrl);
         config.Platforms[key] = platform;
         if (string.IsNullOrEmpty(config.ActivePlatform)) config.ActivePlatform = key;
         Save(config);
