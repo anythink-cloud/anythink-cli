@@ -7,8 +7,9 @@ public static class CliToolPolicy
     private static readonly string[] ExcludedEverywhere =
         ["cli", "signup", "login", "logout", "config", "accounts", "projects", "plans", "migrate"];
 
+    // import directus makes the server fetch a caller-supplied URL with a token (SSRF) and may read DIRECTUS_TOKEN from the host environment
     private static readonly string[] ExcludedRemotely =
-        ["files upload", "workflows seed", "integrations oauth connect", "pay connect", "oauth google", "fetch", "api-keys create"];
+        ["files upload", "workflows seed", "integrations oauth connect", "pay connect", "oauth google", "fetch", "api-keys create", "import directus"];
 
     internal static readonly string[] HiddenRemotely =
         ["workflows create --filter-file", "workflows export --output", "data list --all"];

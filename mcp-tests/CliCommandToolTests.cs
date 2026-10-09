@@ -91,6 +91,22 @@ public class CliCommandToolTests
 
     [Theory]
     [MemberData(nameof(RemoteScopes))]
+    public void ACommandThatReadsFromAUserSuppliedServer_IsLocalOnly(CliToolScope remote)
+    {
+        Find("import_directus", CliToolScope.Local).Should().NotBeNull();
+        Find("import_directus", remote).Should().BeNull();
+    }
+
+    [Fact]
+    public void ImportingFromDirectus_IsDestructive()
+    {
+        var annotations = Find("import_directus", CliToolScope.Local)!.ProtocolTool.Annotations!;
+        annotations.DestructiveHint.Should().BeTrue();
+        annotations.ReadOnlyHint.Should().NotBe(true);
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
     public void ACommandThatReachesAnyRoute_IsLocalOnly(CliToolScope remote)
     {
         Find("fetch", CliToolScope.Local).Should().NotBeNull();
