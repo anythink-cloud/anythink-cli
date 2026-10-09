@@ -6,9 +6,9 @@ namespace AnythinkCli.Tests;
 
 public class FetchPagingTests
 {
-    private const string BaseUrl  = "https://api.example.com";
-    private const string OrgId    = "99999";
-    private const string JobsUrl  = $"{BaseUrl}/org/{OrgId}/workflows/43/jobs";
+    private const string BaseUrl = "https://api.example.com";
+    private const string OrgId = "99999";
+    private const string JobsUrl = $"{BaseUrl}/org/{OrgId}/workflows/43/jobs";
 
     private static string Page(int page, bool hasNext, int items = 1)
         => $$"""{"items":[{{string.Join(",", Enumerable.Repeat("{\"id\":1}", items))}}],"page":{{page}},"has_next_page":{{(hasNext ? "true" : "false")}}}""";
