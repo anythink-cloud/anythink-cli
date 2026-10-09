@@ -10,7 +10,24 @@ you need it.
 `anythink-mcp` exposes that Backend-as-a-Service platform — databases, auth, data,
 files, workflows, integrations, payments, and REST APIs — to AI assistants over the
 [Model Context Protocol](https://modelcontextprotocol.io). It ships as a .NET global
-tool and runs as a stdio MCP server.
+tool and runs as a stdio MCP server, or connect to the hosted server without installing anything.
+
+## Connect without installing (hosted)
+
+Anythink runs the server for you at `https://mcp.anythink.cloud/mcp`. Add it as a remote
+MCP server, sign in with your Anythink account, and choose one project or all of them.
+
+- **Claude (web, desktop and mobile):** Settings → Connectors → Add custom connector, and paste the URL.
+- **Claude Code:**
+
+  ```bash
+  claude mcp add --transport http anythink https://mcp.anythink.cloud/mcp
+  ```
+
+- **Other clients:** any MCP client that supports Streamable HTTP with OAuth.
+
+The hosted server has the same project tools as the local one. Tools that change local
+credentials or config (login, signup, logout, switching account) run only locally.
 
 ## Install
 
@@ -51,6 +68,25 @@ To pin a profile:
 }
 ```
 
+## Use over HTTP (local)
+
+Some MCP clients connect over HTTP instead of launching a process. Run the server locally
+with `--http` and point the client at `http://localhost:5300/mcp`:
+
+```bash
+anythink-mcp --http
+npx -y @anythink-cloud/mcp --http --port 5300
+```
+
+It serves the same tools as stdio, uses your saved `anythink login`, and listens on
+`localhost` only. Requests for other hosts and from web pages are refused. There is no
+separate sign-in: anything that can reach `localhost` on your machine can use your login
+while it runs, so don't run it on a shared machine. For Claude Code:
+
+```bash
+claude mcp add --transport http anythink http://localhost:5300/mcp
+```
+
 ## Authenticate
 
 Once connected, run the `login` (or `login_direct`) tool, then `accounts_use` /
@@ -62,8 +98,103 @@ Once connected, run the `login` (or `login_direct`) tool, then `accounts_use` /
 - **Config** — `config_show`, `config_use`, `config_remove`
 - **Accounts & projects** — `accounts_list`, `accounts_create`, `accounts_use`,
   `projects_list`, `projects_create`, `projects_use`, `projects_delete`
-- **Email** — `email_templates_list`
+- **Every project command** — one tool per CLI command, generated from the CLI itself,
+  e.g. `entities_list`, `fields_add`, `data_list`, `workflows_create`. Each is marked
+  read-only or destructive so clients can ask before changing anything.
 - **Generic CLI** — `cli` to run any Anythink CLI command
+
+## Hosted mode (remote MCP connector)
+
+`--hosted` serves MCP over Streamable HTTP for remote MCP clients, which sign the
+user in with their Anythink account via OAuth. When signing in, the user grants
+access to one project or to all of their projects. With all projects, `projects_list`
+shows what the connection can reach, and every other tool takes a `project` id.
+
+To run it locally:
+
+```bash
+export MCP_PUBLIC_URL=https://mcp.anythink.cloud/mcp
+export MCP_AUTH_ISSUER=https://api.billing.anythink.cloud
+export MCP_EXCHANGE_CLIENT_ID=<confidential client id>
+export MCP_EXCHANGE_CLIENT_SECRET=<confidential client secret>
+export MCP_UPSTREAM_AUDIENCE=<audience your project API expects>
+export MCP_ALLOWED_HOSTS=localhost
+anythink-mcp --hosted
+```
+
+Configuration is via environment variables:
+
+| Variable | Required | Description |
+|---|---|---|
+| `MCP_PUBLIC_URL` | yes | The resource URL clients connect to, e.g. `https://mcp.anythink.cloud/mcp`. Must match exactly what's registered with the OAuth authorisation server. |
+| `MCP_AUTH_ISSUER` | yes | The Anythink OAuth authorisation server's issuer URL. |
+| `MCP_AUTH_AUDIENCE` | no | The audience tokens must carry. Defaults to `MCP_PUBLIC_URL`. |
+| `MCP_EXCHANGE_CLIENT_ID` | yes | Client id of this server's confidential client at the authorisation server, used for token exchange. |
+| `MCP_EXCHANGE_CLIENT_SECRET` | yes | Secret for that client. Never logged. |
+| `MCP_UPSTREAM_AUDIENCE` | yes | Audience requested for the exchanged token, i.e. the audience your project API expects. |
+| `MCP_INSTANCE_HOST_SUFFIXES` | no | Comma-separated host suffixes a token's `instance_url` must match (https only, and the host's first label must be `api`). Defaults to `.anythink.cloud,.anythink.dev,.anythink.uk`. |
+| `MCP_ALLOWED_ORIGINS` | no | Comma-separated `Origin` values accepted when a request carries one. Requests without an `Origin` header are always accepted; the default is to reject any browser origin. |
+| `MCP_ALLOWED_HOSTS` | no | Extra `Host` values accepted besides the host in `MCP_PUBLIC_URL` (`/health` is exempt). |
+| `MCP_TOKEN_ENDPOINT` | no | Explicit https token endpoint for the exchange. Without it the endpoint is discovered from the issuer and must share the issuer's origin. |
+| `MCP_ALLOW_LOOPBACK_INSTANCE` | no | Set to `true` for local development to accept loopback `instance_url` values (and `X-Instance-Url` on the internal API). Only allowed when `ASPNETCORE_ENVIRONMENT=Development`; otherwise the server refuses to start. |
+| `MCP_INTERNAL_BIND` | no | Address the internal REST port listens on. Defaults to `127.0.0.1`. Any non-loopback address requires `MCP_INTERNAL_TOKEN`. |
+| `MCP_INTERNAL_TOKEN` | when bound beyond loopback | Shared secret internal callers send in the `X-Internal-Token` header on `/tools` and `/tools/call`. |
+| `MCP_PORT` | no | Public port serving `/mcp` and the OAuth metadata. Defaults to `5300` (or pass `--port`). |
+| `MCP_INTERNAL_PORT` | no | Port serving the internal REST API described below. Defaults to `5301` (or pass `--internal-port`). |
+
+Hosted mode serves only these on the public port: the MCP endpoint (`/mcp`),
+the OAuth protected-resource metadata (`/.well-known/oauth-protected-resource` and
+`/.well-known/oauth-protected-resource/mcp`), `/health`, and the Anythink icon at
+`/favicon.ico` and `/icon.png`, which Claude and MCP directories show. Every request to `/mcp`
+must carry a valid bearer token issued by the Anythink authorisation server. For a
+one-project connection the project and its API URL come from the token's own claims; for an
+all-projects connection the token names no project, and each call names one with `project`.
+Either way the project's API URL comes from a validated token, never from headers.
+
+The inbound token is issued for this server, so it is never forwarded to the project
+API. Instead the server exchanges it (RFC 8693) at the authorisation server's token
+endpoint, found through the issuer's discovery document, for a token whose audience is
+`MCP_UPSTREAM_AUDIENCE`, caches the result until shortly before it expires, and uses
+only that token upstream. For a one-project connection the exchange happens when the request
+arrives, and if it fails the client gets a generic 401 or 502. For an all-projects connection it
+happens when a tool runs (once per token and project), and a failure is a tool error, not an
+HTTP error.
+
+A connection to one project may have 8 concurrent requests in flight on `/mcp`, shared
+by everyone connected to that project, with up to 8 more queued; beyond that the server
+returns `429`. A connection that covers all projects has the same limit per user, across
+every project it calls. Upstream calls share one connection pool, don't follow redirects,
+and time out after 30 seconds.
+
+Hosted mode serves `projects_list`, `project_details` and the generated command tools, leaving out
+commands that sign in, switch profiles, use the local machine (opening a browser,
+or reading and writing local files), call arbitrary routes (`fetch`) or create API
+keys. Positional values can't contain `/`, `..`, `?` or `#` (free-text arguments such as
+search text and names excepted), every request is checked to stay under the project's
+API root, tool output is cut off at 200,000 characters, and an upstream error is reported
+by status only. Tools run as the signed-in user, so their role in the project decides
+what each call can do.
+
+The internal REST API (`GET /tools`, `POST /tools/call`) used by your internal services
+keeps running, but only on the internal port, never on the public port. It trusts
+caller-supplied `X-Org-Id` and `X-Instance-Url` headers (the latter must be on the
+`instance_url` allowlist), so the internal port must never have ingress. It listens on
+loopback by default. If your internal services reach it over the network, set
+`MCP_INTERNAL_BIND` and `MCP_INTERNAL_TOKEN`; callers then send the token in
+`X-Internal-Token`.
+
+`GET /tools` lists each tool's `name`, `description`, `input_schema` and `annotations`
+(`title`, `read_only_hint`, `destructive_hint`, `open_world_hint`; `destructive_hint` is
+`false` for a read-only tool). `POST /tools/call` returns `result.content` and a top-level
+`is_error`, which is `true` when the command failed, was given arguments it doesn't
+accept, or was cancelled.
+
+Under `--hosted` the internal REST API listens on port `5301`. Route ingress only to `5300`,
+and allow only your internal services to reach `5301`.
+
+`--internal` runs only that internal REST API, on `--port` (default `5300`), with the same
+bind and token settings. The Docker image runs `--hosted` by default; override the
+container command with `--internal` to run only the internal REST API.
 
 ## Links
 
