@@ -760,7 +760,7 @@ Subscription plans can carry an `--apple-product-id` (and optional `--apple-subs
 
 ```bash
 anythink pay setup
-anythink pay plans create --plan-name monthly --name Monthly --amount 9.99 --currency gbp --interval month --apple-product-id monthly_002
+anythink pay plans create --plan-name monthly --name Monthly --amount 9.99 --currency gbp --interval month --apple-product-id example_monthly
 anythink pay apple credentials set --issuer-id <uuid> --key-id <id> --bundle-id com.example.app --private-key-file ./AuthKey.p8
 anythink pay apple verify --signed-transaction <JWS>
 anythink pay subscriptions events <subId>

@@ -124,8 +124,10 @@ public class RemoteScopeToolTests : McpTestBase
 
         string[] recovery =
         [
-            "pay_subscriptions_delete", "pay_subscriptions_force_expire",
-            "pay_subscriptions_relink", "pay_subscriptions_resync"
+            "pay_subscriptions_delete",
+            "pay_subscriptions_force_expire",
+            "pay_subscriptions_relink",
+            "pay_subscriptions_resync"
         ];
         local.Should().Contain(recovery);
         remote.Should().NotContain(recovery);
@@ -154,9 +156,11 @@ public class RemoteScopeToolTests : McpTestBase
     {
         var tools = CliCommandTool.All(scope).ToDictionary(t => t.ProtocolTool.Name, t => t.ProtocolTool.Annotations!);
 
-        foreach (var name in new[] { "pay_plans_delete", "pay_offers_delete", "pay_offers_pause", "pay_offers_update", "pay_subscriptions_cancel" })
+        foreach (var name in new[] { "pay_plans_delete", "pay_plans_update", "pay_offers_delete", "pay_offers_pause", "pay_offers_update", "pay_subscriptions_cancel" })
             tools[name].DestructiveHint.Should().BeTrue(name);
-        foreach (var name in new[] { "pay_plans_list", "pay_plans_get", "pay_subscriptions_list", "pay_subscriptions_get", "pay_offers_list", "pay_offers_get", "pay_trial_status" })
+        foreach (var name in new[] { "pay_plans_list", "pay_plans_get", "pay_subscriptions_list", "pay_subscriptions_get", "pay_offers_list", "pay_offers_get", "pay_trial_status",
+                                  "pay_status", "pay_payments", "pay_methods", "pay_entitlement", "pay_payment_options", "pay_plans_get",
+                                  "pay_subscriptions_events", "pay_subscriptions_by_user", "pay_offers_codes", "pay_offers_redemptions", "pay_offers_user_code" })
             tools[name].ReadOnlyHint.Should().BeTrue(name);
     }
 
@@ -165,5 +169,14 @@ public class RemoteScopeToolTests : McpTestBase
     {
         foreach (var scope in new[] { CliToolScope.Internal, CliToolScope.Hosted })
             CliCommandTool.All(scope).Select(t => t.ProtocolTool.Name).Should().NotContain("cli");
+    }
+
+    [Fact]
+    public void AdminRecoveryPayCommands_AreDestructiveWhereTheyExist()
+    {
+        var tools = CliCommandTool.All(CliToolScope.Local).ToDictionary(t => t.ProtocolTool.Name, t => t.ProtocolTool.Annotations!);
+
+        foreach (var name in new[] { "pay_subscriptions_delete", "pay_subscriptions_force_expire", "pay_subscriptions_relink", "pay_subscriptions_resync" })
+            tools[name].DestructiveHint.Should().BeTrue(name);
     }
 }

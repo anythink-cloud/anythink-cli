@@ -507,7 +507,7 @@ public static class CliApp
                     .WithExample("pay", "plans", "create",
                         "--plan-name", "monthly", "--name", "Monthly", "--description", "Monthly plan",
                         "--amount", "9.99", "--currency", "gbp", "--interval", "month",
-                        "--apple-product-id", "monthly_002");
+                        "--apple-product-id", "example_monthly");
 
                 plans.AddCommand<PayPlansUpdateCommand>("update")
                     .WithDescription("Update a subscription plan (any --flag overrides; unset = keep)");

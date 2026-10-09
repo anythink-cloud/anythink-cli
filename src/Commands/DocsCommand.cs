@@ -230,7 +230,7 @@ public class DocsCommand : Command<DocsSettings>
           "Create a subscription plan (prompts for missing fields)",
           ["--plan-name NAME", "--name NAME", "--description TEXT", "--amount N", "--currency gbp|usd|eur",
            "--interval day|week|month|year", "--trial-days N", "--apple-product-id ID", "--apple-subscription-group-id ID"],
-          ["anythink pay plans create --plan-name monthly --name Monthly --amount 9.99 --currency gbp --interval month --apple-product-id monthly_002"]),
+          ["anythink pay plans create --plan-name monthly --name Monthly --amount 9.99 --currency gbp --interval month --apple-product-id example_monthly"]),
         C("pay plans update ID", "Update a plan (any --flag overrides; unset = keep)",
           ["--name NAME", "--amount N", "--currency CODE", "--active", "--inactive", "--apple-product-id ID"],
           ["anythink pay plans update 12 --amount 12.99"]),

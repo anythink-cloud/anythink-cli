@@ -11,7 +11,7 @@ namespace AnythinkCli.Tests;
 public class PayClientTests
 {
     private const string BaseUrl = "https://api.example.com";
-    private const string OrgId   = "99999";
+    private const string OrgId = "99999";
     private const string PayPath = $"{BaseUrl}/org/{OrgId}/integrations/anythinkpay";
 
     private static AnythinkClient BuildClient(MockHttpMessageHandler handler)
@@ -173,7 +173,7 @@ public class PayClientTests
             PlanName: "monthly", Name: "Monthly", Description: "d", Type: "web",
             Amount: 9.99m, Currency: "gbp", BillingInterval: "month", IntervalCount: 1,
             TrialPeriodDays: 7, ProductName: null, ProductDescription: null, Reference: null,
-            IsActive: true, AppleProductId: "monthly_002", AppleSubscriptionGroupId: "21445497"));
+            IsActive: true, AppleProductId: "example_monthly", AppleSubscriptionGroupId: "00000000"));
 
         plan.PlanName.Should().Be("monthly");
     }
@@ -189,13 +189,13 @@ public class PayClientTests
         {"id":1,"plan_name":"monthly","name":"Monthly","description":"d","type":"web",
          "amount":9.99,"currency":"gbp","billing_interval":"month","interval_count":1,
          "trial_period_days":7,"is_active":true,
-         "apple_product_id":"monthly_002","apple_subscription_group_id":"21445497"}
+         "apple_product_id":"example_monthly","apple_subscription_group_id":"00000000"}
         """;
         var plan = JsonSerializer.Deserialize<SubscriptionPlanResponse>(json, Opts)!;
 
         plan.PlanName.Should().Be("monthly");
-        plan.AppleProductId.Should().Be("monthly_002");
-        plan.AppleSubscriptionGroupId.Should().Be("21445497");
+        plan.AppleProductId.Should().Be("example_monthly");
+        plan.AppleSubscriptionGroupId.Should().Be("00000000");
     }
 
     [Fact]

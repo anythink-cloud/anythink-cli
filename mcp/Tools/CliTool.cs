@@ -52,7 +52,7 @@ public class CliTool
 
     private const string PayRefusal =
         "Refused: this changes billing state and cannot be run through the cli tool. " +
-        "Use the dedicated pay tools (which ask for confirmation) or ask a person to run it in a terminal.";
+        "Use the generated pay_* tools (their destructive hint is the confirmation signal) or ask a person to run it in a terminal.";
 
     internal static string? RefusalFor(string command) => RefusalFor(SplitArgs(command));
 
