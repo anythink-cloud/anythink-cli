@@ -10,7 +10,24 @@ you need it.
 `anythink-mcp` exposes that Backend-as-a-Service platform — databases, auth, data,
 files, workflows, integrations, payments, and REST APIs — to AI assistants over the
 [Model Context Protocol](https://modelcontextprotocol.io). It ships as a .NET global
-tool and runs as a stdio MCP server.
+tool and runs as a stdio MCP server, or connect to the hosted server without installing anything.
+
+## Connect without installing (hosted)
+
+Anythink runs the server for you at `https://mcp.anythink.cloud/mcp`. Add it as a remote
+MCP server, sign in with your Anythink account, and choose one project or all of them.
+
+- **Claude (web, desktop and mobile):** Settings → Connectors → Add custom connector, and paste the URL.
+- **Claude Code:**
+
+  ```bash
+  claude mcp add --transport http anythink https://mcp.anythink.cloud/mcp
+  ```
+
+- **Other clients:** any MCP client that supports Streamable HTTP with OAuth.
+
+The hosted server has the same project tools as the local one. Tools that change local
+credentials or config (login, signup, logout, switching account) run only locally.
 
 ## Install
 
