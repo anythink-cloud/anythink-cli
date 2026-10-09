@@ -12,8 +12,13 @@ public static class CliToolPolicy
 
     internal static readonly string[] HiddenRemotely =
         [
-            "workflows create --filter-file", "workflows export --output", "data list --all",
-            "email templates update --content", "email preview --content", "email preview --wrapper", "email shell update --html"
+            "workflows create --filter-file",
+            "workflows export --output",
+            "data list --all",
+            "email templates update --content",
+            "email preview --content",
+            "email preview --wrapper",
+            "email shell update --html"
         ];
 
     private static readonly string[] FreeTextArguments =
@@ -23,16 +28,51 @@ public static class CliToolPolicy
 
     private static readonly HashSet<string> ReadOnlyVerbs =
     [
-        "list", "get", "me", "status", "jobs", "step-get", "query", "similar", "audit", "payments", "methods",
-        "callback-url", "api", "docs", "file-handler-example", "show", "preview", "mine", "data", "preview", "platform-metrics", "widget-preview"
+        "list",
+        "get",
+        "me",
+        "status",
+        "jobs",
+        "step-get",
+        "query",
+        "similar",
+        "audit",
+        "payments",
+        "methods",
+        "callback-url",
+        "api",
+        "docs",
+        "file-handler-example",
+        "show",
+        "preview",
+        "mine",
+        "data",
+        "preview",
+        "platform-metrics",
+        "widget-preview"
     ];
 
     private static readonly string[] ReadOnlyRemotely = ["workflows export"];
 
     private static readonly HashSet<string> AdditiveVerbs =
     [
-        "create", "add", "add-item", "add-chart", "step-add", "file-handler-add", "integration-add", "connect",
-        "enable", "disable", "test", "rehydrate", "upload", "seed", "invite", "trigger", "execute"
+        "create",
+        "add",
+        "add-item",
+        "add-chart",
+        "step-add",
+        "file-handler-add",
+        "integration-add",
+        "connect",
+        "enable",
+        "disable",
+        "test",
+        "rehydrate",
+        "upload",
+        "seed",
+        "invite",
+        "trigger",
+        "execute"
     ];
 
     private static readonly HashSet<string> OpenWorldVerbs = ["execute", "trigger", "invite"];

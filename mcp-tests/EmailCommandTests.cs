@@ -23,8 +23,15 @@ public class EmailCommandTests
     private static string Template(string type = "confirmation", string subject = "Hi", string content = "<p>Body</p>") =>
         JsonSerializer.Serialize(new
         {
-            id = 1, template_type = type, subject, content, display_name = (string?)null, description = (string?)null,
-            is_active = true, is_system = true, locked = false,
+            id = 1,
+            template_type = type,
+            subject,
+            content,
+            display_name = (string?)null,
+            description = (string?)null,
+            is_active = true,
+            is_system = true,
+            locked = false,
         });
 
     private static IEnumerable<string> Properties(CliCommandTool tool) =>

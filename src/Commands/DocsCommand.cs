@@ -69,13 +69,13 @@ public class DocsCommand : Command<DocsSettings>
           ["--profile NAME"],
           ["anythink logout", "anythink logout --profile my-project"]),
 
-        C("config show",  "Show all configured profiles and platform settings",
+        C("config show", "Show all configured profiles and platform settings",
           null, ["anythink config show"]),
 
-        C("config use NAME",  "Set the active project profile",
+        C("config use NAME", "Set the active project profile",
           null, ["anythink config use my-project"]),
 
-        C("config remove NAME",  "Remove a project profile",
+        C("config remove NAME", "Remove a project profile",
           null, ["anythink config remove my-project"]),
 
         C("plans",
@@ -83,7 +83,7 @@ public class DocsCommand : Command<DocsSettings>
           ["--json"],
           ["anythink plans", "anythink plans --json"]),
 
-        C("accounts list",  "List your billing accounts",
+        C("accounts list", "List your billing accounts",
           null, ["anythink accounts list"]),
 
         C("accounts create",
@@ -91,7 +91,7 @@ public class DocsCommand : Command<DocsSettings>
           ["--name NAME", "--email EMAIL", "--currency gbp|usd|eur"],
           ["anythink accounts create --name \"Acme Ltd\" --email billing@acme.com"]),
 
-        C("accounts use ID",  "Set the active billing account",
+        C("accounts use ID", "Set the active billing account",
           null, ["anythink accounts use a1b2c3d4"]),
 
         C("projects list",
@@ -115,10 +115,10 @@ public class DocsCommand : Command<DocsSettings>
           ["--yes"],
           ["anythink projects delete a1b2c3d4 --yes"]),
 
-        C("entities list",  "List all entities (database tables)",
+        C("entities list", "List all entities (database tables)",
           null, ["anythink entities list"]),
 
-        C("entities get NAME",  "Get entity schema and all fields",
+        C("entities get NAME", "Get entity schema and all fields",
           null, ["anythink entities get customers"]),
 
         C("entities create NAME",
@@ -126,29 +126,29 @@ public class DocsCommand : Command<DocsSettings>
           ["--rls (row-level security)", "--public (allow unauthenticated reads)"],
           ["anythink entities create orders --rls"]),
 
-        C("entities update NAME",  "Update entity settings",
+        C("entities update NAME", "Update entity settings",
           ["--rls", "--public"], ["anythink entities update products --public"]),
 
-        C("entities delete NAME",  "Delete entity and all data",
+        C("entities delete NAME", "Delete entity and all data",
           ["--yes"], ["anythink entities delete temp_data --yes"]),
 
-        C("fields list ENTITY",  "List fields on an entity",
+        C("fields list ENTITY", "List fields on an entity",
           null, ["anythink fields list customers"]),
 
         C("fields add ENTITY FIELD",
           "Add a field to an entity",
           ["--type TYPE", "--required", "--unique", "--default VALUE"],
           ["anythink fields add customers email --type varchar --required --unique",
-           "anythink fields add orders status --type varchar --default active"],
+              "anythink fields add orders status --type varchar --default active"],
           "Types: varchar text int bigint float bool date timestamp json uuid varchar[] int[]"),
 
-        C("fields delete ENTITY FIELD_ID",  "Delete a field",
+        C("fields delete ENTITY FIELD_ID", "Delete a field",
           ["--yes"], ["anythink fields delete customers 1234 --yes"]),
 
-        C("workflows list",  "List all workflows",
+        C("workflows list", "List all workflows",
           null, ["anythink workflows list"]),
 
-        C("workflows get ID",  "Get workflow details and steps",
+        C("workflows get ID", "Get workflow details and steps",
           null, ["anythink workflows get 76"]),
 
         C("workflows create NAME",
@@ -157,20 +157,20 @@ public class DocsCommand : Command<DocsSettings>
           ["anythink workflows create daily-sync --trigger Timed --cron \"0 6 * * *\""],
           "Trigger types: Api Timed EntityCreated EntityUpdated EntityDeleted"),
 
-        C("workflows enable ID",  "Enable a workflow",  null, ["anythink workflows enable 76"]),
+        C("workflows enable ID", "Enable a workflow", null, ["anythink workflows enable 76"]),
         C("workflows disable ID", "Disable a workflow", null, ["anythink workflows disable 76"]),
         C("workflows trigger ID", "Manually run a workflow", null, ["anythink workflows trigger 76"]),
-        C("workflows delete ID",  "Delete a workflow",  ["--yes"], ["anythink workflows delete 76 --yes"]),
+        C("workflows delete ID", "Delete a workflow", ["--yes"], ["anythink workflows delete 76 --yes"]),
 
         C("data list ENTITY",
           "List records",
           ["--page N", "--limit N", "--filter FILTER", "--json"],
           ["anythink data list blog_posts",
-           "anythink data list blog_posts --filter '{\"status\":\"draft\"}' --json",
-           "anythink data list orders --filter '{\"total\":{\"gte\":10,\"lt\":100},\"status\":[\"paid\",\"shipped\"]}'",
-           "anythink data list blog_posts --filter 'title=C:launch&published_at=NNULL:'"]),
+              "anythink data list blog_posts --filter '{\"status\":\"draft\"}' --json",
+              "anythink data list orders --filter '{\"total\":{\"gte\":10,\"lt\":100},\"status\":[\"paid\",\"shipped\"]}'",
+              "anythink data list blog_posts --filter 'title=C:launch&published_at=NNULL:'"]),
 
-        C("data get ENTITY ID",     "Get a record by ID",
+        C("data get ENTITY ID", "Get a record by ID",
           null, ["anythink data get blog_posts 42"]),
 
         C("data create ENTITY",
@@ -183,29 +183,44 @@ public class DocsCommand : Command<DocsSettings>
           ["--data JSON"],
           ["anythink data update blog_posts 42 --data '{\"status\":\"published\"}'"]),
 
-        C("data delete ENTITY ID",  "Delete a record",
+        C("data delete ENTITY ID", "Delete a record",
           ["--yes"], ["anythink data delete blog_posts 42 --yes"]),
 
-        C("charts list",  "List charts, newest first",
+        C("charts list", "List charts, newest first",
           ["--entity ENTITY", "--json"], ["anythink charts list --entity orders"]),
 
-        C("charts get ID",  "Get a chart's full configuration",
+        C("charts get ID", "Get a chart's full configuration",
           ["--json"], ["anythink charts get 12"]),
 
         C("charts create NAME",
           "Create a chart. Preview it first with charts preview, which takes the same options",
-          ["--entity ENTITY", "--type TYPE", "--group-by FIELD", "--interval INTERVAL", "--measure FIELD", "--agg AGG", "--stack-by FIELD",
-           "--filter FIELD:OP:VALUE", "--timeframe PRESET", "--from DATE", "--to DATE", "--limit N", "--sort DIR", "--source SOURCE",
-           "--platform-metric ID", "--quota-metric ID", "--config JSON", "--json"],
+          ["--entity ENTITY",
+              "--type TYPE",
+              "--group-by FIELD",
+              "--interval INTERVAL",
+              "--measure FIELD",
+              "--agg AGG",
+              "--stack-by FIELD",
+              "--filter FIELD:OP:VALUE",
+              "--timeframe PRESET",
+              "--from DATE",
+              "--to DATE",
+              "--limit N",
+              "--sort DIR",
+              "--source SOURCE",
+              "--platform-metric ID",
+              "--quota-metric ID",
+              "--config JSON",
+              "--json"],
           ["anythink charts create \"Orders by status\" --entity orders --type pie --group-by status",
-           "anythink charts create \"Revenue per month\" --entity orders --type column --group-by created_at --interval month --measure total --agg sum --timeframe 365d"],
+              "anythink charts create \"Revenue per month\" --entity orders --type column --group-by created_at --interval month --measure total --agg sum --timeframe 365d"],
           "Types: column (bar) line pie area stat gauge funnel. Aggregations: count sum avg min max. Filter operators: eq ne gt gte lt lte contains in exists not_exists"),
 
         C("charts update ID",
           "Change a chart. Only the options you pass change",
           ["--name NAME", "(the same options as charts create)", "--json"], ["anythink charts update 12 --timeframe 30d"]),
 
-        C("charts delete ID",  "Delete a chart",
+        C("charts delete ID", "Delete a chart",
           ["--yes"], ["anythink charts delete 12 --yes"]),
 
         C("charts preview",
@@ -213,16 +228,16 @@ public class DocsCommand : Command<DocsSettings>
           ["(the same options as charts create)", "--rows N", "--json"],
           ["anythink charts preview --entity orders --type pie --group-by status"]),
 
-        C("charts platform-metrics",  "List the usage metrics a platform chart can plot",
+        C("charts platform-metrics", "List the usage metrics a platform chart can plot",
           ["--json"], ["anythink charts platform-metrics"]),
 
-        C("dashboards list",  "List the dashboards you can see",
+        C("dashboards list", "List the dashboards you can see",
           ["--json"], ["anythink dashboards list"]),
 
-        C("dashboards get ID",  "Get a dashboard with its widgets and their positions",
+        C("dashboards get ID", "Get a dashboard with its widgets and their positions",
           ["--json"], ["anythink dashboards get 3"]),
 
-        C("dashboards mine",  "Get your landing dashboard, or the project default",
+        C("dashboards mine", "Get your landing dashboard, or the project default",
           ["--json"], ["anythink dashboards mine"]),
 
         C("dashboards create NAME",
@@ -235,10 +250,10 @@ public class DocsCommand : Command<DocsSettings>
           ["--name NAME", "--description TEXT", "--shared BOOL", "--config JSON", "--json"],
           ["anythink dashboards update 3 --name \"Sales overview\""]),
 
-        C("dashboards delete ID",  "Delete a dashboard and its widgets. The charts on it are kept",
+        C("dashboards delete ID", "Delete a dashboard and its widgets. The charts on it are kept",
           ["--yes"], ["anythink dashboards delete 3 --yes"]),
 
-        C("dashboards data ID",  "Get the data behind a dashboard's widgets",
+        C("dashboards data ID", "Get the data behind a dashboard's widgets",
           ["--widget ID", "--rows N", "--json"], ["anythink dashboards data 3"]),
 
         C("dashboards add-chart DASHBOARD_ID CHART_ID",
@@ -251,17 +266,17 @@ public class DocsCommand : Command<DocsSettings>
           "Remove a widget from a dashboard. Everything else on the dashboard stays as it was",
           ["--json"], ["anythink dashboards remove-widget 3 41"]),
 
-        C("dashboards set-home ID",  "Make a dashboard of yours your landing dashboard",
+        C("dashboards set-home ID", "Make a dashboard of yours your landing dashboard",
           ["--json"], ["anythink dashboards set-home 3"]),
 
-        C("dashboards promote-to-default ID",  "Copy a dashboard over the project default that new users start from (administrators only)",
+        C("dashboards promote-to-default ID", "Copy a dashboard over the project default that new users start from (administrators only)",
           ["--yes"], ["anythink dashboards promote-to-default 3 --yes"]),
 
-        C("dashboards widget-preview",  "Show the data a widget would draw, without saving it",
+        C("dashboards widget-preview", "Show the data a widget would draw, without saving it",
           ["--type TYPE", "--chart ID", "--config JSON", "--rows N", "--json"],
           ["anythink dashboards widget-preview --type chart --chart 12"]),
 
-        C("email templates list",  "List the project's email templates",
+        C("email templates list", "List the project's email templates",
           null, ["anythink email templates list"]),
 
         C("email templates show TYPE",
@@ -273,7 +288,7 @@ public class DocsCommand : Command<DocsSettings>
           "Change a template's subject and/or content; whatever you leave out is kept",
           ["--subject TEXT", "--content PATH (or - for stdin)", "--content-text HTML"],
           ["anythink email templates update confirmation --subject \"Welcome aboard\"",
-           "anythink email templates update confirmation --content ./confirmation.html"],
+              "anythink email templates update confirmation --content ./confirmation.html"],
           "Pass at least one of the subject or the content. HTML is limited to 1,000,000 characters."),
 
         C("email preview",
@@ -281,7 +296,7 @@ public class DocsCommand : Command<DocsSettings>
           ["--subject TEXT", "--content PATH", "--content-text HTML", "--wrapper PATH", "--wrapper-text HTML"],
           ["anythink email preview --subject Hi --content ./draft.html --wrapper ./shell.html"]),
 
-        C("email shell show",  "Show the HTML shell that wraps every email (custom or platform default)",
+        C("email shell show", "Show the HTML shell that wraps every email (custom or platform default)",
           null, ["anythink email shell show > shell.html"]),
 
         C("email shell update",
@@ -295,7 +310,7 @@ public class DocsCommand : Command<DocsSettings>
           ["--json", "--base-url URL"],
           ["anythink api", "anythink api --json"]),
 
-        C("docs",  "Show this reference",
+        C("docs", "Show this reference",
           ["--json"], ["anythink docs", "anythink docs --json"]),
     ];
 
