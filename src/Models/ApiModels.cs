@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace AnythinkCli.Models;
@@ -520,7 +521,11 @@ public record TenantSettingsDto(
 public record ThemeSettingsDto(
     [property: JsonPropertyName("primary_color")] string? PrimaryColor,
     [property: JsonPropertyName("gray_color")]    string? GrayColor
-);
+)
+{
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? Extra { get; init; }
+}
 
 public record TenantResponse(
     [property: JsonPropertyName("id")]              int                Id,

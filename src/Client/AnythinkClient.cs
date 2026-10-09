@@ -117,15 +117,17 @@ public class AnythinkClient : HttpApiClient
 
     // ── Email Templates ───────────────────────────────────────────────────────
 
+    private static string Segment(string value) => Uri.EscapeDataString(value);
+
     public async Task<List<EmailTemplate>> GetEmailTemplatesAsync()
         => (await GetAsync<List<EmailTemplate>>(_org + "/email-templates")) ?? [];
 
     public async Task<EmailTemplate> GetEmailTemplateAsync(string templateType)
-        => (await GetAsync<EmailTemplate>(_org + $"/email-templates/{templateType}"))
+        => (await GetAsync<EmailTemplate>(_org + $"/email-templates/{Segment(templateType)}"))
            ?? throw new AnythinkException($"Email template '{templateType}' not found.", 404);
 
     public async Task<EmailTemplatePreview> PreviewEmailTemplateAsync(string templateType)
-        => (await GetAsync<EmailTemplatePreview>(_org + $"/email-templates/{templateType}/preview"))
+        => (await GetAsync<EmailTemplatePreview>(_org + $"/email-templates/{Segment(templateType)}/preview"))
            ?? throw new AnythinkException($"Could not preview '{templateType}'.", 404);
 
     public async Task<EmailTemplatePreview> PreviewRawEmailAsync(PreviewRawEmailRequest req)
@@ -133,7 +135,7 @@ public class AnythinkClient : HttpApiClient
            ?? throw new AnythinkException("Preview returned no body.", 500);
 
     public Task<EmailTemplate?> UpdateEmailTemplateAsync(string templateType, UpdateEmailTemplateRequest req)
-        => PutAsync<EmailTemplate>(_org + $"/email-templates/{templateType}", req);
+        => PutAsync<EmailTemplate>(_org + $"/email-templates/{Segment(templateType)}", req);
 
     public async Task<EmailShell> GetEmailShellAsync()
         => (await GetAsync<EmailShell>(_org + "/email-templates/shell"))
