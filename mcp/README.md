@@ -125,9 +125,10 @@ Configuration is via environment variables:
 | `MCP_PORT` | no | Public port serving `/mcp` and the OAuth metadata. Defaults to `5300` (or pass `--port`). |
 | `MCP_INTERNAL_PORT` | no | Port serving the internal REST API described below. Defaults to `5301` (or pass `--internal-port`). |
 
-Hosted mode serves only three things on the public port: the MCP endpoint (`/mcp`),
+Hosted mode serves only these on the public port: the MCP endpoint (`/mcp`),
 the OAuth protected-resource metadata (`/.well-known/oauth-protected-resource` and
-`/.well-known/oauth-protected-resource/mcp`), and `/health`. Every request to `/mcp`
+`/.well-known/oauth-protected-resource/mcp`), `/health`, and the Anythink icon at
+`/favicon.ico` and `/icon.png`, which Claude and MCP directories show. Every request to `/mcp`
 must carry a valid bearer token issued by the Anythink authorisation server. For a
 one-project connection the project and its API URL come from the token's own claims; for an
 all-projects connection the token names no project, and each call names one with `project`.
