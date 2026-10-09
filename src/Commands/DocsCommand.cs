@@ -186,26 +186,41 @@ public class DocsCommand : Command<DocsSettings>
         C("data delete ENTITY ID", "Delete a record",
           ["--yes"], ["anythink data delete blog_posts 42 --yes"]),
 
-        C("charts list",  "List charts, newest first",
+        C("charts list", "List charts, newest first",
           ["--entity ENTITY", "--json"], ["anythink charts list --entity orders"]),
 
-        C("charts get ID",  "Get a chart's full configuration",
+        C("charts get ID", "Get a chart's full configuration",
           ["--json"], ["anythink charts get 12"]),
 
         C("charts create NAME",
           "Create a chart. Preview it first with charts preview, which takes the same options",
-          ["--entity ENTITY", "--type TYPE", "--group-by FIELD", "--interval INTERVAL", "--measure FIELD", "--agg AGG", "--stack-by FIELD",
-           "--filter FIELD:OP:VALUE", "--timeframe PRESET", "--from DATE", "--to DATE", "--limit N", "--sort DIR", "--source SOURCE",
-           "--platform-metric ID", "--quota-metric ID", "--config JSON", "--json"],
+          ["--entity ENTITY",
+              "--type TYPE",
+              "--group-by FIELD",
+              "--interval INTERVAL",
+              "--measure FIELD",
+              "--agg AGG",
+              "--stack-by FIELD",
+              "--filter FIELD:OP:VALUE",
+              "--timeframe PRESET",
+              "--from DATE",
+              "--to DATE",
+              "--limit N",
+              "--sort DIR",
+              "--source SOURCE",
+              "--platform-metric ID",
+              "--quota-metric ID",
+              "--config JSON",
+              "--json"],
           ["anythink charts create \"Orders by status\" --entity orders --type pie --group-by status",
-           "anythink charts create \"Revenue per month\" --entity orders --type column --group-by created_at --interval month --measure total --agg sum --timeframe 365d"],
+              "anythink charts create \"Revenue per month\" --entity orders --type column --group-by created_at --interval month --measure total --agg sum --timeframe 365d"],
           "Types: column (bar) line pie area stat gauge funnel. Aggregations: count sum avg min max. Filter operators: eq ne gt gte lt lte contains in exists not_exists"),
 
         C("charts update ID",
           "Change a chart. Only the options you pass change",
           ["--name NAME", "(the same options as charts create)", "--json"], ["anythink charts update 12 --timeframe 30d"]),
 
-        C("charts delete ID",  "Delete a chart",
+        C("charts delete ID", "Delete a chart",
           ["--yes"], ["anythink charts delete 12 --yes"]),
 
         C("charts preview",
@@ -213,16 +228,16 @@ public class DocsCommand : Command<DocsSettings>
           ["(the same options as charts create)", "--rows N", "--json"],
           ["anythink charts preview --entity orders --type pie --group-by status"]),
 
-        C("charts platform-metrics",  "List the usage metrics a platform chart can plot",
+        C("charts platform-metrics", "List the usage metrics a platform chart can plot",
           ["--json"], ["anythink charts platform-metrics"]),
 
-        C("dashboards list",  "List the dashboards you can see",
+        C("dashboards list", "List the dashboards you can see",
           ["--json"], ["anythink dashboards list"]),
 
-        C("dashboards get ID",  "Get a dashboard with its widgets and their positions",
+        C("dashboards get ID", "Get a dashboard with its widgets and their positions",
           ["--json"], ["anythink dashboards get 3"]),
 
-        C("dashboards mine",  "Get your landing dashboard, or the project default",
+        C("dashboards mine", "Get your landing dashboard, or the project default",
           ["--json"], ["anythink dashboards mine"]),
 
         C("dashboards create NAME",
@@ -235,10 +250,10 @@ public class DocsCommand : Command<DocsSettings>
           ["--name NAME", "--description TEXT", "--shared BOOL", "--config JSON", "--json"],
           ["anythink dashboards update 3 --name \"Sales overview\""]),
 
-        C("dashboards delete ID",  "Delete a dashboard and its widgets. The charts on it are kept",
+        C("dashboards delete ID", "Delete a dashboard and its widgets. The charts on it are kept",
           ["--yes"], ["anythink dashboards delete 3 --yes"]),
 
-        C("dashboards data ID",  "Get the data behind a dashboard's widgets",
+        C("dashboards data ID", "Get the data behind a dashboard's widgets",
           ["--widget ID", "--rows N", "--json"], ["anythink dashboards data 3"]),
 
         C("dashboards add-chart DASHBOARD_ID CHART_ID",
@@ -251,13 +266,13 @@ public class DocsCommand : Command<DocsSettings>
           "Remove a widget from a dashboard. Everything else on the dashboard stays as it was",
           ["--json"], ["anythink dashboards remove-widget 3 41"]),
 
-        C("dashboards set-home ID",  "Make a dashboard of yours your landing dashboard",
+        C("dashboards set-home ID", "Make a dashboard of yours your landing dashboard",
           ["--json"], ["anythink dashboards set-home 3"]),
 
-        C("dashboards promote-to-default ID",  "Copy a dashboard over the project default that new users start from (administrators only)",
+        C("dashboards promote-to-default ID", "Copy a dashboard over the project default that new users start from (administrators only)",
           ["--yes"], ["anythink dashboards promote-to-default 3 --yes"]),
 
-        C("dashboards widget-preview",  "Show the data a widget would draw, without saving it",
+        C("dashboards widget-preview", "Show the data a widget would draw, without saving it",
           ["--type TYPE", "--chart ID", "--config JSON", "--rows N", "--json"],
           ["anythink dashboards widget-preview --type chart --chart 12"]),
 
