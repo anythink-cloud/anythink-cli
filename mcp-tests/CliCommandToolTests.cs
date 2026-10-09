@@ -177,6 +177,22 @@ public class CliCommandToolTests
     public void AVerbThatOverwritesWhatIsThere_IsDestructive(string verb) =>
         CliToolPolicy.IsDestructive(new CliCommand(["things", verb], "", []), CliToolScope.Internal).Should().BeTrue();
 
+    [Theory]
+    [InlineData("settings_get", true, false)]
+    [InlineData("settings_cors_list", true, false)]
+    [InlineData("settings_set", false, true)]
+    [InlineData("settings_cors_add", false, false)]
+    [InlineData("settings_cors_remove", false, true)]
+    public void ProjectSettingsCommands_AreClassifiedByWhatTheyChange(string name, bool readOnly, bool destructive)
+    {
+        foreach (var scope in new[] { CliToolScope.Local, CliToolScope.Internal, CliToolScope.Hosted })
+        {
+            var annotations = Tool(name, scope).ProtocolTool.Annotations!;
+            (annotations.ReadOnlyHint == true).Should().Be(readOnly);
+            (annotations.DestructiveHint == true).Should().Be(destructive);
+        }
+    }
+
     [Fact]
     public void Arguments_ArePositionalAndOptionsCarryTheirValue()
     {

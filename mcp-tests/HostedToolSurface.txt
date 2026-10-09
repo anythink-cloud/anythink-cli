@@ -53,6 +53,11 @@ secrets_create [write] project? key value?
 secrets_delete [destructive] project? key
 secrets_list [read-only] project?
 secrets_update [destructive] project? key value?
+settings_cors_add [write] project? url
+settings_cors_list [read-only] project?
+settings_cors_remove [destructive] project? url
+settings_get [read-only] project?
+settings_set [destructive] project? key value
 users_delete [destructive] project? id
 users_get [read-only] project? id
 users_invite [write, open-world] project? email first_name last_name role_id?
