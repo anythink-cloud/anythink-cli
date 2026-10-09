@@ -26,16 +26,16 @@ public class ApiListCommand : BaseCommand<ApiListSettings>
     {
         try
         {
-            var client  = GetClient();
+            var client = GetClient();
             var baseUrl = settings.BaseUrl ?? client.BaseUrl;
-            var orgId   = client.OrgId;
-            var base_   = $"{baseUrl.TrimEnd('/')}/org/{orgId}";
+            var orgId = client.OrgId;
+            var base_ = $"{baseUrl.TrimEnd('/')}/org/{orgId}";
 
             // Fetch entities and workflows in parallel
-            var entitiesTask  = client.GetEntitiesAsync();
+            var entitiesTask = client.GetEntitiesAsync();
             var workflowsTask = client.GetWorkflowsAsync();
             await Task.WhenAll(entitiesTask, workflowsTask);
-            var entities  = entitiesTask.Result;
+            var entities = entitiesTask.Result;
             var workflows = workflowsTask.Result;
 
             if (settings.Json)
@@ -63,10 +63,10 @@ public class ApiListCommand : BaseCommand<ApiListSettings>
             {
                 var ep = $"{base_}/entities/{e.Name}/items";
                 var pub = e.IsPublic ? " [public]" : "";
-                Renderer.AddRow(dynTable, "GET",    ep,           $"List {e.Name} records{pub}");
-                Renderer.AddRow(dynTable, "GET",    ep + "/{id}", $"Get {e.Name} by ID");
-                Renderer.AddRow(dynTable, "POST",   ep,           $"Create {e.Name} record");
-                Renderer.AddRow(dynTable, "PUT",    ep + "/{id}", $"Update {e.Name} record");
+                Renderer.AddRow(dynTable, "GET", ep, $"List {e.Name} records{pub}");
+                Renderer.AddRow(dynTable, "GET", ep + "/{id}", $"Get {e.Name} by ID");
+                Renderer.AddRow(dynTable, "POST", ep, $"Create {e.Name} record");
+                Renderer.AddRow(dynTable, "PUT", ep + "/{id}", $"Update {e.Name} record");
                 Renderer.AddRow(dynTable, "DELETE", ep + "/{id}", $"Delete {e.Name} record");
 
                 if (e.IsPublic)
@@ -105,33 +105,33 @@ public class ApiListCommand : BaseCommand<ApiListSettings>
     {
         var o = base_;
         return [
-            ("POST",   $"{o}/auth/v1/token",          "Login — get JWT access token"),
-            ("POST",   $"{o}/auth/v1/refresh",         "Refresh access token"),
-            ("POST",   $"{o}/auth/v1/logout",          "Invalidate refresh token"),
-            ("POST",   $"{o}/auth/v1/register",        "Register new user"),
-            ("GET",    $"{o}/api-keys",                "List API keys"),
-            ("POST",   $"{o}/api-keys",                "Create API key"),
-            ("DELETE", $"{o}/api-keys/{{id}}",         "Revoke API key"),
-            ("GET",    $"{o}/entities",                "List all entities"),
-            ("GET",    $"{o}/entities/{{name}}",       "Get entity + fields"),
-            ("POST",   $"{o}/entities",                "Create entity"),
-            ("PUT",    $"{o}/entities/{{name}}",       "Update entity settings"),
-            ("DELETE", $"{o}/entities/{{name}}",       "Delete entity"),
-            ("GET",    $"{o}/entities/{{e}}/fields",   "List fields"),
-            ("POST",   $"{o}/entities/{{e}}/fields",   "Add field"),
-            ("PUT",    $"{o}/entities/{{e}}/fields/{{id}}", "Update field"),
+            ("POST", $"{o}/auth/v1/token", "Login — get JWT access token"),
+            ("POST", $"{o}/auth/v1/refresh", "Refresh access token"),
+            ("POST", $"{o}/auth/v1/logout", "Invalidate refresh token"),
+            ("POST", $"{o}/auth/v1/register", "Register new user"),
+            ("GET", $"{o}/api-keys", "List API keys"),
+            ("POST", $"{o}/api-keys", "Create API key"),
+            ("DELETE", $"{o}/api-keys/{{id}}", "Revoke API key"),
+            ("GET", $"{o}/entities", "List all entities"),
+            ("GET", $"{o}/entities/{{name}}", "Get entity + fields"),
+            ("POST", $"{o}/entities", "Create entity"),
+            ("PUT", $"{o}/entities/{{name}}", "Update entity settings"),
+            ("DELETE", $"{o}/entities/{{name}}", "Delete entity"),
+            ("GET", $"{o}/entities/{{e}}/fields", "List fields"),
+            ("POST", $"{o}/entities/{{e}}/fields", "Add field"),
+            ("PUT", $"{o}/entities/{{e}}/fields/{{id}}", "Update field"),
             ("DELETE", $"{o}/entities/{{e}}/fields/{{id}}", "Delete field"),
-            ("GET",    $"{o}/workflows",               "List workflows"),
-            ("GET",    $"{o}/workflows/{{id}}",        "Get workflow + steps"),
-            ("POST",   $"{o}/workflows",               "Create workflow"),
-            ("PUT",    $"{o}/workflows/{{id}}",        "Update workflow"),
-            ("DELETE", $"{o}/workflows/{{id}}",        "Delete workflow"),
-            ("POST",   $"{o}/workflows/{{id}}/steps",  "Add workflow step"),
-            ("PUT",    $"{o}/workflows/{{id}}/steps/{{sid}}", "Update step"),
+            ("GET", $"{o}/workflows", "List workflows"),
+            ("GET", $"{o}/workflows/{{id}}", "Get workflow + steps"),
+            ("POST", $"{o}/workflows", "Create workflow"),
+            ("PUT", $"{o}/workflows/{{id}}", "Update workflow"),
+            ("DELETE", $"{o}/workflows/{{id}}", "Delete workflow"),
+            ("POST", $"{o}/workflows/{{id}}/steps", "Add workflow step"),
+            ("PUT", $"{o}/workflows/{{id}}/steps/{{sid}}", "Update step"),
             ("DELETE", $"{o}/workflows/{{id}}/steps/{{sid}}", "Delete step"),
-            ("POST",   $"{o}/workflows/{{id}}/enable", "Enable workflow"),
-            ("POST",   $"{o}/workflows/{{id}}/disable","Disable workflow"),
-            ("POST",   $"{o}/workflows/{{id}}/trigger","Trigger workflow manually"),
+            ("POST", $"{o}/workflows/{{id}}/enable", "Enable workflow"),
+            ("POST", $"{o}/workflows/{{id}}/disable", "Disable workflow"),
+            ("POST", $"{o}/workflows/{{id}}/trigger", "Trigger workflow manually"),
         ];
     }
 

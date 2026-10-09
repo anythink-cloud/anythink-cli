@@ -281,16 +281,16 @@ public class ProjectsUseCommand : BasePlatformCommand<ProjectsUseSettings>
             }
 
             var (platformKey, platform) = ResolvePlatformContext();
-            var baseUrl    = match.ApiUrl?.TrimEnd('/') ?? platform.MyAnythinkUrl;
+            var baseUrl = match.ApiUrl?.TrimEnd('/') ?? platform.MyAnythinkUrl;
             var profileKey = match.Name.ToLower().Replace(" ", "-");
 
             var profile = new CliProfile
             {
-                OrgId          = match.TenantId.Value.ToString(),
-                ApiKey         = settings.ApiKey,
+                OrgId = match.TenantId.Value.ToString(),
+                ApiKey = settings.ApiKey,
                 InstanceApiUrl = baseUrl,
-                Alias          = match.Name,
-                PlatformKey    = platformKey,
+                Alias = match.Name,
+                PlatformKey = platformKey,
             };
             ConfigService.SaveProfile(profileKey, profile);
             ConfigService.SetDefault(profileKey);
