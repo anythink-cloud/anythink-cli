@@ -28,11 +28,11 @@ public class OAuthGoogleStatusCommand : AsyncCommand
             }
 
             var status = settings.Enabled ? "[green]Enabled[/]" : "[yellow]Disabled[/]";
-            var hasId  = !string.IsNullOrEmpty(settings.ClientId);
+            var hasId = !string.IsNullOrEmpty(settings.ClientId);
             var hasSec = !string.IsNullOrEmpty(settings.ClientSecret);
 
             AnsiConsole.MarkupLine($"Google OAuth  {status}");
-            AnsiConsole.MarkupLine($"  Client ID      {(hasId  ? "[green]✓ configured[/]" : "[red]✗ not set[/]")}");
+            AnsiConsole.MarkupLine($"  Client ID      {(hasId ? "[green]✓ configured[/]" : "[red]✗ not set[/]")}");
             AnsiConsole.MarkupLine($"  Client secret  {(hasSec ? "[green]✓ configured[/]" : "[red]✗ not set[/]")}");
 
             if (!settings.Enabled || !hasId || !hasSec)
@@ -64,7 +64,7 @@ public class OAuthGoogleConfigureCommand : AsyncCommand
         GoogleOAuthSettings? existing = null;
         try { existing = await client.GetGoogleOAuthAsync(); } catch { /* not yet configured */ }
 
-        var hasExistingId  = !string.IsNullOrEmpty(existing?.ClientId);
+        var hasExistingId = !string.IsNullOrEmpty(existing?.ClientId);
         var hasExistingSec = !string.IsNullOrEmpty(existing?.ClientSecret);
 
         var clientId = AnsiConsole.Ask<string>(

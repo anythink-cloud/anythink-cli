@@ -15,8 +15,13 @@ public class HostedToolsTests
         new HostedCredentials { OrgId = "42", InstanceUrl = "https://api.my.anythink.cloud", Token = "t" },
         new HostedTokenExchanger(new HttpClient(_mock), "https://issuer.test", new TokenExchangeOptions { ClientId = "c", ClientSecret = "s", Audience = "a" }),
         new McpClientFactory(null, _mock),
-        new HostedMode.Options { PublicUrl = "https://mcp.test/mcp", Issuer = "https://issuer.test", Audience = "https://mcp.test/mcp",
-            Exchange = new TokenExchangeOptions { ClientId = "c", ClientSecret = "s", Audience = "a" } }));
+        new HostedMode.Options
+        {
+            PublicUrl = "https://mcp.test/mcp",
+            Issuer = "https://issuer.test",
+            Audience = "https://mcp.test/mcp",
+            Exchange = new TokenExchangeOptions { ClientId = "c", ClientSecret = "s", Audience = "a" }
+        }));
 
     [Fact]
     public async Task ProjectDetails_ReturnsTheConnectedProject()

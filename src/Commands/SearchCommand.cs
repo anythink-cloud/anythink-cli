@@ -411,13 +411,13 @@ internal static class SearchQueryStringBuilder
     public static string Build(SearchQuerySettings s)
     {
         var parts = new List<string>();
-        if (!string.IsNullOrEmpty(s.Text))     parts.Add($"q={Uri.EscapeDataString(s.Text)}");
+        if (!string.IsNullOrEmpty(s.Text)) parts.Add($"q={Uri.EscapeDataString(s.Text)}");
         if (!string.IsNullOrEmpty(s.Entities)) parts.Add($"e={Uri.EscapeDataString(s.Entities)}");
-        if (!string.IsNullOrEmpty(s.Filter))   parts.Add($"fl={Uri.EscapeDataString(s.Filter)}");
-        if (!string.IsNullOrEmpty(s.Sort))     parts.Add($"s={Uri.EscapeDataString(s.Sort)}");
-        if (!string.IsNullOrEmpty(s.Facet))    parts.Add($"f={Uri.EscapeDataString(s.Facet)}");
+        if (!string.IsNullOrEmpty(s.Filter)) parts.Add($"fl={Uri.EscapeDataString(s.Filter)}");
+        if (!string.IsNullOrEmpty(s.Sort)) parts.Add($"s={Uri.EscapeDataString(s.Sort)}");
+        if (!string.IsNullOrEmpty(s.Facet)) parts.Add($"f={Uri.EscapeDataString(s.Facet)}");
         if (s.Highlight) parts.Add("hl=true");
-        if (s.Page > 1)   parts.Add($"page={s.Page}");
+        if (s.Page > 1) parts.Add($"page={s.Page}");
         if (s.Limit != 20) parts.Add($"pageSize={s.Limit}");
         return string.Join("&", parts);
     }

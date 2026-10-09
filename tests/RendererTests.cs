@@ -17,8 +17,8 @@ public class RendererTests
     /// <summary>Builds a minimal JWT with the given payload object.</summary>
     private static string MakeJwt(object payload)
     {
-        var json  = JsonSerializer.Serialize(payload);
-        var b64   = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
+        var json = JsonSerializer.Serialize(payload);
+        var b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
         // Use a fake header and signature — NameFromJwt only reads the payload segment
         return $"eyJhbGciOiJIUzI1NiJ9.{b64}.fakesignature";
     }

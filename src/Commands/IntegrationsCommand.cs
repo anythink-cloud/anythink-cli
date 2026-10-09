@@ -580,9 +580,9 @@ public class IntegrationsOAuthConfigureCommand : BaseCommand<IntegrationOAuthCon
                 .StartAsync(Renderer.Status($"Saving OAuth settings for '{settings.Provider}'..."), async _ =>
                 {
                     await client.SetIntegrationOAuthSettingsAsync(settings.Provider, new SetOAuthSettingsRequest(
-                        ClientId:        clientId,
-                        ClientSecret:    clientSecret,
-                        IsEnabled:       !settings.Disable,
+                        ClientId: clientId,
+                        ClientSecret: clientSecret,
+                        IsEnabled: !settings.Disable,
                         UseSocialSignIn: settings.UseSocialSignIn
                     ));
                 });
@@ -779,11 +779,11 @@ public class IntegrationsOAuthConnectCommand : BaseCommand<IntegrationOAuthConne
                     {
                         connection = await client.CreateOAuthConnectionAsync(new CreateConnectionRequest(
                             IntegrationDefinitionId: def.Id,
-                            Name:                    name,
-                            AuthCode:                code,
-                            RedirectUri:             redirectUri,
-                            State:                   state,
-                            IsUserConnection:        settings.UserConnection
+                            Name: name,
+                            AuthCode: code,
+                            RedirectUri: redirectUri,
+                            State: state,
+                            IsUserConnection: settings.UserConnection
                         ));
                     });
 
@@ -910,7 +910,7 @@ public class IntegrationsExecuteCommand : BaseCommand<IntegrationExecuteSettings
                 {
                     result = await client.ExecuteIntegrationAsync(settings.Provider, new ExecuteIntegrationRequest(
                         Operation: settings.Operation,
-                        Inputs:    inputs
+                        Inputs: inputs
                     ));
                 });
 

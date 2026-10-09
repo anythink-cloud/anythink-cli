@@ -80,8 +80,8 @@ public abstract class BaseCommand<TSettings> : AsyncCommand<TSettings>
 
             if (response is null) return null;
 
-            profile.AccessToken    = response.AccessToken;
-            profile.RefreshToken   = response.RefreshToken ?? profile.RefreshToken;
+            profile.AccessToken = response.AccessToken;
+            profile.RefreshToken = response.RefreshToken ?? profile.RefreshToken;
             profile.TokenExpiresAt = response.ExpiresIn.HasValue
                 ? DateTime.UtcNow.AddSeconds(response.ExpiresIn.Value)
                 : DateTime.UtcNow.AddHours(1);
@@ -133,7 +133,7 @@ public abstract class BaseCommand<TSettings> : AsyncCommand<TSettings>
 
         return new AnythinkClient(profile);
     }
-    
+
     protected static string? Env(string name) => Environment.GetEnvironmentVariable(name);
 
     /// <summary>

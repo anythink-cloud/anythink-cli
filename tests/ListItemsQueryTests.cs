@@ -7,7 +7,7 @@ namespace AnythinkCli.Tests;
 public class ListItemsQueryTests
 {
     private const string BaseUrl = "https://api.example.com";
-    private const string OrgId   = "99999";
+    private const string OrgId = "99999";
     private const string ItemsUrl = $"{BaseUrl}/org/{OrgId}/entities/blog_posts/items";
     private const string EmptyPage = """{"items":[],"total_items":0,"total_pages":0,"has_next_page":false,"page":1,"page_size":20}""";
 
