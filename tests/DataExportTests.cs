@@ -39,7 +39,12 @@ public class DataCsvTests
     }
 
     [Theory]
-    [InlineData("=1+1")] [InlineData("+1")] [InlineData("-2")] [InlineData("@cmd")] [InlineData("\tx")] [InlineData("\rx")]
+    [InlineData("=1+1")]
+    [InlineData("+1")]
+    [InlineData("-2")]
+    [InlineData("@cmd")]
+    [InlineData("\tx")]
+    [InlineData("\rx")]
     public void Csv_FormulaGuard_PrefixesTextThatCouldRunAsAFormula(string text)
     {
         Csv.ToCell(JsonValue.Create(text), formulaGuard: true).Should().Be("'" + text);

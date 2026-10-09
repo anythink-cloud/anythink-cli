@@ -1,0 +1,75 @@
+using AnythinkCli.Client;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Tokens;
+
+namespace AnythinkMcp;
+
+public sealed class HostedProjectException(string message) : Exception(message);
+
+public sealed class HostedProjects(
+    HostedCredentials credentials, ITokenExchanger exchanger, McpClientFactory factory, HostedMode.Options options)
+{
+    public const string ParameterName = "project";
+
+    public const string ParameterDescription =
+        "Project id from 'projects_list'. Required when the connection covers all your projects.";
+
+    public async Task<AnythinkClient> ClientAsync(string? project, CancellationToken cancellationToken)
+    {
+        if (!credentials.AllProjects)
+        {
+            if (!string.IsNullOrEmpty(project) && !SameProject(project, credentials.ProjectId))
+                throw new HostedProjectException("This connection covers one project only. Leave 'project' out.");
+            return factory.GetClient(credentials);
+        }
+
+        if (!Guid.TryParse(project, out var projectId))
+            throw new HostedProjectException("This connection covers all your projects. Pass 'project' with an id from 'projects_list'.");
+
+        string token;
+        try
+        {
+            token = await exchanger.ExchangeAsync(credentials.InboundToken!, projectId.ToString(), cancellationToken);
+        }
+        catch (TokenExchangeException ex)
+        {
+            throw new HostedProjectException(ex.Error == "invalid_target"
+                ? "You don't have access to that project, or it doesn't exist."
+                : "Couldn't get access to that project. Try again.");
+        }
+
+        JsonWebToken claims;
+        try
+        {
+            claims = new JsonWebToken(token);
+        }
+        catch (Exception ex) when (ex is ArgumentException or SecurityTokenException)
+        {
+            throw new HostedProjectException("Couldn't get access to that project. Try again.");
+        }
+
+        var orgId = claims.TryGetClaim("tid", out var tid) ? tid.Value : null;
+        var instanceUrl = claims.TryGetClaim("instance_url", out var url) ? url.Value : null;
+        var grantedProject = claims.TryGetClaim("project_id", out var granted) && Guid.TryParse(granted.Value, out var parsed) ? parsed : (Guid?)null;
+        if (!HostedAuth.IsValidOrgId(orgId) || grantedProject != projectId || instanceUrl is null
+            || !HostedAuth.IsAllowedInstanceUrl(instanceUrl, options.AllowLoopbackInstance, options.AllowedInstanceHostSuffixes))
+            throw new HostedProjectException("Couldn't get access to that project. Try again.");
+
+        return factory.GetClient(new HostedCredentials { OrgId = orgId, InstanceUrl = instanceUrl.TrimEnd('/'), Token = token });
+    }
+
+    private static bool SameProject(string requested, string? own) =>
+        Guid.TryParse(requested, out var requestedId) && Guid.TryParse(own, out var ownId) && requestedId == ownId;
+
+    public async Task<string> ListAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await exchanger.ListProjectsAsync(credentials.InboundToken!, cancellationToken);
+        }
+        catch (TokenExchangeException)
+        {
+            throw new HostedProjectException("Couldn't list your projects. Try again.");
+        }
+    }
+}

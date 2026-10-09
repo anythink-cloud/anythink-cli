@@ -18,7 +18,7 @@ public class DataImportTests
         using var dir = new TempDir();
         var api = new FakeApi();
         setup?.Invoke(api);
-        var options = new DataImportOptions("customers", dir.File(fileName, content), Yes: true);
+        var options = new DataImportOptions("customers", dir.File(fileName, content), Yes: true, Concurrency: 1);
         var result = await new DataImportRunner(api.Client(), delay ?? NoDelay).RunAsync(tweak?.Invoke(options) ?? options);
         return (result, api);
     }
@@ -56,8 +56,12 @@ public class DataImportTests
     }
 
     [Theory]
-    [InlineData("true", true)] [InlineData("FALSE", false)] [InlineData("1", true)]
-    [InlineData("0", false)] [InlineData("yes", true)] [InlineData("No", false)]
+    [InlineData("true", true)]
+    [InlineData("FALSE", false)]
+    [InlineData("1", true)]
+    [InlineData("0", false)]
+    [InlineData("yes", true)]
+    [InlineData("No", false)]
     public async Task Import_BooleanVariants_AreAccepted(string cell, bool expected)
     {
         var (_, api) = await Import($"name,active\nAda,{cell}\n");

@@ -83,39 +83,39 @@ internal sealed partial class RowCoercer
                 if (kind == JsonValueKind.Number) return JsonValue.Create(node.ToJsonString());
                 return text is not null ? JsonValue.Create(text) : throw new FormatException($"expected text, got {Describe(kind)}");
             case "integer" or "bigint":
-            {
-                long n = 0;
-                var ok = text is not null
-                    ? long.TryParse(text.Trim(), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out n)
-                    : kind == JsonValueKind.Number && node.AsValue().TryGetValue(out n);
-                if (!ok || (type == "integer" && n is > int.MaxValue or < int.MinValue)) throw new FormatException("expected a whole number");
-                return JsonValue.Create(n);
-            }
+                {
+                    long n = 0;
+                    var ok = text is not null
+                        ? long.TryParse(text.Trim(), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out n)
+                        : kind == JsonValueKind.Number && node.AsValue().TryGetValue(out n);
+                    if (!ok || (type == "integer" && n is > int.MaxValue or < int.MinValue)) throw new FormatException("expected a whole number");
+                    return JsonValue.Create(n);
+                }
             case "decimal":
-            {
-                var token = text ?? (kind == JsonValueKind.Number ? node.ToJsonString() : "");
-                // Sent as a string: the server parses strings exactly but routes JSON numbers through double.
-                return decimal.TryParse(token.Trim(), NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture, out var d)
-                    ? JsonValue.Create(d.ToString(CultureInfo.InvariantCulture))
-                    : throw new FormatException("expected a decimal number using '.' as the separator");
-            }
+                {
+                    var token = text ?? (kind == JsonValueKind.Number ? node.ToJsonString() : "");
+                    // Sent as a string: the server parses strings exactly but routes JSON numbers through double.
+                    return decimal.TryParse(token.Trim(), NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture, out var d)
+                        ? JsonValue.Create(d.ToString(CultureInfo.InvariantCulture))
+                        : throw new FormatException("expected a decimal number using '.' as the separator");
+                }
             case "boolean":
                 return JsonValue.Create(ToBool(kind, text, node));
             case "date" or "timestamp":
-            {
-                if (text is null || !IsoDate().IsMatch(text.Trim())
-                    || !DateTimeOffset.TryParse(text.Trim(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var when))
-                    throw new FormatException("expected an ISO 8601 date such as 2025-03-31 or 2025-03-31T09:30:00Z");
-                return JsonValue.Create(type == "date"
-                    ? when.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
-                    : when.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'", CultureInfo.InvariantCulture));
-            }
+                {
+                    if (text is null || !IsoDate().IsMatch(text.Trim())
+                        || !DateTimeOffset.TryParse(text.Trim(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var when))
+                        throw new FormatException("expected an ISO 8601 date such as 2025-03-31 or 2025-03-31T09:30:00Z");
+                    return JsonValue.Create(type == "date"
+                        ? when.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+                        : when.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'", CultureInfo.InvariantCulture));
+                }
             case "jsonb":
-            {
-                if (text is null) return JsonbFieldHelper.Stringify(node.DeepClone());
-                var jsonText = text.Trim();
-                return jsonText.StartsWith('{') || jsonText.StartsWith('[') ? JsonbFieldHelper.Stringify(ParseJson(jsonText)) : JsonValue.Create(text);
-            }
+                {
+                    if (text is null) return JsonbFieldHelper.Stringify(node.DeepClone());
+                    var jsonText = text.Trim();
+                    return jsonText.StartsWith('{') || jsonText.StartsWith('[') ? JsonbFieldHelper.Stringify(ParseJson(jsonText)) : JsonValue.Create(text);
+                }
             default:
                 if (text is null) return node.DeepClone();
                 var trimmed = text.Trim();

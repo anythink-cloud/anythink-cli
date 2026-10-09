@@ -396,8 +396,7 @@ public class DataRlsCommand : BaseCommand<DataRlsSettings>
                     .Spinner(Spinner.Known.Dots)
                     .StartAsync("Fetching RLS users...", async _ =>
                     {
-                        raw = await client.FetchRawAsync(
-                            $"{client.BaseUrl}/org/{client.OrgId}/entities/{settings.Entity}/items/{settings.Id}/rls-users");
+                        raw = await client.GetItemRlsUsersAsync(settings.Entity, settings.Id);
                     });
 
                 var users = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(raw!);
@@ -426,10 +425,7 @@ public class DataRlsCommand : BaseCommand<DataRlsSettings>
                     .Spinner(Spinner.Known.Dots)
                     .StartAsync($"Setting RLS access for user {settings.UserId}...", async _ =>
                     {
-                        var body = $"{{\"user_id\":{settings.UserId},\"readonly\":{settings.ReadOnly.ToString().ToLower()}}}";
-                        await client.FetchRawAsync(
-                            $"{client.BaseUrl}/org/{client.OrgId}/entities/{settings.Entity}/items/{settings.Id}/rls-users",
-                            "PUT", body);
+                        await client.SetItemRlsUserAsync(settings.Entity, settings.Id, settings.UserId.Value, settings.ReadOnly);
                     });
 
                 Renderer.Success($"RLS access set for user {settings.UserId} on {settings.Entity}/{settings.Id} (readonly: {settings.ReadOnly}).");
