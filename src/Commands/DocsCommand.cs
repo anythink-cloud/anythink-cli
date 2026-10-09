@@ -261,6 +261,35 @@ public class DocsCommand : Command<DocsSettings>
           ["--type TYPE", "--chart ID", "--config JSON", "--rows N", "--json"],
           ["anythink dashboards widget-preview --type chart --chart 12"]),
 
+        C("email templates list",  "List the project's email templates",
+          null, ["anythink email templates list"]),
+
+        C("email templates show TYPE",
+          "Show a template's subject and content",
+          ["--rendered (print the rendered HTML instead of the source)"],
+          ["anythink email templates show confirmation", "anythink email templates show confirmation --rendered"]),
+
+        C("email templates update TYPE",
+          "Change a template's subject and/or content; whatever you leave out is kept",
+          ["--subject TEXT", "--content PATH (or - for stdin)", "--content-text HTML"],
+          ["anythink email templates update confirmation --subject \"Welcome aboard\"",
+           "anythink email templates update confirmation --content ./confirmation.html"],
+          "Pass at least one of the subject or the content. HTML is limited to 1,000,000 characters."),
+
+        C("email preview",
+          "Render an unsaved draft and print the HTML; nothing is saved",
+          ["--subject TEXT", "--content PATH", "--content-text HTML", "--wrapper PATH", "--wrapper-text HTML"],
+          ["anythink email preview --subject Hi --content ./draft.html --wrapper ./shell.html"]),
+
+        C("email shell show",  "Show the HTML shell that wraps every email (custom or platform default)",
+          null, ["anythink email shell show > shell.html"]),
+
+        C("email shell update",
+          "Save new shell HTML, or reset to the platform default",
+          ["--html PATH (or - for stdin)", "--html-text HTML", "--reset"],
+          ["anythink email shell update --html ./shell.html", "anythink email shell update --reset"],
+          "Pass exactly one of the HTML options or --reset."),
+
         C("api",
           "List all REST endpoints — platform routes + dynamically generated entity CRUD routes",
           ["--json", "--base-url URL"],
@@ -399,6 +428,23 @@ public class DocsCommand : Command<DocsSettings>
         anythink charts create "Orders by status" --entity orders --type pie --group-by status
         anythink dashboards create Sales --chart 12
         anythink dashboards add-chart 3 14 --width 6
+        ```
+
+        ## Email
+
+        | Command | Description |
+        |---------|-------------|
+        | `anythink email templates list` | List the project's email templates |
+        | `anythink email templates show TYPE [--rendered]` | Show a template's subject + content, or the rendered HTML |
+        | `anythink email templates update TYPE [--subject TEXT] [--content PATH \| --content-text HTML]` | Change subject and/or content |
+        | `anythink email preview [--subject TEXT] [--content PATH \| --content-text HTML] [--wrapper PATH \| --wrapper-text HTML]` | Render an unsaved draft, print the HTML |
+        | `anythink email shell show` | Show the shell HTML that wraps every email |
+        | `anythink email shell update (--html PATH \| --html-text HTML \| --reset)` | Save new shell HTML, or reset to the platform default |
+
+        ```sh
+        anythink email templates update confirmation --subject "Welcome aboard"
+        anythink email templates update confirmation --content ./confirmation.html
+        anythink email shell show > shell.html
         ```
 
         ## API Explorer
