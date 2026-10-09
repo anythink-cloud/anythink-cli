@@ -14,7 +14,7 @@ namespace AnythinkCli.Tests;
 public class AnythinkClientExtendedTests
 {
     private const string BaseUrl = "https://api.example.com";
-    private const string OrgId   = "99999";
+    private const string OrgId = "99999";
     private const string OrgPath = $"{BaseUrl}/org/{OrgId}";
     private const string PayPath = $"{OrgPath}/integrations/anythinkpay";
 
@@ -61,7 +61,7 @@ public class AnythinkClientExtendedTests
                .Respond("application/json",
                    """{"name":"orders","table_name":"orders","enable_rls":true,"is_system":false,"is_junction":false,"is_public":true,"lock_new_records":false}""");
 
-        var req    = new UpdateEntityRequest(EnableRls: true, IsPublic: true, LockNewRecords: false);
+        var req = new UpdateEntityRequest(EnableRls: true, IsPublic: true, LockNewRecords: false);
         var result = await BuildClient(handler).UpdateEntityAsync("orders", req);
 
         result!.EnableRls.Should().BeTrue();
@@ -103,7 +103,7 @@ public class AnythinkClientExtendedTests
                .Respond("application/json",
                    """{"id":99,"name":"phone","database_type":"varchar","display_type":"text","is_required":false,"is_unique":false,"is_immutable":false,"is_searchable":false,"is_indexed":false,"locked":false}""");
 
-        var req   = new CreateFieldRequest("phone", "varchar", "text");
+        var req = new CreateFieldRequest("phone", "varchar", "text");
         var field = await BuildClient(handler).AddFieldAsync("customers", req);
 
         field.Id.Should().Be(99);
@@ -236,7 +236,7 @@ public class AnythinkClientExtendedTests
                .Respond("application/json",
                    """{"id":101,"name":"description","database_type":"text","display_type":"rich-text","is_required":false,"is_unique":false,"is_immutable":false,"is_searchable":true,"is_indexed":false,"locked":false}""");
 
-        var req   = new UpdateFieldRequest("rich-text", IsSearchable: true);
+        var req = new UpdateFieldRequest("rich-text", IsSearchable: true);
         var field = await BuildClient(handler).UpdateFieldAsync("products", 101, req);
 
         field.Id.Should().Be(101);
@@ -255,7 +255,7 @@ public class AnythinkClientExtendedTests
                    """{"id":31,"name":"Renamed Workflow","trigger":"Timed","enabled":true,"description":"Updated"}""");
 
         var req = new UpdateWorkflowRequest(Name: "Renamed Workflow", Description: "Updated");
-        var wf  = await BuildClient(handler).UpdateWorkflowAsync(31, req);
+        var wf = await BuildClient(handler).UpdateWorkflowAsync(31, req);
 
         wf.Id.Should().Be(31);
         wf.Name.Should().Be("Renamed Workflow");
@@ -407,7 +407,7 @@ public class AnythinkClientExtendedTests
         handler.When(HttpMethod.Post, $"{OrgPath}/entities/blog_posts/items")
                .Respond("application/json", """{"id":10,"title":"New Post","status":"draft"}""");
 
-        var data   = new JsonObject { ["title"] = "New Post" };
+        var data = new JsonObject { ["title"] = "New Post" };
         var result = await BuildClient(handler).CreateItemAsync("blog_posts", data);
 
         result["id"]!.GetValue<int>().Should().Be(10);
@@ -420,7 +420,7 @@ public class AnythinkClientExtendedTests
         handler.When(HttpMethod.Put, $"{OrgPath}/entities/blog_posts/items/10")
                .Respond("application/json", """{"id":10,"title":"New Post","status":"approved"}""");
 
-        var data   = new JsonObject { ["status"] = "approved" };
+        var data = new JsonObject { ["status"] = "approved" };
         var result = await BuildClient(handler).UpdateItemAsync("blog_posts", 10, data);
 
         result!["status"]!.GetValue<string>().Should().Be("approved");
@@ -486,7 +486,7 @@ public class AnythinkClientExtendedTests
                .Respond("application/json",
                    """{"id":8,"first_name":"Bob","last_name":"Jones","email":"bob@example.com","is_confirmed":false,"created_at":"2024-06-01T00:00:00Z"}""");
 
-        var req  = new CreateUserRequest("Bob", "Jones", "bob@example.com", null);
+        var req = new CreateUserRequest("Bob", "Jones", "bob@example.com", null);
         var user = await BuildClient(handler).CreateUserAsync(req);
 
         user.Id.Should().Be(8);
@@ -501,7 +501,7 @@ public class AnythinkClientExtendedTests
                .Respond("application/json",
                    """{"id":8,"first_name":"Robert","last_name":"Jones","email":"bob@example.com","is_confirmed":false,"created_at":"2024-06-01T00:00:00Z"}""");
 
-        var req  = new UpdateUserRequest("Robert", "Jones", null);
+        var req = new UpdateUserRequest("Robert", "Jones", null);
         var user = await BuildClient(handler).UpdateUserAsync(8, req);
 
         user!.FirstName.Should().Be("Robert");
@@ -653,7 +653,7 @@ public class AnythinkClientExtendedTests
                .Respond("application/json",
                    """{"id":3,"name":"viewer","description":"Read-only access","is_active":true}""");
 
-        var req  = new CreateRoleRequest("viewer", "Read-only access");
+        var req = new CreateRoleRequest("viewer", "Read-only access");
         var role = await BuildClient(handler).CreateRoleAsync(req);
 
         role.Id.Should().Be(3);
@@ -723,7 +723,7 @@ public class AnythinkClientExtendedTests
                .Respond("application/json",
                    """{"id":20,"name":"orders:read","description":"Read orders","entity_id":8,"is_active":true}""");
 
-        var req  = new CreatePermissionRequest("orders:read", "Read orders", true);
+        var req = new CreatePermissionRequest("orders:read", "Read orders", true);
         var perm = await BuildClient(handler).CreatePermissionAsync(req);
 
         perm.Id.Should().Be(20);
@@ -779,7 +779,7 @@ public class AnythinkClientExtendedTests
                .Respond("application/json",
                    """{"stripe_account_id":"acct_new123","onboarding_completed":false,"charges_enabled":false,"payouts_enabled":false,"details_submitted":false}""");
 
-        var req    = new CreateStripeConnectRequest("individual", "GB", "billing@example.com");
+        var req = new CreateStripeConnectRequest("individual", "GB", "billing@example.com");
         var status = await BuildClient(handler).CreateStripeConnectAsync(req);
 
         status.StripeAccountId.Should().Be("acct_new123");
