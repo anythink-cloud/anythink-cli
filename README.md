@@ -118,7 +118,7 @@ dotnet tool install --global anythink-cli
 git clone https://github.com/anythink-cloud/anythink-cli
 cd anythink-cli
 dotnet build
-dotnet run -- --help
+dotnet run --project src/AnythinkCli.csproj -- --help
 ```
 
 ---
@@ -1045,9 +1045,9 @@ dotnet build
 ### Running locally
 
 ```bash
-dotnet run -- --help
-dotnet run -- projects list
-dotnet run -- entities list
+dotnet run --project src/AnythinkCli.csproj -- --help
+dotnet run --project src/AnythinkCli.csproj -- projects list
+dotnet run --project src/AnythinkCli.csproj -- entities list
 ```
 
 
