@@ -11,7 +11,10 @@ public static class CliToolPolicy
         ["files upload", "workflows seed", "integrations oauth connect", "pay connect", "oauth google", "fetch", "api-keys create"];
 
     internal static readonly string[] HiddenRemotely =
-        ["workflows create --filter-file", "workflows export --output", "data list --all"];
+        [
+            "workflows create --filter-file", "workflows export --output", "data list --all",
+            "email templates update --content", "email preview --content", "email preview --wrapper", "email shell update --html"
+        ];
 
     private static readonly string[] FreeTextArguments =
         ["search query text", "workflows create name", "roles create name", "users invite email", "users invite first_name", "users invite last_name", "charts create name", "dashboards create name"];
@@ -21,7 +24,7 @@ public static class CliToolPolicy
     private static readonly HashSet<string> ReadOnlyVerbs =
     [
         "list", "get", "me", "status", "jobs", "step-get", "query", "similar", "audit", "payments", "methods",
-        "callback-url", "api", "docs", "file-handler-example", "mine", "data", "preview", "platform-metrics", "widget-preview"
+        "callback-url", "api", "docs", "file-handler-example", "show", "preview", "mine", "data", "preview", "platform-metrics", "widget-preview"
     ];
 
     private static readonly string[] ReadOnlyRemotely = ["workflows export"];

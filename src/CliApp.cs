@@ -158,14 +158,15 @@ public static class CliApp
                     .WithExample("email", "templates", "show", "confirmation", "--rendered");
 
                 templates.AddCommand<EmailTemplateUpdateCommand>("update")
-                    .WithDescription("Update a template's subject or content (content from file or stdin)")
+                    .WithDescription("Update a template's subject and/or content")
                     .WithExample("email", "templates", "update", "confirmation", "--content", "./new.html")
-                    .WithExample("cat new.html | email templates update confirmation --content -");
+                    .WithExample("email", "templates", "update", "confirmation", "--subject", "Welcome aboard");
             });
 
             email.AddCommand<EmailPreviewRawCommand>("preview")
                 .WithDescription("Render uncommitted subject + content + optional wrapper, print HTML")
-                .WithExample("email", "preview", "--subject", "Hi", "--content", "./body.html");
+                .WithExample("email", "preview", "--subject", "Hi", "--content", "./body.html")
+                .WithExample("email", "preview", "--content-text", "<p>Hello</p>");
 
             email.AddBranch("shell", shell =>
             {
@@ -175,7 +176,9 @@ public static class CliApp
                     .WithDescription("Show the current shell HTML (custom or platform default)");
 
                 shell.AddCommand<EmailShellUpdateCommand>("update")
-                    .WithDescription("Save new shell HTML, or pass --reset to revert to the platform default");
+                    .WithDescription("Save new shell HTML, or pass --reset to revert to the platform default")
+                    .WithExample("email", "shell", "update", "--html", "./shell.html")
+                    .WithExample("email", "shell", "update", "--reset");
             });
         });
 
