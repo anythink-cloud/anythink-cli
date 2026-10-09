@@ -18,14 +18,18 @@ public sealed class TokenExchangeOptions
     public string? TokenEndpoint { get; init; }
 }
 
-public sealed class TokenExchangeException(bool rejected) : Exception("Token exchange failed.")
+public sealed class TokenExchangeException(bool rejected, string? error = null) : Exception("Token exchange failed.")
 {
     public bool Rejected { get; } = rejected;
+
+    public string? Error { get; } = error;
 }
 
 public interface ITokenExchanger
 {
-    Task<string> ExchangeAsync(string inboundToken, CancellationToken cancellationToken);
+    Task<string> ExchangeAsync(string inboundToken, string? projectId, CancellationToken cancellationToken);
+
+    Task<string> ListProjectsAsync(string inboundToken, CancellationToken cancellationToken);
 }
 
 public sealed partial class HostedTokenExchanger : ITokenExchanger
@@ -71,22 +75,50 @@ public sealed partial class HostedTokenExchanger : ITokenExchanger
 
     internal int CachedCount => _cache.Count;
 
-    public async Task<string> ExchangeAsync(string inboundToken, CancellationToken cancellationToken)
+    public async Task<string> ExchangeAsync(string inboundToken, string? projectId, CancellationToken cancellationToken)
     {
-        var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(inboundToken)));
+        var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(inboundToken))) + ":" + projectId;
 
         if (_cache.TryGetValue(key, out CachedToken? hit))
             return hit!.AccessToken;
 
-        var flight = _inFlight.GetOrAdd(key, _ => new Lazy<Task<CachedToken>>(() => ExchangeAndCacheAsync(key, inboundToken)));
+        var flight = _inFlight.GetOrAdd(key, _ => new Lazy<Task<CachedToken>>(() => ExchangeAndCacheAsync(key, inboundToken, projectId)));
         return (await flight.Value.WaitAsync(cancellationToken)).AccessToken;
     }
 
-    private async Task<CachedToken> ExchangeAndCacheAsync(string key, string inboundToken)
+    public async Task<string> ListProjectsAsync(string inboundToken, CancellationToken cancellationToken)
     {
         try
         {
-            var token = await RequestAsync(inboundToken);
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"{_issuer}/oauth/v1/projects");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", inboundToken);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            using var response = await _http.SendAsync(request, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger?.LogWarning("Project list refused with status {Status}", (int)response.StatusCode);
+                throw new TokenExchangeException(rejected: response.StatusCode == System.Net.HttpStatusCode.Unauthorized);
+            }
+
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            using var projects = JsonDocument.Parse(body);
+            return projects.RootElement.ValueKind == JsonValueKind.Array
+                ? body
+                : throw new TokenExchangeException(rejected: false);
+        }
+        catch (Exception ex) when (ex is not (TokenExchangeException or OperationCanceledException))
+        {
+            _logger?.LogWarning("Project list request failed: {ErrorType}", ex.GetType().Name);
+            throw new TokenExchangeException(rejected: false);
+        }
+    }
+
+    private async Task<CachedToken> ExchangeAndCacheAsync(string key, string inboundToken, string? projectId)
+    {
+        try
+        {
+            var token = await RequestAsync(inboundToken, projectId);
             _cache.Set(key, token, new MemoryCacheEntryOptions { Size = 1, AbsoluteExpiration = token.ExpiresAt });
             return token;
         }
@@ -96,23 +128,24 @@ public sealed partial class HostedTokenExchanger : ITokenExchanger
         }
     }
 
-    private async Task<CachedToken> RequestAsync(string inboundToken)
+    private async Task<CachedToken> RequestAsync(string inboundToken, string? projectId)
     {
         try
         {
             var endpoint = await GetTokenEndpointAsync();
-            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+            var form = new Dictionary<string, string>
             {
-                Content = new FormUrlEncodedContent(new Dictionary<string, string>
-                {
-                    ["grant_type"] = GrantType,
-                    ["subject_token"] = inboundToken,
-                    ["subject_token_type"] = AccessTokenType,
-                    ["audience"] = _options.Audience,
-                    ["client_id"] = _options.ClientId,
-                    ["client_secret"] = _options.ClientSecret,
-                }),
+                ["grant_type"] = GrantType,
+                ["subject_token"] = inboundToken,
+                ["subject_token_type"] = AccessTokenType,
+                ["audience"] = _options.Audience,
+                ["client_id"] = _options.ClientId,
+                ["client_secret"] = _options.ClientSecret,
             };
+            if (projectId is not null)
+                form["project_id"] = projectId;
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = new FormUrlEncodedContent(form) };
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
             using var response = await _http.SendAsync(request);
@@ -121,7 +154,7 @@ public sealed partial class HostedTokenExchanger : ITokenExchanger
             {
                 var code = OAuthErrorCode(body);
                 _logger?.LogWarning("Token exchange refused with status {Status}, error {Error}", (int)response.StatusCode, code);
-                throw new TokenExchangeException(rejected: code == "invalid_grant");
+                throw new TokenExchangeException(rejected: code == "invalid_grant", code);
             }
 
             using var doc = JsonDocument.Parse(body);

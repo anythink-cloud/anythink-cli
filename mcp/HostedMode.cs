@@ -1,3 +1,4 @@
+using AnythinkMcp.Cli;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
 using AnythinkMcp.Tools;
@@ -48,6 +49,7 @@ public static class HostedMode
         builder.Services.AddSingleton(factory);
         builder.Services.AddSingleton(options);
         builder.Services.AddScoped<HostedCredentials>();
+        builder.Services.AddScoped<HostedProjects>();
         builder.WebHost.ConfigureKestrel(kestrel => kestrel.Limits.MaxRequestBodySize = MaxRequestBodyBytes);
         builder.Services.AddSingleton<ITokenExchanger>(sp => new HostedTokenExchanger(
             exchangeHandler is null
@@ -97,7 +99,7 @@ public static class HostedMode
         {
             limiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             limiter.AddPolicy(ProjectConcurrencyPolicy, context => RateLimitPartition.GetConcurrencyLimiter(
-                context.User.FindFirstValue("tid") ?? "",
+                HostedAuth.RateLimitPartition(context.User),
                 _ => new ConcurrencyLimiterOptions
                 {
                     PermitLimit = options.MaxConcurrentRequestsPerProject,
@@ -109,6 +111,7 @@ public static class HostedMode
         builder.Services
             .AddMcpServer(server => server.ServerInfo = new() { Name = "anythink", Version = "1.0.0" })
             .WithTools<HostedTools>()
+            .WithTools(CliCommandTool.All(CliToolScope.Hosted))
             .WithHttpTransport(http => http.SessionMode = HttpServerSessionMode.Stateless);
 
         var app = builder.Build();

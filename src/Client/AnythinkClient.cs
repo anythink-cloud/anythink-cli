@@ -37,26 +37,36 @@ public class AnythinkClient : HttpApiClient
     public AnythinkClient(string orgId, string baseUrl, string? token = null, string? apiKey = null)
         : base(token, apiKey)
     {
-        OrgId   = orgId;
+        OrgId   = RequireOrgId(orgId);
         BaseUrl = baseUrl.TrimEnd('/');
         _org    = $"{BaseUrl}/org/{OrgId}";
-        _anonymousHttp = new HttpClient();
+        _anonymousHttp = NewClient();
+        ConfineTo(_org);
     }
 
     public AnythinkClient(Profile p) : this(p.OrgId, p.InstanceApiUrl, p.AccessToken, p.ApiKey) { }
 
     /// <summary>Test-only constructor — injects a mock HttpClient.</summary>
-    internal AnythinkClient(string orgId, string baseUrl, HttpClient http) : base(http)
+    internal AnythinkClient(string orgId, string baseUrl, HttpClient http) : this(orgId, baseUrl, http, http) { }
+
+    internal AnythinkClient(string orgId, string baseUrl, HttpClient http, HttpClient anonymousHttp) : base(http)
     {
-        OrgId   = orgId;
+        OrgId   = RequireOrgId(orgId);
         BaseUrl = baseUrl.TrimEnd('/');
         _org    = $"{BaseUrl}/org/{OrgId}";
-        _anonymousHttp = http;
+        _anonymousHttp = anonymousHttp;
+        ConfineTo(_org);
     }
+
+    private static string RequireOrgId(string orgId) =>
+        orgId.Length > 0 && orgId.All(char.IsAsciiDigit) ? orgId : throw new ArgumentException("The project id must be numeric.", nameof(orgId));
+
+    private static string Seg(string value) =>
+        value is "." or ".." ? throw new ArgumentException($"'{value}' is not a valid path segment.", nameof(value)) : Uri.EscapeDataString(value);
 
     private async Task<T?> GetAnonymousAsync<T>(string url)
     {
-        var response = await _anonymousHttp.GetAsync(url);
+        var response = await _anonymousHttp.GetAsync(Target(url), ClientContext.Cancellation);
         var raw = await response.Content.ReadAsStringAsync();
         if (!response.IsSuccessStatusCode)
             throw new AnythinkException(raw, (int)response.StatusCode);
@@ -71,10 +81,10 @@ public class AnythinkClient : HttpApiClient
 
     public async Task<string> FetchRawAsync(string url, string method = "GET", string? body = null)
     {
-        var request = new HttpRequestMessage(new HttpMethod(method), url);
+        var request = new HttpRequestMessage(new HttpMethod(method), Target(url));
         if (body != null)
             request.Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
-        var response = await Http.SendAsync(request);
+        var response = await Http.SendAsync(request, ClientContext.Cancellation);
         var content = await response.Content.ReadAsStringAsync();
         if (!response.IsSuccessStatusCode)
             throw new AnythinkException(content, (int)response.StatusCode);
@@ -93,32 +103,32 @@ public class AnythinkClient : HttpApiClient
         => (await GetAsync<List<Entity>>(_org + "/entities")) ?? [];
 
     public async Task<Entity> GetEntityAsync(string name)
-        => (await GetAsync<Entity>(_org + $"/entities/{name}"))
+        => (await GetAsync<Entity>(_org + $"/entities/{Seg(name)}"))
            ?? throw new AnythinkException($"Entity '{name}' not found.", 404);
 
     public Task<Entity> CreateEntityAsync(CreateEntityRequest req)
         => PostAsync<Entity>(_org + "/entities", req);
 
     public Task<Entity?> UpdateEntityAsync(string name, UpdateEntityRequest req)
-        => PutAsync<Entity>(_org + $"/entities/{name}", req);
+        => PutAsync<Entity>(_org + $"/entities/{Seg(name)}", req);
 
     public Task DeleteEntityAsync(string name)
-        => DeleteAsync(_org + $"/entities/{name}");
+        => DeleteAsync(_org + $"/entities/{Seg(name)}");
 
     // ── Fields ────────────────────────────────────────────────────────────────
     // Uses dedicated GET /entities/{name}/fields endpoint (not the full entity fetch)
 
     public async Task<List<Field>> GetFieldsAsync(string entityName)
-        => (await GetAsync<List<Field>>(_org + $"/entities/{entityName}/fields")) ?? [];
+        => (await GetAsync<List<Field>>(_org + $"/entities/{Seg(entityName)}/fields")) ?? [];
 
     public Task<Field> AddFieldAsync(string entityName, CreateFieldRequest req)
-        => PostAsync<Field>(_org + $"/entities/{entityName}/fields", req);
+        => PostAsync<Field>(_org + $"/entities/{Seg(entityName)}/fields", req);
 
     public async Task<Field> UpdateFieldAsync(string entityName, int fieldId, UpdateFieldRequest req)
-        => (await PutAsync<Field>(_org + $"/entities/{entityName}/fields/{fieldId}", req))!;
+        => (await PutAsync<Field>(_org + $"/entities/{Seg(entityName)}/fields/{fieldId}", req))!;
 
     public Task DeleteFieldAsync(string entityName, int fieldId)
-        => DeleteAsync(_org + $"/entities/{entityName}/fields/{fieldId}");
+        => DeleteAsync(_org + $"/entities/{Seg(entityName)}/fields/{fieldId}");
 
     // ── Workflows ─────────────────────────────────────────────────────────────
 
@@ -165,7 +175,7 @@ public class AnythinkClient : HttpApiClient
     public async Task<PaginatedResult<JsonObject>> ListItemsAsync(
         string entityName, int page = 1, int pageSize = 20, string? filter = null, string? fields = null)
     {
-        var url = _org + $"/entities/{entityName}/items?page={page}&pageSize={pageSize}"
+        var url = _org + $"/entities/{Seg(entityName)}/items?page={page}&pageSize={pageSize}"
                   + ItemFilterQuery.ToQueryString(ItemFilterQuery.Parse(filter));
         if (!string.IsNullOrEmpty(fields)) url += $"&fields={Uri.EscapeDataString(fields)}";
         return (await GetAsync<PaginatedResult<JsonObject>>(url))
@@ -173,17 +183,24 @@ public class AnythinkClient : HttpApiClient
     }
 
     public async Task<JsonObject> GetItemAsync(string entityName, int id)
-        => (await GetAsync<JsonObject>(_org + $"/entities/{entityName}/items/{id}"))
+        => (await GetAsync<JsonObject>(_org + $"/entities/{Seg(entityName)}/items/{id}"))
            ?? throw new AnythinkException($"Item {id} not found in '{entityName}'.", 404);
 
     public Task<JsonObject> CreateItemAsync(string entityName, JsonObject data)
-        => PostAsync<JsonObject>(_org + $"/entities/{entityName}/items", data);
+        => PostAsync<JsonObject>(_org + $"/entities/{Seg(entityName)}/items", data);
 
     public Task<JsonObject?> UpdateItemAsync(string entityName, int id, JsonObject data)
-        => PutAsync<JsonObject>(_org + $"/entities/{entityName}/items/{id}", data);
+        => PutAsync<JsonObject>(_org + $"/entities/{Seg(entityName)}/items/{id}", data);
 
     public Task DeleteItemAsync(string entityName, int id)
-        => DeleteAsync(_org + $"/entities/{entityName}/items/{id}");
+        => DeleteAsync(_org + $"/entities/{Seg(entityName)}/items/{id}");
+
+    public Task<string> GetItemRlsUsersAsync(string entityName, int id)
+        => FetchRawAsync(_org + $"/entities/{Seg(entityName)}/items/{id}/rls-users");
+
+    public Task<string> SetItemRlsUserAsync(string entityName, int id, int userId, bool readOnly)
+        => FetchRawAsync(_org + $"/entities/{Seg(entityName)}/items/{id}/rls-users", "PUT",
+            new JsonObject { ["user_id"] = userId, ["readonly"] = readOnly }.ToJsonString());
 
     // ── Users ─────────────────────────────────────────────────────────────────
 
@@ -250,7 +267,7 @@ public class AnythinkClient : HttpApiClient
         fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
         form.Add(fileContent, "file", Path.GetFileName(filePath));
         var url = _org + $"/files?isPublic={isPublic.ToString().ToLower()}";
-        var resp = await Http.PostAsync(url, form);
+        var resp = await Http.PostAsync(Target(url), form, ClientContext.Cancellation);
         if (!resp.IsSuccessStatusCode)
             throw new AnythinkException(await resp.Content.ReadAsStringAsync(), (int)resp.StatusCode);
         var json = await resp.Content.ReadAsStringAsync();
@@ -275,7 +292,7 @@ public class AnythinkClient : HttpApiClient
         form.Add(fileContent, "file", fileName);
 
         var url = _org + $"/files?isPublic={isPublic.ToString().ToLower()}";
-        var resp = await Http.PostAsync(url, form);
+        var resp = await Http.PostAsync(Target(url), form, ClientContext.Cancellation);
         if (!resp.IsSuccessStatusCode)
             throw new AnythinkException(await resp.Content.ReadAsStringAsync(), (int)resp.StatusCode);
         var json = await resp.Content.ReadAsStringAsync();
@@ -359,10 +376,10 @@ public class AnythinkClient : HttpApiClient
     }
 
     public Task RehydrateSearchIndexAsync(string? entityName = null)
-        => PostVoidAsync(_org + "/search/rehydrate" + (string.IsNullOrEmpty(entityName) ? "" : $"/{entityName}"));
+        => PostVoidAsync(_org + "/search/rehydrate" + (string.IsNullOrEmpty(entityName) ? "" : $"/{Seg(entityName)}"));
 
     public Task PurgeSearchIndexAsync(string? entityName = null)
-        => DeleteAsync(_org + "/search/purge" + (string.IsNullOrEmpty(entityName) ? "" : $"/{entityName}"));
+        => DeleteAsync(_org + "/search/purge" + (string.IsNullOrEmpty(entityName) ? "" : $"/{Seg(entityName)}"));
     // ── API Keys ──────────────────────────────────────────────────────────────
 
     public async Task<List<ApiKeyResponse>> GetApiKeysAsync()
@@ -380,41 +397,41 @@ public class AnythinkClient : HttpApiClient
         => (await GetAsync<List<IntegrationDefinition>>(_org + "/integrations/definitions")) ?? [];
 
     public async Task<IntegrationDefinition?> GetIntegrationDefinitionAsync(string provider)
-        => await GetAsync<IntegrationDefinition>(_org + $"/integrations/definitions/{provider}");
+        => await GetAsync<IntegrationDefinition>(_org + $"/integrations/definitions/{Seg(provider)}");
 
     public async Task<List<IntegrationConnection>> GetIntegrationConnectionsAsync()
         => (await GetAsync<List<IntegrationConnection>>(_org + "/integrations/connections")) ?? [];
 
     public async Task<List<IntegrationConnection>> GetIntegrationConnectionsForProviderAsync(string provider)
-        => (await GetAsync<List<IntegrationConnection>>(_org + $"/integrations/definitions/{provider}/connections")) ?? [];
+        => (await GetAsync<List<IntegrationConnection>>(_org + $"/integrations/definitions/{Seg(provider)}/connections")) ?? [];
 
     public Task<IntegrationConnection> CreateApiKeyConnectionAsync(CreateApiKeyConnectionRequest req)
         => PostAsync<IntegrationConnection>(_org + "/integrations/connections/api-key", req);
 
     public Task<IntegrationConnection?> UpdateIntegrationConnectionAsync(string connectionId, UpdateConnectionRequest req)
-        => PutAsync<IntegrationConnection>(_org + $"/integrations/connections/{connectionId}", req);
+        => PutAsync<IntegrationConnection>(_org + $"/integrations/connections/{Seg(connectionId)}", req);
 
     public Task DeleteIntegrationConnectionAsync(string connectionId)
-        => DeleteAsync(_org + $"/integrations/connections/{connectionId}");
+        => DeleteAsync(_org + $"/integrations/connections/{Seg(connectionId)}");
 
     public Task<TestConnectionResult> TestIntegrationConnectionAsync(string connectionId)
-        => PostAsync<TestConnectionResult>(_org + $"/integrations/connections/{connectionId}/test");
+        => PostAsync<TestConnectionResult>(_org + $"/integrations/connections/{Seg(connectionId)}/test");
 
     public Task<IntegrationOAuthSettings?> GetIntegrationOAuthSettingsAsync(string provider)
-        => GetAsync<IntegrationOAuthSettings>(_org + $"/integrations/definitions/{provider}/oauth");
+        => GetAsync<IntegrationOAuthSettings>(_org + $"/integrations/definitions/{Seg(provider)}/oauth");
 
     public Task SetIntegrationOAuthSettingsAsync(string provider, SetOAuthSettingsRequest req)
-        => PutVoidAsync(_org + $"/integrations/definitions/{provider}/oauth", req);
+        => PutVoidAsync(_org + $"/integrations/definitions/{Seg(provider)}/oauth", req);
 
     public async Task<OAuthUrlResponse> GetIntegrationOAuthUrlAsync(string provider, string redirectUri)
-        => (await GetAsync<OAuthUrlResponse>(_org + $"/integrations/definitions/{provider}/oauth-url?redirectUri={Uri.EscapeDataString(redirectUri)}"))
+        => (await GetAsync<OAuthUrlResponse>(_org + $"/integrations/definitions/{Seg(provider)}/oauth-url?redirectUri={Uri.EscapeDataString(redirectUri)}"))
             ?? throw new AnythinkException("OAuth URL endpoint returned no response.", 0);
 
     public Task<IntegrationConnection> CreateOAuthConnectionAsync(CreateConnectionRequest req)
         => PostAsync<IntegrationConnection>(_org + "/integrations/connections", req);
 
     public Task<JsonObject> ExecuteIntegrationAsync(string provider, ExecuteIntegrationRequest req)
-        => PostAsync<JsonObject>(_org + $"/integrations/definitions/{provider}/execute", req);
+        => PostAsync<JsonObject>(_org + $"/integrations/definitions/{Seg(provider)}/execute", req);
 
     // ── Pay ───────────────────────────────────────────────────────────────────
 
@@ -437,7 +454,7 @@ public class AnythinkClient : HttpApiClient
     }
 
     public Task<PaymentResponse?> GetPaymentAsync(string id)
-        => GetAsync<PaymentResponse>(_pay + $"/payments/{id}");
+        => GetAsync<PaymentResponse>(_pay + $"/payments/{Seg(id)}");
 
     public async Task<List<PaymentMethodResponse>> GetPaymentMethodsAsync()
         => (await GetAsync<List<PaymentMethodResponse>>(_pay + "/payment-methods")) ?? [];
@@ -478,10 +495,10 @@ public class AnythinkClient : HttpApiClient
         => PostAsync<SecretResponse>(_org + "/secrets", req);
 
     public Task<SecretResponse?> UpdateSecretAsync(string key, UpdateSecretRequest req)
-        => PutAsync<SecretResponse>(_org + $"/secrets/{key}", req);
+        => PutAsync<SecretResponse>(_org + $"/secrets/{Seg(key)}", req);
 
     public Task DeleteSecretAsync(string key)
-        => DeleteAsync(_org + $"/secrets/{key}");
+        => DeleteAsync(_org + $"/secrets/{Seg(key)}");
 
     // ── OAuth / Social Auth ───────────────────────────────────────────────────
 

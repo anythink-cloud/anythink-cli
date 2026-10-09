@@ -1,0 +1,96 @@
+name: Nightly Integration (staging)
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: nightly-integration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check-secrets:
+    name: Check staging secrets are configured
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - name: Check required secrets
+        id: check
+        env:
+          URL: ${{ secrets.ANYTHINK_CI_API_URL }}
+          ORG: ${{ secrets.ANYTHINK_CI_ORG_ID }}
+          KEY: ${{ secrets.ANYTHINK_CI_API_KEY }}
+        run: |
+          if [ -n "$URL" ] && [ -n "$ORG" ] && [ -n "$KEY" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Nightly integration skipped: ANYTHINK_CI_* secrets are not set. See CONTRIBUTING.md."
+          fi
+
+  integration:
+    name: Run CLI against staging
+    needs: check-secrets
+    if: needs.check-secrets.outputs.configured == 'true'
+    runs-on: ubuntu-latest
+    env:
+      ANYTHINK_API_URL: ${{ secrets.ANYTHINK_CI_API_URL }}
+      ANYTHINK_ORG_ID: ${{ secrets.ANYTHINK_CI_ORG_ID }}
+      ANYTHINK_API_KEY: ${{ secrets.ANYTHINK_CI_API_KEY }}
+      MYANYTHINK_API_URL: ${{ secrets.ANYTHINK_CI_API_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+          cache: true
+          cache-dependency-path: '**/*.csproj'
+
+      - name: Build CLI
+        run: dotnet build src/AnythinkCli.csproj -c Release -o "${{ runner.temp }}/cli"
+
+      - name: Login (direct, via secrets)
+        run: |
+          dotnet "${{ runner.temp }}/cli/anythink.dll" login \
+            --org-id "$ANYTHINK_ORG_ID" \
+            --api-key "$ANYTHINK_API_KEY" \
+            --profile nightly-ci
+
+      - name: Create, check, and delete a prefixed entity
+        id: run
+        run: |
+          set -e
+          CLI="dotnet ${{ runner.temp }}/cli/anythink.dll"
+          RUN_TAG="ci_nightly_$(date -u +%Y%m%d%H%M%S)_${{ github.run_id }}"
+          echo "run_tag=${RUN_TAG}" >> "$GITHUB_OUTPUT"
+
+          echo "::group::Create entity ${RUN_TAG}"
+          $CLI --profile nightly-ci entities create "$RUN_TAG"
+          echo "::endgroup::"
+
+          echo "::group::Verify entity exists"
+          $CLI --profile nightly-ci entities get "$RUN_TAG"
+          echo "::endgroup::"
+
+      - name: Cleanup (always runs, even on failure)
+        if: always() && steps.run.outputs.run_tag != ''
+        run: |
+          CLI="dotnet ${{ runner.temp }}/cli/anythink.dll"
+          RUN_TAG="${{ steps.run.outputs.run_tag }}"
+          echo "::group::Delete entity ${RUN_TAG}"
+          $CLI --profile nightly-ci entities delete "$RUN_TAG" --yes || \
+            echo "::warning::Cleanup of '${RUN_TAG}' failed — it may need manual removal from staging."
+          echo "::endgroup::"
+
+      - name: Logout (remove local profile/credentials from the runner)
+        if: always()
+        run: |
+          dotnet "${{ runner.temp }}/cli/anythink.dll" logout --profile nightly-ci || true
