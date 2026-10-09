@@ -164,9 +164,11 @@ public class DocsCommand : Command<DocsSettings>
 
         C("data list ENTITY",
           "List records",
-          ["--page N", "--limit N", "--filter JSON", "--json"],
+          ["--page N", "--limit N", "--filter FILTER", "--json"],
           ["anythink data list blog_posts",
-           "anythink data list blog_posts --filter '{\"status\":\"draft\"}' --json"]),
+           "anythink data list blog_posts --filter '{\"status\":\"draft\"}' --json",
+           "anythink data list orders --filter '{\"total\":{\"gte\":10,\"lt\":100},\"status\":[\"paid\",\"shipped\"]}'",
+           "anythink data list blog_posts --filter 'title=C:launch&published_at=NNULL:'"]),
 
         C("data get ENTITY ID",     "Get a record by ID",
           null, ["anythink data get blog_posts 42"]),
@@ -284,7 +286,7 @@ public class DocsCommand : Command<DocsSettings>
 
         | Command | Description |
         |---------|-------------|
-        | `anythink data list ENTITY [--page N] [--limit N] [--filter JSON] [--json]` | List records |
+        | `anythink data list ENTITY [--page N] [--limit N] [--filter FILTER] [--json]` | List records |
         | `anythink data get ENTITY ID` | Get record |
         | `anythink data create ENTITY --data JSON` | Create record |
         | `anythink data update ENTITY ID --data JSON` | Update record |
@@ -292,6 +294,7 @@ public class DocsCommand : Command<DocsSettings>
 
         ```sh
         anythink data list blog_posts --filter '{"status":"draft"}' --json
+        anythink data list orders --filter '{"total": {"gte": 10, "lt": 100} }'
         anythink data create blog_posts --data '{"title":"Hello","status":"draft"}'
         anythink data update blog_posts 42 --data '{"status":"published"}'
         ```

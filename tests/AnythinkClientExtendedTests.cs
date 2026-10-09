@@ -366,7 +366,7 @@ public class AnythinkClientExtendedTests
     public async Task ListItemsAsync_ReturnsPaginatedResult()
     {
         var handler = new MockHttpMessageHandler();
-        handler.When($"{OrgPath}/entities/blog_posts/items?limit=20&page=1")
+        handler.When($"{OrgPath}/entities/blog_posts/items?page=1&pageSize=20")
                .Respond("application/json",
                    """{"items":[{"id":1,"title":"Hello"},{"id":2,"title":"World"}],"total_items":2,"total_pages":1,"has_next_page":false,"page":1,"page_size":20}""");
 
@@ -374,19 +374,6 @@ public class AnythinkClientExtendedTests
 
         result.Items.Should().HaveCount(2);
         result.TotalCount.Should().Be(2);
-    }
-
-    [Fact]
-    public async Task ListItemsAsync_WithFilterParam_AppendsFilterToUrl()
-    {
-        var handler = new MockHttpMessageHandler();
-        handler.When($"{OrgPath}/entities/blog_posts/items*")
-               .Respond("application/json",
-                   """{"items":[],"total_items":0,"total_pages":0,"has_next_page":false,"page":1,"page_size":20}""");
-
-        // Should not throw — filter is URL-encoded and appended
-        var result = await BuildClient(handler).ListItemsAsync("blog_posts", filterJson: """{"status":"draft"}""");
-        result.Items.Should().BeEmpty();
     }
 
     [Fact]

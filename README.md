@@ -116,7 +116,7 @@ dotnet tool install --global anythink-cli
 git clone https://github.com/anythink-cloud/anythink-cli
 cd anythink-cli
 dotnet build
-dotnet run -- --help
+dotnet run --project src/AnythinkCli.csproj -- --help
 ```
 
 ---
@@ -300,9 +300,21 @@ anythink data delete <entity> <id>     Delete a record
 | ----------------- | ---------------------------------------------------------------------------------- |
 | `--limit <n>`     | Records per page (default: 20)                                                     |
 | `--page <n>`      | Page number (default: 1)                                                           |
-| `--filter <json>` | Filter expression (JSON)                                                           |
+| `--filter <expr>` | Field filters — JSON (`{"status":"draft","total":{"gte":10}}`) or `field=value` pairs (`status=draft&total=GTE:10`). See below. |
 | `--json`          | Output raw JSON instead of table                                                   |
 | `--all`           | Stream all pages as sequential JSON objects (requires `--json`, constant memory)    |
+
+**Filter operators (JSON form)** — `{"field": value}` matches exactly, `{"field": [a, b]}` matches any, `{"field": null}` matches empty. For anything else use an operator object, e.g. `{"price": {"gte": 10, "lt": 100}}`:
+
+| Operator                       | Meaning                     | `field=value` form |
+| ------------------------------ | --------------------------- | ------------------ |
+| `eq` / `ne`                    | Equal / not equal           | `x=v` / `x=!v`     |
+| `gt` `gte` `lt` `lte`          | Comparisons                 | `x=GT:v` …         |
+| `contains` / `not_contains`    | Case-insensitive substring  | `x=C:v` / `x=NC:v` |
+| `starts_with` / `ends_with`    | Case-insensitive prefix/suffix | `x=SW:v` / `x=EW:v` |
+| `in`                           | Any of a list               | `x=IN:a,b`         |
+| `null: true` / `null: false`   | Empty / not empty           | `x=NULL:` / `x=NNULL:` |
+| `exists: true` / `exists: false` | Has / lacks related records | `x=EXISTS:` / `x=NOT_EXISTS:` |
 
 **Options — `data create` / `data update`**
 
@@ -922,9 +934,9 @@ dotnet build
 ### Running locally
 
 ```bash
-dotnet run -- --help
-dotnet run -- projects list
-dotnet run -- entities list
+dotnet run --project src/AnythinkCli.csproj -- --help
+dotnet run --project src/AnythinkCli.csproj -- projects list
+dotnet run --project src/AnythinkCli.csproj -- entities list
 ```
 
 
