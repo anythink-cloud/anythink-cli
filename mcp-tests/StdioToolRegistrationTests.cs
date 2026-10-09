@@ -1,10 +1,13 @@
+using System.Reflection;
+using AnythinkMcp.Cli;
 using FluentAssertions;
+using ModelContextProtocol.Server;
 
 namespace AnythinkMcp.Tests;
 
 public class StdioToolRegistrationTests
 {
-    internal static readonly string[] ExpectedStdioTools =
+    private static readonly string[] HandWrittenTools =
     [
         "signup", "login", "login_google", "login_direct", "logout",
         "config_show", "config_use", "config_remove",
@@ -23,12 +26,22 @@ public class StdioToolRegistrationTests
         "anythinkpay_get_offer_redemptions", "anythinkpay_get_user_code",
     ];
 
-    [Fact]
-    public void StdioToolSet_IsUnchanged()
-    {
-        var names = McpToolRegistry.GetToolDefinitions()
-            .Select(t => (string)t.GetType().GetProperty("name")!.GetValue(t)!);
+    internal static IEnumerable<string> ExpectedStdioTools =>
+        HandWrittenTools.Concat(CliCommandTool.All(CliToolScope.Local).Select(t => t.ProtocolTool.Name));
 
-        names.Should().BeEquivalentTo(ExpectedStdioTools);
+    [Fact]
+    public void HandWrittenTools_AreUnchanged()
+    {
+        var names = typeof(McpClientFactory).Assembly.GetTypes()
+            .Where(t => t.GetCustomAttribute<McpServerToolTypeAttribute>() != null)
+            .SelectMany(t => t.GetMethods())
+            .Select(m => m.GetCustomAttribute<McpServerToolAttribute>()?.Name)
+            .OfType<string>();
+
+        names.Should().BeEquivalentTo(HandWrittenTools);
     }
+
+    [Fact]
+    public void GeneratedTools_DoNotCollideWithHandWrittenOnes() =>
+        CliCommandTool.All(CliToolScope.Local).Select(t => t.ProtocolTool.Name).Should().NotIntersectWith(HandWrittenTools);
 }

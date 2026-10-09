@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 
@@ -93,4 +94,46 @@ public class HostedAuthTests
 
         reachedNext.Should().Be(allowed);
     }
+
+    // ── Rule: a project connection is limited per project, an all-projects one per user ──
+
+    private static ClaimsPrincipal Principal(params (string Type, string Value)[] claims) =>
+        new(new ClaimsIdentity(claims.Select(c => new Claim(c.Type, c.Value)), "test"));
+
+    [Fact]
+    public void RateLimitPartition_AProjectToken_IsTheProjectId() =>
+        HostedAuth.RateLimitPartition(Principal(("sub", "user-1"), ("tid", "42"))).Should().Be("42");
+
+    [Fact]
+    public void RateLimitPartition_AProjectToken_SharesItsPartitionAcrossUsers() =>
+        HostedAuth.RateLimitPartition(Principal(("sub", "user-2"), ("tid", "42")))
+            .Should().Be(HostedAuth.RateLimitPartition(Principal(("sub", "user-1"), ("tid", "42"))));
+
+    [Fact]
+    public void RateLimitPartition_AnAllProjectsToken_IsTheUser() =>
+        HostedAuth.RateLimitPartition(Principal(("sub", "user-1"), ("projects", "all"))).Should().Be("user:user-1");
+
+    [Fact]
+    public void RateLimitPartition_TwoAllProjectsUsers_DontShareABucket() =>
+        HostedAuth.RateLimitPartition(Principal(("sub", "user-1"), ("projects", "all")))
+            .Should().NotBe(HostedAuth.RateLimitPartition(Principal(("sub", "user-2"), ("projects", "all"))));
+
+    [Theory]
+    [InlineData("1")]
+    [InlineData("42")]
+    [InlineData("user")]
+    public void RateLimitPartition_AUserBucket_NeverCollidesWithAProjectBucket(string sub) =>
+        HostedAuth.RateLimitPartition(Principal(("sub", sub), ("projects", "all")))
+            .Should().NotBe(HostedAuth.RateLimitPartition(Principal(("sub", "x"), ("tid", sub))));
+
+    [Theory]
+    [InlineData("42", true)]
+    [InlineData("0", true)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    [InlineData("4 2", false)]
+    [InlineData("-1", false)]
+    [InlineData("4a", false)]
+    public void IsValidOrgId_IsNonEmptyAndNumeric(string? value, bool expected) =>
+        HostedAuth.IsValidOrgId(value).Should().Be(expected);
 }

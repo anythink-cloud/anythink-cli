@@ -1,0 +1,106 @@
+api [read-only] project? base_url?
+api_keys_list [read-only] project?
+api_keys_revoke [destructive] project? id
+data_create [write] project? entity data?
+data_delete [destructive] project? entity id
+data_get [read-only] project? entity id
+data_list [read-only] project? entity filter? limit? page?
+data_rls [destructive] project? entity id readonly? user?
+data_update [destructive] project? entity id data?
+docs [read-only] project?
+entities_create [write] project? name junction? lock_records? public? rls?
+entities_delete [destructive] project? name
+entities_get [read-only] project? name
+entities_list [read-only] project?
+entities_update [destructive] project? name lock_records? public? rls?
+fields_add [write] project? entity name default? description? display? indexed? label? multiple? name_field? on_delete? options? public? required? searchable? target? type? unique?
+fields_delete [destructive] project? entity field_name
+fields_get [read-only] project? entity field_name
+fields_list [read-only] project? entity
+fields_update [destructive] project? entity field_name default? description? display? indexed? label? multiple? no_indexed? no_multiple? no_public? no_required? no_searchable? options? public? required? searchable?
+files_delete [destructive] project? id
+files_get [read-only] project? id
+files_list [read-only] project? limit? page?
+integrations_connect [write] project? provider api_key? name? user_connection?
+integrations_connections_list [read-only] project? provider?
+integrations_disable [write] project? connection_id
+integrations_disconnect [destructive] project? connection_id
+integrations_enable [write] project? connection_id
+integrations_execute [write, open-world] project? provider operation input? inputs?
+integrations_get [read-only] project? provider
+integrations_list [read-only] project?
+integrations_oauth_callback_url [read-only] project?
+integrations_oauth_configure [destructive] project? provider client_id? client_secret? disable? use_social_sign_in?
+integrations_oauth_status [read-only] project? provider
+integrations_test [write] project? connection_id
+menus_add_item [write] project? menu_id entity icon? name? parent?
+menus_list [read-only] project?
+pay_entitlement [read-only] project?
+pay_methods [read-only] project?
+pay_offers_activate [write] project? id
+pay_offers_add_code [write] project? id owner_user_id? slug?
+pay_offers_codes [read-only] project? id
+pay_offers_create [write] project? description? discount_duration? discount_percent? eligibility? kind? name? per_user_cap? redeemer_reward? redeemer_trial_days? referrer_reward? referrer_subscription_days? referrer_trial_days? status? total_cap? valid_from? valid_until?
+pay_offers_delete [destructive] project? id
+pay_offers_get [read-only] project? id
+pay_offers_list [read-only] project?
+pay_offers_pause [destructive] project? id
+pay_offers_redemptions [read-only] project? id limit? page?
+pay_offers_update [destructive] project? id description? discount_duration? discount_percent? eligibility? name? per_user_cap? redeemer_reward? redeemer_trial_days? referrer_reward? referrer_subscription_days? referrer_trial_days? status? total_cap? valid_from? valid_until?
+pay_offers_user_code [read-only] project? user_id
+pay_payment_options [read-only] project? platform? storefront?
+pay_payments [read-only] project? limit? page?
+pay_plans_create [write] project? amount? apple_product_id? apple_subscription_group_id? currency? description? inactive? interval? interval_count? name? plan_name? product_description? product_name? reference? tier_rank? trial_days? type?
+pay_plans_delete [destructive] project? id
+pay_plans_get [read-only] project? id
+pay_plans_list [read-only] project?
+pay_plans_update [destructive] project? id active? amount? apple_product_id? apple_subscription_group_id? currency? description? inactive? interval? interval_count? name? plan_name? product_description? product_name? reference? tier_rank? trial_days? type?
+pay_status [read-only] project?
+pay_subscriptions_by_user [read-only] project? user_id
+pay_subscriptions_cancel [destructive] project? id
+pay_subscriptions_check_access [read-only] project? name status?
+pay_subscriptions_events [read-only] project? id
+pay_subscriptions_get [read-only] project? id
+pay_subscriptions_list [read-only] project? limit? page? status?
+pay_subscriptions_resume [write] project? id
+pay_trial_disable [write] project?
+pay_trial_enable [write] project?
+pay_trial_status [read-only] project?
+roles_create [write] project? name description?
+roles_delete [destructive] project? id
+roles_list [read-only] project?
+roles_permissions_add [write] project? role_id entity actions?
+roles_permissions_list [read-only] project? role_id
+roles_permissions_remove [destructive] project? role_id entity actions?
+search_audit [read-only] project? entity query? sample?
+search_purge [destructive] project? entity?
+search_query [read-only] project? text entities? facet? filter? highlight? limit? page? public? sort?
+search_rehydrate [write] project? entity?
+search_similar [read-only] project? entity id limit? public?
+secrets_create [write] project? key value?
+secrets_delete [destructive] project? key
+secrets_list [read-only] project?
+secrets_update [destructive] project? key value?
+users_delete [destructive] project? id
+users_get [read-only] project? id
+users_invite [write, open-world] project? email first_name last_name role_id?
+users_list [read-only] project?
+users_me [read-only] project?
+workflows_create [write] project? name api_route? cron? description? enabled? entity? event? filter? trigger?
+workflows_delete [destructive] project? id
+workflows_disable [write] project? id
+workflows_enable [write] project? id
+workflows_export [read-only] project? id
+workflows_file_handler_add [write] project? workflow_id step_key enabled? entity? existing_file_id? field? file_name? folder_id? is_public? link_mode? name? on_failure? on_success? operation? overwrite_if_present? record_id? source_url? start?
+workflows_file_handler_example [read-only] project?
+workflows_get [read-only] project? id
+workflows_integration_add [write] project? workflow_id step_key connection_id? credential_field? credential_source? enabled? input? inputs? model? name? on_failure? on_success? operation? provider? start?
+workflows_jobs [read-only] project? id
+workflows_list [read-only] project?
+workflows_step_add [write] project? workflow_id key action? enabled? name? params? start?
+workflows_step_delete [destructive] project? workflow_id step_id
+workflows_step_get [read-only] project? workflow_id step_id
+workflows_step_link [destructive] project? workflow_id step_id on_failure? on_success?
+workflows_step_update [destructive] project? workflow_id step_id enabled? name? params?
+workflows_trigger [write, open-world] project? id entity? entity_id? payload?
+workflows_update [destructive] project? id description? name?

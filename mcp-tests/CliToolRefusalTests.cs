@@ -19,11 +19,8 @@ public class CliToolRefusalTests
     [InlineData("pay offers update abc --status=expired")]
     [InlineData("pay apple credentials set --issuer-id x")]
     [InlineData("pay apple verify --signed-transaction jws")]
-    public void MoneyAffectingPayCommands_AreRefusedInStdioAndHttpMode(string command)
-    {
-        CliTool.RefusalFor(command, httpMode: false).Should().Contain("anythinkpay_");
-        CliTool.RefusalFor(command, httpMode: true).Should().Contain("anythinkpay_");
-    }
+    public void MoneyAffectingPayCommands_AreRefused(string command)
+        => CliTool.RefusalFor(command).Should().Contain("billing state");
 
     [Theory]
     [InlineData("pay subscriptions list --status active")]
@@ -32,27 +29,7 @@ public class CliToolRefusalTests
     [InlineData("pay offers update abc --name X")]
     [InlineData("entities list")]
     public void ReadOnlyAndNonBillingCommands_AreNotRefused(string command)
-    {
-        CliTool.RefusalFor(command, httpMode: false).Should().BeNull();
-        CliTool.RefusalFor(command, httpMode: true).Should().BeNull();
-    }
-
-    [Theory]
-    [InlineData("fetch POST /integrations/anythinkpay/subscriptions/abc/admin/resync")]
-    [InlineData("fetch /integrations/anythinkpay/subscriptions/abc --method DELETE")]
-    [InlineData("fetch PUT /integrations/anythinkpay/offers/abc --data {}")]
-    public void FetchWritesToPayPaths_AreRefusedInHttpModeOnly(string command)
-    {
-        CliTool.RefusalFor(command, httpMode: true).Should().NotBeNull();
-        CliTool.RefusalFor(command, httpMode: false).Should().BeNull();
-    }
-
-    [Theory]
-    [InlineData("fetch /integrations/anythinkpay/subscriptions")]
-    [InlineData("fetch GET /integrations/anythinkpay/offers")]
-    [InlineData("fetch POST /entities/posts/items --data {}")]
-    public void FetchReadsAndNonPayWrites_AreNotRefusedInHttpMode(string command)
-        => CliTool.RefusalFor(command, httpMode: true).Should().BeNull();
+        => CliTool.RefusalFor(command).Should().BeNull();
 
     [Fact]
     public async Task RunCli_RefusesPayDeleteBeforeAnythingRuns()

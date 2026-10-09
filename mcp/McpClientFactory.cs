@@ -37,8 +37,6 @@ public class McpClientFactory
         _requestCredentials.Value = null;
     }
 
-    public static bool IsHttpMode => _requestCredentials.Value.HasValue;
-
     /// <summary>Test-only constructor — injects a mock HTTP handler for all clients.</summary>
     internal McpClientFactory(string? profileName, HttpMessageHandler httpHandler)
     {
@@ -72,19 +70,25 @@ public class McpClientFactory
 
     private AnythinkClient CreateRequestClient(string orgId, string baseUrl, string token)
     {
-        var http = new HttpClient(_httpHandler ?? UpstreamHandler, disposeHandler: false) { Timeout = UpstreamTimeout };
+        var handler = _httpHandler ?? UpstreamHandler;
+        var http = new HttpClient(handler, disposeHandler: false) { Timeout = UpstreamTimeout };
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        return new AnythinkClient(orgId, baseUrl, http);
+        var anonymous = new HttpClient(handler, disposeHandler: false) { Timeout = UpstreamTimeout };
+        return new AnythinkClient(orgId, baseUrl, http, anonymous);
+    }
+
+    public AnythinkClient GetRequestClient()
+    {
+        var creds = _requestCredentials.Value
+            ?? throw new InvalidOperationException("The request carries no credentials.");
+        return CreateRequestClient(creds.OrgId, creds.BaseUrl, creds.Token);
     }
 
     public AnythinkClient GetClient()
     {
         // HTTP mode: use per-request credentials (no config files)
         if (_requestCredentials.Value.HasValue)
-        {
-            var creds = _requestCredentials.Value.Value;
-            return CreateRequestClient(creds.OrgId, creds.BaseUrl, creds.Token);
-        }
+            return GetRequestClient();
 
         // Stdio mode: resolve from CLI config
         var profile = !string.IsNullOrEmpty(_profileName)
@@ -115,6 +119,18 @@ public class McpClientFactory
         }
 
         return CreateAnythinkClient(profile);
+    }
+
+    public AnythinkClient? GetClientOrNull()
+    {
+        try
+        {
+            return GetClient();
+        }
+        catch (InvalidOperationException) when (string.IsNullOrEmpty(_profileName))
+        {
+            return null;
+        }
     }
 
     private BillingClient CreateBillingClient(PlatformConfig platform)

@@ -16,23 +16,20 @@ public class McpToolRegistryTests
     }
 
     [Fact]
-    public void GetToolDefinitions_ShouldIncludeCliTool()
+    public void GetToolDefinitions_ShouldExposeCliCommandsAsTools()
     {
-        var tools = McpToolRegistry.GetToolDefinitions();
-        var json = System.Text.Json.JsonSerializer.Serialize(tools);
+        var json = System.Text.Json.JsonSerializer.Serialize(McpToolRegistry.GetToolDefinitions());
 
-        json.Should().Contain("\"cli\"", "the catch-all CLI tool should be registered");
+        json.Should().Contain("\"entities_list\"").And.Contain("\"data_list\"").And.Contain("\"workflows_create\"");
     }
 
     [Fact]
-    public void GetToolDefinitions_ShouldIncludeCoreTools()
+    public void GetToolDefinitions_ShouldLeaveOutLocalOnlyTools()
     {
-        var tools = McpToolRegistry.GetToolDefinitions();
-        var json = System.Text.Json.JsonSerializer.Serialize(tools);
+        var json = System.Text.Json.JsonSerializer.Serialize(McpToolRegistry.GetToolDefinitions());
 
-        json.Should().Contain("\"cli\"", "catch-all CLI tool should be registered");
-        json.Should().Contain("\"projects_list\"", "project management tools should be registered");
-        json.Should().Contain("\"login\"", "auth tools should be registered");
+        json.Should().NotContain("\"cli\"").And.NotContain("\"login\"").And.NotContain("\"projects_list\"")
+            .And.NotContain("\"files_upload\"");
     }
 
     [Fact]

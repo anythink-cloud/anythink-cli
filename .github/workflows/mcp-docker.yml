@@ -3,7 +3,7 @@ name: MCP Server - Build Docker Image
 on:
   push:
     branches: [main]
-    paths: [mcp/**, .github/workflows/mcp-docker.yml]
+    paths: [mcp/**, src/**, .github/workflows/mcp-docker.yml]
   release:
     types: [published]
   workflow_dispatch:

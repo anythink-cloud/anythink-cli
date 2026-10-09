@@ -1,11 +1,12 @@
 name: Release on merge to main
 
-# On every push to main, bump the latest v*.*.* tag's patch, push it, and run
-# the release pipelines (release.yml + mcp-publish.yml) as reusable workflows.
+# Releases each green commit on main once PR Checks passes.
 # Add "[skip release]" to a commit message to skip a release.
 
 on:
-  push:
+  workflow_run:
+    workflows: ["PR Checks"]
+    types: [completed]
     branches: [main]
 
 # Serialize so two quick merges can't race on the next tag number.
@@ -21,7 +22,10 @@ jobs:
   version:
     name: Compute & push next tag
     runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.head_commit.message, '[skip release]') }}
+    if: >
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      !contains(github.event.workflow_run.head_commit.message, '[skip release]')
     outputs:
       tag: ${{ steps.ver.outputs.tag }}
       version: ${{ steps.ver.outputs.version }}
@@ -29,6 +33,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
           fetch-tags: true
 

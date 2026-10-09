@@ -158,31 +158,29 @@ public class PayToolsTests : McpTestBase
     [InlineData("anythinkpay_admin_force_expire_subscription")]
     [InlineData("anythinkpay_admin_relink_subscription")]
     [InlineData("anythinkpay_admin_resync_subscription")]
-    public async Task AdminTools_AreRefusedOnTheHttpCallPath(string toolName)
+    [InlineData("pay_subscriptions_delete")]
+    [InlineData("pay_subscriptions_force_expire")]
+    [InlineData("pay_subscriptions_relink")]
+    [InlineData("pay_subscriptions_resync")]
+    public async Task AdminTools_AreNotAvailableOnTheRemoteCallPath(string toolName)
     {
         SetupProjectProfile();
         var services = new ServiceCollection()
             .AddSingleton(CreateFactory(new MockHttpMessageHandler()))
             .BuildServiceProvider();
-        var args = JsonDocument.Parse($$"""{"subscriptionId":"{{_subscriptionId}}","confirm":true,"toUserId":1}""").RootElement;
+        var args = JsonDocument.Parse($$"""{"id":"{{_subscriptionId}}"}""").RootElement;
 
+        McpToolRegistry.Contains(toolName).Should().BeFalse();
         var act = async () => await McpToolRegistry.ExecuteToolAsync(toolName, args, services);
 
-        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+        await act.Should().ThrowAsync<ArgumentException>();
     }
 
     [Fact]
-    public async Task NonBlockedTools_StillRunOnTheHttpCallPath()
+    public void ReadOnlyPayCommands_StillReachRemoteCallers()
     {
-        SetupProjectProfile();
-        var handler = new MockHttpMessageHandler();
-        handler.When(HttpMethod.Get, "*/subscription-plans").Respond("application/json", "[]");
-        var services = new ServiceCollection().AddSingleton(CreateFactory(handler)).BuildServiceProvider();
-
-        var result = await McpToolRegistry.ExecuteToolAsync("anythinkpay_list_subscription_plans",
-            JsonDocument.Parse("{}").RootElement, services);
-
-        result.Should().Contain("[]");
+        McpToolRegistry.Contains("pay_plans_list").Should().BeTrue();
+        McpToolRegistry.Contains("pay_subscriptions_list").Should().BeTrue();
     }
 
     // ── Rule: pausing or expiring an offer needs confirm: true ──
@@ -231,12 +229,6 @@ public class PayToolsTests : McpTestBase
         await tools.SetOfferStatus(id.ToString(), "paused", confirm: true);
 
         handler.VerifyNoOutstandingExpectation();
-    }
-
-    [Fact]
-    public void CredentialTools_RemainBlockedInHttpMode()
-    {
-        McpToolRegistry.BlockedInHttpMode.Should().Contain(["login", "login_direct", "signup", "logout", "config_use", "config_remove", "config_show", "accounts_use"]);
     }
 
     // ── Rule: tools that bind a transaction to the caller or take the Apple private key are not exposed ──

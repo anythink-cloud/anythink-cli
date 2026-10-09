@@ -378,7 +378,7 @@ public class PayOffersActivateCommand() : PayOffersStatusCommand<PayOffersIdSett
 
 public class PayOffersDeleteSettings : PayOffersIdSettings
 {
-    [CommandOption("-y|--yes|--force")]
+    [CommandOption("-y|--yes")]
     [Description("Skip confirmation prompt")]
     public bool Yes { get; set; }
 }
