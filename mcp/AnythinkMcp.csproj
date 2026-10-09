@@ -29,6 +29,12 @@
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
+  <!-- Served by hosted mode as /favicon.ico and /icon.png, so Claude and directories show the Anythink mark -->
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\favicon.ico" LogicalName="AnythinkMcp.favicon.ico" />
+    <EmbeddedResource Include="Assets\icon.png" LogicalName="AnythinkMcp.icon.png" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
     <PackageReference Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
