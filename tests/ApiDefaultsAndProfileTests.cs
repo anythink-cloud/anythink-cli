@@ -63,7 +63,7 @@ public class ProfileTests
     {
         var profile = new Profile
         {
-            AccessToken    = "eyJtest.token.here",
+            AccessToken = "eyJtest.token.here",
             TokenExpiresAt = DateTime.UtcNow.AddHours(1)
         };
         profile.IsTokenExpired.Should().BeFalse();
@@ -74,7 +74,7 @@ public class ProfileTests
     {
         var profile = new Profile
         {
-            AccessToken    = "eyJtest.token.here",
+            AccessToken = "eyJtest.token.here",
             TokenExpiresAt = DateTime.UtcNow.AddHours(-1)
         };
         profile.IsTokenExpired.Should().BeTrue();
@@ -88,8 +88,8 @@ public class ProfileTests
         // coexist with a (potentially stale) ApiKey.
         var profile = new Profile
         {
-            ApiKey         = "ak_test123",
-            AccessToken    = "eyJtest.token.here",
+            ApiKey = "ak_test123",
+            AccessToken = "eyJtest.token.here",
             TokenExpiresAt = DateTime.UtcNow.AddHours(-1)
         };
         profile.IsTokenExpired.Should().BeTrue();
@@ -100,14 +100,14 @@ public class ProfileTests
     /// <summary>Creates a minimal JWT with a real base64url-encoded payload.</summary>
     private static string MakeJwt(long unixExp)
     {
-        var header  = B64Url("{\"alg\":\"HS256\"}");
+        var header = B64Url("{\"alg\":\"HS256\"}");
         var payload = B64Url($"{{\"exp\":{unixExp},\"sub\":\"test-user\"}}");
         return $"{header}.{payload}.fakesignature";
     }
 
     private static string MakeJwtNoExp()
     {
-        var header  = B64Url("{\"alg\":\"HS256\"}");
+        var header = B64Url("{\"alg\":\"HS256\"}");
         var payload = B64Url("{\"sub\":\"test-user\"}");
         return $"{header}.{payload}.fakesignature";
     }
@@ -116,8 +116,8 @@ public class ProfileTests
         Convert.ToBase64String(Encoding.UTF8.GetBytes(json))
             .Replace('+', '-').Replace('/', '_').TrimEnd('=');
 
-    private static long UnixNow()    => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-    private static long PastUnix()   => UnixNow() - 3600;
+    private static long UnixNow() => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+    private static long PastUnix() => UnixNow() - 3600;
     private static long FutureUnix() => UnixNow() + 3600;
 
     [Fact]
@@ -139,7 +139,7 @@ public class ProfileTests
     {
         var profile = new Profile
         {
-            AccessToken    = MakeJwt(PastUnix()),
+            AccessToken = MakeJwt(PastUnix()),
             TokenExpiresAt = DateTime.UtcNow.AddHours(10)
         };
         profile.IsTokenExpired.Should().BeTrue();
@@ -150,7 +150,7 @@ public class ProfileTests
     {
         var profile = new Profile
         {
-            AccessToken    = MakeJwt(FutureUnix()),
+            AccessToken = MakeJwt(FutureUnix()),
             TokenExpiresAt = DateTime.UtcNow.AddHours(-10)
         };
         profile.IsTokenExpired.Should().BeFalse();
@@ -161,7 +161,7 @@ public class ProfileTests
     {
         var profile = new Profile
         {
-            AccessToken    = MakeJwtNoExp(),
+            AccessToken = MakeJwtNoExp(),
             TokenExpiresAt = DateTime.UtcNow.AddHours(-1)
         };
         profile.IsTokenExpired.Should().BeTrue();
@@ -172,7 +172,7 @@ public class ProfileTests
     {
         var profile = new Profile
         {
-            AccessToken    = MakeJwtNoExp(),
+            AccessToken = MakeJwtNoExp(),
             TokenExpiresAt = DateTime.UtcNow.AddHours(1)
         };
         profile.IsTokenExpired.Should().BeFalse();

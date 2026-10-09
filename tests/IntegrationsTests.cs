@@ -15,7 +15,7 @@ namespace AnythinkCli.Tests;
 public class IntegrationsTests
 {
     private const string BaseUrl = "https://api.example.com";
-    private const string OrgId   = "99999";
+    private const string OrgId = "99999";
     private const string OrgPath = $"{BaseUrl}/org/{OrgId}";
 
     private static AnythinkClient BuildClient(MockHttpMessageHandler handler)

@@ -32,8 +32,12 @@ public class ProjectTools
 
         var statusMap = new Dictionary<int, string>
         {
-            [0] = "Initializing", [1] = "Provisioning", [2] = "Active",
-            [3] = "Suspended", [4] = "Terminated", [5] = "Error"
+            [0] = "Initializing",
+            [1] = "Provisioning",
+            [2] = "Active",
+            [3] = "Suspended",
+            [4] = "Terminated",
+            [5] = "Error"
         };
 
         return JsonSerializer.Serialize(projects.Select(p => new
