@@ -11,7 +11,7 @@ namespace AnythinkCli.Tests;
 public class SettingsTests
 {
     private const string BaseUrl = "https://api.example.com";
-    private const string OrgId   = "99999";
+    private const string OrgId = "99999";
     private const string OrgPath = $"{BaseUrl}/org/{OrgId}";
 
     private const string TenantJson =

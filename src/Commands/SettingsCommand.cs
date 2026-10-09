@@ -290,7 +290,8 @@ public class SettingsGetCommand : BaseCommand<SettingsGetSettings>
 
             var ts = tenant.TenantSettings;
 
-            Renderer.Header($"Project — {tenant.Name}");
+            var projectName = tenant.Name;
+            Renderer.Header($"Project — {projectName}");
             Renderer.KeyValue("name", tenant.Name);
             Renderer.KeyValue("description", string.IsNullOrEmpty(tenant.Description) ? "—" : tenant.Description);
             Renderer.KeyValue("require_email_confirmation", (tenant.RequireEmailConfirmation ?? false).ToString().ToLowerInvariant());
