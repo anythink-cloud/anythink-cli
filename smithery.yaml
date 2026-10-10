@@ -1,0 +1,14 @@
+# Smithery configuration — https://smithery.ai/docs/build/project-config/smithery.yaml
+# Anythink MCP server: runs locally over stdio via the npx wrapper.
+
+startCommand:
+  type: stdio
+  # No configuration or environment variables are required to start the server.
+  configSchema:
+    type: object
+    properties: {}
+    required: []
+  # Returns the command Smithery uses to launch the server on stdio.
+  commandFunction: |-
+    (config) => ({ command: 'npx', args: ['-y', '@anythink-cloud/mcp'] })
+  exampleConfig: {}

@@ -1,0 +1,134 @@
+name: MCP Server - Publish to NuGet & Registry
+
+# Publishes the anythink-mcp tool to NuGet (via Trusted Publishing / OIDC) and
+# registers the server in the MCP registry. Runs on v*.*.* tags, on manual
+# dispatch, or when called by the release pipeline. Version tracks the tag.
+#
+# Requires the NUGET_USER and MCP_REGISTRY_PRIVATE_KEY secrets (release env),
+# a NuGet Trusted Publishing policy, and the registry DNS record. See the
+# internal release runbook for one-time setup.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish, without leading v (e.g. 1.2.3)"
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      version:
+        description: "Version to publish, without leading v. Provided when called by auto-tag.yml."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  nuget:
+    name: Pack & push to NuGet
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write   # required for Trusted Publishing (OIDC) token exchange
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Resolve version
+        id: version
+        run: |
+          # inputs.version is set for both workflow_dispatch and workflow_call
+          # (the latter is invoked by auto-tag.yml, where github.event_name is
+          # the caller's "push", so we key off the input being present).
+          if [ -n "${{ inputs.version }}" ]; then
+            V="${{ inputs.version }}"
+          else
+            V="${GITHUB_REF_NAME#v}"
+          fi
+          echo "VERSION=${V}" >> "$GITHUB_OUTPUT"
+          echo "Publishing anythink-mcp ${V}"
+
+      - name: Pack
+        run: |
+          dotnet pack mcp/AnythinkMcp.csproj \
+            -c Release \
+            -p:Version=${{ steps.version.outputs.VERSION }} \
+            -o dist
+
+      - name: NuGet login (OIDC → short-lived API key)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push to NuGet
+        run: |
+          dotnet nuget push "dist/anythink-mcp.${{ steps.version.outputs.VERSION }}.nupkg" \
+            --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
+  registry:
+    name: Publish to MCP registry
+    needs: nuget
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Wait for NuGet to index the package
+        env:
+          VERSION: ${{ needs.nuget.outputs.version }}
+        run: |
+          # The registry validates that the package exists on nuget.org with the
+          # mcp-name marker, so the push must be indexed before we publish.
+          for i in $(seq 1 30); do
+            if curl -sf "https://api.nuget.org/v3-flatcontainer/anythink-mcp/index.json" \
+                 | grep -q "\"${VERSION}\""; then
+              echo "anythink-mcp ${VERSION} is live on NuGet."
+              exit 0
+            fi
+            echo "Waiting for NuGet to index anythink-mcp ${VERSION}... (${i}/30)"
+            sleep 20
+          done
+          echo "::error::Timed out waiting for NuGet to index anythink-mcp ${VERSION}"
+          exit 1
+
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" \
+            | tar xz mcp-publisher
+          sudo mv mcp-publisher /usr/local/bin/
+          mcp-publisher --version || true
+
+      - name: Set version in server.json
+        env:
+          VERSION: ${{ needs.nuget.outputs.version }}
+        run: |
+          tmp="$(mktemp)"
+          jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > "$tmp"
+          mv "$tmp" server.json
+          cat server.json
+
+      - name: Login (DNS) and publish
+        env:
+          MCP_REGISTRY_PRIVATE_KEY: ${{ secrets.MCP_REGISTRY_PRIVATE_KEY }}
+        run: |
+          mcp-publisher login dns \
+            --domain anythink.cloud \
+            --private-key "${MCP_REGISTRY_PRIVATE_KEY}"
+          mcp-publisher publish

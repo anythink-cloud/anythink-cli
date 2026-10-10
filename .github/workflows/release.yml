@@ -4,16 +4,26 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_call:
+    inputs:
+      version:
+        description: "Version to release, without leading v (e.g. 1.2.3). Provided when called by auto-tag.yml."
+        required: true
+        type: string
 
 permissions:
   contents: write
+  id-token: write   # npm Trusted Publishing (OIDC)
 
+# build runs first; homebrew and npm then run independently — a failure in one
+# (e.g. npm before its trusted-publisher bootstrap) must not block the other.
 jobs:
   build:
     name: Build & Release
     runs-on: ubuntu-latest
     environment: release
-
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,11 +35,23 @@ jobs:
 
       - name: Extract version
         id: version
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+        run: |
+          # When called by auto-tag.yml the version arrives as an input;
+          # on a manual tag push it comes from the tag ref.
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Build targets
         run: |
-          for RID in osx-arm64 osx-x64 linux-x64 linux-arm64; do
+          for RID in osx-arm64 osx-x64 linux-x64 linux-arm64 win-x64 win-arm64; do
+            # Windows RIDs produce .exe; keep that suffix on the release asset.
+            EXT=""
+            [[ "$RID" == win-* ]] && EXT=".exe"
+
             dotnet publish src/AnythinkCli.csproj \
               -c Release \
               -r "$RID" \
@@ -41,8 +63,8 @@ jobs:
               -p:PublishTrimmed=false \
               -o "dist/cli/$RID"
 
-            BIN="dist/cli/$RID/anythink"
-            [[ -f "$BIN" ]] && cp "$BIN" "dist/anythink-$RID"
+            BIN="dist/cli/$RID/anythink$EXT"
+            [[ -f "$BIN" ]] && cp "$BIN" "dist/anythink-$RID$EXT"
 
             dotnet publish mcp/AnythinkMcp.csproj \
               -c Release \
@@ -55,21 +77,26 @@ jobs:
               -p:PublishTrimmed=false \
               -o "dist/mcp/$RID"
 
-            MCP_BIN="dist/mcp/$RID/anythink-mcp"
-            [[ -f "$MCP_BIN" ]] && cp "$MCP_BIN" "dist/anythink-mcp-$RID"
+            MCP_BIN="dist/mcp/$RID/anythink-mcp$EXT"
+            [[ -f "$MCP_BIN" ]] && cp "$MCP_BIN" "dist/anythink-mcp-$RID$EXT"
           done
 
       - name: Compute checksums
         working-directory: dist
         run: |
           sha256sum anythink-osx-arm64 anythink-osx-x64 anythink-linux-x64 anythink-linux-arm64 \
+            anythink-win-x64.exe anythink-win-arm64.exe \
             anythink-mcp-osx-arm64 anythink-mcp-osx-x64 anythink-mcp-linux-x64 anythink-mcp-linux-arm64 \
+            anythink-mcp-win-x64.exe anythink-mcp-win-arm64.exe \
             > checksums.txt
           cat checksums.txt
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          # Pin the tag explicitly: when called from a main push the ref is
+          # the branch, not the tag, so the action can't infer it.
+          tag_name: v${{ steps.version.outputs.VERSION }}
           name: v${{ steps.version.outputs.VERSION }}
           generate_release_notes: true
           files: |
@@ -77,17 +104,45 @@ jobs:
             dist/anythink-osx-x64
             dist/anythink-linux-x64
             dist/anythink-linux-arm64
+            dist/anythink-win-x64.exe
+            dist/anythink-win-arm64.exe
             dist/anythink-mcp-osx-arm64
             dist/anythink-mcp-osx-x64
             dist/anythink-mcp-linux-x64
             dist/anythink-mcp-linux-arm64
+            dist/anythink-mcp-win-x64.exe
+            dist/anythink-mcp-win-arm64.exe
             dist/checksums.txt
+
+      - name: Upload binaries for downstream jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+
+  homebrew:
+    name: Update Homebrew formula
+    needs: build
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
 
       - name: Update Homebrew formula
         env:
           TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+          VERSION: ${{ needs.build.outputs.version }}
         run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
           SHA_OSX_ARM64=$(sha256sum dist/anythink-osx-arm64 | awk '{print $1}')
           SHA_OSX_X64=$(sha256sum dist/anythink-osx-x64 | awk '{print $1}')
           SHA_LINUX_X64=$(sha256sum dist/anythink-linux-x64 | awk '{print $1}')
@@ -107,5 +162,77 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Formula/anythink.rb
+          if git diff --cached --quiet; then
+            echo "Formula already current for v${VERSION}; nothing to push."
+            exit 0
+          fi
           git commit -m "Update anythink to v${VERSION}"
-          git push
+          # Commit straight to the tap's main so `brew upgrade` serves the new
+          # version immediately. The tap exempts admins (enforce_admins off) and
+          # TAP_TOKEN has contents:write, so this push lands.
+          git push origin HEAD:main
+
+  npm:
+    name: Publish npm wrapper (@anythink-cloud/mcp)
+    needs: build
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write   # Trusted Publishing (OIDC)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          # Node 24 ships npm v11 (>= 11.5.1), which is required for OIDC
+          # trusted publishing. Node 22 ships npm v10 and fails the OIDC
+          # handshake — npm falls back to anonymous and the publish 404s,
+          # and `npm install -g npm@latest` on Node 22 does not fix it.
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Publish (Trusted Publishing / OIDC)
+        # No NPM_TOKEN — OIDC. Provenance is attached automatically.
+        working-directory: npm
+        run: |
+          npm version "${{ needs.build.outputs.version }}" --no-git-tag-version --allow-same-version
+          npm publish --access public
+
+  winget:
+    name: Submit to WinGet
+    needs: build
+    runs-on: ubuntu-latest
+    # Dormant until the one-time first submission is done, the WINGET_TOKEN
+    # secret is added to the release environment, and ENABLE_WINGET is 'true'.
+    if: ${{ vars.ENABLE_WINGET == 'true' }}
+    environment: release
+    permissions: {}
+    env:
+      KOMAC_VERSION: 2.16.0
+      KOMAC_SHA256: 7d2707fa6210f2789a3702de49fbd150b736dbf426ee0b9bc8e098736f9fd82d
+    steps:
+      # winget-releaser pulls cargo-binstall@main and an unpinned komac and hands
+      # them the token, so we run a checksum-pinned komac directly instead.
+      - name: Install komac
+        run: |
+          curl -fsSL -o komac.tar.gz \
+            "https://github.com/russellbanks/Komac/releases/download/v${KOMAC_VERSION}/komac-${KOMAC_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+          echo "${KOMAC_SHA256}  komac.tar.gz" | sha256sum -c -
+          tar -xzf komac.tar.gz komac
+          sudo install -m 0755 komac /usr/local/bin/komac
+
+      - name: Submit manifest
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          GITHUB_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          KOMAC_CREATED_WITH: anythink-cli release workflow
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::Unexpected version '$VERSION'"; exit 1; }
+          BASE="https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}"
+          komac update Anythink.CLI \
+            --version "$VERSION" \
+            --urls "$BASE/anythink-win-x64.exe" "$BASE/anythink-win-arm64.exe" \
+            --submit

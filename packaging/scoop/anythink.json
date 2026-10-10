@@ -1,0 +1,29 @@
+{
+    "version": "0.2.13",
+    "description": "Anythink CLI — manage the Anythink all-in-one backend from the terminal.",
+    "homepage": "https://anythink.cloud",
+    "license": "MIT",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/anythink-cloud/anythink-cli/releases/download/v0.2.13/anythink-win-x64.exe#/anythink.exe",
+            "hash": "1b3e58ae7de44df27814f9043ce3ef6ca1a2c9e884be9755b8d1c1d2d6d50376",
+            "bin": "anythink.exe"
+        },
+        "arm64": {
+            "url": "https://github.com/anythink-cloud/anythink-cli/releases/download/v0.2.13/anythink-win-arm64.exe#/anythink.exe",
+            "hash": "cf4ff2ab5352e480a02e3632c08c5137ed89bc971eda960a1a95e3998aba52a3",
+            "bin": "anythink.exe"
+        }
+    },
+    "checkver": "github",
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/anythink-cloud/anythink-cli/releases/download/v$version/anythink-win-x64.exe#/anythink.exe"
+            },
+            "arm64": {
+                "url": "https://github.com/anythink-cloud/anythink-cli/releases/download/v$version/anythink-win-arm64.exe#/anythink.exe"
+            }
+        }
+    }
+}

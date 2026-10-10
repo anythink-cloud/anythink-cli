@@ -1,0 +1,21 @@
+{
+  "profiles": {
+    "Stdio": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    "HTTP": {
+      "commandName": "Project",
+      "commandLineArgs": "--http --port 5300",
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5300",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "MCP_CORS_ORIGINS": "http://localhost:5200"
+      }
+    }
+  }
+}

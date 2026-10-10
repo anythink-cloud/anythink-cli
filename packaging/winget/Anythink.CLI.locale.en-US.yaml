@@ -1,0 +1,18 @@
+PackageIdentifier: Anythink.CLI
+PackageVersion: 0.2.13
+PackageLocale: en-US
+Publisher: Anythink
+PublisherUrl: https://anythink.cloud
+PackageName: Anythink CLI
+PackageUrl: https://anythink.cloud
+License: MIT
+LicenseUrl: https://github.com/anythink-cloud/anythink-cli/blob/main/LICENSE
+ShortDescription: Manage the Anythink all-in-one backend from the terminal.
+Moniker: anythink
+Tags:
+- cli
+- anythink
+- backend
+- baas
+ManifestType: defaultLocale
+ManifestVersion: 1.12.0

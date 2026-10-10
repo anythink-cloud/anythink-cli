@@ -1,23 +1,40 @@
 using AnythinkCli.Client;
 using AnythinkCli.Config;
+using System.Net.Http.Headers;
 
 namespace AnythinkMcp;
 
-/// <summary>
-/// Resolves a profile name (or the active default) into an authenticated
-/// <see cref="AnythinkClient"/>. Uses the same config files and token-refresh
-/// logic as the CLI — credentials stored by <c>anythink login</c> work here too.
-/// </summary>
 public class McpClientFactory
 {
     private readonly string? _profileName;
     private readonly HttpMessageHandler? _httpHandler;
+
+    private static readonly AsyncLocal<(string OrgId, string BaseUrl, string Token)?> _requestCredentials = new();
+
+    private static readonly SocketsHttpHandler UpstreamHandler = new()
+    {
+        AllowAutoRedirect = false,
+        UseCookies = false,
+        PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+    };
+
+    private static readonly TimeSpan UpstreamTimeout = TimeSpan.FromSeconds(30);
 
     public string? ProfileName => _profileName;
 
     public McpClientFactory(string? profileName = null)
     {
         _profileName = profileName;
+    }
+
+    public static void SetRequestCredentials(string orgId, string baseUrl, string token)
+    {
+        _requestCredentials.Value = (orgId, baseUrl, token);
+    }
+
+    public static void ClearRequestCredentials()
+    {
+        _requestCredentials.Value = null;
     }
 
     /// <summary>Test-only constructor — injects a mock HTTP handler for all clients.</summary>
@@ -27,9 +44,6 @@ public class McpClientFactory
         _httpHandler = httpHandler;
     }
 
-    /// <summary>
-    /// Returns an authenticated BillingClient using the saved platform config.
-    /// </summary>
     public BillingClient GetBillingClient()
     {
         var platform = ConfigService.ResolvePlatform();
@@ -39,21 +53,44 @@ public class McpClientFactory
         return CreateBillingClient(platform);
     }
 
-    /// <summary>
-    /// Returns a BillingClient that does not require an auth token (for signup/login).
-    /// </summary>
     public BillingClient GetUnauthenticatedBillingClient()
     {
         var platform = ConfigService.ResolvePlatform();
         return CreateBillingClient(platform);
     }
 
-    /// <summary>
-    /// Returns an authenticated client for the configured profile.
-    /// Refreshes expired JWT tokens automatically (same logic as the CLI).
-    /// </summary>
+    public AnythinkClient GetClient(HostedCredentials credentials)
+    {
+        if (string.IsNullOrEmpty(credentials.OrgId) || string.IsNullOrEmpty(credentials.InstanceUrl)
+            || string.IsNullOrEmpty(credentials.Token))
+            throw new InvalidOperationException("Hosted request has no resolved Anythink credentials.");
+
+        return CreateRequestClient(credentials.OrgId, credentials.InstanceUrl, credentials.Token);
+    }
+
+    private AnythinkClient CreateRequestClient(string orgId, string baseUrl, string token)
+    {
+        var handler = _httpHandler ?? UpstreamHandler;
+        var http = new HttpClient(handler, disposeHandler: false) { Timeout = UpstreamTimeout };
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var anonymous = new HttpClient(handler, disposeHandler: false) { Timeout = UpstreamTimeout };
+        return new AnythinkClient(orgId, baseUrl, http, anonymous);
+    }
+
+    public AnythinkClient GetRequestClient()
+    {
+        var creds = _requestCredentials.Value
+            ?? throw new InvalidOperationException("The request carries no credentials.");
+        return CreateRequestClient(creds.OrgId, creds.BaseUrl, creds.Token);
+    }
+
     public AnythinkClient GetClient()
     {
+        // HTTP mode: use per-request credentials (no config files)
+        if (_requestCredentials.Value.HasValue)
+            return GetRequestClient();
+
+        // Stdio mode: resolve from CLI config
         var profile = !string.IsNullOrEmpty(_profileName)
             ? ConfigService.GetProfile(_profileName)
               ?? throw new InvalidOperationException(
@@ -84,14 +121,23 @@ public class McpClientFactory
         return CreateAnythinkClient(profile);
     }
 
+    public AnythinkClient? GetClientOrNull()
+    {
+        try
+        {
+            return GetClient();
+        }
+        catch (InvalidOperationException) when (string.IsNullOrEmpty(_profileName))
+        {
+            return null;
+        }
+    }
+
     private BillingClient CreateBillingClient(PlatformConfig platform)
         => _httpHandler is not null
             ? new BillingClient(platform, new HttpClient(_httpHandler))
             : new BillingClient(platform);
 
-    /// <summary>
-    /// Creates an AnythinkClient for a given profile. Uses mock HTTP handler in tests.
-    /// </summary>
     public AnythinkClient CreateAnythinkClient(Profile profile)
         => _httpHandler is not null
             ? new AnythinkClient(profile.OrgId, profile.InstanceApiUrl, new HttpClient(_httpHandler))
@@ -107,8 +153,8 @@ public class McpClientFactory
 
             if (response is null) return null;
 
-            profile.AccessToken    = response.AccessToken;
-            profile.RefreshToken   = response.RefreshToken ?? profile.RefreshToken;
+            profile.AccessToken = response.AccessToken;
+            profile.RefreshToken = response.RefreshToken ?? profile.RefreshToken;
             profile.TokenExpiresAt = response.ExpiresIn.HasValue
                 ? DateTime.UtcNow.AddSeconds(response.ExpiresIn.Value)
                 : DateTime.UtcNow.AddHours(1);

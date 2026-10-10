@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -8,16 +8,38 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackAsTool>true</PackAsTool>
+    <!-- Web SDK disables packaging by default; re-enable it so the tool can be packed -->
+    <IsPackable>true</IsPackable>
     <ToolCommandName>anythink-mcp</ToolCommandName>
     <PackageId>anythink-mcp</PackageId>
     <Version>1.0.0</Version>
-    <Description>Anythink MCP server — exposes the Anythink BaaS platform to AI assistants via the Model Context Protocol</Description>
+    <Title>Anythink — all-in-one backend (MCP server)</Title>
+    <Description>Anythink MCP server — manage the Anythink all-in-one backend (databases, authentication, data and search, users and roles, files, workflows, integrations, payments, and REST APIs) from AI assistants and agents. Replace stitched-together services with one streamlined backend-as-a-service, configured with a little help from AI.</Description>
+    <PackageTags>anythink;baas;backend;backend-as-a-service;mcp;model-context-protocol;ai;ai-agent;llm;agent;database;rest-api;cli;workflows;authentication;files;payments</PackageTags>
+    <Authors>Anythink</Authors>
+    <PackageProjectUrl>https://github.com/anythink-cloud/anythink-cli</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/anythink-cloud/anythink-cli</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
-  <!-- MCP SDK — stdio-based server with DI hosting -->
+  <!-- Pack the README so the MCP registry can verify ownership via its mcp-name marker -->
   <ItemGroup>
-    <PackageReference Include="ModelContextProtocol" Version="0.2.0-preview.1" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <!-- Served by hosted mode as /favicon.ico and /icon.png, so Claude and directories show the Anythink mark -->
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\favicon.ico" LogicalName="AnythinkMcp.favicon.ico" />
+    <EmbeddedResource Include="Assets\icon.png" LogicalName="AnythinkMcp.icon.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
+    <PackageReference Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.25" />
   </ItemGroup>
 
   <!-- Allow MCP test project to access internal members -->

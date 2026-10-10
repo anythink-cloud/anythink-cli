@@ -1,0 +1,14 @@
+PackageIdentifier: Anythink.CLI
+PackageVersion: 0.2.13
+InstallerType: portable
+Commands:
+- anythink
+Installers:
+- Architecture: x64
+  InstallerUrl: https://github.com/anythink-cloud/anythink-cli/releases/download/v0.2.13/anythink-win-x64.exe
+  InstallerSha256: 1B3E58AE7DE44DF27814F9043CE3EF6CA1A2C9E884BE9755B8D1C1D2D6D50376
+- Architecture: arm64
+  InstallerUrl: https://github.com/anythink-cloud/anythink-cli/releases/download/v0.2.13/anythink-win-arm64.exe
+  InstallerSha256: CF4FF2AB5352E480A02E3632C08C5137ED89BC971EDA960A1A95E3998ABA52A3
+ManifestType: installer
+ManifestVersion: 1.12.0

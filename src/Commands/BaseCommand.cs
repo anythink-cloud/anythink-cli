@@ -27,6 +27,11 @@ public abstract class BaseCommand<TSettings> : AsyncCommand<TSettings>
     /// </summary>
     internal AnythinkClient GetClient(HttpClient? refreshHttp)
     {
+        if (ClientContext.Current is { } ambient)
+            return ambient;
+
+        ClientContext.RequireLocal();
+
         // --profile flag takes precedence over the active profile on disk.
         if (!string.IsNullOrEmpty(ProfileCtx.Current))
             return GetClientForProfile(ProfileCtx.Current, refreshHttp);
@@ -75,8 +80,8 @@ public abstract class BaseCommand<TSettings> : AsyncCommand<TSettings>
 
             if (response is null) return null;
 
-            profile.AccessToken    = response.AccessToken;
-            profile.RefreshToken   = response.RefreshToken ?? profile.RefreshToken;
+            profile.AccessToken = response.AccessToken;
+            profile.RefreshToken = response.RefreshToken ?? profile.RefreshToken;
             profile.TokenExpiresAt = response.ExpiresIn.HasValue
                 ? DateTime.UtcNow.AddSeconds(response.ExpiresIn.Value)
                 : DateTime.UtcNow.AddHours(1);
@@ -128,7 +133,7 @@ public abstract class BaseCommand<TSettings> : AsyncCommand<TSettings>
 
         return new AnythinkClient(profile);
     }
-    
+
     protected static string? Env(string name) => Environment.GetEnvironmentVariable(name);
 
     /// <summary>
@@ -139,6 +144,9 @@ public abstract class BaseCommand<TSettings> : AsyncCommand<TSettings>
     {
         switch (ex)
         {
+            case AnythinkException ae when ClientContext.Remote:
+                Renderer.Error(ae.StatusOnlyMessage);
+                break;
             case AnythinkException ae:
                 Renderer.Error($"API error ({ae.StatusCode}): {ae.Message}");
                 break;

@@ -1,3 +1,4 @@
+using AnythinkCli.Client;
 using AnythinkCli.Models;
 using AnythinkCli.Output;
 using Spectre.Console;
@@ -24,8 +25,8 @@ public class DataListSettings : CommandSettings
     [Description("Records per page (default: 20)")]
     public int Limit { get; set; } = 20;
 
-    [CommandOption("--filter <JSON>")]
-    [Description("Filter expression (JSON)")]
+    [CommandOption("--filter <FILTER>")]
+    [Description("Field filters: JSON like {\"status\":\"draft\",\"price\":{\"gte\":10}} or field=value pairs like 'status=draft&price=GTE:10'")]
     public string? Filter { get; set; }
 
     [CommandOption("--json")]
@@ -173,6 +174,38 @@ public class DataGetCommand : BaseCommand<DataGetSettings>
 
 // ── data create ───────────────────────────────────────────────────────────────
 
+internal static class JsonbFieldHelper
+{
+    // jsonb columns are persisted as JSON-encoded strings; nested objects/arrays
+    // need to be stringified before sending or the server silently drops them.
+    public static async Task StringifyJsonbFields(
+        AnythinkClient client,
+        string entityName,
+        JsonObject data)
+    {
+        List<Field> fields;
+        try { fields = await client.GetFieldsAsync(entityName); }
+        catch { return; }
+
+        var jsonbFields = fields
+            .Where(f => string.Equals(f.DatabaseType, "jsonb", StringComparison.OrdinalIgnoreCase))
+            .Select(f => f.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        if (jsonbFields.Count == 0) return;
+
+        foreach (var key in data.Select(kv => kv.Key).ToList())
+        {
+            if (!jsonbFields.Contains(key)) continue;
+            var node = data[key];
+            if (node is JsonObject || node is JsonArray)
+            {
+                data[key] = JsonValue.Create(node.ToJsonString());
+            }
+        }
+    }
+}
+
 public class DataCreateSettings : CommandSettings
 {
     [CommandArgument(0, "<ENTITY>")]
@@ -199,6 +232,7 @@ public class DataCreateCommand : BaseCommand<DataCreateSettings>
         try
         {
             var client = GetClient();
+            await JsonbFieldHelper.StringifyJsonbFields(client, settings.Entity, data);
             JsonObject? created = null;
 
             await AnsiConsole.Status()
@@ -253,6 +287,7 @@ public class DataUpdateCommand : BaseCommand<DataUpdateSettings>
         try
         {
             var client = GetClient();
+            await JsonbFieldHelper.StringifyJsonbFields(client, settings.Entity, data);
             JsonObject? updated = null;
 
             await AnsiConsole.Status()
@@ -362,8 +397,7 @@ public class DataRlsCommand : BaseCommand<DataRlsSettings>
                     .Spinner(Spinner.Known.Dots)
                     .StartAsync("Fetching RLS users...", async _ =>
                     {
-                        raw = await client.FetchRawAsync(
-                            $"{client.BaseUrl}/org/{client.OrgId}/entities/{settings.Entity}/items/{settings.Id}/rls-users");
+                        raw = await client.GetItemRlsUsersAsync(settings.Entity, settings.Id);
                     });
 
                 var users = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(raw!);
@@ -392,10 +426,7 @@ public class DataRlsCommand : BaseCommand<DataRlsSettings>
                     .Spinner(Spinner.Known.Dots)
                     .StartAsync($"Setting RLS access for user {settings.UserId}...", async _ =>
                     {
-                        var body = $"{{\"user_id\":{settings.UserId},\"readonly\":{settings.ReadOnly.ToString().ToLower()}}}";
-                        await client.FetchRawAsync(
-                            $"{client.BaseUrl}/org/{client.OrgId}/entities/{settings.Entity}/items/{settings.Id}/rls-users",
-                            "PUT", body);
+                        await client.SetItemRlsUserAsync(settings.Entity, settings.Id, settings.UserId.Value, settings.ReadOnly);
                     });
 
                 Renderer.Success($"RLS access set for user {settings.UserId} on {settings.Entity}/{settings.Id} (readonly: {settings.ReadOnly}).");

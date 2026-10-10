@@ -1,3 +1,4 @@
+using AnythinkCli.Models;
 using AnythinkCli.Output;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -26,16 +27,16 @@ public class ApiListCommand : BaseCommand<ApiListSettings>
     {
         try
         {
-            var client  = GetClient();
+            var client = GetClient();
             var baseUrl = settings.BaseUrl ?? client.BaseUrl;
-            var orgId   = client.OrgId;
-            var base_   = $"{baseUrl.TrimEnd('/')}/org/{orgId}";
+            var orgId = client.OrgId;
+            var base_ = $"{baseUrl.TrimEnd('/')}/org/{orgId}";
 
             // Fetch entities and workflows in parallel
-            var entitiesTask  = client.GetEntitiesAsync();
+            var entitiesTask = client.GetEntitiesAsync();
             var workflowsTask = client.GetWorkflowsAsync();
             await Task.WhenAll(entitiesTask, workflowsTask);
-            var entities  = entitiesTask.Result;
+            var entities = entitiesTask.Result;
             var workflows = workflowsTask.Result;
 
             if (settings.Json)
@@ -63,10 +64,10 @@ public class ApiListCommand : BaseCommand<ApiListSettings>
             {
                 var ep = $"{base_}/entities/{e.Name}/items";
                 var pub = e.IsPublic ? " [public]" : "";
-                Renderer.AddRow(dynTable, "GET",    ep,           $"List {e.Name} records{pub}");
-                Renderer.AddRow(dynTable, "GET",    ep + "/{id}", $"Get {e.Name} by ID");
-                Renderer.AddRow(dynTable, "POST",   ep,           $"Create {e.Name} record");
-                Renderer.AddRow(dynTable, "PUT",    ep + "/{id}", $"Update {e.Name} record");
+                Renderer.AddRow(dynTable, "GET", ep, $"List {e.Name} records{pub}");
+                Renderer.AddRow(dynTable, "GET", ep + "/{id}", $"Get {e.Name} by ID");
+                Renderer.AddRow(dynTable, "POST", ep, $"Create {e.Name} record");
+                Renderer.AddRow(dynTable, "PUT", ep + "/{id}", $"Update {e.Name} record");
                 Renderer.AddRow(dynTable, "DELETE", ep + "/{id}", $"Delete {e.Name} record");
 
                 if (e.IsPublic)
@@ -79,14 +80,14 @@ public class ApiListCommand : BaseCommand<ApiListSettings>
             AnsiConsole.Write(dynTable);
 
             // Workflow API routes
-            var apiWorkflows = workflows.Where(w => w.Trigger == "Api" && !string.IsNullOrEmpty(w.Trigger)).ToList();
-            if (apiWorkflows.Count > 0)
+            var apiRoutes = WorkflowApiRoutes(base_, workflows);
+            if (apiRoutes.Count > 0)
             {
                 AnsiConsole.WriteLine();
                 Renderer.Header("Workflow API Routes");
                 var wfTable = Renderer.BuildTable("Method", "Path", "Workflow");
-                foreach (var w in apiWorkflows)
-                    Renderer.AddRow(wfTable, "POST", $"{base_}/workflows/api/[route]", w.Name);
+                foreach (var (path, workflow) in apiRoutes)
+                    Renderer.AddRow(wfTable, "POST", path, workflow);
                 AnsiConsole.Write(wfTable);
             }
 
@@ -101,41 +102,46 @@ public class ApiListCommand : BaseCommand<ApiListSettings>
         }
     }
 
+    internal static List<(string Path, string Workflow)> WorkflowApiRoutes(string base_, IEnumerable<Workflow> workflows) =>
+        workflows
+            .SelectMany(w => WorkflowTriggers.ApiRoutes(w).Select(route => ($"{base_}/workflows/api/{route}", w.Name)))
+            .ToList();
+
     private static IEnumerable<(string Method, string Path, string Desc)> StaticRoutes(string base_)
     {
         var o = base_;
         return [
-            ("POST",   $"{o}/auth/v1/token",          "Login — get JWT access token"),
-            ("POST",   $"{o}/auth/v1/refresh",         "Refresh access token"),
-            ("POST",   $"{o}/auth/v1/logout",          "Invalidate refresh token"),
-            ("POST",   $"{o}/auth/v1/register",        "Register new user"),
-            ("GET",    $"{o}/api-keys",                "List API keys"),
-            ("POST",   $"{o}/api-keys",                "Create API key"),
-            ("DELETE", $"{o}/api-keys/{{id}}",         "Revoke API key"),
-            ("GET",    $"{o}/entities",                "List all entities"),
-            ("GET",    $"{o}/entities/{{name}}",       "Get entity + fields"),
-            ("POST",   $"{o}/entities",                "Create entity"),
-            ("PUT",    $"{o}/entities/{{name}}",       "Update entity settings"),
-            ("DELETE", $"{o}/entities/{{name}}",       "Delete entity"),
-            ("GET",    $"{o}/entities/{{e}}/fields",   "List fields"),
-            ("POST",   $"{o}/entities/{{e}}/fields",   "Add field"),
-            ("PUT",    $"{o}/entities/{{e}}/fields/{{id}}", "Update field"),
+            ("POST", $"{o}/auth/v1/token", "Login — get JWT access token"),
+            ("POST", $"{o}/auth/v1/refresh", "Refresh access token"),
+            ("POST", $"{o}/auth/v1/logout", "Invalidate refresh token"),
+            ("POST", $"{o}/auth/v1/register", "Register new user"),
+            ("GET", $"{o}/api-keys", "List API keys"),
+            ("POST", $"{o}/api-keys", "Create API key"),
+            ("DELETE", $"{o}/api-keys/{{id}}", "Revoke API key"),
+            ("GET", $"{o}/entities", "List all entities"),
+            ("GET", $"{o}/entities/{{name}}", "Get entity + fields"),
+            ("POST", $"{o}/entities", "Create entity"),
+            ("PUT", $"{o}/entities/{{name}}", "Update entity settings"),
+            ("DELETE", $"{o}/entities/{{name}}", "Delete entity"),
+            ("GET", $"{o}/entities/{{e}}/fields", "List fields"),
+            ("POST", $"{o}/entities/{{e}}/fields", "Add field"),
+            ("PUT", $"{o}/entities/{{e}}/fields/{{id}}", "Update field"),
             ("DELETE", $"{o}/entities/{{e}}/fields/{{id}}", "Delete field"),
-            ("GET",    $"{o}/workflows",               "List workflows"),
-            ("GET",    $"{o}/workflows/{{id}}",        "Get workflow + steps"),
-            ("POST",   $"{o}/workflows",               "Create workflow"),
-            ("PUT",    $"{o}/workflows/{{id}}",        "Update workflow"),
-            ("DELETE", $"{o}/workflows/{{id}}",        "Delete workflow"),
-            ("POST",   $"{o}/workflows/{{id}}/steps",  "Add workflow step"),
-            ("PUT",    $"{o}/workflows/{{id}}/steps/{{sid}}", "Update step"),
+            ("GET", $"{o}/workflows", "List workflows"),
+            ("GET", $"{o}/workflows/{{id}}", "Get workflow + steps"),
+            ("POST", $"{o}/workflows", "Create workflow"),
+            ("PUT", $"{o}/workflows/{{id}}", "Update workflow"),
+            ("DELETE", $"{o}/workflows/{{id}}", "Delete workflow"),
+            ("POST", $"{o}/workflows/{{id}}/steps", "Add workflow step"),
+            ("PUT", $"{o}/workflows/{{id}}/steps/{{sid}}", "Update step"),
             ("DELETE", $"{o}/workflows/{{id}}/steps/{{sid}}", "Delete step"),
-            ("POST",   $"{o}/workflows/{{id}}/enable", "Enable workflow"),
-            ("POST",   $"{o}/workflows/{{id}}/disable","Disable workflow"),
-            ("POST",   $"{o}/workflows/{{id}}/trigger","Trigger workflow manually"),
+            ("POST", $"{o}/workflows/{{id}}/enable", "Enable workflow"),
+            ("POST", $"{o}/workflows/{{id}}/disable", "Disable workflow"),
+            ("POST", $"{o}/workflows/{{id}}/trigger", "Trigger workflow manually"),
         ];
     }
 
-    private static object BuildEndpointList(
+    internal static object BuildEndpointList(
         string base_, string orgId,
         List<Models.Entity> entities,
         List<Models.Workflow> workflows)
@@ -162,6 +168,9 @@ public class ApiListCommand : BaseCommand<ApiListSettings>
             return routes;
         });
 
-        return new { base_url = base_, org_id = orgId, routes = staticRoutes.Concat<object>(dynRoutes) };
+        var workflowRoutes = WorkflowApiRoutes(base_, workflows)
+            .Select(r => new { method = "POST", path = r.Path, description = $"Run workflow {r.Workflow}", workflow = r.Workflow, type = "workflow" });
+
+        return new { base_url = base_, org_id = orgId, routes = staticRoutes.Concat<object>(dynRoutes).Concat(workflowRoutes) };
     }
 }
