@@ -138,6 +138,21 @@ public class ImportRunnerTests
         result.Warnings.Should().ContainSingle(w => w.Contains("Nightly") && w.Contains("already exists"));
     }
 
+    [Fact]
+    public async Task Flow_Whose_Trigger_Is_Missing_A_Required_Field_Is_Skipped_Not_Sent_To_The_Api()
+    {
+        var target = TargetForFlow();
+        var incomplete = new ImportFlow("Nightly", [new("Manual", true, new { manual_entities = Array.Empty<string>() })],
+            [Step("a", start: true)]);
+
+        var result = await Run(new FakeImporter(Schema(flows: [incomplete])), target,
+            new ImportOptions(DryRun: false, IncludeFlows: true));
+
+        target.Writes.Should().BeEmpty();
+        result.WorkflowsSkipped.Should().Be(1);
+        result.Warnings.Should().ContainSingle(w => w.Contains("Nightly") && w.Contains("manual_entities"));
+    }
+
     private static StubHttpHandler TargetForFlow() => new StubHttpHandler()
         .On($"{Org}/entities", "[]")
         .On($"{Org}/workflows", "[]")
