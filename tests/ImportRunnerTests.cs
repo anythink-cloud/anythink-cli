@@ -11,9 +11,9 @@ namespace AnythinkCli.Tests;
 
 internal sealed class FakeImporter(ImportSchema schema) : IPlatformImporter
 {
-    public string PlatformName      => "Directus";
+    public string PlatformName => "Directus";
     public string ConnectionSummary => "https://cms.example.com";
-    public string? SourceAuthToken  => null;
+    public string? SourceAuthToken => null;
     public string DownloadUrl { get; set; } = "http://127.0.0.1:1/unreachable";
     public List<JsonObject> Records { get; } = [];
     public int RecordFetches;

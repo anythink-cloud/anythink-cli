@@ -207,8 +207,12 @@ public class DirectusRequestHeaderTests
     public void Credential_Fields_In_A_Json_Body_Are_Replaced_With_A_Placeholder()
     {
         var t = DirectusFlowMapping.Translate(new DirectusOperation("o1", "Call", "call", "request", "f1", null, null,
-            JsonSerializer.SerializeToElement(new { url = "https://api.example.com", method = "POST",
-                body = """{"name":"x","client_secret":"live-secret-value","nested":{"password":"live-secret-value"}}""" })));
+            JsonSerializer.SerializeToElement(new
+            {
+                url = "https://api.example.com",
+                method = "POST",
+                body = """{"name":"x","client_secret":"live-secret-value","nested":{"password":"live-secret-value"}}"""
+            })));
 
         t.Parameters.GetRawText().Should().NotContain("live-secret-value");
         t.Parameters.GetProperty("body").GetString().Should().Contain("\"name\":\"x\"");
@@ -307,8 +311,12 @@ public class DirectusTemplateNeuteringTests
     [Fact]
     public void Secret_Reference_In_A_Non_Sensitive_Header_Value_Is_Neutered_And_Flagged()
     {
-        var (raw, unresolved) = AdaptRequest(new { url = "https://a.example.com", method = "GET",
-            headers = new Dictionary<string, string> { ["X-Custom"] = "$anythink.secrets.STRIPE_SECRET_KEY" } });
+        var (raw, unresolved) = AdaptRequest(new
+        {
+            url = "https://a.example.com",
+            method = "GET",
+            headers = new Dictionary<string, string> { ["X-Custom"] = "$anythink.secrets.STRIPE_SECRET_KEY" }
+        });
 
         raw.Should().NotContain("$anythink");
         unresolved.Should().BeTrue();

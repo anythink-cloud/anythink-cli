@@ -22,7 +22,7 @@ public class MigrateWorkflowTests
     {
         var wf = Source(triggers:
         [
-            new("Timed", true,  new WorkflowTriggerConfig(CronExpression: "0 6 * * *")),
+            new("Timed", true, new WorkflowTriggerConfig(CronExpression: "0 6 * * *")),
             new("Event", false, new WorkflowTriggerConfig(Event: "EntityCreated", EventEntity: "orders")),
         ]);
 

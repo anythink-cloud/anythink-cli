@@ -9,32 +9,32 @@ namespace AnythinkCli.Importers;
 public record ImportOptions(
     bool DryRun,
     bool IncludeFlows,
-    bool IncludeData  = false,
+    bool IncludeData = false,
     bool IncludeFiles = false,
     bool IncludeRoles = false,
-    int  DataPageSize = 100,
+    int DataPageSize = 100,
     bool RequireConfirmation = false
 );
 
 public record ImportResult(
-    int           EntitiesCreated,
-    int           EntitiesSkipped,
-    int           FieldsCreated,
-    int           FieldsSkipped,
-    int           FieldsFailed,
-    int           WorkflowsCreated,
-    int           WorkflowsSkipped,
-    int           WorkflowStepsCreated,
-    int           WorkflowStepsFailed,
-    int           RecordsCreated,
-    int           RecordsFailed,
-    int           FilesUploaded,
-    int           FilesSkipped,
-    int           FilesFailed,
-    int           RolesCreated,
-    int           RolesSkipped,
-    int           PermissionsAttached,
-    List<string>  Errors,
+    int EntitiesCreated,
+    int EntitiesSkipped,
+    int FieldsCreated,
+    int FieldsSkipped,
+    int FieldsFailed,
+    int WorkflowsCreated,
+    int WorkflowsSkipped,
+    int WorkflowStepsCreated,
+    int WorkflowStepsFailed,
+    int RecordsCreated,
+    int RecordsFailed,
+    int FilesUploaded,
+    int FilesSkipped,
+    int FilesFailed,
+    int RolesCreated,
+    int RolesSkipped,
+    int PermissionsAttached,
+    List<string> Errors,
     List<string>? Warnings = null
 );
 
@@ -43,13 +43,13 @@ public class ImportRunner
     private const long MaxFileBytes = 100L * 1024 * 1024;
 
     private readonly IPlatformImporter _source;
-    private readonly AnythinkClient    _target;
-    private readonly ImportOptions     _options;
+    private readonly AnythinkClient _target;
+    private readonly ImportOptions _options;
 
     public ImportRunner(IPlatformImporter source, AnythinkClient target, ImportOptions options)
     {
-        _source  = source;
-        _target  = target;
+        _source = source;
+        _target = target;
         _options = options;
     }
 
@@ -169,7 +169,7 @@ public class ImportRunner
         try
         {
             existingNames = (await _target.GetRolesAsync()).Select(r => r.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            permsByName   = (await _target.GetPermissionsAsync()).ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
+            permsByName = (await _target.GetPermissionsAsync()).ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
         }
         catch (Exception ex)
         {
@@ -309,7 +309,7 @@ public class ImportRunner
     private string BuildSourceMetadata(string sourceFileId) =>
         System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, string>
         {
-            ["imported_from"]  = _source.PlatformName.ToLowerInvariant(),
+            ["imported_from"] = _source.PlatformName.ToLowerInvariant(),
             ["source_file_id"] = sourceFileId
         });
 
@@ -337,14 +337,14 @@ public class ImportRunner
         ResultAccumulator result)
     {
         Entity entity;
-        bool   isNewEntity = !entitiesByName.TryGetValue(col.Name, out entity!);
+        bool isNewEntity = !entitiesByName.TryGetValue(col.Name, out entity!);
 
         if (isNewEntity)
         {
             try
             {
                 entity = await _target.CreateEntityAsync(new CreateEntityRequest(
-                    Name:     col.Name,
+                    Name: col.Name,
                     IsPublic: col.IsPublic));
                 entitiesByName[col.Name] = entity;
                 result.EntitiesCreated++;
@@ -380,13 +380,13 @@ public class ImportRunner
             try
             {
                 await _target.AddFieldAsync(col.Name, new CreateFieldRequest(
-                    Name:         field.Name,
+                    Name: field.Name,
                     DatabaseType: field.DatabaseType,
-                    DisplayType:  field.DisplayType,
-                    Label:        field.Label,
-                    IsRequired:   field.IsRequired,
-                    IsUnique:     field.IsUnique,
-                    IsIndexed:    field.IsIndexed,
+                    DisplayType: field.DisplayType,
+                    Label: field.Label,
+                    IsRequired: field.IsRequired,
+                    IsUnique: field.IsUnique,
+                    IsIndexed: field.IsIndexed,
                     Relationship: field.Relationship));
                 existingFieldNames.Add(field.Name);
                 created++;
@@ -403,9 +403,9 @@ public class ImportRunner
         var verb = isNewEntity ? "created" : "merged";
         var summary = (skipped, failed) switch
         {
-            (0, 0)         => $"{created} field(s)",
-            (var s, 0)     => $"{created} new, [dim]{s} already present[/]",
-            (0, var f)     => $"{created} field(s), [yellow]{f} failed[/]",
+            (0, 0) => $"{created} field(s)",
+            (var s, 0) => $"{created} new, [dim]{s} already present[/]",
+            (0, var f) => $"{created} field(s), [yellow]{f} failed[/]",
             (var s, var f) => $"{created} new, [dim]{s} already present[/], [yellow]{f} failed[/]"
         };
         Renderer.Success($"[bold]{Markup.Escape(col.Name)}[/] {verb} — {summary}");
@@ -430,10 +430,10 @@ public class ImportRunner
         try
         {
             wf = await _target.CreateWorkflowAsync(new CreateWorkflowRequest(
-                Name:        flow.Name,
+                Name: flow.Name,
                 Description: null,
-                Enabled:     false,
-                Triggers:    flow.Triggers));
+                Enabled: false,
+                Triggers: flow.Triggers));
             result.WorkflowsCreated++;
         }
         catch (Exception ex)
@@ -457,13 +457,13 @@ public class ImportRunner
             {
                 var c = await _target.AddWorkflowStepAsync(wf.Id,
                     new CreateWorkflowStepRequest(
-                        Key:         step.Key,
-                        Name:        step.Name,
-                        Action:      step.Action,
-                        Enabled:     step.Enabled,
+                        Key: step.Key,
+                        Name: step.Name,
+                        Action: step.Action,
+                        Enabled: step.Enabled,
                         IsStartStep: step.IsStartStep,
                         Description: step.Description,
-                        Parameters:  step.Parameters));
+                        Parameters: step.Parameters));
                 stepIdMap[step.SourceId] = c.Id;
                 created++;
                 result.WorkflowStepsCreated++;
@@ -514,7 +514,7 @@ public class ImportRunner
 
         var pieces = new List<string>();
         if (created > 0) pieces.Add($"{created} new step(s)");
-        if (failed > 0)  pieces.Add($"[yellow]{failed} failed[/]");
+        if (failed > 0) pieces.Add($"[yellow]{failed} failed[/]");
         if (reviewSteps > 0) pieces.Add($"[yellow]{reviewSteps} need review[/]");
         var summary = pieces.Count == 0 ? "no changes" : string.Join(", ", pieces);
         var triggerLabel = string.Join("/", flow.Triggers.Select(t => t.Type));
@@ -746,8 +746,8 @@ public class ImportRunner
     {
         id = 0;
         if (record["id"] is not JsonValue v) return false;
-        if (v.TryGetValue<long>(out var l))  { id = l; return true; }
-        if (v.TryGetValue<int>(out var i))   { id = i; return true; }
+        if (v.TryGetValue<long>(out var l)) { id = l; return true; }
+        if (v.TryGetValue<int>(out var i)) { id = i; return true; }
         return false;
     }
 
@@ -756,12 +756,12 @@ public class ImportRunner
         if (node is JsonValue v)
         {
             if (v.TryGetValue<long>(out var l)) return l;
-            if (v.TryGetValue<int>(out var i))  return i;
+            if (v.TryGetValue<int>(out var i)) return i;
         }
         else if (node is JsonObject obj && obj["id"] is JsonValue idVal)
         {
             if (idVal.TryGetValue<long>(out var l)) return l;
-            if (idVal.TryGetValue<int>(out var i))  return i;
+            if (idVal.TryGetValue<int>(out var i)) return i;
         }
         return null;
     }
@@ -794,13 +794,13 @@ public class ImportRunner
 
         if (_options.IncludeFlows) Renderer.Info($"{schema.Flows.Count} flow(s) would be created (disabled); existing workflows are left untouched.");
         if (_options.IncludeFiles) Renderer.Info($"{schema.Files.Count} file(s) would be uploaded.");
-        if (_options.IncludeData)  Renderer.Info("Records would be imported into collections that are currently empty.");
+        if (_options.IncludeData) Renderer.Info("Records would be imported into collections that are currently empty.");
         if (_options.IncludeRoles) Renderer.Info($"{schema.Roles.Count} role(s) would be created; existing roles are left untouched.");
 
         if (_options.DryRun)
         {
             foreach (var w in schema.Warnings ?? []) Renderer.Warn(Markup.Escape(w));
-            foreach (var e in schema.Errors   ?? []) Renderer.Error(e);
+            foreach (var e in schema.Errors ?? []) Renderer.Error(e);
             AnsiConsole.WriteLine();
             Renderer.Info("Re-run without [bold]--dry-run[/] to apply.");
         }

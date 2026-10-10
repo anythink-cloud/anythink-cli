@@ -32,37 +32,37 @@ public static class DirectusFieldMapping
     public static string MapDatabaseType(string directusType, string? sqlType) =>
         directusType.ToLowerInvariant() switch
         {
-            "string"     => "varchar",
-            "text"       => "text",
-            "integer"    => "integer",
+            "string" => "varchar",
+            "text" => "text",
+            "integer" => "integer",
             "biginteger" => "bigint",
-            "float"      => "decimal",
-            "decimal"    => "decimal",
-            "boolean"    => "boolean",
-            "datetime"   => "timestamp",
-            "timestamp"  => "timestamp",
-            "date"       => "date",
-            "time"       => "varchar",     // Anythink has no "time" db type
-            "json"       => "jsonb",
-            "uuid"       => "varchar",
-            "csv"        => "text",
-            "hash"       => "varchar",
-            "geometry"   => "geo",
-            _            => InferFromSqlType(sqlType)
+            "float" => "decimal",
+            "decimal" => "decimal",
+            "boolean" => "boolean",
+            "datetime" => "timestamp",
+            "timestamp" => "timestamp",
+            "date" => "date",
+            "time" => "varchar",     // Anythink has no "time" db type
+            "json" => "jsonb",
+            "uuid" => "varchar",
+            "csv" => "text",
+            "hash" => "varchar",
+            "geometry" => "geo",
+            _ => InferFromSqlType(sqlType)
         };
 
     private static string InferFromSqlType(string? sqlType) =>
         sqlType?.ToLowerInvariant() switch
         {
-            "int" or "int2" or "int4" or "smallint"                          => "integer",
-            "int8" or "bigint"                                               => "bigint",
+            "int" or "int2" or "int4" or "smallint" => "integer",
+            "int8" or "bigint" => "bigint",
             "float4" or "float8" or "numeric" or "decimal" or "real" or "double" => "decimal",
-            "bool" or "boolean"                                              => "boolean",
-            "text" or "longtext" or "mediumtext"                             => "text",
-            "json" or "jsonb"                                                 => "jsonb",
-            "date"                                                           => "date",
-            "datetime" or "timestamp" or "timestamptz"                       => "timestamp",
-            _                                                                => "varchar"
+            "bool" or "boolean" => "boolean",
+            "text" or "longtext" or "mediumtext" => "text",
+            "json" or "jsonb" => "jsonb",
+            "date" => "date",
+            "datetime" or "timestamp" or "timestamptz" => "timestamp",
+            _ => "varchar"
         };
 
     public static string MapDisplayType(string? iface, string dbType)
@@ -70,20 +70,20 @@ public static class DirectusFieldMapping
         var i = iface?.ToLowerInvariant();
         return dbType switch
         {
-            "varchar"  => i is "select-dropdown" or "select-radio" or "select-multiple-checkbox"
+            "varchar" => i is "select-dropdown" or "select-radio" or "select-multiple-checkbox"
                             ? "select"
                             : "input",
-            "text"     => i is "input-rich-text-html" or "input-rich-text-md"
+            "text" => i is "input-rich-text-html" or "input-rich-text-md"
                             ? "rich-text"
                             : "textarea",
-            "boolean"   => "checkbox",
+            "boolean" => "checkbox",
             "timestamp" => "timestamp",
-            "date"      => "short-date",
+            "date" => "short-date",
             "integer" or "bigint" or "decimal" => "input",
-            "jsonb"     => "jsonb",
-            "geo"       => "geo",
-            "file"      => "file",
-            _           => "input"
+            "jsonb" => "jsonb",
+            "geo" => "geo",
+            "file" => "file",
+            _ => "input"
         };
     }
 }

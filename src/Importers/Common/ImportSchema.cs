@@ -11,11 +11,11 @@ namespace AnythinkCli.Importers;
 
 public record ImportSchema(
     List<ImportCollection> Collections,
-    List<ImportFlow>       Flows,
-    List<ImportFile>       Files,
-    List<ImportRole>       Roles,
-    List<string>?          Warnings = null,   // reported, exit code unaffected
-    List<string>?          Errors   = null    // source items that could not be imported — fail the run
+    List<ImportFlow> Flows,
+    List<ImportFile> Files,
+    List<ImportRole> Roles,
+    List<string>? Warnings = null,   // reported, exit code unaffected
+    List<string>? Errors = null    // source items that could not be imported — fail the run
 );
 
 // A file in the source platform — describes enough metadata for the runner to
@@ -25,7 +25,7 @@ public record ImportSchema(
 public record ImportFile(
     string SourceId,        // platform-native file id (UUID for Directus, etc.)
     string FileName,
-    bool   IsPublic
+    bool IsPublic
 );
 
 // A platform role with its effective collection-level permissions, already
@@ -34,56 +34,56 @@ public record ImportFile(
 // only. The runner turns each (collection, action) into an Anythink permission
 // named "<collection>:<action>".
 public record ImportRole(
-    string                                    Name,
-    string?                                   Description,
-    List<(string Collection, string Action)>  CollectionPermissions
+    string Name,
+    string? Description,
+    List<(string Collection, string Action)> CollectionPermissions
 );
 
 public record ImportCollection(
-    string                Name,
+    string Name,
     List<ImportFieldSpec> Fields,
-    bool                  IsJunction = false,     // hidden in source; back m2m relationships
-    bool                  IsPublic   = false,     // mapped onto Anythink entity.is_public
-    string?               DataUnsupportedReason = null
+    bool IsJunction = false,     // hidden in source; back m2m relationships
+    bool IsPublic = false,     // mapped onto Anythink entity.is_public
+    string? DataUnsupportedReason = null
 );
 
 public record ImportFieldSpec(
-    string  Name,
-    string  DatabaseType,    // already mapped to a valid Anythink db type
-    string  DisplayType,     // already mapped to a valid Anythink display type
+    string Name,
+    string DatabaseType,    // already mapped to a valid Anythink db type
+    string DisplayType,     // already mapped to a valid Anythink display type
     string? Label,
-    bool    IsRequired,
-    bool    IsUnique,
-    bool    IsIndexed,
+    bool IsRequired,
+    bool IsUnique,
+    bool IsIndexed,
     string? ForeignKeyCollection = null,   // set when this field references another collection
-    bool    IsFileField        = false,    // file-type fields need ID remap on data import
-    JsonElement? Relationship  = null      // populated for File / m2o etc. — passed to the Anythink API as-is
+    bool IsFileField = false,    // file-type fields need ID remap on data import
+    JsonElement? Relationship = null      // populated for File / m2o etc. — passed to the Anythink API as-is
 );
 
 public record ImportFlow(
-    string                                  Name,
+    string Name,
     List<AnythinkCli.Models.WorkflowTriggerRequest> Triggers,
-    List<ImportStep>                        Steps
+    List<ImportStep> Steps
 );
 
 public record ImportStep(
-    string        SourceId,         // platform-native step id (used to wire up Success/Failure links)
-    string        Key,
-    string        Name,
-    string        Action,           // already mapped to a valid Anythink WorkflowAction value
-    bool          IsStartStep,
-    string?       Description,
-    JsonElement?  Parameters,
-    string?       OnSuccessSourceId,
-    string?       OnFailureSourceId,
-    bool          NeedsManualReview = false,
-    string?       ReviewNote        = null,
-    bool          Enabled           = true
+    string SourceId,         // platform-native step id (used to wire up Success/Failure links)
+    string Key,
+    string Name,
+    string Action,           // already mapped to a valid Anythink WorkflowAction value
+    bool IsStartStep,
+    string? Description,
+    JsonElement? Parameters,
+    string? OnSuccessSourceId,
+    string? OnFailureSourceId,
+    bool NeedsManualReview = false,
+    string? ReviewNote = null,
+    bool Enabled = true
 );
 
 // A page of records from a source collection. The records are kept as raw
 // JsonObjects — the runner does the field-level remapping.
 public record ImportRecordPage(
     List<System.Text.Json.Nodes.JsonObject> Records,
-    int?                                    TotalCount   // null when source doesn't report it
+    int? TotalCount   // null when source doesn't report it
 );

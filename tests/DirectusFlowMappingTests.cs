@@ -110,9 +110,9 @@ public class DirectusFlowMappingTests
     {
         var r = DirectusFlowMapping.Translate(Op("mail", new
         {
-            to      = new[] { "a@example.com", "b@example.com" },
+            to = new[] { "a@example.com", "b@example.com" },
             subject = "Hi",
-            body    = "<p>x</p>",
+            body = "<p>x</p>",
         }));
 
         r.Action.Should().Be("SendAnEmail");
@@ -128,8 +128,8 @@ public class DirectusFlowMappingTests
     {
         var r = DirectusFlowMapping.Translate(Op("request", new
         {
-            url     = "https://api.example.com/x",
-            method  = "post",
+            url = "https://api.example.com/x",
+            method = "post",
             headers = new { Accept = "application/json" }
         }));
 
@@ -145,8 +145,8 @@ public class DirectusFlowMappingTests
     {
         var r = DirectusFlowMapping.Translate(Op("request", new
         {
-            url     = "https://x.com",
-            method  = "GET",
+            url = "https://x.com",
+            method = "GET",
             headers = new[] { new { header = "X-Custom", value = "1" } }
         }));
 
@@ -157,12 +157,16 @@ public class DirectusFlowMappingTests
     [InlineData("item-create", "CreateData")]
     [InlineData("item-update", "UpdateData")]
     [InlineData("item-delete", "DeleteData")]
-    [InlineData("item-read",   "ReadData")]
+    [InlineData("item-read", "ReadData")]
     public void Item_CRUD_Ops_Map_To_Anythink_Data_Actions(string opType, string expectedAction)
     {
         var r = DirectusFlowMapping.Translate(Op(opType,
-            new { collection = "articles", key = "5",
-                  payload    = new { title = "x" } }));
+            new
+            {
+                collection = "articles",
+                key = "5",
+                payload = new { title = "x" }
+            }));
 
         r.Action.Should().Be(expectedAction);
     }
@@ -173,7 +177,7 @@ public class DirectusFlowMappingTests
         var r = DirectusFlowMapping.Translate(Op("item-create", new
         {
             collection = "articles",
-            payload    = new { title = "Hello", views = 3 }
+            payload = new { title = "Hello", views = 3 }
         }));
 
         r.Parameters.GetProperty("entity_name").GetString().Should().Be("articles");

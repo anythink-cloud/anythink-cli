@@ -140,14 +140,14 @@ public class PlatformsConfigTests : IDisposable
     // ── Sanitisation: hostile env values can't land on disk ──────────────────
 
     [Theory]
-    [InlineData("19101998",          "19101998")]     // happy path
-    [InlineData("  19101998  ",      "19101998")]     // trimmed
-    [InlineData(null,                null)]
-    [InlineData("",                  null)]
-    [InlineData("19101998 MYANYTHINK_API_URL=https://x",  null)] // shell injection
-    [InlineData("not-a-number",      null)]
-    [InlineData("123\n456",          null)]           // newline injection
-    [InlineData("999999999999999",   null)]           // too long
+    [InlineData("19101998", "19101998")]     // happy path
+    [InlineData("  19101998  ", "19101998")]     // trimmed
+    [InlineData(null, null)]
+    [InlineData("", null)]
+    [InlineData("19101998 MYANYTHINK_API_URL=https://x", null)] // shell injection
+    [InlineData("not-a-number", null)]
+    [InlineData("123\n456", null)]           // newline injection
+    [InlineData("999999999999999", null)]           // too long
     public void SanitiseOrgId_Filters_Bad_Values(string? input, string? expected)
     {
         // SanitiseOrgId is internal — covered via the runtime-overlay path
@@ -195,8 +195,8 @@ public class PlatformsConfigTests : IDisposable
         ConfigService.SavePlatformAt("local", new PlatformConfig
         {
             MyAnythinkUrl = "https://localhost:7136",
-            BillingUrl    = "https://localhost:7180",
-            Token         = "local-tok",
+            BillingUrl = "https://localhost:7180",
+            Token = "local-tok",
         });
 
         // First saved → becomes active automatically
@@ -212,14 +212,14 @@ public class PlatformsConfigTests : IDisposable
         ConfigService.SavePlatformAt("production", new PlatformConfig
         {
             MyAnythinkUrl = ApiDefaults.MyAnythinkApiUrl,
-            BillingUrl    = ApiDefaults.BillingApiUrl,
-            Token         = "prod-tok",
+            BillingUrl = ApiDefaults.BillingApiUrl,
+            Token = "prod-tok",
         });
         ConfigService.SavePlatformAt("local", new PlatformConfig
         {
             MyAnythinkUrl = "https://localhost:7136",
-            BillingUrl    = "https://localhost:7180",
-            Token         = "local-tok",
+            BillingUrl = "https://localhost:7180",
+            Token = "local-tok",
         });
         var config = ConfigService.Load();
         config.ActivePlatform = "production";
@@ -262,11 +262,11 @@ public class PlatformsConfigTests : IDisposable
     // ── Key derivation ────────────────────────────────────────────────────────
 
     [Theory]
-    [InlineData("https://api.my.anythink.cloud",         "production")]
-    [InlineData("https://api.eu.my.anythink.cloud",      "production-eu")]
+    [InlineData("https://api.my.anythink.cloud", "production")]
+    [InlineData("https://api.eu.my.anythink.cloud", "production-eu")]
     [InlineData("https://api.us-west.my.anythink.cloud", "production-us-west")]
-    [InlineData("https://acme.my.anythink.cloud",        "production-acme")]
-    [InlineData("https://api.anythink.acme-corp.com",    "api-anythink-acme-corp-com")]
+    [InlineData("https://acme.my.anythink.cloud", "production-acme")]
+    [InlineData("https://api.anythink.acme-corp.com", "api-anythink-acme-corp-com")]
     public void DerivePlatformKey_Maps_Known_Hosts_To_Friendly_Names(string url, string expectedKey)
     {
         ConfigService.DerivePlatformKey(url).Should().Be(expectedKey);
@@ -280,25 +280,25 @@ public class PlatformsConfigTests : IDisposable
         ConfigService.SavePlatformAt("production", new PlatformConfig
         {
             MyAnythinkUrl = ApiDefaults.MyAnythinkApiUrl,
-            BillingUrl    = ApiDefaults.BillingApiUrl,
+            BillingUrl = ApiDefaults.BillingApiUrl,
         });
         ConfigService.SavePlatformAt("local", new PlatformConfig
         {
             MyAnythinkUrl = "https://localhost:7136",
-            BillingUrl    = "https://localhost:7180",
+            BillingUrl = "https://localhost:7180",
         });
 
         ConfigService.SaveProfile("prod-app", new Profile
         {
-            OrgId          = "1",
+            OrgId = "1",
             InstanceApiUrl = ApiDefaults.MyAnythinkApiUrl,
-            PlatformKey    = "production",
+            PlatformKey = "production",
         });
         ConfigService.SaveProfile("local-app", new Profile
         {
-            OrgId          = "2",
+            OrgId = "2",
             InstanceApiUrl = "https://localhost:7136",
-            PlatformKey    = "local",
+            PlatformKey = "local",
         });
 
         // Switch active profile — active_platform should follow
@@ -318,18 +318,18 @@ public class PlatformsConfigTests : IDisposable
         ConfigService.SavePlatformAt("production", new PlatformConfig
         {
             MyAnythinkUrl = ApiDefaults.MyAnythinkApiUrl,
-            BillingUrl    = ApiDefaults.BillingApiUrl,
-            Token         = "prod-token",
-            AccountId     = "prod-acct",
+            BillingUrl = ApiDefaults.BillingApiUrl,
+            Token = "prod-token",
+            AccountId = "prod-acct",
         });
 
         // Login 2 — local (via env var path), via separate SavePlatformAt call
         ConfigService.SavePlatformAt("local", new PlatformConfig
         {
             MyAnythinkUrl = "https://localhost:7136",
-            BillingUrl    = "https://localhost:7180",
-            Token         = "local-token",
-            AccountId     = "local-acct",
+            BillingUrl = "https://localhost:7180",
+            Token = "local-token",
+            AccountId = "local-acct",
         });
 
         var config = ConfigService.Load();
@@ -350,13 +350,13 @@ public class PlatformsConfigTests : IDisposable
         ConfigService.SavePlatformAt("production", new PlatformConfig
         {
             MyAnythinkUrl = ApiDefaults.MyAnythinkApiUrl,
-            BillingUrl    = ApiDefaults.BillingApiUrl,
-            Token         = "real-disk-token",
-            AccountId     = "real-disk-acct",
+            BillingUrl = ApiDefaults.BillingApiUrl,
+            Token = "real-disk-token",
+            AccountId = "real-disk-acct",
         });
 
         Environment.SetEnvironmentVariable("ANYTHINK_PLATFORM_TOKEN", "evil-env-token");
-        Environment.SetEnvironmentVariable("ANYTHINK_ACCOUNT_ID",     "evil-env-acct");
+        Environment.SetEnvironmentVariable("ANYTHINK_ACCOUNT_ID", "evil-env-acct");
 
         var ctx = ConfigService.ResolvePlatformContext();
         ctx.Platform.Token.Should().Be("real-disk-token");
@@ -372,7 +372,7 @@ public class PlatformsConfigTests : IDisposable
     // ── Hardening: charset, URL normalisation, ASCII-only digits ──────────────
 
     [Theory]
-    [InlineData("https://" + "xn--ls8h.example",  "xn--ls8h-example")]  // punycode preserved
+    [InlineData("https://" + "xn--ls8h.example", "xn--ls8h-example")]  // punycode preserved
     [InlineData("https://API.MY.ANYTHINK.CLOUD.", "production")]        // trailing dot + caps
     public void DerivePlatformKey_Restricts_Charset(string url, string expected)
     {
@@ -419,16 +419,18 @@ public class PlatformsConfigTests : IDisposable
         ConfigService.SavePlatformAt("production", new PlatformConfig
         {
             MyAnythinkUrl = ApiDefaults.MyAnythinkApiUrl,
-            BillingUrl    = ApiDefaults.BillingApiUrl,
+            BillingUrl = ApiDefaults.BillingApiUrl,
         });
         ConfigService.SavePlatformAt("local", new PlatformConfig
         {
             MyAnythinkUrl = "https://localhost:7136",
-            BillingUrl    = "https://localhost:7180",
+            BillingUrl = "https://localhost:7180",
         });
         ConfigService.SaveProfile("a", new Profile
         {
-            OrgId = "1", InstanceApiUrl = "https://localhost:7136", PlatformKey = "local",
+            OrgId = "1",
+            InstanceApiUrl = "https://localhost:7136",
+            PlatformKey = "local",
         });
 
         var originalErr = Console.Error;
@@ -471,7 +473,7 @@ public class PlatformsConfigTests : IDisposable
         ConfigService.SavePlatformAt("production", new PlatformConfig
         {
             MyAnythinkUrl = ApiDefaults.MyAnythinkApiUrl,
-            BillingUrl    = ApiDefaults.BillingApiUrl,
+            BillingUrl = ApiDefaults.BillingApiUrl,
         });
         Environment.SetEnvironmentVariable("ANYTHINK_PLATFORM_TOKEN", "any-token");
         Environment.SetEnvironmentVariable("MYANYTHINK_API_URL", ApiDefaults.MyAnythinkApiUrl);
@@ -499,15 +501,15 @@ public class PlatformsConfigTests : IDisposable
         ConfigService.SavePlatformAt("production", new PlatformConfig
         {
             MyAnythinkUrl = ApiDefaults.MyAnythinkApiUrl,
-            BillingUrl    = ApiDefaults.BillingApiUrl,
+            BillingUrl = ApiDefaults.BillingApiUrl,
         });
         ConfigService.Load().ActivePlatform.Should().Be("production");
 
         ConfigService.SaveAndActivatePlatform("localhost", new PlatformConfig
         {
             MyAnythinkUrl = "https://localhost:7136",
-            BillingUrl    = "https://localhost:7180",
-            Token         = "fresh-token",
+            BillingUrl = "https://localhost:7180",
+            Token = "fresh-token",
         });
 
         // Login to a different platform makes IT the active one — next command
@@ -519,7 +521,7 @@ public class PlatformsConfigTests : IDisposable
     public void New_Platform_Captures_Env_OrgId_Into_Saved_Record()
     {
         Environment.SetEnvironmentVariable("MYANYTHINK_API_URL", "https://localhost:7136");
-        Environment.SetEnvironmentVariable("MYANYTHINK_ORG_ID",  "19101998");
+        Environment.SetEnvironmentVariable("MYANYTHINK_ORG_ID", "19101998");
 
         // First login: no saved platform → resolver seeds a new one with the env org id
         var (key, platform) = ConfigService.ResolvePlatformContext();
@@ -531,7 +533,7 @@ public class PlatformsConfigTests : IDisposable
 
         // Clear env vars — next command must still hit the right tenant
         Environment.SetEnvironmentVariable("MYANYTHINK_API_URL", null);
-        Environment.SetEnvironmentVariable("MYANYTHINK_ORG_ID",  null);
+        Environment.SetEnvironmentVariable("MYANYTHINK_ORG_ID", null);
 
         var ctx = ConfigService.ResolvePlatformContext();
         ctx.Platform.MyAnythinkOrgId.Should().Be("19101998");
@@ -543,13 +545,13 @@ public class PlatformsConfigTests : IDisposable
     {
         ConfigService.SavePlatformAt("localhost", new PlatformConfig
         {
-            MyAnythinkUrl   = "https://localhost:7136",
-            BillingUrl      = "https://localhost:7180",
+            MyAnythinkUrl = "https://localhost:7136",
+            BillingUrl = "https://localhost:7180",
             MyAnythinkOrgId = "111",
         });
 
         Environment.SetEnvironmentVariable("MYANYTHINK_API_URL", "https://localhost:7136");
-        Environment.SetEnvironmentVariable("MYANYTHINK_ORG_ID",  "222");
+        Environment.SetEnvironmentVariable("MYANYTHINK_ORG_ID", "222");
 
         // Existing match → env org id stays runtime-only (via ApplyRuntimeOverrides);
         // the saved record is untouched.
@@ -562,15 +564,15 @@ public class PlatformsConfigTests : IDisposable
     {
         var disk = new PlatformConfig
         {
-            MyAnythinkUrl   = ApiDefaults.MyAnythinkApiUrl,
+            MyAnythinkUrl = ApiDefaults.MyAnythinkApiUrl,
             MyAnythinkOrgId = ApiDefaults.MyAnythinkOrgId,
-            Token           = "disk-token",
-            AccountId       = "disk-acct",
+            Token = "disk-token",
+            AccountId = "disk-acct",
         };
 
         Environment.SetEnvironmentVariable("ANYTHINK_PLATFORM_TOKEN", "env-token");
-        Environment.SetEnvironmentVariable("ANYTHINK_ACCOUNT_ID",     "env-acct");
-        Environment.SetEnvironmentVariable("MYANYTHINK_ORG_ID",       "12345");
+        Environment.SetEnvironmentVariable("ANYTHINK_ACCOUNT_ID", "env-acct");
+        Environment.SetEnvironmentVariable("MYANYTHINK_ORG_ID", "12345");
 
         var eff = ConfigService.ApplyRuntimeOverrides(disk);
         eff.Token.Should().Be("env-token");

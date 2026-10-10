@@ -7,7 +7,7 @@ namespace AnythinkCli.Importers.Directus;
 public class DirectusImporter : IPlatformImporter
 {
     private readonly DirectusClient _client;
-    private readonly string         _url;
+    private readonly string _url;
 
     // Field names Anythink reserves on every entity — never try to import these.
     private static readonly HashSet<string> ReservedTargetFieldNames =
@@ -30,9 +30,9 @@ public class DirectusImporter : IPlatformImporter
     private static readonly HashSet<string> IntegerKeyTypes =
         new(StringComparer.OrdinalIgnoreCase) { "integer", "bigInteger" };
 
-    public string PlatformName     => "Directus";
+    public string PlatformName => "Directus";
     public string ConnectionSummary => _url;
-    public string? SourceAuthToken  => _client.Token;
+    public string? SourceAuthToken => _client.Token;
     public string GetFileDownloadUrl(string sourceFileId) => _client.GetAssetUrl(sourceFileId);
 
     public DirectusImporter(string url, string token)
@@ -40,7 +40,7 @@ public class DirectusImporter : IPlatformImporter
 
     internal DirectusImporter(string url, DirectusClient client, bool redacted = false)
     {
-        _url    = redacted ? url : RedactUrl(url);
+        _url = redacted ? url : RedactUrl(url);
         _client = client;
     }
 
@@ -57,8 +57,8 @@ public class DirectusImporter : IPlatformImporter
     public async Task<ImportSchema> FetchSchemaAsync(bool includeFlows, bool includeFiles, bool includeRoles)
     {
         var collections = await _client.GetCollectionsAsync();
-        var allFields   = await _client.GetFieldsAsync();
-        var relations   = await _client.GetRelationsAsync();
+        var allFields = await _client.GetFieldsAsync();
+        var relations = await _client.GetRelationsAsync();
 
         // Hidden collections are kept: they are usually the junction tables behind many-to-many fields.
         var candidateCollections = collections
@@ -125,23 +125,23 @@ public class DirectusImporter : IPlatformImporter
                 }
 
                 return new ImportFieldSpec(
-                    Name:                  f.FieldName,
-                    DatabaseType:          db,
-                    DisplayType:           display,
-                    Label:                 f.FieldName.Replace("_", " "),
-                    IsRequired:            f.Meta?.Required ?? false,
-                    IsUnique:              f.Schema?.IsUnique ?? false,
-                    IsIndexed:             f.Schema?.IsIndexed ?? false,
-                    ForeignKeyCollection:  relatedCollection,
-                    IsFileField:           isFile,
-                    Relationship:          relationship);
+                    Name: f.FieldName,
+                    DatabaseType: db,
+                    DisplayType: display,
+                    Label: f.FieldName.Replace("_", " "),
+                    IsRequired: f.Meta?.Required ?? false,
+                    IsUnique: f.Schema?.IsUnique ?? false,
+                    IsIndexed: f.Schema?.IsIndexed ?? false,
+                    ForeignKeyCollection: relatedCollection,
+                    IsFileField: isFile,
+                    Relationship: relationship);
             }).ToList();
 
             return new ImportCollection(
-                Name:       col.Collection,
-                Fields:     fields,
+                Name: col.Collection,
+                Fields: fields,
                 IsJunction: col.Meta?.Hidden == true,
-                IsPublic:   publicCollections.Contains(col.Collection),
+                IsPublic: publicCollections.Contains(col.Collection),
                 DataUnsupportedReason: primaryKeyTypes.TryGetValue(col.Collection, out var pkType) &&
                                        !IntegerKeyTypes.Contains(pkType)
                     ? $"primary key type '{pkType}' is not supported; only integer ids can be imported"
@@ -162,9 +162,9 @@ public class DirectusImporter : IPlatformImporter
     private async Task<(List<ImportRole> Roles, HashSet<string> Public)> FetchRolesAndPublicAccessAsync(
         List<string> warnings)
     {
-        var roles       = await _client.GetRolesAsync();
-        var policies    = await _client.GetPoliciesAsync();
-        var accessRows  = await _client.GetAccessAsync();
+        var roles = await _client.GetRolesAsync();
+        var policies = await _client.GetPoliciesAsync();
+        var accessRows = await _client.GetAccessAsync();
         var permissions = await _client.GetPermissionsAsync();
 
         var adminPolicyIds = policies
@@ -236,8 +236,8 @@ public class DirectusImporter : IPlatformImporter
             }
 
             importRoles.Add(new ImportRole(
-                Name:                  role.Name,
-                Description:           role.Description,
+                Name: role.Name,
+                Description: role.Description,
                 CollectionPermissions: collPerms.OrderBy(p => p.Item1).ThenBy(p => p.Item2).ToList()));
         }
 
@@ -264,7 +264,7 @@ public class DirectusImporter : IPlatformImporter
     }
 
     private static bool IsKnownAction(string action) =>
-        action.Equals("read",   StringComparison.OrdinalIgnoreCase) ||
+        action.Equals("read", StringComparison.OrdinalIgnoreCase) ||
         action.Equals("create", StringComparison.OrdinalIgnoreCase) ||
         action.Equals("update", StringComparison.OrdinalIgnoreCase) ||
         action.Equals("delete", StringComparison.OrdinalIgnoreCase);
@@ -291,7 +291,7 @@ public class DirectusImporter : IPlatformImporter
 
     private async Task<List<ImportFlow>> FetchFlowsAsync()
     {
-        var flows      = await _client.GetFlowsAsync();
+        var flows = await _client.GetFlowsAsync();
         var operations = await _client.GetOperationsAsync();
 
         var opsByFlow = operations
@@ -303,7 +303,7 @@ public class DirectusImporter : IPlatformImporter
             .Select(flow =>
             {
                 var trigger = DirectusFlowMapping.MapTrigger(flow);
-                var ops     = opsByFlow.GetValueOrDefault(flow.Id) ?? [];
+                var ops = opsByFlow.GetValueOrDefault(flow.Id) ?? [];
 
                 // Directus links forward, so {{ $last }} needs the reverse edge to find its predecessor.
                 var predecessorByOpId = new Dictionary<string, string>(
@@ -331,26 +331,26 @@ public class DirectusImporter : IPlatformImporter
                         var (rewritten, hadUnresolved) = DirectusTemplateAdapter.AdaptElement(
                             t.Parameters, prevKey, knownStepKeys);
                         adaptedParams = rewritten;
-                        unresolved   = hadUnresolved;
+                        unresolved = hadUnresolved;
                     }
 
                     var needsReview = t.NeedsManualReview || unresolved;
-                    var reviewNote  = t.ReviewNote ??
+                    var reviewNote = t.ReviewNote ??
                         (unresolved ? "Template expression couldn't be auto-translated to Anythink syntax — review the script/payload." : null);
 
                     return new ImportStep(
-                        SourceId:          op.Id,
-                        Key:               op.Key,
-                        Name:              op.Name,
-                        Action:            t.Action,
-                        IsStartStep:       string.Equals(op.Id, flow.FirstOperation, StringComparison.OrdinalIgnoreCase),
-                        Description:       $"Imported from Directus ({op.Type})",
-                        Parameters:        adaptedParams,
+                        SourceId: op.Id,
+                        Key: op.Key,
+                        Name: op.Name,
+                        Action: t.Action,
+                        IsStartStep: string.Equals(op.Id, flow.FirstOperation, StringComparison.OrdinalIgnoreCase),
+                        Description: $"Imported from Directus ({op.Type})",
+                        Parameters: adaptedParams,
                         OnSuccessSourceId: op.Resolve,
                         OnFailureSourceId: op.Reject,
                         NeedsManualReview: needsReview,
-                        ReviewNote:        reviewNote,
-                        Enabled:           t.Enabled);
+                        ReviewNote: reviewNote,
+                        Enabled: t.Enabled);
                 }).ToList();
 
                 return new ImportFlow(flow.Name, new List<WorkflowTriggerRequest> { trigger }, steps);

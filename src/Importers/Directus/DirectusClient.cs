@@ -8,19 +8,19 @@ namespace AnythinkCli.Importers.Directus;
 public class DirectusClient
 {
     private readonly HttpClient _http;
-    private readonly string     _baseUrl;
+    private readonly string _baseUrl;
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNameCaseInsensitive = true,
-        DefaultIgnoreCondition      = JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
     public DirectusClient(string baseUrl, string token, HttpClient? http = null)
     {
         _baseUrl = baseUrl.TrimEnd('/');
-        Token    = token;
-        _http    = http ?? new HttpClient();
+        Token = token;
+        _http = http ?? new HttpClient();
         _http.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", token);
     }
@@ -85,7 +85,7 @@ public class DirectusClient
         var url = $"{_baseUrl}/items/{Uri.EscapeDataString(collection)}" +
                   $"?limit={pageSize}&page={page}&meta=total_count";
         var response = await _http.GetAsync(url);
-        var raw      = await response.Content.ReadAsStringAsync();
+        var raw = await response.Content.ReadAsStringAsync();
         if (!response.IsSuccessStatusCode)
             throw new AnythinkException(raw, (int)response.StatusCode);
 
@@ -113,7 +113,7 @@ public class DirectusClient
     private async Task<List<T>> FetchListAsync<T>(string path)
     {
         var response = await _http.GetAsync(_baseUrl + path);
-        var raw      = await response.Content.ReadAsStringAsync();
+        var raw = await response.Content.ReadAsStringAsync();
 
         if (!response.IsSuccessStatusCode)
             throw new AnythinkException(raw, (int)response.StatusCode);

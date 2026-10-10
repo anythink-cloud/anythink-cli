@@ -4,11 +4,11 @@ using AnythinkCli.Models;
 namespace AnythinkCli.Importers.Directus;
 
 public record FlowStepTranslation(
-    string       Action,
-    JsonElement  Parameters,
-    bool         NeedsManualReview,
-    string?      ReviewNote,
-    bool         Enabled = true
+    string Action,
+    JsonElement Parameters,
+    bool NeedsManualReview,
+    string? ReviewNote,
+    bool Enabled = true
 );
 
 public static class DirectusFlowMapping
@@ -20,47 +20,47 @@ public static class DirectusFlowMapping
         switch (flow.Trigger.ToLowerInvariant())
         {
             case "schedule":
-            {
-                var cron = "0 9 * * *";
-                if (opts.HasValue &&
-                    opts.Value.TryGetProperty("cron", out var cronEl) &&
-                    cronEl.ValueKind == JsonValueKind.String)
-                    cron = cronEl.GetString() ?? cron;
-                return new WorkflowTriggerRequest("Timed", true,
-                    new WorkflowTriggerConfig(CronExpression: cron));
-            }
-
-            case "event":
-            {
-                // Directus event options: { scope: ["items.create"], collections: ["articles"] }
-                var entity    = "";
-                var eventName = "EntityCreated";
-
-                if (opts.HasValue)
                 {
-                    if (opts.Value.TryGetProperty("collections", out var colsEl) &&
-                        colsEl.ValueKind == JsonValueKind.Array &&
-                        colsEl.GetArrayLength() > 0)
-                        entity = colsEl[0].GetString() ?? "";
-
-                    if (opts.Value.TryGetProperty("scope", out var scopeEl) &&
-                        scopeEl.ValueKind == JsonValueKind.Array &&
-                        scopeEl.GetArrayLength() > 0)
-                    {
-                        var scope = scopeEl[0].GetString() ?? "";
-                        eventName = scope switch
-                        {
-                            "items.create" => "EntityCreated",
-                            "items.update" => "EntityUpdated",
-                            "items.delete" => "EntityDeleted",
-                            _              => "EntityCreated"
-                        };
-                    }
+                    var cron = "0 9 * * *";
+                    if (opts.HasValue &&
+                        opts.Value.TryGetProperty("cron", out var cronEl) &&
+                        cronEl.ValueKind == JsonValueKind.String)
+                        cron = cronEl.GetString() ?? cron;
+                    return new WorkflowTriggerRequest("Timed", true,
+                        new WorkflowTriggerConfig(CronExpression: cron));
                 }
 
-                return new WorkflowTriggerRequest("Event", true,
-                    new WorkflowTriggerConfig(Event: eventName, EventEntity: entity));
-            }
+            case "event":
+                {
+                    // Directus event options: { scope: ["items.create"], collections: ["articles"] }
+                    var entity = "";
+                    var eventName = "EntityCreated";
+
+                    if (opts.HasValue)
+                    {
+                        if (opts.Value.TryGetProperty("collections", out var colsEl) &&
+                            colsEl.ValueKind == JsonValueKind.Array &&
+                            colsEl.GetArrayLength() > 0)
+                            entity = colsEl[0].GetString() ?? "";
+
+                        if (opts.Value.TryGetProperty("scope", out var scopeEl) &&
+                            scopeEl.ValueKind == JsonValueKind.Array &&
+                            scopeEl.GetArrayLength() > 0)
+                        {
+                            var scope = scopeEl[0].GetString() ?? "";
+                            eventName = scope switch
+                            {
+                                "items.create" => "EntityCreated",
+                                "items.update" => "EntityUpdated",
+                                "items.delete" => "EntityDeleted",
+                                _ => "EntityCreated"
+                            };
+                        }
+                    }
+
+                    return new WorkflowTriggerRequest("Event", true,
+                        new WorkflowTriggerConfig(Event: eventName, EventEntity: entity));
+                }
 
             case "webhook":
                 // Api triggers need a route and Directus webhooks have none, so derive it from the flow name.
@@ -81,21 +81,21 @@ public static class DirectusFlowMapping
 
         return type switch
         {
-            "log"          => TranslateLog(opts),
-            "mail"         => TranslateMail(opts),
+            "log" => TranslateLog(opts),
+            "mail" => TranslateMail(opts),
             "notification" => TranslateNotification(opts),
-            "request"      => TranslateRequest(opts),
-            "webhook"      => TranslateRequest(opts),
-            "item-create"  => TranslateItemCreate(opts),
-            "item-read"    => TranslateItemRead(opts),
-            "item-update"  => TranslateItemUpdate(opts),
-            "item-delete"  => TranslateItemDelete(opts),
-            "condition"    => TranslateCondition(opts),
-            "transform"    => TranslateTransform(opts),
-            "exec-script"  => TranslateExecScript(opts),
-            "trigger"      => TranslateTrigger(opts),
-            "sleep"        => TranslateSleep(opts),
-            _              => Fallback("RunScript", opts,
+            "request" => TranslateRequest(opts),
+            "webhook" => TranslateRequest(opts),
+            "item-create" => TranslateItemCreate(opts),
+            "item-read" => TranslateItemRead(opts),
+            "item-update" => TranslateItemUpdate(opts),
+            "item-delete" => TranslateItemDelete(opts),
+            "condition" => TranslateCondition(opts),
+            "transform" => TranslateTransform(opts),
+            "exec-script" => TranslateExecScript(opts),
+            "trigger" => TranslateTrigger(opts),
+            "sleep" => TranslateSleep(opts),
+            _ => Fallback("RunScript", opts,
                                   $"Directus operation type '{op.Type}' has no Anythink equivalent — review the auto-generated script.")
         };
     }
@@ -105,28 +105,28 @@ public static class DirectusFlowMapping
     private static FlowStepTranslation TranslateLog(JsonElement? opts)
     {
         var message = TryGetString(opts, "message") ?? "(no message)";
-        var script  = $"console.log({JsonSerializer.Serialize(message)});";
-        var review  = ContainsMustache(message);
+        var script = $"console.log({JsonSerializer.Serialize(message)});";
+        var review = ContainsMustache(message);
         return new FlowStepTranslation(
-            Action:            "RunScript",
-            Parameters:        Json(new { script }),
+            Action: "RunScript",
+            Parameters: Json(new { script }),
             NeedsManualReview: review,
-            ReviewNote:        review ? "Log message contains Directus templating ({{...}}) — adapt to Anythink's expression syntax." : null);
+            ReviewNote: review ? "Log message contains Directus templating ({{...}}) — adapt to Anythink's expression syntax." : null);
     }
 
     private static FlowStepTranslation TranslateMail(JsonElement? opts)
     {
         // Directus 'to' may be a string OR a string[]. Anythink wants a string.
-        var to       = FlattenToList(opts, "to") ?? "";
-        var subject  = TryGetString(opts, "subject") ?? "";
-        var body     = TryGetString(opts, "body")    ?? "";
+        var to = FlattenToList(opts, "to") ?? "";
+        var subject = TryGetString(opts, "subject") ?? "";
+        var body = TryGetString(opts, "body") ?? "";
 
-        var payload  = JsonSerializer.Serialize(new { subject, body });
+        var payload = JsonSerializer.Serialize(new { subject, body });
         return new FlowStepTranslation(
-            Action:            "SendAnEmail",
-            Parameters:        Json(new { to, template_type = "Custom", payload }),
+            Action: "SendAnEmail",
+            Parameters: Json(new { to, template_type = "Custom", payload }),
             NeedsManualReview: ContainsMustache(subject) || ContainsMustache(body),
-            ReviewNote:        "Body/subject mapped to a Custom template — confirm template_type aligns with your Anythink email setup.");
+            ReviewNote: "Body/subject mapped to a Custom template — confirm template_type aligns with your Anythink email setup.");
     }
 
     private static FlowStepTranslation TranslateNotification(JsonElement? opts) =>
@@ -135,9 +135,9 @@ public static class DirectusFlowMapping
 
     private static FlowStepTranslation TranslateRequest(JsonElement? opts)
     {
-        var url    = TryGetString(opts, "url")    ?? "";
+        var url = TryGetString(opts, "url") ?? "";
         var method = (TryGetString(opts, "method") ?? "GET").ToUpperInvariant();
-        var body   = TryGetString(opts, "body");
+        var body = TryGetString(opts, "body");
 
         // Directus headers can be either [{"header":"X","value":"Y"}] or {"X":"Y"}.
         Dictionary<string, string>? headers = null;
@@ -150,7 +150,7 @@ public static class DirectusFlowMapping
         var (safeUrl, urlRedacted) = RedactUrl(url);
         var node = new System.Text.Json.Nodes.JsonObject
         {
-            ["url"]    = safeUrl,
+            ["url"] = safeUrl,
             ["method"] = method,
         };
         var redacted = urlRedacted;
@@ -173,10 +173,10 @@ public static class DirectusFlowMapping
         }
 
         return new FlowStepTranslation(
-            Action:            "CallAnApi",
-            Parameters:        JsonSerializer.SerializeToElement(node),
+            Action: "CallAnApi",
+            Parameters: JsonSerializer.SerializeToElement(node),
             NeedsManualReview: redacted || ContainsMustache(url) || (body != null && ContainsMustache(body)),
-            ReviewNote:        redacted
+            ReviewNote: redacted
                 ? "Credentials in the URL, headers or body were replaced with a placeholder — store the real value as an Anythink secret and reference it."
                 : null);
     }
@@ -186,39 +186,39 @@ public static class DirectusFlowMapping
         var collection = TryGetString(opts, "collection") ?? "";
         var payloadStr = StringifyPayload(opts, "payload");
         return new FlowStepTranslation(
-            Action:            "CreateData",
-            Parameters:        Json(new { entity_name = collection, payload = payloadStr }),
+            Action: "CreateData",
+            Parameters: Json(new { entity_name = collection, payload = payloadStr }),
             NeedsManualReview: ContainsMustache(payloadStr),
-            ReviewNote:        null);
+            ReviewNote: null);
     }
 
     private static FlowStepTranslation TranslateItemRead(JsonElement? opts)
     {
         var collection = TryGetString(opts, "collection") ?? "";
         return new FlowStepTranslation(
-            Action:            "ReadData",
-            Parameters:        Json(new { entity = collection }),
+            Action: "ReadData",
+            Parameters: Json(new { entity = collection }),
             NeedsManualReview: true,
-            ReviewNote:        "Directus 'item-read' query filters aren't auto-translated — set filter_conditions / limit / fields on the Anythink side.");
+            ReviewNote: "Directus 'item-read' query filters aren't auto-translated — set filter_conditions / limit / fields on the Anythink side.");
     }
 
     private static FlowStepTranslation TranslateItemUpdate(JsonElement? opts)
     {
         var collection = TryGetString(opts, "collection") ?? "";
-        var key        = TryGetString(opts, "key");
+        var key = TryGetString(opts, "key");
         var payloadStr = StringifyPayload(opts, "payload");
-        var ids        = key ?? "";
+        var ids = key ?? "";
         return new FlowStepTranslation(
-            Action:            "UpdateData",
-            Parameters:        Json(new { entity_name = collection, ids, payload = payloadStr }),
+            Action: "UpdateData",
+            Parameters: Json(new { entity_name = collection, ids, payload = payloadStr }),
             NeedsManualReview: ContainsMustache(payloadStr) || ContainsMustache(ids),
-            ReviewNote:        null);
+            ReviewNote: null);
     }
 
     private static FlowStepTranslation TranslateItemDelete(JsonElement? opts)
     {
         var collection = TryGetString(opts, "collection") ?? "";
-        var rawKey     = opts.HasValue && opts.Value.ValueKind == JsonValueKind.Object &&
+        var rawKey = opts.HasValue && opts.Value.ValueKind == JsonValueKind.Object &&
                          opts.Value.TryGetProperty("key", out var el) ? el.GetRawText() : null;
         if (ContainsMustache(rawKey))
             return UntranslatedDelete(collection,
@@ -233,23 +233,23 @@ public static class DirectusFlowMapping
         var value = keys.Count == 1 ? keys[0] : "IN:" + string.Join(",", keys);
         var filter = new[] { new { field = "id", @operator = "eq", value } };
         return new FlowStepTranslation(
-            Action:            "DeleteData",
-            Parameters:        Json(new { entity_name = collection, filter_conditions = filter }),
+            Action: "DeleteData",
+            Parameters: Json(new { entity_name = collection, filter_conditions = filter }),
             NeedsManualReview: true,
-            ReviewNote:        $"Deletes '{collection}' rows with hard-coded id(s) {string.Join(", ", keys)} — confirm this is intended.");
+            ReviewNote: $"Deletes '{collection}' rows with hard-coded id(s) {string.Join(", ", keys)} — confirm this is intended.");
     }
 
     private static FlowStepTranslation UntranslatedDelete(string collection, string? note = null)
     {
-        var name   = collection.Length > 0 && collection.All(c => char.IsAsciiLetterOrDigit(c) || c == '_')
+        var name = collection.Length > 0 && collection.All(c => char.IsAsciiLetterOrDigit(c) || c == '_')
             ? collection : "(unknown)";
         var script = $"// Directus item-delete on '{name}' could not be translated safely — no delete was created.";
         return new FlowStepTranslation(
-            Action:            "RunScript",
-            Parameters:        Json(new { script }),
+            Action: "RunScript",
+            Parameters: Json(new { script }),
             NeedsManualReview: true,
-            ReviewNote:        (note ?? "Directus 'item-delete' without a plain key can't be mapped to a filtered delete — rebuild it by hand.") + " Left disabled.",
-            Enabled:           false);
+            ReviewNote: (note ?? "Directus 'item-delete' without a plain key can't be mapped to a filtered delete — rebuild it by hand.") + " Left disabled.",
+            Enabled: false);
     }
 
     private static List<string>? ReadDeleteKeys(JsonElement? opts)
@@ -273,29 +273,29 @@ public static class DirectusFlowMapping
     }
 
     private static FlowStepTranslation TranslateCondition(JsonElement? opts) =>
-        new(Action:            "Condition",
-            Parameters:        Json(new { filter_conditions = Array.Empty<object>(), logical_operator = "AND" }),
+        new(Action: "Condition",
+            Parameters: Json(new { filter_conditions = Array.Empty<object>(), logical_operator = "AND" }),
             NeedsManualReview: true,
-            ReviewNote:        "Directus filter expression isn't auto-translated — rewrite as Anythink FilterConditions.");
+            ReviewNote: "Directus filter expression isn't auto-translated — rewrite as Anythink FilterConditions.");
 
     private static FlowStepTranslation TranslateTransform(JsonElement? opts)
     {
         var code = TryGetString(opts, "json") ?? "// Directus transform — replace with your logic";
         return new FlowStepTranslation(
-            Action:            "RunScript",
-            Parameters:        Json(new { script = code }),
+            Action: "RunScript",
+            Parameters: Json(new { script = code }),
             NeedsManualReview: true,
-            ReviewNote:        "Directus 'transform' templating syntax may differ from Anythink's script runtime — review the script body.");
+            ReviewNote: "Directus 'transform' templating syntax may differ from Anythink's script runtime — review the script body.");
     }
 
     private static FlowStepTranslation TranslateExecScript(JsonElement? opts)
     {
         var code = TryGetString(opts, "code") ?? "// (no code)";
         return new FlowStepTranslation(
-            Action:            "RunScript",
-            Parameters:        Json(new { script = code }),
+            Action: "RunScript",
+            Parameters: Json(new { script = code }),
             NeedsManualReview: true,
-            ReviewNote:        "Directus 'exec-script' code preserved verbatim — Directus and Anythink JS runtimes differ; verify it runs.");
+            ReviewNote: "Directus 'exec-script' code preserved verbatim — Directus and Anythink JS runtimes differ; verify it runs.");
     }
 
     private static FlowStepTranslation TranslateTrigger(JsonElement? opts)
@@ -303,10 +303,10 @@ public static class DirectusFlowMapping
         var flowRef = TryGetString(opts, "flow") ?? "";
         var payload = StringifyPayload(opts, "payload");
         return new FlowStepTranslation(
-            Action:            "SendACommand",
-            Parameters:        Json(new { queue_name = flowRef, payload }),
+            Action: "SendACommand",
+            Parameters: Json(new { queue_name = flowRef, payload }),
             NeedsManualReview: true,
-            ReviewNote:        "Directus 'trigger' uses a flow UUID; map queue_name to the matching Anythink workflow / command queue.");
+            ReviewNote: "Directus 'trigger' uses a flow UUID; map queue_name to the matching Anythink workflow / command queue.");
     }
 
     private static FlowStepTranslation TranslateSleep(JsonElement? opts)
@@ -319,17 +319,17 @@ public static class DirectusFlowMapping
 
         var script = $"// TODO: Anythink has no Delay action — original Directus sleep was {ms}ms";
         return new FlowStepTranslation(
-            Action:            "RunScript",
-            Parameters:        Json(new { script }),
+            Action: "RunScript",
+            Parameters: Json(new { script }),
             NeedsManualReview: true,
-            ReviewNote:        "Anythink has no Delay action — replace with a scheduled trigger or external queue.");
+            ReviewNote: "Anythink has no Delay action — replace with a scheduled trigger or external queue.");
     }
 
     private static FlowStepTranslation Fallback(string action, JsonElement? opts, string note) =>
-        new(Action:            action,
-            Parameters:        opts.HasValue ? opts.Value : Json(new { }),
+        new(Action: action,
+            Parameters: opts.HasValue ? opts.Value : Json(new { }),
             NeedsManualReview: true,
-            ReviewNote:        note);
+            ReviewNote: note);
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -386,7 +386,7 @@ public static class DirectusFlowMapping
             {
                 if (item.ValueKind != JsonValueKind.Object) continue;
                 var k = item.TryGetProperty("header", out var h) ? h.GetString() : null;
-                var v = item.TryGetProperty("value",  out var vv) ? vv.GetString() : null;
+                var v = item.TryGetProperty("value", out var vv) ? vv.GetString() : null;
                 if (!string.IsNullOrEmpty(k) && v is not null) dict[k!] = v;
             }
         }

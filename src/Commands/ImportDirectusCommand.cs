@@ -58,20 +58,20 @@ public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
     {
         try
         {
-            var url         = ValidateUrl(settings.Url, settings.AllowInsecure);
+            var url = ValidateUrl(settings.Url, settings.AllowInsecure);
             var interactive = IsInteractive();
             RequireConfirmationMode(settings.DryRun, settings.Yes, interactive);
             var token = ResolveToken(settings.Token, Environment.GetEnvironmentVariable(TokenEnvVar), interactive,
                 () => AnsiConsole.Prompt(new TextPrompt<string>("Directus token:").Secret()));
 
             var importer = new DirectusImporter(url, token);
-            var target   = settings.To is not null ? GetClientForProfile(settings.To) : GetClient();
+            var target = settings.To is not null ? GetClientForProfile(settings.To) : GetClient();
 
             var runner = new ImportRunner(importer, target,
                 new ImportOptions(
-                    DryRun:       settings.DryRun,
+                    DryRun: settings.DryRun,
                     IncludeFlows: settings.IncludeFlows,
-                    IncludeData:  settings.IncludeData,
+                    IncludeData: settings.IncludeData,
                     IncludeFiles: settings.IncludeFiles,
                     IncludeRoles: settings.IncludeRoles,
                     RequireConfirmation: !settings.DryRun && !settings.Yes));

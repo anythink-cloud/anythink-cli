@@ -9,13 +9,13 @@ public class DirectusImporterTests
 
     private static StubHttpHandler Directus(
         string collections = """{"data":[]}""",
-        string fields      = """{"data":[]}""",
-        string roles       = """{"data":[]}""",
-        string policies    = """{"data":[]}""",
-        string access      = """{"data":[]}""",
+        string fields = """{"data":[]}""",
+        string roles = """{"data":[]}""",
+        string policies = """{"data":[]}""",
+        string access = """{"data":[]}""",
         string permissions = """{"data":[]}""",
-        string flows       = """{"data":[]}""",
-        string operations  = """{"data":[]}""") =>
+        string flows = """{"data":[]}""",
+        string operations = """{"data":[]}""") =>
         new StubHttpHandler()
             .On("/collections?limit=-1", collections)
             .On("/fields?limit=-1", fields)
@@ -69,9 +69,9 @@ public class DirectusImporterTests
     {
         var handler = Directus(
             collections: $$"""{"data":[{{Collection("articles")}}]}""",
-            roles:       """{"data":[{"id":"r1","name":"Service"}]}""",
-            policies:    $$"""{"data":[{{Policy("api-only")}}]}""",
-            access:      $$"""{"data":[{{Access("api-only", role: "r1")}}]}""",
+            roles: """{"data":[{"id":"r1","name":"Service"}]}""",
+            policies: $$"""{"data":[{{Policy("api-only")}}]}""",
+            access: $$"""{"data":[{{Access("api-only", role: "r1")}}]}""",
             permissions: $$"""{"data":[{{Perm("api-only", "articles")}}]}""");
 
         var schema = await Importer(handler).FetchSchemaAsync(false, false, includeRoles: true);
@@ -85,8 +85,8 @@ public class DirectusImporterTests
     {
         var handler = Directus(
             collections: $$"""{"data":[{{Collection("articles")}},{{Collection("secrets")}}]}""",
-            policies:    $$"""{"data":[{{Policy("public")}}]}""",
-            access:      $$"""{"data":[{{Access("public")}}]}""",
+            policies: $$"""{"data":[{{Policy("public")}}]}""",
+            access: $$"""{"data":[{{Access("public")}}]}""",
             permissions: $$"""{"data":[{{Perm("public", "articles")}}]}""");
 
         var schema = await Importer(handler).FetchSchemaAsync(false, false, includeRoles: true);
@@ -100,7 +100,7 @@ public class DirectusImporterTests
     {
         var handler = Directus(
             collections: $$"""{"data":[{{Collection("articles")}}]}""",
-            policies:    $$"""{"data":[{{Policy("p1")}}]}""",
+            policies: $$"""{"data":[{{Policy("p1")}}]}""",
             permissions: $$"""{"data":[{{Perm("p1", "articles")}}]}""");
 
         var schema = await Importer(handler).FetchSchemaAsync(false, false, includeRoles: true);
@@ -113,8 +113,8 @@ public class DirectusImporterTests
     {
         var handler = Directus(
             collections: $$"""{"data":[{{Collection("articles")}}]}""",
-            policies:    $$"""{"data":[{{Policy("p1")}}]}""",
-            access:      $$"""{"data":[{{Access("p1", user: "u1")}}]}""",
+            policies: $$"""{"data":[{{Policy("p1")}}]}""",
+            access: $$"""{"data":[{{Access("p1", user: "u1")}}]}""",
             permissions: $$"""{"data":[{{Perm("p1", "articles")}}]}""");
 
         var schema = await Importer(handler).FetchSchemaAsync(false, false, includeRoles: true);
@@ -127,8 +127,8 @@ public class DirectusImporterTests
     {
         var handler = Directus(
             collections: $$"""{"data":[{{Collection("articles")}}]}""",
-            policies:    $$"""{"data":[{{Policy("root", admin: true)}}]}""",
-            access:      $$"""{"data":[{{Access("root")}}]}""",
+            policies: $$"""{"data":[{{Policy("root", admin: true)}}]}""",
+            access: $$"""{"data":[{{Access("root")}}]}""",
             permissions: $$"""{"data":[{{Perm("root", "articles")}}]}""");
 
         var schema = await Importer(handler).FetchSchemaAsync(false, false, includeRoles: true);
@@ -143,8 +143,8 @@ public class DirectusImporterTests
     {
         var handler = Directus(
             collections: $$"""{"data":[{{Collection("articles")}}]}""",
-            policies:    $$"""{"data":[{{Policy("public")}}]}""",
-            access:      $$"""{"data":[{{Access("public")}}]}""",
+            policies: $$"""{"data":[{{Policy("public")}}]}""",
+            access: $$"""{"data":[{{Access("public")}}]}""",
             permissions: $$"""{"data":[{{Perm("public", "articles", filter: """{"status":{"_eq":"published"}}""")}}]}""");
 
         var schema = await Importer(handler).FetchSchemaAsync(false, false, includeRoles: true);
@@ -158,9 +158,9 @@ public class DirectusImporterTests
     {
         var handler = Directus(
             collections: $$"""{"data":[{{Collection("articles")}}]}""",
-            roles:       """{"data":[{"id":"r1","name":"Editor"}]}""",
-            policies:    $$"""{"data":[{{Policy("p1", app: true)}}]}""",
-            access:      $$"""{"data":[{{Access("p1", role: "r1")}}]}""",
+            roles: """{"data":[{"id":"r1","name":"Editor"}]}""",
+            policies: $$"""{"data":[{{Policy("p1", app: true)}}]}""",
+            access: $$"""{"data":[{{Access("p1", role: "r1")}}]}""",
             permissions: $$"""{"data":[{{Perm("p1", "articles", "read", fields: """["title"]""")}},{{Perm("p1", "articles", "update")}}]}""");
 
         var schema = await Importer(handler).FetchSchemaAsync(false, false, includeRoles: true);
@@ -208,7 +208,7 @@ public class DirectusImporterTests
     {
         var handler = Directus(
             collections: $$"""{"data":[{{Collection("articles")}}]}""",
-            fields:      $$"""{"data":[{{Pk("articles", pkType)}}]}""");
+            fields: $$"""{"data":[{{Pk("articles", pkType)}}]}""");
 
         var schema = await Importer(handler).FetchSchemaAsync(false, false, false);
 
@@ -251,9 +251,9 @@ public class DirectusImporterTests
     {
         var handler = Directus(
             collections: $$"""{"data":[{{Collection("articles")}}]}""",
-            roles:       """{"data":[{"id":"r1","name":"Editors [beta]"}]}""",
-            policies:    $$"""{"data":[{{Policy("p1", app: true)}}]}""",
-            access:      $$"""{"data":[{{Access("p1", role: "r1")}}]}""");
+            roles: """{"data":[{"id":"r1","name":"Editors [beta]"}]}""",
+            policies: $$"""{"data":[{{Policy("p1", app: true)}}]}""",
+            access: $$"""{"data":[{{Access("p1", role: "r1")}}]}""");
 
         var schema = await Importer(handler).FetchSchemaAsync(false, false, includeRoles: true);
 

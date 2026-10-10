@@ -114,8 +114,8 @@ public class DirectusTemplateAdapterTests
     // ── Unsupported expressions ──────────────────────────────────────────────
 
     [Theory]
-    [InlineData("{{ $env.SOME_VAR }}",          "{ { $env.SOME_VAR }} ")]
-    [InlineData("{{ $accountability.user }}",   "{ { $accountability.user }} ")]
+    [InlineData("{{ $env.SOME_VAR }}", "{ { $env.SOME_VAR }} ")]
+    [InlineData("{{ $accountability.user }}", "{ { $accountability.user }} ")]
     public void Unsupported_Heads_Are_Neutered_And_Flagged(string template, string expected)
     {
         var (adapted, unresolved) = DirectusTemplateAdapter.Adapt(template, null, NoSteps);
@@ -179,7 +179,7 @@ public class DirectusTemplateAdapterTests
         var input = JsonSerializer.SerializeToElement(new
         {
             script = "console.log(\"{{ $trigger.payload.title }}\");",
-            url    = "https://api.example.com/{{ $trigger.payload.slug }}"
+            url = "https://api.example.com/{{ $trigger.payload.slug }}"
         });
 
         var (adapted, unresolved) = DirectusTemplateAdapter.AdaptElement(input, null, NoSteps);
@@ -197,7 +197,7 @@ public class DirectusTemplateAdapterTests
         var input = JsonSerializer.SerializeToElement(new
         {
             headers = new { authorization = "Bearer {{ $trigger.payload.token }}" },
-            tags    = new[] { "{{ $trigger.payload.tag }}" }
+            tags = new[] { "{{ $trigger.payload.tag }}" }
         });
 
         var (adapted, _) = DirectusTemplateAdapter.AdaptElement(input, null, NoSteps);
@@ -213,7 +213,7 @@ public class DirectusTemplateAdapterTests
     {
         var input = JsonSerializer.SerializeToElement(new
         {
-            ok  = "{{ $trigger.payload.title }}",
+            ok = "{{ $trigger.payload.title }}",
             bad = "{{ $env.SECRET }}"
         });
 
@@ -227,9 +227,9 @@ public class DirectusTemplateAdapterTests
     {
         var input = JsonSerializer.SerializeToElement(new
         {
-            view_count  = 42,
+            view_count = 42,
             is_featured = true,
-            tag         = "{{ $trigger.payload.tag }}"
+            tag = "{{ $trigger.payload.tag }}"
         });
 
         var (adapted, _) = DirectusTemplateAdapter.AdaptElement(input, null, NoSteps);

@@ -88,8 +88,8 @@ public class ImportDirectusCommandTests
     }
 
     [Theory]
-    [InlineData(true,  false, false)]
-    [InlineData(false, true,  false)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
     [InlineData(false, false, true)]
     public void Dry_Run_Yes_Or_An_Interactive_Session_Are_Allowed(bool dryRun, bool yes, bool interactive)
     {

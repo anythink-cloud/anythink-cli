@@ -36,7 +36,7 @@ public class ImportRunnerTopoSortTests
 
         var ordered = ImportRunner.TopoSortCollections(input);
 
-        IndexOf(ordered, "authors")   .Should().BeLessThan(IndexOf(ordered, "articles"));
+        IndexOf(ordered, "authors").Should().BeLessThan(IndexOf(ordered, "articles"));
         IndexOf(ordered, "categories").Should().BeLessThan(IndexOf(ordered, "articles"));
     }
 
@@ -55,9 +55,9 @@ public class ImportRunnerTopoSortTests
 
         var ordered = ImportRunner.TopoSortCollections(input);
 
-        IndexOf(ordered, "authors")   .Should().BeLessThan(IndexOf(ordered, "articles"));
+        IndexOf(ordered, "authors").Should().BeLessThan(IndexOf(ordered, "articles"));
         IndexOf(ordered, "categories").Should().BeLessThan(IndexOf(ordered, "articles"));
-        IndexOf(ordered, "articles")  .Should().BeLessThan(IndexOf(ordered, "comments"));
+        IndexOf(ordered, "articles").Should().BeLessThan(IndexOf(ordered, "comments"));
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public class ImportRunnerTopoSortTests
         var ordered = ImportRunner.TopoSortCollections(input);
 
         IndexOf(ordered, "articles").Should().BeLessThan(IndexOf(ordered, "articles_tags"));
-        IndexOf(ordered, "tags")    .Should().BeLessThan(IndexOf(ordered, "articles_tags"));
+        IndexOf(ordered, "tags").Should().BeLessThan(IndexOf(ordered, "articles_tags"));
     }
 
     [Fact]

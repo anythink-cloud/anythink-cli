@@ -114,9 +114,9 @@ public record Workflow(
 );
 
 public record WorkflowTrigger(
-    [property: JsonPropertyName("type")]    string                 Type,
-    [property: JsonPropertyName("enabled")] bool                   Enabled,
-    [property: JsonPropertyName("config")]  WorkflowTriggerConfig? Config = null
+    [property: JsonPropertyName("type")] string Type,
+    [property: JsonPropertyName("enabled")] bool Enabled,
+    [property: JsonPropertyName("config")] WorkflowTriggerConfig? Config = null
 );
 
 public record WorkflowJob(
@@ -152,25 +152,25 @@ public record WorkflowStep(
 );
 
 public record CreateWorkflowRequest(
-    [property: JsonPropertyName("name")]         string                       Name,
-    [property: JsonPropertyName("description")]  string?                      Description,
-    [property: JsonPropertyName("enabled")]      bool                         Enabled,
-    [property: JsonPropertyName("triggers")]     List<WorkflowTriggerRequest> Triggers
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("description")] string? Description,
+    [property: JsonPropertyName("enabled")] bool Enabled,
+    [property: JsonPropertyName("triggers")] List<WorkflowTriggerRequest> Triggers
 );
 
 public record WorkflowTriggerRequest(
-    [property: JsonPropertyName("type")]    string                 Type,    // Event | Timed | Manual | Api
-    [property: JsonPropertyName("enabled")] bool                   Enabled,
-    [property: JsonPropertyName("config")]  WorkflowTriggerConfig  Config
+    [property: JsonPropertyName("type")] string Type,    // Event | Timed | Manual | Api
+    [property: JsonPropertyName("enabled")] bool Enabled,
+    [property: JsonPropertyName("config")] WorkflowTriggerConfig Config
 );
 
 public record WorkflowTriggerConfig(
-    [property: JsonPropertyName("event")]           string?  Event           = null,   // EntityCreated/Updated/Deleted
-    [property: JsonPropertyName("event_entity")]    string?  EventEntity     = null,
+    [property: JsonPropertyName("event")] string? Event = null,   // EntityCreated/Updated/Deleted
+    [property: JsonPropertyName("event_entity")] string? EventEntity = null,
     [property: JsonPropertyName("manual_entities")] List<string>? ManualEntities = null,
-    [property: JsonPropertyName("cron_expression")] string?  CronExpression  = null,
-    [property: JsonPropertyName("api_route")]       string?  ApiRoute        = null,
-    [property: JsonPropertyName("filter")]          System.Text.Json.JsonElement? Filter = null
+    [property: JsonPropertyName("cron_expression")] string? CronExpression = null,
+    [property: JsonPropertyName("api_route")] string? ApiRoute = null,
+    [property: JsonPropertyName("filter")] System.Text.Json.JsonElement? Filter = null
 );
 
 public record CreateWorkflowStepRequest(
@@ -190,14 +190,14 @@ public record UpdateWorkflowRequest(
 
 // The step endpoint is a full replace: any field left out is nulled on the stored row.
 public record UpdateWorkflowStepRequest(
-    [property: JsonPropertyName("name")]               string                        Name,
-    [property: JsonPropertyName("description")]        string?                       Description,
-    [property: JsonPropertyName("enabled")]            bool                          Enabled,
-    [property: JsonPropertyName("action")]             string                        Action,
-    [property: JsonPropertyName("parameters")]         System.Text.Json.JsonElement? Parameters,
-    [property: JsonPropertyName("is_start_step")]      bool                          IsStartStep,
-    [property: JsonPropertyName("on_success_step_id")] int?                          OnSuccessStepId,
-    [property: JsonPropertyName("on_failure_step_id")] int?                          OnFailureStepId
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("description")] string? Description,
+    [property: JsonPropertyName("enabled")] bool Enabled,
+    [property: JsonPropertyName("action")] string Action,
+    [property: JsonPropertyName("parameters")] System.Text.Json.JsonElement? Parameters,
+    [property: JsonPropertyName("is_start_step")] bool IsStartStep,
+    [property: JsonPropertyName("on_success_step_id")] int? OnSuccessStepId,
+    [property: JsonPropertyName("on_failure_step_id")] int? OnFailureStepId
 );
 
 // Used internally to avoid C# 'event' keyword conflict in anonymous types
@@ -210,87 +210,87 @@ public record EventWorkflowOptions(
 // ── API Keys ─────────────────────────────────────────────────────────────────
 
 public record ApiKeyResponse(
-    [property: JsonPropertyName("id")]          int              Id,
-    [property: JsonPropertyName("user_id")]     int              UserId,
-    [property: JsonPropertyName("name")]        string           Name,
-    [property: JsonPropertyName("key")]         string           Key,
-    [property: JsonPropertyName("expires_at")]  DateTime         ExpiresAt,
-    [property: JsonPropertyName("revoked")]     bool             Revoked,
+    [property: JsonPropertyName("id")] int Id,
+    [property: JsonPropertyName("user_id")] int UserId,
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("key")] string Key,
+    [property: JsonPropertyName("expires_at")] DateTime ExpiresAt,
+    [property: JsonPropertyName("revoked")] bool Revoked,
     [property: JsonPropertyName("permissions")] List<Permission> Permissions,
-    [property: JsonPropertyName("created_at")]  DateTime?        CreatedAt = null
+    [property: JsonPropertyName("created_at")] DateTime? CreatedAt = null
 );
 
 public record CreateApiKeyRequest(
-    [property: JsonPropertyName("name")]              string    Name,
-    [property: JsonPropertyName("expires_in_days")]   int       ExpiresInDays,
-    [property: JsonPropertyName("permission_ids")]    List<int> PermissionIds
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("expires_in_days")] int ExpiresInDays,
+    [property: JsonPropertyName("permission_ids")] List<int> PermissionIds
 );
 
 // ── Integrations ─────────────────────────────────────────────────────────────
 
 public record IntegrationOperation(
-    [property: JsonPropertyName("key")]           string                          Key,
-    [property: JsonPropertyName("display_name")]  string                          DisplayName,
-    [property: JsonPropertyName("description")]   string                          Description,
-    [property: JsonPropertyName("input_schema")]  System.Text.Json.JsonElement?   InputSchema = null,
-    [property: JsonPropertyName("output_schema")] System.Text.Json.JsonElement?   OutputSchema = null
+    [property: JsonPropertyName("key")] string Key,
+    [property: JsonPropertyName("display_name")] string DisplayName,
+    [property: JsonPropertyName("description")] string Description,
+    [property: JsonPropertyName("input_schema")] System.Text.Json.JsonElement? InputSchema = null,
+    [property: JsonPropertyName("output_schema")] System.Text.Json.JsonElement? OutputSchema = null
 );
 
 public record IntegrationDefinition(
-    [property: JsonPropertyName("id")]              string                     Id,
-    [property: JsonPropertyName("provider")]        string                     Provider,
-    [property: JsonPropertyName("parent_provider")] string?                    ParentProvider,
-    [property: JsonPropertyName("display_name")]   string                     DisplayName,
-    [property: JsonPropertyName("description")]     string                     Description,
-    [property: JsonPropertyName("icon")]            string?                    Icon,
-    [property: JsonPropertyName("category")]        string                     Category,
-    [property: JsonPropertyName("operations")]      List<IntegrationOperation> Operations,
-    [property: JsonPropertyName("auth_type")]      string                     AuthType,
-    [property: JsonPropertyName("is_enabled")]     bool                       IsEnabled,
-    [property: JsonPropertyName("can_social_sign_in")] bool                   CanSocialSignIn
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("provider")] string Provider,
+    [property: JsonPropertyName("parent_provider")] string? ParentProvider,
+    [property: JsonPropertyName("display_name")] string DisplayName,
+    [property: JsonPropertyName("description")] string Description,
+    [property: JsonPropertyName("icon")] string? Icon,
+    [property: JsonPropertyName("category")] string Category,
+    [property: JsonPropertyName("operations")] List<IntegrationOperation> Operations,
+    [property: JsonPropertyName("auth_type")] string AuthType,
+    [property: JsonPropertyName("is_enabled")] bool IsEnabled,
+    [property: JsonPropertyName("can_social_sign_in")] bool CanSocialSignIn
 );
 
 public record IntegrationConnection(
-    [property: JsonPropertyName("id")]                          string    Id,
-    [property: JsonPropertyName("tenant_id")]                   int       TenantId,
-    [property: JsonPropertyName("user_id")]                     int?      UserId,
-    [property: JsonPropertyName("integration_definition_id")]   string    IntegrationDefinitionId,
-    [property: JsonPropertyName("provider")]                    string?   Provider,
-    [property: JsonPropertyName("name")]                        string    Name,
-    [property: JsonPropertyName("display_name")]                string?   DisplayName,
-    [property: JsonPropertyName("is_enabled")]                  bool      IsEnabled,
-    [property: JsonPropertyName("connected_at")]                DateTime  ConnectedAt,
-    [property: JsonPropertyName("last_used_at")]                DateTime? LastUsedAt
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("tenant_id")] int TenantId,
+    [property: JsonPropertyName("user_id")] int? UserId,
+    [property: JsonPropertyName("integration_definition_id")] string IntegrationDefinitionId,
+    [property: JsonPropertyName("provider")] string? Provider,
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("display_name")] string? DisplayName,
+    [property: JsonPropertyName("is_enabled")] bool IsEnabled,
+    [property: JsonPropertyName("connected_at")] DateTime ConnectedAt,
+    [property: JsonPropertyName("last_used_at")] DateTime? LastUsedAt
 );
 
 public record CreateApiKeyConnectionRequest(
     [property: JsonPropertyName("integration_definition_id")] string IntegrationDefinitionId,
-    [property: JsonPropertyName("name")]                      string Name,
-    [property: JsonPropertyName("api_key")]                   string ApiKey,
-    [property: JsonPropertyName("is_user_connection")]        bool   IsUserConnection
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("api_key")] string ApiKey,
+    [property: JsonPropertyName("is_user_connection")] bool IsUserConnection
 );
 
 public record UpdateConnectionRequest(
-    [property: JsonPropertyName("name")]       string? Name      = null,
-    [property: JsonPropertyName("is_enabled")] bool?   IsEnabled = null
+    [property: JsonPropertyName("name")] string? Name = null,
+    [property: JsonPropertyName("is_enabled")] bool? IsEnabled = null
 );
 
 public record TestConnectionResult(
-    [property: JsonPropertyName("success")] bool   Success,
+    [property: JsonPropertyName("success")] bool Success,
     [property: JsonPropertyName("message")] string Message
 );
 
 public record IntegrationOAuthSettings(
-    [property: JsonPropertyName("has_client_id")]      bool HasClientId,
+    [property: JsonPropertyName("has_client_id")] bool HasClientId,
     [property: JsonPropertyName("use_social_sign_in")] bool UseSocialSignIn,
-    [property: JsonPropertyName("is_enabled")]         bool IsEnabled
+    [property: JsonPropertyName("is_enabled")] bool IsEnabled
 );
 
 public record SetOAuthSettingsRequest(
-    [property: JsonPropertyName("client_id")]          string? ClientId,
-    [property: JsonPropertyName("client_secret")]      string? ClientSecret,
-    [property: JsonPropertyName("is_enabled")]         bool?   IsEnabled,
-    [property: JsonPropertyName("use_social_sign_in")] bool    UseSocialSignIn = false
+    [property: JsonPropertyName("client_id")] string? ClientId,
+    [property: JsonPropertyName("client_secret")] string? ClientSecret,
+    [property: JsonPropertyName("is_enabled")] bool? IsEnabled,
+    [property: JsonPropertyName("use_social_sign_in")] bool UseSocialSignIn = false
 );
 
 public record OAuthUrlResponse(
@@ -298,17 +298,17 @@ public record OAuthUrlResponse(
 );
 
 public record CreateConnectionRequest(
-    [property: JsonPropertyName("integration_definition_id")] string  IntegrationDefinitionId,
-    [property: JsonPropertyName("name")]                      string  Name,
-    [property: JsonPropertyName("auth_code")]                 string  AuthCode,
-    [property: JsonPropertyName("redirect_uri")]              string  RedirectUri,
-    [property: JsonPropertyName("state")]                     string? State,
-    [property: JsonPropertyName("is_user_connection")]        bool    IsUserConnection
+    [property: JsonPropertyName("integration_definition_id")] string IntegrationDefinitionId,
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("auth_code")] string AuthCode,
+    [property: JsonPropertyName("redirect_uri")] string RedirectUri,
+    [property: JsonPropertyName("state")] string? State,
+    [property: JsonPropertyName("is_user_connection")] bool IsUserConnection
 );
 
 public record ExecuteIntegrationRequest(
-    [property: JsonPropertyName("operation")] string                              Operation,
-    [property: JsonPropertyName("inputs")]    Dictionary<string, object>          Inputs
+    [property: JsonPropertyName("operation")] string Operation,
+    [property: JsonPropertyName("inputs")] Dictionary<string, object> Inputs
 );
 
 public record PaginatedResult<T>(
@@ -323,55 +323,55 @@ public record PaginatedResult<T>(
 // ── Search ───────────────────────────────────────────────────────────────────
 
 public record SearchResult(
-    [property: JsonPropertyName("items")]               List<System.Text.Json.Nodes.JsonObject> Items,
-    [property: JsonPropertyName("page")]                int                                     Page,
-    [property: JsonPropertyName("page_size")]           int                                     PageSize,
-    [property: JsonPropertyName("total_items")]         int                                     TotalItems,
-    [property: JsonPropertyName("total_pages")]         int                                     TotalPages,
-    [property: JsonPropertyName("has_next_page")]       bool                                    HasNextPage,
-    [property: JsonPropertyName("has_previous_page")]   bool                                    HasPreviousPage,
-    [property: JsonPropertyName("retrieval_time")]      int?                                    RetrievalTime,
-    [property: JsonPropertyName("facet_distribution")]  System.Text.Json.JsonElement?           FacetDistribution
+    [property: JsonPropertyName("items")] List<System.Text.Json.Nodes.JsonObject> Items,
+    [property: JsonPropertyName("page")] int Page,
+    [property: JsonPropertyName("page_size")] int PageSize,
+    [property: JsonPropertyName("total_items")] int TotalItems,
+    [property: JsonPropertyName("total_pages")] int TotalPages,
+    [property: JsonPropertyName("has_next_page")] bool HasNextPage,
+    [property: JsonPropertyName("has_previous_page")] bool HasPreviousPage,
+    [property: JsonPropertyName("retrieval_time")] int? RetrievalTime,
+    [property: JsonPropertyName("facet_distribution")] System.Text.Json.JsonElement? FacetDistribution
 );
 
 // ── Users ────────────────────────────────────────────────────────────────────
 
 public record UserResponse(
-    [property: JsonPropertyName("id")]           int     Id,
-    [property: JsonPropertyName("first_name")]   string  FirstName,
-    [property: JsonPropertyName("last_name")]    string  LastName,
-    [property: JsonPropertyName("email")]        string  Email,
-    [property: JsonPropertyName("role_id")]      int?    RoleId,
-    [property: JsonPropertyName("role_name")]    string? RoleName,
-    [property: JsonPropertyName("is_confirmed")] bool    IsConfirmed,
-    [property: JsonPropertyName("created_at")]   DateTime CreatedAt
+    [property: JsonPropertyName("id")] int Id,
+    [property: JsonPropertyName("first_name")] string FirstName,
+    [property: JsonPropertyName("last_name")] string LastName,
+    [property: JsonPropertyName("email")] string Email,
+    [property: JsonPropertyName("role_id")] int? RoleId,
+    [property: JsonPropertyName("role_name")] string? RoleName,
+    [property: JsonPropertyName("is_confirmed")] bool IsConfirmed,
+    [property: JsonPropertyName("created_at")] DateTime CreatedAt
 );
 
 public record CreateUserRequest(
-    [property: JsonPropertyName("first_name")]          string  FirstName,
-    [property: JsonPropertyName("last_name")]           string  LastName,
-    [property: JsonPropertyName("email")]               string  Email,
-    [property: JsonPropertyName("role_id")]             int?    RoleId,
-    [property: JsonPropertyName("require_confirmation")] bool   RequireConfirmation = true
+    [property: JsonPropertyName("first_name")] string FirstName,
+    [property: JsonPropertyName("last_name")] string LastName,
+    [property: JsonPropertyName("email")] string Email,
+    [property: JsonPropertyName("role_id")] int? RoleId,
+    [property: JsonPropertyName("require_confirmation")] bool RequireConfirmation = true
 );
 
 public record UpdateUserRequest(
-    [property: JsonPropertyName("first_name")] string  FirstName,
-    [property: JsonPropertyName("last_name")]  string  LastName,
-    [property: JsonPropertyName("role_id")]    int?    RoleId
+    [property: JsonPropertyName("first_name")] string FirstName,
+    [property: JsonPropertyName("last_name")] string LastName,
+    [property: JsonPropertyName("role_id")] int? RoleId
 );
 
 // ── Files ────────────────────────────────────────────────────────────────────
 
 public record FileResponse(
-    [property: JsonPropertyName("id")]                 int      Id,
-    [property: JsonPropertyName("original_file_name")] string   OriginalFileName,
-    [property: JsonPropertyName("file_name")]          string   FileName,
-    [property: JsonPropertyName("file_type")]          string   FileType,
-    [property: JsonPropertyName("file_size")]          long     FileSize,
-    [property: JsonPropertyName("is_public")]          bool     IsPublic,
-    [property: JsonPropertyName("created_at")]         DateTime CreatedAt,
-    [property: JsonPropertyName("custom_metadata")]    string?  CustomMetadata = null
+    [property: JsonPropertyName("id")] int Id,
+    [property: JsonPropertyName("original_file_name")] string OriginalFileName,
+    [property: JsonPropertyName("file_name")] string FileName,
+    [property: JsonPropertyName("file_type")] string FileType,
+    [property: JsonPropertyName("file_size")] long FileSize,
+    [property: JsonPropertyName("is_public")] bool IsPublic,
+    [property: JsonPropertyName("created_at")] DateTime CreatedAt,
+    [property: JsonPropertyName("custom_metadata")] string? CustomMetadata = null
 );
 
 public record UpdateFileMetadataRequest(
@@ -381,62 +381,62 @@ public record UpdateFileMetadataRequest(
 // ── Roles ────────────────────────────────────────────────────────────────────
 
 public record Permission(
-    [property: JsonPropertyName("id")]          int     Id,
-    [property: JsonPropertyName("name")]        string  Name,
+    [property: JsonPropertyName("id")] int Id,
+    [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("description")] string? Description,
-    [property: JsonPropertyName("entity_id")]   int?    EntityId,
-    [property: JsonPropertyName("is_active")]   bool    IsActive
+    [property: JsonPropertyName("entity_id")] int? EntityId,
+    [property: JsonPropertyName("is_active")] bool IsActive
 );
 
 public record RoleResponse(
-    [property: JsonPropertyName("id")]               int              Id,
-    [property: JsonPropertyName("name")]             string           Name,
-    [property: JsonPropertyName("description")]      string?          Description,
-    [property: JsonPropertyName("is_active")]        bool             IsActive,
-    [property: JsonPropertyName("anyapi_access")]    bool             AnyApiAccess = false,
-    [property: JsonPropertyName("permissions")]      List<Permission>? Permissions = null
+    [property: JsonPropertyName("id")] int Id,
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("description")] string? Description,
+    [property: JsonPropertyName("is_active")] bool IsActive,
+    [property: JsonPropertyName("anyapi_access")] bool AnyApiAccess = false,
+    [property: JsonPropertyName("permissions")] List<Permission>? Permissions = null
 );
 
 public record CreateRoleRequest(
-    [property: JsonPropertyName("name")]        string  Name,
+    [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("description")] string? Description = null,
-    [property: JsonPropertyName("is_active")]   bool    IsActive = true
+    [property: JsonPropertyName("is_active")] bool IsActive = true
 );
 
 public record CreatePermissionRequest(
-    [property: JsonPropertyName("name")]        string  Name,
+    [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("description")] string? Description,
-    [property: JsonPropertyName("is_active")]   bool    IsActive
+    [property: JsonPropertyName("is_active")] bool IsActive
 );
 
 public record UpdateRolePermissionsRequest(
-    [property: JsonPropertyName("name")]            string    Name,
-    [property: JsonPropertyName("description")]     string?   Description,
-    [property: JsonPropertyName("is_active")]       bool      IsActive,
-    [property: JsonPropertyName("anyapi_access")]   bool      AnyApiAccess,
-    [property: JsonPropertyName("permission_ids")]  List<int> PermissionIds
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("description")] string? Description,
+    [property: JsonPropertyName("is_active")] bool IsActive,
+    [property: JsonPropertyName("anyapi_access")] bool AnyApiAccess,
+    [property: JsonPropertyName("permission_ids")] List<int> PermissionIds
 );
 
 // ── Pay ──────────────────────────────────────────────────────────────────────
 
 public record StripeConnectStatus(
-    [property: JsonPropertyName("stripe_account_id")]    string? StripeAccountId,
-    [property: JsonPropertyName("onboarding_completed")] bool    OnboardingCompleted,
-    [property: JsonPropertyName("charges_enabled")]      bool    ChargesEnabled,
-    [property: JsonPropertyName("payouts_enabled")]      bool    PayoutsEnabled,
-    [property: JsonPropertyName("details_submitted")]    bool    DetailsSubmitted
+    [property: JsonPropertyName("stripe_account_id")] string? StripeAccountId,
+    [property: JsonPropertyName("onboarding_completed")] bool OnboardingCompleted,
+    [property: JsonPropertyName("charges_enabled")] bool ChargesEnabled,
+    [property: JsonPropertyName("payouts_enabled")] bool PayoutsEnabled,
+    [property: JsonPropertyName("details_submitted")] bool DetailsSubmitted
 );
 
 public record CreateStripeConnectRequest(
-    [property: JsonPropertyName("business_type")] string  BusinessType,
-    [property: JsonPropertyName("country")]       string  Country,
-    [property: JsonPropertyName("email")]         string  Email,
+    [property: JsonPropertyName("business_type")] string BusinessType,
+    [property: JsonPropertyName("country")] string Country,
+    [property: JsonPropertyName("email")] string Email,
     [property: JsonPropertyName("business_name")] string? BusinessName = null
 );
 
 public record CreateOnboardingLinkRequest(
     [property: JsonPropertyName("refresh_url")] string RefreshUrl,
-    [property: JsonPropertyName("return_url")]  string ReturnUrl
+    [property: JsonPropertyName("return_url")] string ReturnUrl
 );
 
 public record OnboardingLinkResponse(
@@ -444,131 +444,131 @@ public record OnboardingLinkResponse(
 );
 
 public record PaymentResponse(
-    [property: JsonPropertyName("id")]          string   Id,
-    [property: JsonPropertyName("amount")]      decimal  Amount,
-    [property: JsonPropertyName("currency")]    string   Currency,
-    [property: JsonPropertyName("status")]      string   Status,
-    [property: JsonPropertyName("description")] string?  Description,
-    [property: JsonPropertyName("reference")]   string?  Reference,
-    [property: JsonPropertyName("created_at")]  DateTime CreatedAt
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("amount")] decimal Amount,
+    [property: JsonPropertyName("currency")] string Currency,
+    [property: JsonPropertyName("status")] string Status,
+    [property: JsonPropertyName("description")] string? Description,
+    [property: JsonPropertyName("reference")] string? Reference,
+    [property: JsonPropertyName("created_at")] DateTime CreatedAt
 );
 
 public record PaymentMethodResponse(
-    [property: JsonPropertyName("id")]        string  Id,
-    [property: JsonPropertyName("type")]      string  Type,
-    [property: JsonPropertyName("brand")]     string? Brand,
-    [property: JsonPropertyName("last4")]     string? Last4,
-    [property: JsonPropertyName("exp_month")] int?    ExpMonth,
-    [property: JsonPropertyName("exp_year")]  int?    ExpYear
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("type")] string Type,
+    [property: JsonPropertyName("brand")] string? Brand,
+    [property: JsonPropertyName("last4")] string? Last4,
+    [property: JsonPropertyName("exp_month")] int? ExpMonth,
+    [property: JsonPropertyName("exp_year")] int? ExpYear
 );
 
 // ── Secrets ──────────────────────────────────────────────────────────────────
 
 public record SecretUserResponse(
-    [property: JsonPropertyName("user_id")]    int    UserId,
+    [property: JsonPropertyName("user_id")] int UserId,
     [property: JsonPropertyName("first_name")] string FirstName,
-    [property: JsonPropertyName("last_name")]  string LastName,
-    [property: JsonPropertyName("email")]      string Email,
-    [property: JsonPropertyName("readonly")]   bool   Readonly
+    [property: JsonPropertyName("last_name")] string LastName,
+    [property: JsonPropertyName("email")] string Email,
+    [property: JsonPropertyName("readonly")] bool Readonly
 );
 
 public record SecretResponse(
-    [property: JsonPropertyName("id")]         int                    Id,
-    [property: JsonPropertyName("key")]        string                 Key,
-    [property: JsonPropertyName("created_at")] DateTime               CreatedAt,
-    [property: JsonPropertyName("updated_at")] DateTime               UpdatedAt,
-    [property: JsonPropertyName("users")]      List<SecretUserResponse> Users
+    [property: JsonPropertyName("id")] int Id,
+    [property: JsonPropertyName("key")] string Key,
+    [property: JsonPropertyName("created_at")] DateTime CreatedAt,
+    [property: JsonPropertyName("updated_at")] DateTime UpdatedAt,
+    [property: JsonPropertyName("users")] List<SecretUserResponse> Users
 );
 
 public record CreateSecretRequest(
-    [property: JsonPropertyName("key")]      string    Key,
-    [property: JsonPropertyName("value")]    string    Value,
+    [property: JsonPropertyName("key")] string Key,
+    [property: JsonPropertyName("value")] string Value,
     [property: JsonPropertyName("user_ids")] List<int>? UserIds = null
 );
 
 public record UpdateSecretRequest(
-    [property: JsonPropertyName("value")]    string    Value,
+    [property: JsonPropertyName("value")] string Value,
     [property: JsonPropertyName("user_ids")] List<int>? UserIds = null
 );
 
 // ── OAuth / Social Auth ────────────────────────────────────────────────────
 
 public record GoogleOAuthSettings(
-    [property: JsonPropertyName("enabled")]       bool    Enabled,
-    [property: JsonPropertyName("client_id")]     string? ClientId,
+    [property: JsonPropertyName("enabled")] bool Enabled,
+    [property: JsonPropertyName("client_id")] string? ClientId,
     [property: JsonPropertyName("client_secret")] string? ClientSecret
 );
 
 public record UpdateGoogleOAuthRequest(
-    [property: JsonPropertyName("enabled")]       bool    Enabled,
-    [property: JsonPropertyName("client_id")]     string  ClientId,
-    [property: JsonPropertyName("client_secret")] string  ClientSecret
+    [property: JsonPropertyName("enabled")] bool Enabled,
+    [property: JsonPropertyName("client_id")] string ClientId,
+    [property: JsonPropertyName("client_secret")] string ClientSecret
 );
 
 // ── Menu ─────────────────────────────────────────────────────────────────────
 
 public record MenuResponse(
-    [property: JsonPropertyName("id")]      int                    Id,
-    [property: JsonPropertyName("name")]    string                 Name,
-    [property: JsonPropertyName("role_id")] int                    RoleId,
-    [property: JsonPropertyName("items")]   List<MenuItemResponse> Items
+    [property: JsonPropertyName("id")] int Id,
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("role_id")] int RoleId,
+    [property: JsonPropertyName("items")] List<MenuItemResponse> Items
 );
 
 public record MenuItemResponse(
-    [property: JsonPropertyName("id")]           int                    Id,
-    [property: JsonPropertyName("menu_id")]      int                    MenuId,
-    [property: JsonPropertyName("display_name")] string                 DisplayName,
-    [property: JsonPropertyName("icon")]         string                 Icon,
-    [property: JsonPropertyName("href")]         string                 Href,
-    [property: JsonPropertyName("parent_id")]    int?                   ParentId,
-    [property: JsonPropertyName("sort_order")]   int                    SortOrder,
-    [property: JsonPropertyName("items")]        List<MenuItemResponse> Items
+    [property: JsonPropertyName("id")] int Id,
+    [property: JsonPropertyName("menu_id")] int MenuId,
+    [property: JsonPropertyName("display_name")] string DisplayName,
+    [property: JsonPropertyName("icon")] string Icon,
+    [property: JsonPropertyName("href")] string Href,
+    [property: JsonPropertyName("parent_id")] int? ParentId,
+    [property: JsonPropertyName("sort_order")] int SortOrder,
+    [property: JsonPropertyName("items")] List<MenuItemResponse> Items
 );
 
 public record CreateMenuRequest(
-    [property: JsonPropertyName("name")]    string Name,
-    [property: JsonPropertyName("role_id")] int    RoleId
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("role_id")] int RoleId
 );
 
 public record CreateMenuItemRequest(
     [property: JsonPropertyName("display_name")] string DisplayName,
-    [property: JsonPropertyName("icon")]         string Icon,
-    [property: JsonPropertyName("href")]         string Href,
-    [property: JsonPropertyName("parent_id")]    int    ParentId
+    [property: JsonPropertyName("icon")] string Icon,
+    [property: JsonPropertyName("href")] string Href,
+    [property: JsonPropertyName("parent_id")] int ParentId
 );
 
 // ── Organisation / Tenant Settings ───────────────────────────────────────────
 
 public record TenantSettingsDto(
-    [property: JsonPropertyName("allow_registrations")]    bool          AllowRegistrations,
-    [property: JsonPropertyName("default_role_id")]        int?          DefaultRoleId,
+    [property: JsonPropertyName("allow_registrations")] bool AllowRegistrations,
+    [property: JsonPropertyName("default_role_id")] int? DefaultRoleId,
     [property: JsonPropertyName("allowed_application_urls")] List<string> AllowedApplicationUrls,
-    [property: JsonPropertyName("payment_success_url")]    string?       PaymentSuccessUrl,
-    [property: JsonPropertyName("payment_cancel_url")]     string?       PaymentCancelUrl
+    [property: JsonPropertyName("payment_success_url")] string? PaymentSuccessUrl,
+    [property: JsonPropertyName("payment_cancel_url")] string? PaymentCancelUrl
 );
 
 public record ThemeSettingsDto(
     [property: JsonPropertyName("primary_color")] string? PrimaryColor,
-    [property: JsonPropertyName("gray_color")]    string? GrayColor
+    [property: JsonPropertyName("gray_color")] string? GrayColor
 );
 
 public record TenantResponse(
-    [property: JsonPropertyName("id")]              int                Id,
-    [property: JsonPropertyName("name")]            string             Name,
-    [property: JsonPropertyName("description")]     string?            Description,
+    [property: JsonPropertyName("id")] int Id,
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("description")] string? Description,
     [property: JsonPropertyName("tenant_settings")] TenantSettingsDto? TenantSettings,
-    [property: JsonPropertyName("theme_settings")]  ThemeSettingsDto?  ThemeSettings,
-    [property: JsonPropertyName("logo_square")]     FileResponse?      LogoSquare,
-    [property: JsonPropertyName("logo_standard")]   FileResponse?      LogoStandard,
-    [property: JsonPropertyName("google_maps_key")] string?            GoogleMapsKey
+    [property: JsonPropertyName("theme_settings")] ThemeSettingsDto? ThemeSettings,
+    [property: JsonPropertyName("logo_square")] FileResponse? LogoSquare,
+    [property: JsonPropertyName("logo_standard")] FileResponse? LogoStandard,
+    [property: JsonPropertyName("google_maps_key")] string? GoogleMapsKey
 );
 
 public record UpdateTenantRequest(
-    [property: JsonPropertyName("name")]              string             Name,
-    [property: JsonPropertyName("description")]       string?            Description,
-    [property: JsonPropertyName("google_maps_key")]   string?            GoogleMapsKey,
-    [property: JsonPropertyName("logo_square_id")]    int?               LogoSquareId,
-    [property: JsonPropertyName("logo_standard_id")]  int?               LogoStandardId,
-    [property: JsonPropertyName("tenant_settings")]   TenantSettingsDto? TenantSettings,
-    [property: JsonPropertyName("theme_settings")]    ThemeSettingsDto?  ThemeSettings
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("description")] string? Description,
+    [property: JsonPropertyName("google_maps_key")] string? GoogleMapsKey,
+    [property: JsonPropertyName("logo_square_id")] int? LogoSquareId,
+    [property: JsonPropertyName("logo_standard_id")] int? LogoStandardId,
+    [property: JsonPropertyName("tenant_settings")] TenantSettingsDto? TenantSettings,
+    [property: JsonPropertyName("theme_settings")] ThemeSettingsDto? ThemeSettings
 );

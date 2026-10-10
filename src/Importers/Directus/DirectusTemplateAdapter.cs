@@ -100,10 +100,10 @@ public static class DirectusTemplateAdapter
                     ? JsonValue.Create(i)
                     : JsonValue.Create(element.GetDouble());
 
-            case JsonValueKind.True:  return JsonValue.Create(true);
+            case JsonValueKind.True: return JsonValue.Create(true);
             case JsonValueKind.False: return JsonValue.Create(false);
-            case JsonValueKind.Null:  return null;
-            default:                  return null;
+            case JsonValueKind.Null: return null;
+            default: return null;
         }
     }
 
@@ -129,37 +129,37 @@ public static class DirectusTemplateAdapter
         switch (head)
         {
             case "trigger":
-            {
-                // Directus: $trigger.payload.X (event), $trigger.body.X (webhook),
-                //           $trigger.id, $trigger.collection
-                // Anythink:  $anythink.trigger.data.X / $anythink.trigger.id
-                if (parts.Length == 1) return "$anythink.trigger";
-                var second = parts[1];
-                if (second == "payload" || second == "body")
                 {
-                    var rest = parts.Length > 2 ? string.Join('.', parts.Skip(2)) : "";
-                    return string.IsNullOrEmpty(rest)
-                        ? "$anythink.trigger.data"
-                        : $"$anythink.trigger.data.{rest}";
-                }
-                if (second == "id") return "$anythink.trigger.id";
-                if (second == "collection") return "$anythink.trigger.data.entity_name";
-                // Unknown trigger field — leave literal.
-                unresolved = true;
-                return null;
-            }
-
-            case "last":
-            {
-                if (previousStepKey is null)
-                {
+                    // Directus: $trigger.payload.X (event), $trigger.body.X (webhook),
+                    //           $trigger.id, $trigger.collection
+                    // Anythink:  $anythink.trigger.data.X / $anythink.trigger.id
+                    if (parts.Length == 1) return "$anythink.trigger";
+                    var second = parts[1];
+                    if (second == "payload" || second == "body")
+                    {
+                        var rest = parts.Length > 2 ? string.Join('.', parts.Skip(2)) : "";
+                        return string.IsNullOrEmpty(rest)
+                            ? "$anythink.trigger.data"
+                            : $"$anythink.trigger.data.{rest}";
+                    }
+                    if (second == "id") return "$anythink.trigger.id";
+                    if (second == "collection") return "$anythink.trigger.data.entity_name";
+                    // Unknown trigger field — leave literal.
                     unresolved = true;
                     return null;
                 }
-                return string.IsNullOrEmpty(tail)
-                    ? $"$anythink.steps.{previousStepKey}"
-                    : $"$anythink.steps.{previousStepKey}.{tail}";
-            }
+
+            case "last":
+                {
+                    if (previousStepKey is null)
+                    {
+                        unresolved = true;
+                        return null;
+                    }
+                    return string.IsNullOrEmpty(tail)
+                        ? $"$anythink.steps.{previousStepKey}"
+                        : $"$anythink.steps.{previousStepKey}.{tail}";
+                }
 
             case "env":
             case "accountability":
@@ -169,19 +169,19 @@ public static class DirectusTemplateAdapter
                 return null;
 
             default:
-            {
-                // Directus also lets you reference an upstream operation by
-                // its key, e.g. {{ $fetch_payload.title }}. If the head
-                // matches a known step key, route through $anythink.steps.
-                if (knownStepKeys.Contains(head))
                 {
-                    return string.IsNullOrEmpty(tail)
-                        ? $"$anythink.steps.{head}"
-                        : $"$anythink.steps.{head}.{tail}";
+                    // Directus also lets you reference an upstream operation by
+                    // its key, e.g. {{ $fetch_payload.title }}. If the head
+                    // matches a known step key, route through $anythink.steps.
+                    if (knownStepKeys.Contains(head))
+                    {
+                        return string.IsNullOrEmpty(tail)
+                            ? $"$anythink.steps.{head}"
+                            : $"$anythink.steps.{head}.{tail}";
+                    }
+                    unresolved = true;
+                    return null;
                 }
-                unresolved = true;
-                return null;
-            }
         }
     }
 }

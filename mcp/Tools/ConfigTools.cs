@@ -43,10 +43,10 @@ public class ConfigTools
 
         return Task.FromResult(JsonSerializer.Serialize(new
         {
-            ActiveProfile  = config.DefaultProfile,
+            ActiveProfile = config.DefaultProfile,
             ActivePlatform = config.ActivePlatform,
-            Profiles       = profiles,
-            Platforms      = platforms,
+            Profiles = profiles,
+            Platforms = platforms,
         }));
     }
 
