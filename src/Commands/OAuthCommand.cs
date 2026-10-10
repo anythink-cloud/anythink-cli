@@ -14,7 +14,7 @@ public class OAuthGoogleStatusCommand : AsyncCommand
     public override async Task<int> ExecuteAsync(CommandContext ctx)
     {
         var profile = ConfigService.GetActiveProfile();
-        if (profile is null) { Renderer.Error("No active profile. Run [bold]anythink projects use <id>[/]."); return 1; }
+        if (profile is null) { Renderer.Error("No active profile. Run 'anythink projects use <id>'."); return 1; }
 
         var client = new AnythinkClient(profile);
         try
@@ -53,7 +53,7 @@ public class OAuthGoogleConfigureCommand : AsyncCommand
     public override async Task<int> ExecuteAsync(CommandContext ctx)
     {
         var profile = ConfigService.GetActiveProfile();
-        if (profile is null) { Renderer.Error("No active profile. Run [bold]anythink projects use <id>[/]."); return 1; }
+        if (profile is null) { Renderer.Error("No active profile. Run 'anythink projects use <id>'."); return 1; }
 
         AnsiConsole.MarkupLine("[dim]Configure Google OAuth credentials for this project.[/]");
         AnsiConsole.MarkupLine("[dim]You can find these in the Google Cloud Console → APIs & Services → Credentials.[/]");

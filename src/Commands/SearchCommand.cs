@@ -127,7 +127,7 @@ public class SearchSimilarCommand : BaseCommand<SearchSimilarSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Finding documents similar to {settings.Entity}/{settings.Id}...", async _ =>
+                .StartAsync(Renderer.Status($"Finding documents similar to {settings.Entity}/{settings.Id}..."), async _ =>
                 {
                     items = await client.SearchSimilarAsync(settings.Entity, settings.Id, settings.Limit, settings.Public);
                 });
@@ -180,7 +180,7 @@ public class SearchRehydrateCommand : BaseCommand<SearchEntityOptionalSettings>
 
             if (!settings.Yes)
             {
-                AnsiConsole.MarkupLine($"This will rehydrate the {scope} — re-pushing all matching records into the search engine.");
+                AnsiConsole.MarkupLine($"This will rehydrate the {Markup.Escape(scope)} — re-pushing all matching records into the search engine.");
                 AnsiConsole.MarkupLine("[dim]Existing entries are replaced; no data loss, but may take time on large entities.[/]");
                 if (!AnsiConsole.Confirm("Proceed?", defaultValue: false))
                 {
@@ -192,12 +192,12 @@ public class SearchRehydrateCommand : BaseCommand<SearchEntityOptionalSettings>
             var client = GetClient();
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Triggering rehydrate for {scope}...", async _ =>
+                .StartAsync(Renderer.Status($"Triggering rehydrate for {scope}..."), async _ =>
                 {
                     await client.RehydrateSearchIndexAsync(settings.Entity);
                 });
 
-            Renderer.Success($"Rehydrate triggered for {scope}.");
+            Renderer.Success($"Rehydrate triggered for {Markup.Escape(scope)}.");
             Renderer.Info("Indexing runs in the background. Watch progress in the dashboard or via 'search query' once complete.");
             return 0;
         }
@@ -221,7 +221,7 @@ public class SearchPurgeCommand : BaseCommand<SearchEntityOptionalSettings>
 
             if (!settings.Yes)
             {
-                AnsiConsole.MarkupLine($"[red]This will PURGE {scope}.[/] All search entries are deleted; you'll need to rehydrate to restore.");
+                AnsiConsole.MarkupLine($"[red]This will PURGE {Markup.Escape(scope)}.[/] All search entries are deleted; you'll need to rehydrate to restore.");
                 if (!AnsiConsole.Confirm("Proceed?", defaultValue: false))
                 {
                     Renderer.Info("Cancelled.");
@@ -232,12 +232,12 @@ public class SearchPurgeCommand : BaseCommand<SearchEntityOptionalSettings>
             var client = GetClient();
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Purging {scope}...", async _ =>
+                .StartAsync(Renderer.Status($"Purging {scope}..."), async _ =>
                 {
                     await client.PurgeSearchIndexAsync(settings.Entity);
                 });
 
-            Renderer.Success($"Purged {scope}.");
+            Renderer.Success($"Purged {Markup.Escape(scope)}.");
             Renderer.Info("Run 'search rehydrate' (with the same scope) to repopulate when you're ready.");
             return 0;
         }
@@ -292,7 +292,7 @@ public class SearchAuditCommand : BaseCommand<SearchAuditSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Auditing public search for '{settings.Entity}'...", async _ =>
+                .StartAsync(Renderer.Status($"Auditing public search for '{settings.Entity}'..."), async _ =>
                 {
                     entity = await client.GetEntityAsync(settings.Entity);
                     fields = await client.GetFieldsAsync(settings.Entity);

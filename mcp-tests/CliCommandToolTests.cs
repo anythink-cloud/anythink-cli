@@ -7,7 +7,7 @@ using RichardSzalay.MockHttp;
 
 namespace AnythinkMcp.Tests;
 
-public class CliCommandToolTests
+public partial class CliCommandToolTests
 {
     private const string ApiUrl = "https://api.my.anythink.cloud";
 
@@ -70,15 +70,29 @@ public class CliCommandToolTests
     [InlineData("login")]
     [InlineData("signup")]
     [InlineData("config_show")]
-    [InlineData("accounts_list")]
+    [InlineData("accounts_use")]
     [InlineData("projects_list")]
-    [InlineData("plans")]
+    [InlineData("projects_use")]
     [InlineData("migrate")]
     [InlineData("cli_xmldoc")]
     public void PlatformAndCrossProjectCommands_AreLeftOutEverywhere(string name)
     {
         Find(name, CliToolScope.Local).Should().BeNull();
         Find(name, CliToolScope.Internal).Should().BeNull();
+        Find(name, CliToolScope.Hosted).Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("accounts_list")]
+    [InlineData("accounts_create")]
+    [InlineData("plans")]
+    [InlineData("projects_create")]
+    [InlineData("projects_delete")]
+    public void AccountCommands_AreHostedOnly(string name)
+    {
+        Find(name, CliToolScope.Local).Should().BeNull();
+        Find(name, CliToolScope.Internal).Should().BeNull();
+        Find(name, CliToolScope.Hosted).Should().NotBeNull();
     }
 
     [Theory]
@@ -91,6 +105,22 @@ public class CliCommandToolTests
     {
         Find(name, CliToolScope.Local).Should().NotBeNull();
         Find(name, CliToolScope.Internal).Should().BeNull();
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public void ACommandThatReadsFromAUserSuppliedServer_IsLocalOnly(CliToolScope remote)
+    {
+        Find("import_directus", CliToolScope.Local).Should().NotBeNull();
+        Find("import_directus", remote).Should().BeNull();
+    }
+
+    [Fact]
+    public void ImportingFromDirectus_IsDestructive()
+    {
+        var annotations = Find("import_directus", CliToolScope.Local)!.ProtocolTool.Annotations!;
+        annotations.DestructiveHint.Should().BeTrue();
+        annotations.ReadOnlyHint.Should().NotBe(true);
     }
 
     [Theory]
@@ -828,11 +858,14 @@ public class CliCommandToolTests
     }
 
     [Fact]
-    public void OnlyHostedTools_TakeAProjectArgument()
+    public void OnlyHostedProjectTools_TakeAProjectArgument()
     {
         foreach (var scope in new[] { CliToolScope.Local, CliToolScope.Internal })
             CliCommandTool.All(scope).Should().AllSatisfy(tool => Properties(tool).Should().NotContain(HostedProjects.ParameterName));
-        CliCommandTool.All(CliToolScope.Hosted).Should().AllSatisfy(tool => Properties(tool).Should().Contain(HostedProjects.ParameterName));
+
+        var hosted = CliCommandTool.All(CliToolScope.Hosted).ToLookup(tool => tool.NeedsAccountAccess);
+        hosted[false].Should().AllSatisfy(tool => Properties(tool).Should().Contain(HostedProjects.ParameterName));
+        hosted[true].Should().AllSatisfy(tool => Properties(tool).Should().NotContain(HostedProjects.ParameterName));
     }
 
     [Fact]
