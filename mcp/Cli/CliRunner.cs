@@ -20,6 +20,7 @@ public static class CliRunner
         ClientContext.Current = client;
         ClientContext.Cancellation = cancellationToken;
         ClientContext.Remote = CliToolPolicy.IsRemote(scope);
+        ClientContext.MachineOutput = true;
 
         var app = new CommandApp();
         app.Configure(config =>

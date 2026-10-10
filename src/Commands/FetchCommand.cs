@@ -1,3 +1,4 @@
+using AnythinkCli.Client;
 using AnythinkCli.Output;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -20,6 +21,10 @@ public class FetchSettings : CommandSettings
     [CommandOption("--body <JSON>")]
     [Description("Request body (JSON string)")]
     public string? Body { get; set; }
+
+    [CommandOption("--all")]
+    [Description("Follow every page of a paged GET response, printing each page as it arrives")]
+    public bool All { get; set; }
 }
 
 public class FetchCommand : BaseCommand<FetchSettings>
@@ -31,22 +36,27 @@ public class FetchCommand : BaseCommand<FetchSettings>
             var client = GetClient();
             var path = settings.Path.StartsWith("/") ? settings.Path : "/" + settings.Path;
             var url = $"{client.BaseUrl}/org/{client.OrgId}{path}";
+            var get = settings.Method.Equals("GET", StringComparison.OrdinalIgnoreCase);
+
+            if (settings.All && !get)
+            {
+                Renderer.Error("--all only works with GET.");
+                return 1;
+            }
+
+            if (get && FetchPaging.IsOversized(url))
+            {
+                url = FetchPaging.CapPageSize(url);
+                Renderer.Warn($"pageSize capped at {FetchPaging.MaxPageSize}. Use --all to fetch every page.");
+            }
 
             Renderer.Info($"[bold]{Markup.Escape(settings.Method)}[/] {Markup.Escape(url)}");
 
-            var result = await client.FetchRawAsync(url, settings.Method, settings.Body);
-
-            // Try to pretty-print as JSON
-            try
-            {
-                var parsed = JsonSerializer.Deserialize<JsonElement>(result);
-                var pretty = JsonSerializer.Serialize(parsed, Renderer.PrettyJson);
-                Renderer.PrintJson(pretty);
-            }
-            catch
-            {
-                AnsiConsole.WriteLine(result);
-            }
+            if (settings.All)
+                await foreach (var page in client.FetchPagesAsync(url))
+                    Print(page);
+            else
+                Print(await client.FetchRawAsync(url, settings.Method, settings.Body));
 
             return 0;
         }
@@ -54,6 +64,19 @@ public class FetchCommand : BaseCommand<FetchSettings>
         {
             HandleError(ex);
             return 1;
+        }
+    }
+
+    private static void Print(string result)
+    {
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<JsonElement>(result);
+            Renderer.PrintJson(JsonSerializer.Serialize(parsed, Renderer.PrettyJson));
+        }
+        catch
+        {
+            AnsiConsole.WriteLine(result);
         }
     }
 }
