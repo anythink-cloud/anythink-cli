@@ -41,6 +41,9 @@ public class RemoteToolSurfaceTests
     private static bool IsAccountToolLine(string line) =>
         CliCommandTool.All(CliToolScope.Hosted).Where(t => t.NeedsAccountAccess).Any(t => line.StartsWith(t.ProtocolTool.Name + " ["));
 
+    private static bool IsPublicToolLine(string line) =>
+        CliCommandTool.All(CliToolScope.Hosted).Where(t => !t.NeedsProject).Any(t => line.StartsWith(t.ProtocolTool.Name + " ["));
+
     [Fact]
     public void HostedTools_AreTheInternalToolsPlusAnOptionalProject_AndTheAccountTools()
     {
@@ -48,6 +51,7 @@ public class RemoteToolSurfaceTests
 
         string.Join('\n', hosted.Where(line => !IsAccountToolLine(line))).Should().Be(string.Join('\n', Surface().TrimEnd('\n').Split('\n').Select(line =>
         {
+            if (IsPublicToolLine(line)) return line;
             var hint = line.IndexOf(']') + 1;
             var rest = line[hint..].TrimStart();
             return $"{line[..hint]} project?{(rest.Length > 0 ? " " + rest : "")}";

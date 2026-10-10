@@ -27,6 +27,8 @@ data_list [read-only] entity filter? limit? page?
 data_rls [destructive] entity id readonly? user?
 data_update [destructive] entity id data?
 docs [read-only]
+docs_read [read-only] slug_or_url
+docs_search [read-only] query limit?
 email_preview [read-only] content_text? subject? wrapper_text?
 email_shell_show [read-only]
 email_shell_update [destructive] html_text? reset?

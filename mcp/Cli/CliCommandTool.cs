@@ -47,6 +47,8 @@ public sealed class CliCommandTool : McpServerTool
 
     public bool NeedsAccountAccess => _scope == CliToolScope.Hosted && CliToolPolicy.IsAccountCommand(_command);
 
+    public bool NeedsProject => !CliToolPolicy.IsPublic(_command);
+
     public override IReadOnlyList<object> Metadata => [];
 
     public override async ValueTask<CallToolResult> InvokeAsync(
@@ -164,6 +166,9 @@ public sealed class CliCommandTool : McpServerTool
     private async Task<AnythinkClient?> ResolveClientAsync(
         IServiceProvider services, Dictionary<string, JsonElement> arguments, CancellationToken cancellationToken)
     {
+        if (!NeedsProject)
+            return null;
+
         if (_scope == CliToolScope.Hosted)
         {
             var project = arguments.Remove(HostedProjects.ParameterName, out var value) && value.ValueKind == JsonValueKind.String

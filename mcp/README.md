@@ -102,6 +102,9 @@ Once connected, run the `login` (or `login_direct`) tool, then `accounts_use` /
 - **Every project command** — one tool per CLI command, generated from the CLI itself,
   e.g. `entities_list`, `fields_add`, `data_list`, `workflows_create`. Each is marked
   read-only or destructive so clients can ask before changing anything.
+- **Guides** — `docs_search` and `docs_read` search and read the guides on
+  [docs.anythink.cloud](https://docs.anythink.cloud). They need no sign-in or project, and
+  take no `project` argument in hosted mode.
 - **Generic CLI** — `cli` to run any Anythink CLI command
 
 ## Hosted mode (remote MCP connector)
@@ -166,7 +169,8 @@ A connection to one project may have 8 concurrent requests in flight on `/mcp`, 
 by everyone connected to that project, with up to 8 more queued; beyond that the server
 returns `429`. A connection that covers all projects has the same limit per user, across
 every project it calls. Upstream calls share one connection pool, don't follow redirects,
-and time out after 30 seconds.
+and time out after 30 seconds. The guide tools only ever request pages on
+`https://docs.anythink.cloud`, following that site's own redirects and no others.
 
 Hosted mode serves `projects_list`, `project_details`, the account tools below and the generated command tools, leaving out
 commands that sign in, switch profiles, use the local machine (opening a browser,

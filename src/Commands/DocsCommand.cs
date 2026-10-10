@@ -17,7 +17,8 @@ public class DocsCommand : Command<DocsSettings>
 {
     public override int Execute(CommandContext context, DocsSettings settings)
     {
-        if (settings.Json)
+        // Spectre 0.49 parses options after a branch's name before inserting its default command, so --json never reaches settings
+        if (settings.Json || context.Arguments.Contains("--json"))
         {
             Console.WriteLine(JsonSerializer.Serialize(BuildSpec(), Renderer.PrettyJson));
             return 0;
@@ -439,6 +440,17 @@ public class DocsCommand : Command<DocsSettings>
 
         C("docs", "Show this reference",
           ["--json"], ["anythink docs", "anythink docs --json"]),
+
+        C("docs search QUERY",
+          "Search the Anythink guides on docs.anythink.cloud (no sign-in needed)",
+          ["--limit N", "--json"],
+          ["anythink docs search \"row-level security\"", "anythink docs search workflows --limit 5 --json"]),
+
+        C("docs read SLUG_OR_URL",
+          "Read a guide as markdown: a path from docs search, its last part, or a full docs.anythink.cloud URL (no sign-in needed)",
+          ["--json"],
+          ["anythink docs read /guides/workflows/how-workflows-work", "anythink docs read first-app",
+              "anythink docs read https://docs.anythink.cloud/get-started/first-app --json"]),
     ];
 
     private static object C(string syntax, string description,
@@ -597,6 +609,20 @@ public class DocsCommand : Command<DocsSettings>
         ```
 
         Auth header: `X-API-Key: <key>`  or  `Authorization: Bearer <token>`
+
+        ## Guides
+
+        Search and read the guides on https://docs.anythink.cloud. No sign-in needed.
+
+        | Command | Description |
+        |---------|-------------|
+        | `anythink docs search QUERY [--limit N] [--json]` | Matching guides with title, URL and a short summary |
+        | `anythink docs read SLUG_OR_URL [--json]` | A guide's content as markdown |
+
+        ```sh
+        anythink docs search "row-level security"
+        anythink docs read /guides/workflows/how-workflows-work
+        ```
 
         ## API URLs
 

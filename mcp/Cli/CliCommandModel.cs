@@ -33,6 +33,8 @@ public static partial class CliCommandModel
         return Parse(result.Output);
     }
 
+    private const string DefaultCommandName = "__default_command";
+
     internal static IReadOnlyList<CliCommand> Parse(string xml) =>
         Walk(XDocument.Parse(xml).Root!, []).ToList();
 
@@ -40,7 +42,17 @@ public static partial class CliCommandModel
     {
         foreach (var element in parent.Elements("Command"))
         {
-            var commandPath = path.Append((string)element.Attribute("Name")!).ToList();
+            var name = (string)element.Attribute("Name")!;
+            if (name == DefaultCommandName)
+            {
+                yield return new CliCommand(
+                    path,
+                    Text(parent.Element("Description")),
+                    element.Element("Parameters")?.Elements().Select(ParseParameter).ToList() ?? []);
+                continue;
+            }
+
+            var commandPath = path.Append(name).ToList();
 
             if ((string?)element.Attribute("IsBranch") == "true")
             {

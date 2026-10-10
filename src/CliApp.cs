@@ -981,9 +981,20 @@ public static class CliApp
 
         // ── Docs ──────────────────────────────────────────────────────────────────
 
-        config.AddCommand<DocsCommand>("docs")
-            .WithDescription("Print the full CLI reference (markdown or --json for AI/tooling consumption)")
-            .WithExample("docs")
-            .WithExample("docs", "--json");
+        config.AddBranch("docs", docs =>
+        {
+            docs.SetDescription("Print the full CLI reference (markdown or --json for AI/tooling consumption)");
+            docs.SetDefaultCommand<DocsCommand>();
+
+            docs.AddCommand<DocsSearchCommand>("search")
+                .WithDescription("Search the Anythink guides on docs.anythink.cloud; no sign-in needed")
+                .WithExample("docs", "search", "row-level security")
+                .WithExample("docs", "search", "workflows", "--limit", "5", "--json");
+
+            docs.AddCommand<DocsReadCommand>("read")
+                .WithDescription("Read an Anythink guide from docs.anythink.cloud as markdown; no sign-in needed")
+                .WithExample("docs", "read", "/guides/workflows/how-workflows-work")
+                .WithExample("docs", "read", "https://docs.anythink.cloud/get-started/first-app", "--json");
+        });
     }
 }

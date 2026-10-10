@@ -863,7 +863,7 @@ public partial class CliCommandToolTests
         foreach (var scope in new[] { CliToolScope.Local, CliToolScope.Internal })
             CliCommandTool.All(scope).Should().AllSatisfy(tool => Properties(tool).Should().NotContain(HostedProjects.ParameterName));
 
-        var hosted = CliCommandTool.All(CliToolScope.Hosted).ToLookup(tool => tool.NeedsAccountAccess);
+        var hosted = CliCommandTool.All(CliToolScope.Hosted).ToLookup(tool => tool.NeedsAccountAccess || !tool.NeedsProject);
         hosted[false].Should().AllSatisfy(tool => Properties(tool).Should().Contain(HostedProjects.ParameterName));
         hosted[true].Should().AllSatisfy(tool => Properties(tool).Should().NotContain(HostedProjects.ParameterName));
     }

@@ -1138,11 +1138,23 @@ anythink api --json                    Output as JSON (useful for AI tooling)
 
 ### docs
 
-Print the full CLI reference.
+Print the full CLI reference, or search and read the Anythink guides on [docs.anythink.cloud](https://docs.anythink.cloud). Searching and reading the guides needs no sign-in.
 
 ```
 anythink docs                          Print reference as markdown
 anythink docs --json                   Print reference as JSON (for AI/tooling consumption)
+anythink docs search <query>           Find guides: title, URL and a short summary
+  --limit N                            Most guides to return (1-50, default 10)
+  --json                               Machine-readable results
+anythink docs read <slug-or-url>       Print a guide as markdown
+  --json                               Title, path, URL and markdown as JSON
+```
+
+`docs read` takes a path from `docs search` (such as `/guides/workflows/how-workflows-work`), the last part of a path (`first-app`), or a full `https://docs.anythink.cloud/...` URL.
+
+```sh
+anythink docs search "row-level security"
+anythink docs read /guides/workflows/how-workflows-work
 ```
 
 ---
@@ -1299,6 +1311,8 @@ The MCP server provides dedicated tools for authentication, account/project mana
 | `projects_create` | Create a project |
 | `projects_use` | Connect to a project |
 | `projects_delete` | Delete a project |
+| `docs_search` | Search the Anythink guides (no sign-in needed) |
+| `docs_read` | Read an Anythink guide as markdown (no sign-in needed) |
 | `cli` | Run any CLI command (entities, data, workflows, roles, etc.) |
 
 The hosted MCP server (`anythink-mcp --hosted`) has no sign-in or profile tools. Its `accounts_list`, `accounts_create`, `plans`, `projects_create` and `projects_delete` tools run as the signed-in user and appear only when the user grants account access; see the [MCP server docs](mcp/README.md#account-tools).

@@ -72,6 +72,8 @@ public static class CliToolPolicy
     private static readonly string[] FreeTextArguments =
         [
             "search query text",
+            "docs search query",
+            "docs read slug_or_url",
             "workflows create name",
             "roles create name",
             "users invite email",
@@ -122,7 +124,10 @@ public static class CliToolPolicy
 
     private static readonly string[] ReadOnlyRemotely = ["workflows export"];
 
-    private static readonly string[] ReadOnlyCommands = ["plans"];
+    private static readonly string[] ReadOnlyCommands = ["plans", "docs search", "docs read"];
+
+    // These read the public docs site, so they run without a project or sign-in.
+    private static readonly string[] PublicCommands = ["docs search", "docs read"];
 
     private static readonly HashSet<string> AdditiveVerbs =
     [
@@ -157,8 +162,10 @@ public static class CliToolPolicy
 
     public static bool IsAccountCommand(CliCommand command) => AccountCommands.Contains(command.Key);
 
+    public static bool IsPublic(CliCommand command) => PublicCommands.Contains(command.Key);
+
     public static bool TakesProject(CliCommand command, CliToolScope scope) =>
-        scope == CliToolScope.Hosted && !IsAccountCommand(command);
+        scope == CliToolScope.Hosted && !IsAccountCommand(command) && !IsPublic(command);
 
     public static bool Includes(CliCommand command, CliToolScope scope) =>
         !Matches(command.Key, ExcludedEverywhere)
