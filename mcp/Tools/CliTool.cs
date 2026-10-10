@@ -17,6 +17,7 @@ public class CliTool
         "Prefer the dedicated tools; use this for anything they don't cover. " +
         "Pass the command exactly as you would after 'anythink', e.g. 'entities list' or 'data list posts'. " +
         "Destructive pay commands (delete, expire, relink, pause and similar) must be run by a person in a terminal; never add '--yes' on their behalf. " +
+        "'data import' creates records (not destructive): run it with --dry-run first and only add '--yes' after the user approves the dry run. " +
         "Add '--json' where supported for machine-readable output.")]
     public async Task<string> RunCli(
         [Description(

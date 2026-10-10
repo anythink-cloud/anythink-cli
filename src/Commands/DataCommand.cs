@@ -197,13 +197,12 @@ internal static class JsonbFieldHelper
         foreach (var key in data.Select(kv => kv.Key).ToList())
         {
             if (!jsonbFields.Contains(key)) continue;
-            var node = data[key];
-            if (node is JsonObject || node is JsonArray)
-            {
-                data[key] = JsonValue.Create(node.ToJsonString());
-            }
+            data[key] = Stringify(data[key]);
         }
     }
+
+    public static JsonNode? Stringify(JsonNode? node) =>
+        node is JsonObject or JsonArray ? JsonValue.Create(node.ToJsonString()) : node;
 }
 
 public class DataCreateSettings : CommandSettings

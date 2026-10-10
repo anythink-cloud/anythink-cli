@@ -10,6 +10,7 @@ namespace AnythinkCli.Client;
 public class AnythinkException(string message, int statusCode) : Exception(message)
 {
     public int StatusCode { get; } = statusCode;
+    public TimeSpan? RetryAfter { get; init; }
 
     public string StatusOnlyMessage => StatusCode is >= 200 and < 300
         ? "The project API returned a response this command couldn't read."
@@ -97,21 +98,21 @@ public abstract class HttpApiClient
     {
         var r = await Http.PostAsync(Target(url), Serialize(body ?? new { }), ClientContext.Cancellation);
         if (!r.IsSuccessStatusCode)
-            throw new AnythinkException(await r.Content.ReadAsStringAsync(), (int)r.StatusCode);
+            throw Failure(await r.Content.ReadAsStringAsync(), r);
     }
 
     protected async Task PutVoidAsync(string url, object body)
     {
         var r = await Http.PutAsync(Target(url), Serialize(body), ClientContext.Cancellation);
         if (!r.IsSuccessStatusCode)
-            throw new AnythinkException(await r.Content.ReadAsStringAsync(), (int)r.StatusCode);
+            throw Failure(await r.Content.ReadAsStringAsync(), r);
     }
 
     protected async Task DeleteAsync(string url)
     {
         var r = await Http.DeleteAsync(Target(url), ClientContext.Cancellation);
         if (!r.IsSuccessStatusCode)
-            throw new AnythinkException(await r.Content.ReadAsStringAsync(), (int)r.StatusCode);
+            throw Failure(await r.Content.ReadAsStringAsync(), r);
     }
 
     protected async Task<T?> DeleteAsync<T>(string url)
@@ -126,10 +127,33 @@ public abstract class HttpApiClient
         return new StringContent(json, Encoding.UTF8, "application/json");
     }
 
+    private static AnythinkException Failure(string raw, HttpResponseMessage r)
+    {
+        var wait = r.Headers.RetryAfter?.Delta
+                   ?? (r.Headers.RetryAfter?.Date is { } at ? (TimeSpan?)(at - DateTimeOffset.UtcNow) : null)
+                   ?? RateLimitWait(raw, r);
+        return new AnythinkException(raw, (int)r.StatusCode) { RetryAfter = wait is { } w && w > TimeSpan.Zero ? w : null };
+    }
+
+    // The rate limiter reports its wait as retry_after seconds in the body or an X-RateLimit-Reset header, not Retry-After.
+    private static TimeSpan? RateLimitWait(string raw, HttpResponseMessage r)
+    {
+        if (r.StatusCode != (System.Net.HttpStatusCode)429) return null;
+        try
+        {
+            if (JsonNode.Parse(raw) is JsonObject o && o["retry_after"] is JsonValue v && v.TryGetValue<double>(out var secs))
+                return TimeSpan.FromSeconds(secs);
+        }
+        catch (JsonException) { }
+        if (r.Headers.TryGetValues("X-RateLimit-Reset", out var values) && long.TryParse(values.FirstOrDefault(), out var reset))
+            return reset > 1_000_000_000 ? DateTimeOffset.FromUnixTimeSeconds(reset) - DateTimeOffset.UtcNow : TimeSpan.FromSeconds(reset);
+        return null;
+    }
+
     private static async Task<T?> DeserializeAsync<T>(HttpResponseMessage r)
     {
         var raw = await r.Content.ReadAsStringAsync();
-        if (!r.IsSuccessStatusCode) throw new AnythinkException(raw, (int)r.StatusCode);
+        if (!r.IsSuccessStatusCode) throw Failure(raw, r);
         if (string.IsNullOrWhiteSpace(raw)) return default;
         try { return JsonSerializer.Deserialize<T>(raw, JsonOpts); }
         catch (JsonException ex)

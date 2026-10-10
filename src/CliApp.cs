@@ -287,6 +287,17 @@ public static class CliApp
                 .WithDescription("Delete a record")
                 .WithExample("data", "delete", "blog_posts", "42", "--yes");
 
+            data.AddCommand<DataExportCommand>("export")
+                .WithDescription("Export records to a CSV, JSON or JSONL file (streamed page by page)")
+                .WithExample("data", "export", "customers", "customers.csv")
+                .WithExample("data", "export", "orders", "orders.jsonl", "--filter", "status=paid", "--fields", "id,total")
+                .WithExample("data", "export", "customers", "-", "--format", "json");
+
+            data.AddCommand<DataImportCommand>("import")
+                .WithDescription("Create records from a CSV, JSON array or JSONL file. Always run with --dry-run first and only add --yes after the dry run is approved.")
+                .WithExample("data", "import", "customers", "customers.csv", "--dry-run")
+                .WithExample("data", "import", "customers", "customers.csv", "--yes", "--errors", "rejected.csv");
+
             data.AddCommand<DataRlsCommand>("rls")
                 .WithDescription("View or set RLS (row-level security) user access on a record")
                 .WithExample("data", "rls", "completed_workouts", "3")
@@ -418,9 +429,41 @@ public static class CliApp
             menus.AddCommand<MenusListCommand>("list")
                 .WithDescription("List all menus and their items");
 
+            menus.AddCommand<MenuGetCommand>("get")
+                .WithDescription("Show one menu with its items and their child items")
+                .WithExample("menus", "get", "250");
+
+            menus.AddCommand<MenuCreateCommand>("create")
+                .WithDescription("Create a menu for a role")
+                .WithExample("menus", "create", "Staff", "239");
+
+            menus.AddCommand<MenuUpdateCommand>("update")
+                .WithDescription("Rename a menu or change the role it is shown to")
+                .WithExample("menus", "update", "250", "--name", "Admin");
+
+            menus.AddCommand<MenuDeleteCommand>("delete")
+                .WithDescription("Delete a menu and all of its items")
+                .WithExample("menus", "delete", "250", "--yes");
+
             menus.AddCommand<MenuAddItemCommand>("add-item")
                 .WithDescription("Add a menu item for an entity")
                 .WithExample("menus", "add-item", "250", "badges", "--icon", "Award", "--parent", "168");
+
+            menus.AddCommand<MenuUpdateItemCommand>("update-item")
+                .WithDescription("Change a menu item's name, icon, link or parent")
+                .WithExample("menus", "update-item", "250", "299", "--name", "Badges", "--icon", "Award");
+
+            menus.AddCommand<MenuRemoveItemCommand>("remove-item")
+                .WithDescription("Remove a menu item, along with its child items")
+                .WithExample("menus", "remove-item", "250", "299", "--yes");
+
+            menus.AddCommand<MenuReorderItemsCommand>("reorder-items")
+                .WithDescription("Set the order of menu items that share a parent")
+                .WithExample("menus", "reorder-items", "250", "301,299,300");
+
+            menus.AddCommand<MenuReorderCommand>("reorder")
+                .WithDescription("Set the order of menus")
+                .WithExample("menus", "reorder", "92,90,91");
         });
 
         // ── Charts ────────────────────────────────────────────────────────────────

@@ -53,7 +53,15 @@ integrations_oauth_configure [destructive] provider client_id? client_secret? di
 integrations_oauth_status [read-only] provider
 integrations_test [write] connection_id
 menus_add_item [write] menu_id entity icon? name? parent?
+menus_create [write] name role_id
+menus_delete [destructive] menu_id
+menus_get [read-only] menu_id
 menus_list [read-only]
+menus_remove_item [destructive] menu_id item_id
+menus_reorder [destructive] menu_ids
+menus_reorder_items [destructive] menu_id item_ids
+menus_update [destructive] menu_id name? role?
+menus_update_item [destructive] menu_id item_id entity? href? icon? name? parent?
 pay_entitlement [read-only]
 pay_methods [read-only]
 pay_offers_activate [write] id

@@ -312,6 +312,8 @@ anythink data get <entity> <id>        Get a single record by ID
 anythink data create <entity>          Create a new record
 anythink data update <entity> <id>     Update a record
 anythink data delete <entity> <id>     Delete a record
+anythink data export <entity> <file>   Export records to CSV, JSON or JSONL
+anythink data import <entity> <file>   Create records from CSV, JSON or JSONL
 ```
 
 **Options — `data list`**
@@ -351,6 +353,50 @@ anythink data create blog_posts --data '{"title":"Hello World","status":"draft"}
 anythink data update blog_posts 42 --data '{"status":"approved"}'
 anythink data delete blog_posts 42 --yes
 ```
+
+**Export and import** — `data export` streams records page by page to a file; `data import` creates one record per row. Always run an import with `--dry-run` first: it validates every row and sends nothing.
+
+```bash
+anythink data export customers customers.csv
+anythink data export orders orders.jsonl --filter 'status=paid' --fields id,total
+anythink data import customers customers.csv --dry-run
+anythink data import customers customers.csv --errors rejected.csv --yes
+```
+
+| Flag (`export`)       | Description |
+| --------------------- | ----------- |
+| `--format <fmt>`      | `csv`, `json` or `jsonl`. Default: from the extension (`.csv`, `.json`, `.jsonl`, `.ndjson`). `-` as the file writes to stdout (needs `--format`) |
+| `--filter <expr>`     | Same syntax as `data list --filter` |
+| `--fields a,b`        | Columns to export, in order. CSV defaults to the entity's fields |
+| `--page-size <n>`     | Records per request (default 200, max 1000) |
+| `--force`             | Overwrite an existing file. Without it an existing file is never touched. The file is written to a temporary name and renamed on success, so a failed export never leaves a partial file |
+| `--no-formula-guard`  | CSV only: see below |
+
+| Flag (`import`)       | Description |
+| --------------------- | ----------- |
+| `--format <fmt>`      | `csv`, `json` (an array of objects) or `jsonl`. Default: from the extension, else the first character (`[` or `{`) |
+| `--dry-run`           | Validate and report; nothing is sent |
+| `--concurrency <n>`   | Parallel creates (default 4, max 16) |
+| `--errors <file>`     | Write skipped and failed rows, with an `_error` column or property, so they can be fixed and re-imported |
+| `--ignore-unknown`    | Drop columns that aren't fields on the entity instead of rejecting the row |
+| `--yes`               | Skip the confirmation prompt. Required when not running interactively (CI, scripts, agents), otherwise the import refuses before writing anything |
+
+How values are handled:
+
+- **CSV is RFC 4180**: cells containing a comma, quote or line break are quoted, quotes are doubled, and quoted cells can span lines. Objects, arrays, JSON fields and relations are written as compact JSON text.
+- **Formula guard (export)**: CSV text starting with `=`, `+`, `-`, `@`, tab or carriage return is prefixed with `'` so spreadsheets don't run it as a formula. Numbers are never changed. This includes phone numbers such as `+44 20 7946 0000` and any text with a leading `+` or `-`. The guard is one-way: importing the file keeps the `'` unless the file was exported with `--no-formula-guard`.
+- **Types follow the entity's fields.** Text keeps its exact characters (`00123` stays `00123`); integers and decimals are parsed with `.` as the decimal separator (`1,5` is rejected, never guessed); booleans accept `true/false`, `1/0` and `yes/no`; dates must be ISO 8601 (`2025-03-31`, `2025-03-31T09:30:00Z`; no offset means UTC); JSON fields must be valid JSON.
+- **An empty CSV cell is sent as `null`.** In JSON and JSONL input an empty string stays an empty string.
+- **Bad rows are skipped, never sent.** They are reported with a row number (CSV: record number, so the header is row 1; JSONL: line number; JSON: position in the array) and counted as *skipped*. Rows the server rejects are counted as *failed*. The exit code is non-zero if any row was skipped or failed.
+- **Retries**: `400`, `409` and `422` are never retried, so a create is not repeated. See *Uncertain failures* below for what is retried.
+- **System columns are ignored on import**: `id`, `created_at`, `updated_at`, `tenant_id` and `locked` are never sent, and the import says which it ignored. Importing an export back into the same project therefore creates duplicates with new ids and timestamps; it does not update the originals.
+- **One-to-many collections and secret fields are skipped on import** (the import lists them), and one-to-many columns are left out of an export unless you name them in `--fields`. Many-to-many, file and user columns are copied as ids, which only mean something inside the same project; the import warns once per column.
+- **Empty boolean cells** are sent as `null` rather than `false`.
+- **Uncertain failures**: only `429`/`503` responses and requests that never reached the server (DNS, connection or TLS failures) are retried. If a request times out or the connection drops after sending, the row is reported as `UNCERTAIN: may have been created`, in the errors file too; check the project before re-importing it. Rate-limit waits pause every worker together and are retried for over a minute before giving up.
+- **Ctrl+C** stops reading the file, finishes the rows already queued and prints a partial summary (exit code 1). An interrupted export removes its temporary file.
+- `data import` and `data export` read and write local files, so they are not available through the hosted (HTTP) MCP server.
+
+Not supported yet: updating or upserting existing records by key, looking up relations by a natural key (use the related record's id), and file uploads.
 
 ---
 
@@ -609,8 +655,17 @@ anythink api-keys revoke 42 --yes
 Manage dashboard sidebar menus in the active project. Menus control what entities appear in the Anythink dashboard and how they are grouped.
 
 ```
-anythink menus list                              List all menus with tree structure
-anythink menus add-item <menu_id> <entity>       Add an entity to a dashboard menu
+anythink menus list                                        List all menus with tree structure
+anythink menus get <menu_id> [--json]                      Show one menu (and its role) with its items and child items
+anythink menus create <name> <role_id>                     Create a menu shown to a role
+anythink menus update <menu_id> [--name <text>] [--role <id>]
+                                                           Rename a menu or change its role
+anythink menus delete <menu_id> [--yes]                    Delete a menu and all of its items
+anythink menus add-item <menu_id> <entity>                 Add an entity to a dashboard menu
+anythink menus update-item <menu_id> <item_id> [options]   Change an item's name, icon, link or parent
+anythink menus remove-item <menu_id> <item_id> [--yes]     Remove an item, along with its child items
+anythink menus reorder-items <menu_id> <item_ids>          Set the order of items that share a parent
+anythink menus reorder <menu_ids>                          Set the order of menus
 ```
 
 **Options — `menus add-item`**
@@ -621,17 +676,47 @@ anythink menus add-item <menu_id> <entity>       Add an entity to a dashboard me
 | `--name <text>`   | Display name (defaults to entity name, title-cased)  |
 | `--parent <id>`   | Parent menu item ID for nesting under a group        |
 
+**Options — `menus update-item`** (only the fields you pass change)
+
+| Flag              | Description                                                |
+| ----------------- | ---------------------------------------------------------- |
+| `--name <text>`   | New display name                                           |
+| `--icon <name>`   | New Lucide icon name                                       |
+| `--entity <name>` | Point the item at an entity's page (instead of `--href`)   |
+| `--href <path>`   | Point the item at any path (instead of `--entity`)         |
+| `--parent <id>`   | Parent item ID to nest under; `0` moves it to the top level |
+
+`reorder-items` and `reorder` take comma-separated IDs in the order you want them (`301,299,300`). The items you name take the first places within their group; items you leave out follow in their current order, and `reorder-items` needs all the items to share one parent. Locked items (the built-in ones) can't be changed, removed or moved; they keep their place, and the items between them reuse their own position numbers (they are only renumbered when two of them tie).
+
+`add-item` and `update-item --entity` look the entity up first (system entities count), and stop only if it doesn't exist; if the lookup itself fails (for example, no permission), the item is saved and a warning says the entity couldn't be checked. Moving an item to a new parent with `update-item --parent` puts it last among its new siblings.
+
+Removing an item also removes its direct child items. The command says so, and refuses when those children are locked or have items of their own.
+
+A role is shown only its first menu, so `create` (and `update --role`) warns when the role already has one. `delete` removes the menu's locked built-in items with it, and says when the role is left with no menu.
+
 **Examples**
 
 ```bash
 # List all menus and their items
 anythink menus list
 
+# Show menu 250 with the item IDs you need for the commands below
+anythink menus get 250
+
 # Add "Check-ins" under the Profiles group (parent 168) in admin menu (250)
 anythink menus add-item 250 check_ins --icon MessageCircle --parent 168
 
 # Add a top-level menu item
 anythink menus add-item 250 badges --icon Award
+
+# Rename an item and give it another icon
+anythink menus update-item 250 299 --name "Achievements" --icon Trophy
+
+# Remove an item
+anythink menus remove-item 250 299 --yes
+
+# Put items 301, 299 and 300 first, in that order
+anythink menus reorder-items 250 301,299,300
 ```
 
 ---
