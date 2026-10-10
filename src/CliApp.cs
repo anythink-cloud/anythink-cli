@@ -696,12 +696,46 @@ public static class CliApp
             });
         });
 
+        // ── Settings (project) ─────────────────────────────────────────────
+
+        config.AddBranch("settings", settings =>
+        {
+            settings.SetDescription("View and manage project settings (registrations, AI, CORS, …)");
+
+            settings.AddCommand<SettingsGetCommand>("get")
+                .WithDescription("Show all project settings")
+                .WithExample("settings", "get")
+                .WithExample("settings", "get", "--json");
+
+            settings.AddCommand<SettingsSetCommand>("set")
+                .WithDescription("Set a single project setting")
+                .WithExample("settings", "set", "allow_registrations", "true")
+                .WithExample("settings", "set", "require_email_confirmation", "false");
+
+            settings.AddBranch("cors", cors =>
+            {
+                cors.SetDescription("Manage allowed application URLs (browser CORS origins)");
+
+                cors.AddCommand<SettingsCorsListCommand>("list")
+                    .WithDescription("List allowed application URLs");
+
+                cors.AddCommand<SettingsCorsAddCommand>("add")
+                    .WithDescription("Add an allowed origin (clears the CORS cache)")
+                    .WithExample("settings", "cors", "add", "https://app.example.com");
+
+                cors.AddCommand<SettingsCorsRemoveCommand>("remove")
+                    .WithDescription("Remove an allowed origin (clears the CORS cache)")
+                    .WithExample("settings", "cors", "remove", "https://app.example.com");
+            });
+        });
+
         // ── Fetch (raw API call) ──────────────────────────────────────────────────
 
         config.AddCommand<FetchCommand>("fetch")
             .WithDescription("Make an authenticated API request to the active project")
             .WithExample("fetch", "/integrations/definitions")
             .WithExample("fetch", "/integrations/definitions/slack/fields/channel/options")
+            .WithExample("fetch", "/workflows/12/jobs", "--all")
             .WithExample("fetch", "/integrations/connections", "--method", "POST", "--body", "{\"name\":\"test\"}");
 
         // ── API explorer ──────────────────────────────────────────────────────────

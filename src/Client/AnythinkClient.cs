@@ -91,6 +91,18 @@ public class AnythinkClient : HttpApiClient
         return content;
     }
 
+    public async IAsyncEnumerable<string> FetchPagesAsync(string url)
+    {
+        var size = Math.Min(FetchPaging.QueryInt(url, "pageSize") ?? FetchPaging.MaxPageSize, FetchPaging.MaxPageSize);
+        var sized = FetchPaging.WithQuery(url, "pageSize", size);
+        for (var page = FetchPaging.QueryInt(url, "page") ?? 1; ; page++)
+        {
+            var body = await FetchRawAsync(FetchPaging.WithQuery(sized, "page", page));
+            yield return body;
+            if (!FetchPaging.HasNextPage(body)) yield break;
+        }
+    }
+
     // ── Project Auth ──────────────────────────────────────────────────────────
 
     public Task<LoginResponse> ExchangeTransferTokenAsync(string transferToken)
@@ -138,6 +150,9 @@ public class AnythinkClient : HttpApiClient
     public async Task<Workflow> GetWorkflowAsync(int id)
         => (await GetAsync<Workflow>(_org + $"/workflows/{id}"))
            ?? throw new AnythinkException($"Workflow {id} not found.", 404);
+
+    public Task<string> GetWorkflowRawAsync(int id)
+        => FetchRawAsync(_org + $"/workflows/{id}");
 
     public Task<Workflow> CreateWorkflowAsync(CreateWorkflowRequest req)
         => PostAsync<Workflow>(_org + "/workflows", req);
@@ -525,4 +540,7 @@ public class AnythinkClient : HttpApiClient
 
     public Task<TenantResponse?> UpdateTenantAsync(UpdateTenantRequest req)
         => PutAsync<TenantResponse>(BaseUrl + $"/org/{OrgId}", req);
+
+    public Task ClearCorsCacheAsync()
+        => PostVoidAsync(BaseUrl + $"/org/{OrgId}/cors/clear-cache");
 }

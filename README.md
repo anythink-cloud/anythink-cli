@@ -48,6 +48,7 @@ The official command-line interface for [Anythink](https://anythink.cloud) — t
   - [menus](#menus)
   - [charts](#charts)
   - [dashboards](#dashboards)
+  - [settings](#settings)
   - [integrations](#integrations)
   - [pay](#pay)
   - [oauth](#oauth)
@@ -403,30 +404,45 @@ anythink search query "*" --filter "_geoRadius(51.5074,-0.1278,5000)"
 
 ### workflows
 
-Manage automation workflows. Workflows can be triggered on a cron schedule, when entities are created or updated, or manually.
+Manage automation workflows. A workflow can have several triggers: a cron schedule, an entity event, an API route, or a manual run.
 
 ```
-anythink workflows list                List all workflows
-anythink workflows get <id>            Get workflow details and steps
+anythink workflows list                List all workflows (--json for a compact summary)
+anythink workflows get <id>            Get workflow details and steps (--json for the full definition)
 anythink workflows create <name>       Create a new workflow
+anythink workflows update <id>         Rename a workflow or change its description
 anythink workflows enable <id>         Enable a workflow
 anythink workflows disable <id>        Disable a workflow
 anythink workflows trigger <id>        Manually trigger a workflow
 anythink workflows delete <id>         Delete a workflow
 ```
 
-**Options — `workflows create`**
+**Trigger types — `workflows create --trigger <type>`** (not case-sensitive; default `Manual`)
 
-| Flag               | Description                                                       |
-| ------------------ | ----------------------------------------------------------------- |
-| `--trigger <type>` | Trigger type: `Timed`, `EntityCreated`, `EntityUpdated`, `Manual` |
-| `--cron <expr>`    | Cron expression (for `Timed` trigger, e.g. `0 6 * * *`)           |
-| `--entity <name>`  | Entity name (for `EntityCreated` / `EntityUpdated` triggers)      |
+| Type     | Fires                                 | Required flag          | Other flags                          |
+| -------- | ------------------------------------- | ---------------------- | ------------------------------------ |
+| `Manual` | When run by hand, on an entity        | `--entity <name>`      |                                      |
+| `Event`  | When an event happens, such as a record being created | `--entity <name>` for the `Entity...` events | `--event <event>`, `--filter <json>` |
+| `Timed`  | On a cron schedule                    | `--cron <expr>`        |                                      |
+| `Api`    | When its API route is called          | `--api-route <route>`  |                                      |
+
+`--event` (not case-sensitive) is `EntityCreated` (default), `EntityUpdated`, `EntityDeleted`, `UserRegistered`, `UserInvited`, `SubscriptionCreated`, `SubscriptionActivated`, `SubscriptionExpired`, `PaymentCreated`, `PaymentSucceeded`, `PaymentFailed`, `PaymentMethodCaptured`, `PaymentMethodCaptureFailed`, `PaymentMethodRemoved` or `PushActionTaken`; only the three `Entity...` events need `--entity`. A trigger missing its required flag is rejected before anything is sent, and a flag that doesn't apply to the chosen type is ignored with a warning.
+
+**Other options — `workflows create`**
+
+| Flag                    | Description                                       |
+| ----------------------- | ------------------------------------------------- |
+| `--description <text>`  | Workflow description                              |
+| `--enabled`             | Enable the workflow straight away                 |
+| `--filter-file <path>`  | Read the `Event` filter JSON from a file          |
 
 **Examples**
 
 ```bash
 anythink workflows create daily-sync --trigger Timed --cron "0 6 * * *"
+anythink workflows create on-post --trigger Event --entity blog_posts --event EntityUpdated
+anythink workflows create import-hook --trigger Api --api-route hooks/import
+anythink workflows create review-posts --entity blog_posts
 anythink workflows trigger 76
 anythink workflows disable 83
 ```
@@ -747,6 +763,58 @@ anythink dashboards remove-widget 3 41
 
 # The numbers behind it
 anythink dashboards data 3 --json
+```
+
+---
+
+### settings
+
+View and change project settings in the active project, including the allowed application URLs that browsers may call the API from (CORS).
+
+```
+anythink settings get [--json]                   Show all project settings
+anythink settings set <key> <value> [--yes]     Set a single project setting
+anythink settings cors list                      List allowed application URLs
+anythink settings cors add <url> [--yes]         Add an allowed origin
+anythink settings cors remove <url>              Remove an allowed origin
+```
+
+**Keys — `settings set`**
+
+| Key                            | Value                                     |
+| ------------------------------ | ----------------------------------------- |
+| `name`, `description`          | Text                                      |
+| `require_email_confirmation`   | `true` / `false`                          |
+| `allow_registrations`          | `true` / `false`                          |
+| `default_role_id`              | Role ID for newly registered users        |
+| `enable_group_rls`             | `true` / `false`                          |
+| `payment_success_url`, `payment_cancel_url` | URL                          |
+| `app_engagement_trial_enabled` | `true` / `false`                          |
+| `app_engagement_trial_days`    | Number of days                            |
+| `ai_mode`                      | `platform` or `byok`                      |
+| `ai_byok_provider`, `ai_default_model` | Text                              |
+| `google_maps_key`              | Text                                      |
+
+Origins must be `http`/`https` with a host and optional port, with no path, query or fragment; a trailing `/` is stripped. A wildcard such as `https://*.example.com` is only safe on a domain you control, so wildcards under shared hosting domains (`vercel.app`, `github.io`, …) or a bare TLD are refused unless you pass `--yes`.
+
+Some changes widen who can sign up: `default_role_id` pointing at an administrator role is refused unless you pass `--yes`, and `allow_registrations true` and `require_email_confirmation false` ask for confirmation (pass `--yes` when running non-interactively).
+
+`cors add` and `cors remove` clear the project's CORS cache, so the change applies straight away. Matching is case-insensitive and adding a URL that is already present does nothing. Anythink's own domains and `localhost` are always allowed and don't need adding.
+
+**Examples**
+
+```bash
+# Allow a deployed front end to call the API
+anythink settings cors add https://my-app.vercel.app
+
+# Allow every subdomain of a domain you own
+anythink settings cors add "https://*.example.com"
+
+# Remove an origin
+anythink settings cors remove https://my-app.vercel.app
+
+# Let users sign up on their own
+anythink settings set allow_registrations true
 ```
 
 ---

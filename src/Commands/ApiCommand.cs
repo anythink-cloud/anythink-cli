@@ -1,3 +1,4 @@
+using AnythinkCli.Models;
 using AnythinkCli.Output;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -79,14 +80,14 @@ public class ApiListCommand : BaseCommand<ApiListSettings>
             AnsiConsole.Write(dynTable);
 
             // Workflow API routes
-            var apiWorkflows = workflows.Where(w => w.Trigger == "Api" && !string.IsNullOrEmpty(w.Trigger)).ToList();
-            if (apiWorkflows.Count > 0)
+            var apiRoutes = WorkflowApiRoutes(base_, workflows);
+            if (apiRoutes.Count > 0)
             {
                 AnsiConsole.WriteLine();
                 Renderer.Header("Workflow API Routes");
                 var wfTable = Renderer.BuildTable("Method", "Path", "Workflow");
-                foreach (var w in apiWorkflows)
-                    Renderer.AddRow(wfTable, "POST", $"{base_}/workflows/api/[route]", w.Name);
+                foreach (var (path, workflow) in apiRoutes)
+                    Renderer.AddRow(wfTable, "POST", path, workflow);
                 AnsiConsole.Write(wfTable);
             }
 
@@ -100,6 +101,11 @@ public class ApiListCommand : BaseCommand<ApiListSettings>
             return 1;
         }
     }
+
+    internal static List<(string Path, string Workflow)> WorkflowApiRoutes(string base_, IEnumerable<Workflow> workflows) =>
+        workflows
+            .SelectMany(w => WorkflowTriggers.ApiRoutes(w).Select(route => ($"{base_}/workflows/api/{route}", w.Name)))
+            .ToList();
 
     private static IEnumerable<(string Method, string Path, string Desc)> StaticRoutes(string base_)
     {
@@ -135,7 +141,7 @@ public class ApiListCommand : BaseCommand<ApiListSettings>
         ];
     }
 
-    private static object BuildEndpointList(
+    internal static object BuildEndpointList(
         string base_, string orgId,
         List<Models.Entity> entities,
         List<Models.Workflow> workflows)
@@ -162,6 +168,9 @@ public class ApiListCommand : BaseCommand<ApiListSettings>
             return routes;
         });
 
-        return new { base_url = base_, org_id = orgId, routes = staticRoutes.Concat<object>(dynRoutes) };
+        var workflowRoutes = WorkflowApiRoutes(base_, workflows)
+            .Select(r => new { method = "POST", path = r.Path, description = $"Run workflow {r.Workflow}", workflow = r.Workflow, type = "workflow" });
+
+        return new { base_url = base_, org_id = orgId, routes = staticRoutes.Concat<object>(dynRoutes).Concat(workflowRoutes) };
     }
 }

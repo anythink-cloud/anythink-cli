@@ -80,6 +80,11 @@ secrets_create [write] key value?
 secrets_delete [destructive] key
 secrets_list [read-only]
 secrets_update [destructive] key value?
+settings_cors_add [write] url
+settings_cors_list [read-only]
+settings_cors_remove [destructive] url
+settings_get [read-only]
+settings_set [destructive] key value
 users_delete [destructive] id
 users_get [read-only] id
 users_invite [write, open-world] email first_name last_name role_id?
