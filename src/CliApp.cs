@@ -16,6 +16,7 @@ public static class CliApp
         config.AddExample("projects create \"My App\" --region lon1");
         config.AddExample("projects use my-app");
         config.AddExample("migrate --from project-staging --to project-prod");
+        config.AddExample("import directus --url https://cms.example.com --token <token> --dry-run");
         config.AddExample("entities list");
         config.AddExample("fields add products price --type float --required");
         config.AddExample("workflows trigger 76");
@@ -113,6 +114,19 @@ public static class CliApp
             .WithDescription("Copy entities + fields from one project profile to another")
             .WithExample("migrate", "--from", "project-staging", "--to", "project-prod")
             .WithExample("migrate", "--from", "project-staging", "--to", "project-prod", "--dry-run");
+
+        // ── Import from other platforms ───────────────────────────────────────────
+
+        config.AddBranch("import", import =>
+        {
+            import.SetDescription("Import schema and data from another platform into the active Anythink project");
+
+            import.AddCommand<ImportDirectusCommand>("directus")
+                .WithDescription("Import collections, fields, flows, and data from a Directus instance. Writes into the active project: run with --dry-run first and add --yes only once the user has approved the plan")
+                .WithExample("import", "directus", "--url", "https://cms.myapp.com", "--token", "<token>", "--dry-run")
+                .WithExample("import", "directus", "--url", "https://cms.myapp.com", "--token", "<token>", "--include-flows")
+                .WithExample("import", "directus", "--url", "https://cms.myapp.com", "--token", "<token>", "--include-data");
+        });
 
         // ── Entities ──────────────────────────────────────────────────────────────
 

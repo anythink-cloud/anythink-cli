@@ -7,9 +7,10 @@ public static class CliToolPolicy
     private static readonly string[] ExcludedEverywhere =
         ["cli", "signup", "login", "logout", "config", "accounts", "projects", "plans", "migrate"];
 
-    // Data import and export read and write a file path on the machine running the command, which a remote server can't share with the caller.
+    // import directus makes the server fetch a caller-supplied URL with a token (SSRF) and may read DIRECTUS_TOKEN from the host environment;
+    // data import and export read and write a file path on the machine running the command, which a remote server can't share with the caller.
     private static readonly string[] ExcludedRemotely =
-        ["files upload", "workflows seed", "integrations oauth connect", "pay connect", "oauth google", "fetch", "api-keys create", "data import", "data export"];
+        ["files upload", "workflows seed", "integrations oauth connect", "pay connect", "oauth google", "fetch", "api-keys create", "import directus", "data import", "data export"];
 
     internal static readonly string[] HiddenRemotely =
         ["workflows create --filter-file", "workflows export --output", "data list --all"];

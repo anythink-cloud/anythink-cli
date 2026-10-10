@@ -190,9 +190,14 @@ public record UpdateWorkflowRequest(
     [property: JsonPropertyName("triggers")] List<WorkflowTriggerRequest>? Triggers = null
 );
 
-public record UpdateWorkflowStepLinksRequest(
+// The step endpoint is a full replace: any field left out is nulled on the stored row.
+public record UpdateWorkflowStepRequest(
     [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("description")] string? Description,
+    [property: JsonPropertyName("enabled")] bool Enabled,
     [property: JsonPropertyName("action")] string Action,
+    [property: JsonPropertyName("parameters")] System.Text.Json.JsonElement? Parameters,
+    [property: JsonPropertyName("is_start_step")] bool IsStartStep,
     [property: JsonPropertyName("on_success_step_id")] int? OnSuccessStepId,
     [property: JsonPropertyName("on_failure_step_id")] int? OnFailureStepId
 );
@@ -367,7 +372,12 @@ public record FileResponse(
     [property: JsonPropertyName("file_type")] string FileType,
     [property: JsonPropertyName("file_size")] long FileSize,
     [property: JsonPropertyName("is_public")] bool IsPublic,
-    [property: JsonPropertyName("created_at")] DateTime CreatedAt
+    [property: JsonPropertyName("created_at")] DateTime CreatedAt,
+    [property: JsonPropertyName("custom_metadata")] string? CustomMetadata = null
+);
+
+public record UpdateFileMetadataRequest(
+    [property: JsonPropertyName("custom_metadata")] string CustomMetadata
 );
 
 // ── Roles ────────────────────────────────────────────────────────────────────
