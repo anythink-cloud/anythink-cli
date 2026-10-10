@@ -54,9 +54,10 @@ public record SelectFieldOptions(
     [property: JsonPropertyName("multiple")] bool Multiple = false
 );
 
+// Option values can be strings, numbers or booleans, so keep the raw JSON value.
 public record SelectOption(
     [property: JsonPropertyName("label")] string Label,
-    [property: JsonPropertyName("value")] string Value
+    [property: JsonPropertyName("value")] System.Text.Json.Nodes.JsonNode? Value
 );
 
 public record CreateEntityRequest(
