@@ -1059,26 +1059,26 @@ public class WorkflowsSeedCommand : BaseCommand<WorkflowsSeedSettings>
 class WorkflowSeedSpec
 {
     [System.Text.Json.Serialization.JsonPropertyName("schema_version")] public int SchemaVersion { get; set; } = 1;
-    [System.Text.Json.Serialization.JsonPropertyName("name")]           public string Name { get; set; } = "";
-    [System.Text.Json.Serialization.JsonPropertyName("description")]    public string? Description { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("trigger")]        public string? Trigger { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("enabled")]        public bool Enabled { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("options")]        public object? Options { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("api_route")]      public string? ApiRoute { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("steps")]          public List<WorkflowSeedStep>? Steps { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("name")] public string Name { get; set; } = "";
+    [System.Text.Json.Serialization.JsonPropertyName("description")] public string? Description { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("trigger")] public string? Trigger { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("enabled")] public bool Enabled { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("options")] public object? Options { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("api_route")] public string? ApiRoute { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("steps")] public List<WorkflowSeedStep>? Steps { get; set; }
 }
 
 class WorkflowSeedStep
 {
-    [System.Text.Json.Serialization.JsonPropertyName("key")]           public string? Key { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("name")]          public string? Name { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("description")]   public string? Description { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("action")]        public string? Action { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("enabled")]       public bool Enabled { get; set; } = true;
+    [System.Text.Json.Serialization.JsonPropertyName("key")] public string? Key { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("name")] public string? Name { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("description")] public string? Description { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("action")] public string? Action { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("enabled")] public bool Enabled { get; set; } = true;
     [System.Text.Json.Serialization.JsonPropertyName("is_start_step")] public bool IsStartStep { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("parameters")]    public object? Parameters { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("on_success")]    public string? OnSuccess { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("on_failure")]    public string? OnFailure { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("parameters")] public object? Parameters { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("on_success")] public string? OnSuccess { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("on_failure")] public string? OnFailure { get; set; }
 }
 
 // ── workflows export ─────────────────────────────────────────────────────────
@@ -1218,7 +1218,7 @@ public class WorkflowsExportCommand : BaseCommand<WorkflowsExportSettings>
 
         return System.Text.Json.JsonSerializer.Serialize(exported, new System.Text.Json.JsonSerializerOptions
         {
-            WriteIndented          = true,
+            WriteIndented = true,
             DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
         });
     }
@@ -1228,12 +1228,12 @@ public class WorkflowsExportCommand : BaseCommand<WorkflowsExportSettings>
     private static object? JsonValueOf(System.Text.Json.JsonElement e) => e.ValueKind switch
     {
         System.Text.Json.JsonValueKind.Object => e.EnumerateObject().ToDictionary(p => p.Name, p => JsonValueOf(p.Value)),
-        System.Text.Json.JsonValueKind.Array  => e.EnumerateArray().Select(JsonValueOf).ToList(),
+        System.Text.Json.JsonValueKind.Array => e.EnumerateArray().Select(JsonValueOf).ToList(),
         System.Text.Json.JsonValueKind.String => e.GetString(),
         System.Text.Json.JsonValueKind.Number => e.TryGetInt64(out var l) ? l : e.GetDouble(),
-        System.Text.Json.JsonValueKind.True   => true,
-        System.Text.Json.JsonValueKind.False  => false,
-        _                                      => null,
+        System.Text.Json.JsonValueKind.True => true,
+        System.Text.Json.JsonValueKind.False => false,
+        _ => null,
     };
 }
 

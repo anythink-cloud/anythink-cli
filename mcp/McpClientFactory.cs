@@ -153,8 +153,8 @@ public class McpClientFactory
 
             if (response is null) return null;
 
-            profile.AccessToken    = response.AccessToken;
-            profile.RefreshToken   = response.RefreshToken ?? profile.RefreshToken;
+            profile.AccessToken = response.AccessToken;
+            profile.RefreshToken = response.RefreshToken ?? profile.RefreshToken;
             profile.TokenExpiresAt = response.ExpiresIn.HasValue
                 ? DateTime.UtcNow.AddSeconds(response.ExpiresIn.Value)
                 : DateTime.UtcNow.AddHours(1);

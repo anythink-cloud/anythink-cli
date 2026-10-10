@@ -18,7 +18,7 @@ namespace AnythinkCli.Tests;
 public class HttpApiClientTests
 {
     private const string BaseUrl = "https://api.example.com";
-    private const string OrgId   = "1";
+    private const string OrgId = "1";
 
     private static AnythinkClient Build(MockHttpMessageHandler mock) =>
         new(OrgId, BaseUrl, mock.ToHttpClient());
