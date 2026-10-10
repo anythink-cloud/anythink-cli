@@ -186,6 +186,18 @@ public class DocsCommand : Command<DocsSettings>
         C("data delete ENTITY ID", "Delete a record",
           ["--yes"], ["anythink data delete blog_posts 42 --yes"]),
 
+        C("data export ENTITY FILE",
+          "Export records to CSV, JSON or JSONL (streamed page by page; refuses to overwrite without --force)",
+          ["--format csv|json|jsonl", "--filter FILTER", "--fields a,b", "--page-size N", "--force", "--no-formula-guard"],
+          ["anythink data export customers customers.csv",
+              "anythink data export orders orders.jsonl --filter 'status=paid' --fields id,total"]),
+
+        C("data import ENTITY FILE",
+          "Create records from CSV, JSON array or JSONL. Always --dry-run first; non-interactive runs need --yes. Not supported: upsert, relation lookup by key, file uploads",
+          ["--format csv|json|jsonl", "--dry-run", "--concurrency N", "--errors FILE", "--ignore-unknown", "--yes"],
+          ["anythink data import customers customers.csv --dry-run",
+              "anythink data import customers customers.csv --errors rejected.csv --yes"]),
+
         C("charts list", "List charts, newest first",
           ["--entity ENTITY", "--json"], ["anythink charts list --entity orders"]),
 

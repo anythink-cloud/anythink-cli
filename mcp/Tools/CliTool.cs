@@ -16,6 +16,7 @@ public class CliTool
         "Run any Anythink CLI command and return its output. " +
         "Prefer the dedicated tools; use this for anything they don't cover. " +
         "Pass the command exactly as you would after 'anythink', e.g. 'entities list' or 'data list posts'. " +
+        "'data import' creates records (not destructive): run it with --dry-run first and only add '--yes' after the user approves the dry run. " +
         "For destructive commands add '--yes' to skip confirmation prompts. " +
         "Add '--json' where supported for machine-readable output.")]
     public async Task<string> RunCli(

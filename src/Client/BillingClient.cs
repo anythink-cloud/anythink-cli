@@ -105,7 +105,8 @@ public class BillingClient : HttpApiClient
             ? throw new InvalidOperationException("This billing client has no unauthenticated twin.")
             : new BillingClient(_billing, _anonymous, _anonymous);
 
-    protected override AnythinkException Failure(string message, int statusCode) => new BillingException(message, statusCode);
+    protected override AnythinkException Failure(string message, int statusCode, TimeSpan? retryAfter = null) =>
+        new BillingException(message, statusCode) { RetryAfter = retryAfter };
 
     // ── Platform Auth ─────────────────────────────────────────────────────────
 
