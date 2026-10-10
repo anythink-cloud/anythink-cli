@@ -65,6 +65,9 @@ Permissions are `{entity}:{action}` — see `references/access-control.md`.
 | `charts preview <same options as create>` / `charts platform-metrics` | Check what a chart would draw before saving it; usage metrics for platform charts |
 | `dashboards list` / `get <id>` / `mine` / `create <name> [--chart <id> ...]` / `update <id>` / `delete <id>` | Dashboards |
 | `dashboards add-chart <dashboard-id> <chart-id> [--width N --height N]` / `remove-widget <dashboard-id> <widget-id>` / `data <id>` / `set-home <id>` | Put charts on a dashboard, take them off, read their data |
+| `email templates list` / `show <type> [--rendered]` / `update <type> [--subject <text> --content <path> --content-text <html>]` | A project's transactional email templates |
+| `email preview [--subject <text> --content <path> --content-text <html> --wrapper <path> --wrapper-text <html>]` | Render an unsaved draft without saving it |
+| `email shell show` / `shell update (--html <path> \| --html-text <html> \| --reset)` | The HTML shell wrapped around every email |
 | `pay status` / `connect` / `payments` / `methods` | Payments (Stripe Connect) |
 | `oauth google status\|configure` | First-party OAuth provider config |
 | `plans` | List plans |

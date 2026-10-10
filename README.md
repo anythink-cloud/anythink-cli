@@ -43,6 +43,7 @@ The official command-line interface for [Anythink](https://anythink.cloud) — t
   - [workflows](#workflows)
   - [users](#users)
   - [files](#files)
+  - [email](#email)
   - [roles](#roles)
   - [api-keys](#api-keys)
   - [menus](#menus)
@@ -554,6 +555,71 @@ anythink files list
 anythink files upload logo.png --public
 anythink files upload export.csv
 anythink files delete 12 --yes
+```
+
+---
+
+### email
+
+View and edit the project's transactional email templates (confirmation, invite, recovery and so on) and the HTML shell that wraps every email's body. Email commands need the project's email permissions; the API enforces them for whoever is signed in.
+
+```
+anythink email templates list                      List the project's email templates
+anythink email templates show <type>               Show a template's subject and content
+anythink email templates update <type>             Change a template's subject and/or content
+anythink email preview                             Render an unsaved draft and print the HTML
+anythink email shell show                          Show the shell HTML (custom or platform default)
+anythink email shell update                        Save new shell HTML, or reset it
+```
+
+**Options — `email templates show`**
+
+| Flag         | Description                                              |
+| ------------ | -------------------------------------------------------- |
+| `--rendered` | Print the rendered HTML (with sample data) instead of the source |
+
+**Options — `email templates update`**
+
+| Flag                    | Description                                                           |
+| ----------------------- | --------------------------------------------------------------------- |
+| `--subject <text>`      | New subject line                                                      |
+| `--content <path>`      | File with the new content (use `-` to read stdin)                     |
+| `--content-text <html>` | The new content, passed inline (use this or `--content`, not both)    |
+
+Pass at least one of the subject or the content. Whatever you leave out keeps its current value. Empty content is refused.
+
+**Options — `email preview`** (renders on the server and saves nothing)
+
+| Flag                    | Description                                              |
+| ----------------------- | -------------------------------------------------------- |
+| `--subject <text>`      | Subject to render (default: `Preview`)                   |
+| `--content <path>`      | File with the content (use `-` for stdin)                |
+| `--content-text <html>` | The content, passed inline                               |
+| `--wrapper <path>`      | Optional shell HTML to render against (use `-` for stdin)|
+| `--wrapper-text <html>` | Optional shell HTML, passed inline                       |
+
+**Options — `email shell update`** (pass exactly one)
+
+| Flag                | Description                                           |
+| ------------------- | ----------------------------------------------------- |
+| `--html <path>`     | File with the new shell HTML (use `-` for stdin)      |
+| `--html-text <html>`| The new shell HTML, passed inline                     |
+| `--reset`           | Go back to the platform default shell                 |
+
+HTML is limited to 1,000,000 characters. The shell and template commands print raw HTML, so you can redirect it to a file. Through the MCP server the file options are not offered, so agents pass the HTML inline with `content_text`, `wrapper_text` and `html_text`.
+
+**Examples**
+
+```bash
+anythink email templates list
+anythink email templates show confirmation --rendered > confirmation.html
+anythink email templates update confirmation --subject "Welcome aboard"
+anythink email templates update confirmation --content ./confirmation.html
+cat confirmation.html | anythink email templates update confirmation --content -
+anythink email preview --subject "Hi" --content ./draft.html --wrapper ./shell.html
+anythink email shell show > shell.html
+anythink email shell update --html ./shell.html
+anythink email shell update --reset
 ```
 
 ---
