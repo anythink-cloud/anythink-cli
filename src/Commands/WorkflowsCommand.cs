@@ -53,7 +53,7 @@ public class WorkflowsListCommand : BaseCommand<WorkflowListSettings>
             {
                 table.AddRow(
                     Markup.Escape(w.Id.ToString()),
-                    Markup.Escape(w.Name),
+                    Markup.Escape(w.Name ?? "—"),
                     Markup.Escape(WorkflowTriggers.Summary(w)),
                     Markup.Escape((w.Steps?.Count ?? 0).ToString()),
                     w.Enabled ? "[green]yes[/]" : "[red]no[/]"
