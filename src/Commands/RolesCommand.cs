@@ -66,9 +66,13 @@ public class RoleCreateSettings : CommandSettings
     [CommandOption("--description <DESC>")]
     [Description("Optional description")]
     public string? Description { get; set; }
+
+    [CommandOption("--api-access")]
+    [Description("Let users with this role use the project's data API; their permissions only apply when this is on")]
+    public bool ApiAccess { get; set; }
 }
 
-[CommandGuide("Adds a role with no entity permissions yet, so its users can't reach any data until you grant actions with `roles_permissions_add`. Then give it to people by passing its id as role_id to `users_invite`. Role names must be unique in the project.")]
+[CommandGuide("Adds a role with no entity permissions yet. Pass api_access so its users can use the data API; without it the role's permissions don't apply until `roles_update` turns it on. Grant actions with `roles_permissions_add`, then give the role to people by passing its id as role_id to `users_invite`. Role names must be unique in the project.")]
 public class RolesCreateCommand : BaseCommand<RoleCreateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, RoleCreateSettings settings)
@@ -84,13 +88,92 @@ public class RolesCreateCommand : BaseCommand<RoleCreateSettings>
                 {
                     role = await client.CreateRoleAsync(new CreateRoleRequest(
                         settings.Name,
-                        settings.Description
+                        settings.Description,
+                        AnyApiAccess: settings.ApiAccess
                     ));
                 });
 
             Renderer.Success($"Role [#F97316]{Markup.Escape(role!.Name)}[/] created.");
             Renderer.KeyValue("ID", role.Id.ToString());
             Renderer.KeyValue("Active", role.IsActive ? "yes" : "no");
+            Renderer.KeyValue("API access", role.AnyApiAccess ? "yes" : "no");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return 1;
+        }
+    }
+}
+
+public class RoleUpdateSettings : CommandSettings
+{
+    [CommandArgument(0, "<ID>")]
+    [Description("Role ID")]
+    public int Id { get; set; }
+
+    [CommandOption("--name <NAME>")]
+    [Description("New role name")]
+    public string? Name { get; set; }
+
+    [CommandOption("--description <DESC>")]
+    [Description("New description")]
+    public string? Description { get; set; }
+
+    [CommandOption("--frontend-url <URL>")]
+    [Description("URL of the external application that users with this role are sent to")]
+    public string? FrontendUrl { get; set; }
+
+    [CommandOption("--api-access")]
+    [Description("Let users with this role use the project's data API")]
+    public bool ApiAccess { get; set; }
+
+    [CommandOption("--no-api-access")]
+    [Description("Stop users with this role using the project's data API")]
+    public bool NoApiAccess { get; set; }
+
+    [CommandOption("--active")]
+    [Description("Mark the role active")]
+    public bool Active { get; set; }
+
+    [CommandOption("--inactive")]
+    [Description("Mark the role inactive")]
+    public bool Inactive { get; set; }
+
+    public override ValidationResult Validate() =>
+        ApiAccess && NoApiAccess ? ValidationResult.Error("Use --api-access or --no-api-access, not both.")
+        : Active && Inactive ? ValidationResult.Error("Use --active or --inactive, not both.")
+        : ValidationResult.Success();
+}
+
+[CommandGuide("Changes a role's name, description, external application URL, active state or API access, keeping what you don't pass and all its permissions. Turn on api_access so the role's users can use the data API; with it off their permissions don't apply. To change what the role can do, use `roles_permissions_add` or `roles_permissions_remove`.")]
+public class RolesUpdateCommand : BaseCommand<RoleUpdateSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, RoleUpdateSettings settings)
+    {
+        try
+        {
+            var client = GetClient();
+            var role = await client.GetRoleAsync(settings.Id)
+                ?? throw new AnythinkCli.Client.AnythinkException($"Role {settings.Id} not found.", 404);
+
+            var request = new UpdateRolePermissionsRequest(
+                settings.Name ?? role.Name,
+                settings.Description ?? role.Description,
+                settings.Active || (!settings.Inactive && role.IsActive),
+                settings.ApiAccess || (!settings.NoApiAccess && role.AnyApiAccess),
+                [.. (role.Permissions ?? []).Select(p => p.Id)],
+                settings.FrontendUrl ?? role.FrontendUrl);
+
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync(Renderer.Status($"Updating role {settings.Id}..."), async _ =>
+                    await client.UpdateRoleWithPermissionsAsync(settings.Id, request));
+
+            Renderer.Success($"Role [#F97316]{Markup.Escape(request.Name)}[/] updated.");
+            Renderer.KeyValue("Active", request.IsActive ? "yes" : "no");
+            Renderer.KeyValue("API access", request.AnyApiAccess ? "yes" : "no");
             return 0;
         }
         catch (Exception ex)
@@ -232,7 +315,7 @@ public class RolePermissionsAddSettings : CommandSettings
     public string Actions { get; set; } = "read";
 }
 
-[CommandGuide("Grants a role one or more actions (read, create, update, delete; default read) on one entity, and every user holding the role gains them at once. Its other permissions are kept and actions it already has are skipped. An action with no matching permission for that entity is reported and skipped.")]
+[CommandGuide("Grants a role one or more actions (read, create, update, delete; default read) on one entity, and every user holding the role gains them at once. Its other permissions are kept and actions it already has are skipped. If the role has API access off, the grant is saved but has no effect until `roles_update` turns it on.")]
 public class RolesPermissionsAddCommand : BaseCommand<RolePermissionsAddSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, RolePermissionsAddSettings settings)
@@ -282,11 +365,11 @@ public class RolesPermissionsAddCommand : BaseCommand<RolePermissionsAddSettings
                 .StartAsync("Updating role permissions...", async _ =>
                 {
                     await client.UpdateRoleWithPermissionsAsync(settings.RoleId,
-                        new UpdateRolePermissionsRequest(
-                            role.Name, role.Description, role.IsActive, role.AnyApiAccess, permIds));
+                        UpdateRolePermissionsRequest.Keeping(role, permIds));
                 });
 
             Renderer.Success($"Added {Markup.Escape(string.Join(", ", added))} on [#F97316]{Markup.Escape(settings.Entity)}[/] to role {settings.RoleId}.");
+            WarnIfApiAccessOff(role);
             return 0;
         }
         catch (Exception ex)
@@ -307,6 +390,12 @@ public class RolesPermissionsAddCommand : BaseCommand<RolePermissionsAddSettings
         {
             return null;
         }
+    }
+
+    internal static void WarnIfApiAccessOff(RoleResponse role)
+    {
+        if (!role.AnyApiAccess && !role.IsAdministrator)
+            Renderer.Warn($"Role {role.Id} has API access turned off, so its users can't use these permissions yet. Turn it on with: anythink roles update {role.Id} --api-access");
     }
 
     internal static Permission? FindPermission(List<Permission> allPerms, string permName, int? entityId)
@@ -388,11 +477,11 @@ public class RolesPermissionsRemoveCommand : BaseCommand<RolePermissionsRemoveSe
                 .StartAsync("Updating role permissions...", async _ =>
                 {
                     await client.UpdateRoleWithPermissionsAsync(settings.RoleId,
-                        new UpdateRolePermissionsRequest(
-                            role.Name, role.Description, role.IsActive, role.AnyApiAccess, permIds));
+                        UpdateRolePermissionsRequest.Keeping(role, permIds));
                 });
 
             Renderer.Success($"Removed {Markup.Escape(string.Join(", ", removed))} on [#F97316]{Markup.Escape(settings.Entity)}[/] from role {settings.RoleId}.");
+            RolesPermissionsAddCommand.WarnIfApiAccessOff(role);
             return 0;
         }
         catch (Exception ex)

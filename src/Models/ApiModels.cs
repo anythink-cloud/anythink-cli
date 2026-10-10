@@ -397,13 +397,15 @@ public record RoleResponse(
     [property: JsonPropertyName("is_active")] bool IsActive,
     [property: JsonPropertyName("anyapi_access")] bool AnyApiAccess = false,
     [property: JsonPropertyName("permissions")] List<Permission>? Permissions = null,
-    [property: JsonPropertyName("is_administrator")] bool IsAdministrator = false
+    [property: JsonPropertyName("is_administrator")] bool IsAdministrator = false,
+    [property: JsonPropertyName("frontend_url")] string? FrontendUrl = null
 );
 
 public record CreateRoleRequest(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("description")] string? Description = null,
-    [property: JsonPropertyName("is_active")] bool IsActive = true
+    [property: JsonPropertyName("is_active")] bool IsActive = true,
+    [property: JsonPropertyName("anyapi_access")] bool AnyApiAccess = false
 );
 
 public record CreatePermissionRequest(
@@ -417,8 +419,13 @@ public record UpdateRolePermissionsRequest(
     [property: JsonPropertyName("description")] string? Description,
     [property: JsonPropertyName("is_active")] bool IsActive,
     [property: JsonPropertyName("anyapi_access")] bool AnyApiAccess,
-    [property: JsonPropertyName("permission_ids")] List<int> PermissionIds
-);
+    [property: JsonPropertyName("permission_ids")] List<int> PermissionIds,
+    [property: JsonPropertyName("frontend_url")] string? FrontendUrl = null
+)
+{
+    public static UpdateRolePermissionsRequest Keeping(RoleResponse role, List<int> permissionIds) =>
+        new(role.Name, role.Description, role.IsActive, role.AnyApiAccess, permissionIds, role.FrontendUrl);
+}
 
 // ── Pay ──────────────────────────────────────────────────────────────────────
 
