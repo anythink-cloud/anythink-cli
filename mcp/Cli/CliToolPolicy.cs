@@ -7,8 +7,9 @@ public static class CliToolPolicy
     private static readonly string[] ExcludedEverywhere =
         ["cli", "signup", "login", "logout", "config", "accounts", "projects", "plans", "migrate"];
 
+    // Data import and export read and write a file path on the machine running the command, which a remote server can't share with the caller.
     private static readonly string[] ExcludedRemotely =
-        ["files upload", "workflows seed", "integrations oauth connect", "pay connect", "oauth google", "fetch", "api-keys create"];
+        ["files upload", "workflows seed", "integrations oauth connect", "pay connect", "oauth google", "fetch", "api-keys create", "data import", "data export"];
 
     internal static readonly string[] HiddenRemotely =
         ["workflows create --filter-file", "workflows export --output", "data list --all"];
@@ -77,6 +78,9 @@ public static class CliToolPolicy
         "execute"
     ];
 
+    // Import adds records; export only writes a local file and refuses to overwrite one without --force, so neither destroys project data.
+    private static readonly string[] AdditiveCommands = ["data import", "data export"];
+
     private static readonly HashSet<string> OpenWorldVerbs = ["execute", "trigger", "invite"];
 
     public static bool IsRemote(CliToolScope scope) => scope != CliToolScope.Local;
@@ -107,7 +111,7 @@ public static class CliToolPolicy
         ReadOnlyVerbs.Contains(command.Verb) || (IsRemote(scope) && ReadOnlyRemotely.Contains(command.Key));
 
     public static bool IsDestructive(CliCommand command, CliToolScope scope) =>
-        !IsReadOnly(command, scope) && !AdditiveVerbs.Contains(command.Verb);
+        !IsReadOnly(command, scope) && !AdditiveVerbs.Contains(command.Verb) && !AdditiveCommands.Contains(command.Key);
 
     public static bool IsOpenWorld(CliCommand command) => OpenWorldVerbs.Contains(command.Verb);
 
