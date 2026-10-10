@@ -450,7 +450,7 @@ public class PayPlansCreateCommand : BaseCommand<PayPlansCreateSettings>
             var planName = settings.PlanName ?? AnsiConsole.Ask<string>("Plan name (internal id):");
             var name = settings.Name ?? AnsiConsole.Ask<string>("Display name:");
             var desc = settings.Description ?? AnsiConsole.Ask<string>("Description:");
-            var amount = settings.Amount ?? AnsiConsole.Ask<decimal>($"Amount ({currency}):");
+            var amount = settings.Amount ?? AnsiConsole.Ask<decimal>($"Amount ({Markup.Escape(currency)}):");
             if (PayValidation.Amount(amount) is { } amountError) { Renderer.Warn(Markup.Escape(amountError)); return 1; }
 
             var req = new CreateSubscriptionPlanRequest(
@@ -822,7 +822,7 @@ internal static class PayHelpers
             Renderer.Error("Confirmation required but this terminal is not interactive. Re-run with --yes to proceed.");
             return 1;
         }
-        if (AnsiConsole.Confirm(prompt, defaultValue: false)) return null;
+        if (AnsiConsole.Confirm(Markup.Escape(prompt), defaultValue: false)) return null;
         Renderer.Info("Cancelled.");
         return 0;
     }
@@ -1393,7 +1393,7 @@ public class PaySetupCommand : BaseCommand<EmptySettings>
                 var name = AnsiConsole.Ask<string>("Display name:");
                 var desc = AnsiConsole.Ask<string>("Description:");
                 var currency = AnsiConsole.Ask<string>("Currency:", "gbp");
-                var amount = AnsiConsole.Ask<decimal>($"Amount ({currency}):");
+                var amount = AnsiConsole.Ask<decimal>($"Amount ({Markup.Escape(currency)}):");
                 var interval = AnsiConsole.Ask<string>("Billing interval (day/week/month/year):", "month");
 
                 var invalid = PayValidation.Currency(currency) ?? PayValidation.Amount(amount);

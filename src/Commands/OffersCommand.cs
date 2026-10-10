@@ -359,7 +359,7 @@ public abstract class PayOffersStatusCommand<TSettings>(string status) : BaseCom
             if (Confirm(settings, id) is { } exit) return exit;
 
             await GetClient().SetOfferStatusAsync(id, status);
-            Renderer.Success($"Offer {id} set to {status}.");
+            Renderer.Success($"Offer {id} set to {Markup.Escape(status)}.");
             return 0;
         }
         catch (Exception ex) { if (!PayHelpers.HandleAdminError(ex)) HandleError(ex); return 1; }
