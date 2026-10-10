@@ -23,7 +23,9 @@ dashboards_update [destructive] id allow_shared_edit? config? description? name?
 dashboards_widget_preview [read-only] chart? config? rows? type?
 data_create [write] entity data?
 data_delete [destructive] entity id
+data_export [write] entity file fields? filter? force? format? no_formula_guard? page_size?
 data_get [read-only] entity id
+data_import [write] entity file concurrency? dry_run? errors? format? ignore_unknown?
 data_list [read-only] entity all? filter? limit? page?
 data_rls [destructive] entity id readonly? user?
 data_update [destructive] entity id data?
