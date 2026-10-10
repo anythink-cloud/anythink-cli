@@ -7,7 +7,7 @@ public enum CliToolScope { Local, Internal, Hosted }
 public static class CliToolPolicy
 {
     private static readonly string[] ExcludedEverywhere =
-        ["cli", "signup", "login", "logout", "config", "migrate"];
+        ["cli", "signup", "login", "logout", "config", "migrate", "pay apple", "pay setup"];
 
     private static readonly string[] AccountGroups = ["accounts", "projects", "plans"];
 
@@ -43,7 +43,20 @@ public static class CliToolPolicy
     // import directus makes the server fetch a caller-supplied URL with a token (SSRF) and may read DIRECTUS_TOKEN from the host environment;
     // data import and export read and write a file path on the machine running the command, which a remote server can't share with the caller.
     private static readonly string[] ExcludedRemotely =
-        ["files upload", "workflows seed", "integrations oauth connect", "pay connect", "oauth google", "fetch", "api-keys create", "import directus", "data import", "data export"];
+        ["files upload",
+            "workflows seed",
+            "integrations oauth connect",
+            "pay connect",
+            "oauth google",
+            "fetch",
+            "api-keys create",
+            "import directus",
+            "pay subscriptions delete",
+            "pay subscriptions force-expire",
+            "pay subscriptions relink",
+            "pay subscriptions resync",
+            "data import",
+            "data export"];
 
     internal static readonly string[] HiddenRemotely =
         ["workflows create --filter-file", "workflows export --output", "data list --all"];
@@ -93,6 +106,14 @@ public static class CliToolPolicy
         "api",
         "docs",
         "file-handler-example",
+        "entitlement",
+        "payment-options",
+        "by-user",
+        "check-access",
+        "events",
+        "codes",
+        "redemptions",
+        "user-code",
         "mine",
         "data",
         "preview",
@@ -109,6 +130,7 @@ public static class CliToolPolicy
         "create",
         "add",
         "add-item",
+        "add-code",
         "add-chart",
         "step-add",
         "file-handler-add",
@@ -116,6 +138,8 @@ public static class CliToolPolicy
         "connect",
         "enable",
         "disable",
+        "activate",
+        "resume",
         "test",
         "rehydrate",
         "upload",
