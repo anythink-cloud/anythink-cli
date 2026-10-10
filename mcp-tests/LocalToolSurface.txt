@@ -33,7 +33,7 @@ entities_delete [destructive] name
 entities_get [read-only] name
 entities_list [read-only]
 entities_update [destructive] name lock_records? public? rls?
-fetch [destructive] path body? method?
+fetch [destructive] path all? body? method?
 fields_add [write] entity name default? description? display? indexed? label? multiple? name_field? on_delete? options? public? required? searchable? target? type? unique?
 fields_delete [destructive] entity field_name
 fields_get [read-only] entity field_name
@@ -57,7 +57,15 @@ integrations_oauth_connect [write] provider name? no_open? port? timeout? user_c
 integrations_oauth_status [read-only] provider
 integrations_test [write] connection_id
 menus_add_item [write] menu_id entity icon? name? parent?
+menus_create [write] name role_id
+menus_delete [destructive] menu_id
+menus_get [read-only] menu_id
 menus_list [read-only]
+menus_remove_item [destructive] menu_id item_id
+menus_reorder [destructive] menu_ids
+menus_reorder_items [destructive] menu_id item_ids
+menus_update [destructive] menu_id name? role?
+menus_update_item [destructive] menu_id item_id entity? href? icon? name? parent?
 oauth_google_configure [destructive]
 oauth_google_status [read-only]
 pay_connect [write]
@@ -79,6 +87,11 @@ secrets_create [write] key value?
 secrets_delete [destructive] key
 secrets_list [read-only]
 secrets_update [destructive] key value?
+settings_cors_add [write] url
+settings_cors_list [read-only]
+settings_cors_remove [destructive] url
+settings_get [read-only]
+settings_set [destructive] key value
 users_delete [destructive] id
 users_get [read-only] id
 users_invite [write, open-world] email first_name last_name role_id?
