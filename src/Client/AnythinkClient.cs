@@ -273,13 +273,14 @@ public class AnythinkClient : HttpApiClient
 
     public async Task<FileResponse> UploadFileAsync(string filePath, bool isPublic = false)
     {
+        await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read,
+            bufferSize: 81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
         using var form = new MultipartFormDataContent();
-        var fileBytes = await File.ReadAllBytesAsync(filePath);
-        var fileContent = new ByteArrayContent(fileBytes);
+        var fileContent = new StreamContent(fileStream);
         fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
         form.Add(fileContent, "file", Path.GetFileName(filePath));
         var url = _org + $"/files?isPublic={isPublic.ToString().ToLower()}";
-        var resp = await Http.PostAsync(Target(url), form, ClientContext.Cancellation);
+        using var resp = await Http.PostAsync(Target(url), form, ClientContext.Cancellation);
         if (!resp.IsSuccessStatusCode)
             throw new AnythinkException(await resp.Content.ReadAsStringAsync(), (int)resp.StatusCode);
         var json = await resp.Content.ReadAsStringAsync();
