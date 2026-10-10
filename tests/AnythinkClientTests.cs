@@ -13,7 +13,7 @@ namespace AnythinkCli.Tests;
 public class AnythinkClientTests
 {
     private const string BaseUrl = "https://api.example.com";
-    private const string OrgId   = "99999";
+    private const string OrgId = "99999";
     private const string OrgPath = $"{BaseUrl}/org/{OrgId}";
 
     private static AnythinkClient BuildClient(MockHttpMessageHandler handler)
@@ -29,7 +29,7 @@ public class AnythinkClientTests
                .Respond("application/json",
                    """[{"name":"customers","table_name":"customers","enable_rls":true,"is_system":false,"is_junction":false,"is_public":false,"lock_new_records":false}]""");
 
-        var client   = BuildClient(handler);
+        var client = BuildClient(handler);
         var entities = await client.GetEntitiesAsync();
 
         entities.Should().HaveCount(1);
@@ -67,7 +67,7 @@ public class AnythinkClientTests
                .Respond("application/json",
                    """{"name":"orders","table_name":"orders","enable_rls":false,"is_system":false,"is_junction":false,"is_public":false,"lock_new_records":false}""");
 
-        var req    = new CreateEntityRequest("orders");
+        var req = new CreateEntityRequest("orders");
         var result = await BuildClient(handler).CreateEntityAsync(req);
 
         result.Name.Should().Be("orders");

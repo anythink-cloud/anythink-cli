@@ -78,7 +78,7 @@ public class PayConnectCommand : BaseCommand<EmptySettings>
             );
 
             var country = AnsiConsole.Ask<string>("Country code (e.g. [dim]GB[/]):", "GB");
-            var email   = AnsiConsole.Ask<string>("Email address:");
+            var email = AnsiConsole.Ask<string>("Email address:");
 
             StripeConnectStatus? connectStatus = null;
             OnboardingLinkResponse? link = null;
@@ -144,7 +144,7 @@ public class PayPaymentsCommand : BaseCommand<PayPaymentsSettings>
             "gbp" => $"£{amount:0.00}",
             "usd" => $"${amount:0.00}",
             "eur" => $"€{amount:0.00}",
-            _     => $"{amount:0.00} {currency.ToUpper()}"
+            _ => $"{amount:0.00} {currency.ToUpper()}"
         };
     }
 

@@ -20,7 +20,7 @@ internal static class SettingsHelpers
     public static bool ParseBool(string v, string key) =>
         v.ToLowerInvariant() switch
         {
-            "true" or "1" or "yes" or "on"  => true,
+            "true" or "1" or "yes" or "on" => true,
             "false" or "0" or "no" or "off" => false,
             _ => throw new CliException($"'{Markup.Escape(v)}' is not a valid boolean for [bold]{Markup.Escape(key)}[/] (use true/false)."),
         };
@@ -58,9 +58,9 @@ internal static class SettingsHelpers
         var key = rawKey.ToLowerInvariant();
         switch (key)
         {
-            case "name":                         name = value; break;
-            case "description":                  description = value; break;
-            case "google_maps_key":              googleMapsKey = value; break;
+            case "name": name = value; break;
+            case "description": description = value; break;
+            case "google_maps_key": googleMapsKey = value; break;
             case "require_email_confirmation":
                 requireEmail = ParseBool(value, key);
                 if (requireEmail == false &&
@@ -82,14 +82,14 @@ internal static class SettingsHelpers
                     return SaveResult.Cancelled;
                 ts = ts with { DefaultRoleId = roleId };
                 break;
-            case "enable_group_rls":             ts = ts with { EnableGroupRls = ParseBool(value, key) }; break;
-            case "payment_success_url":          ts = ts with { PaymentSuccessUrl = value }; break;
-            case "payment_cancel_url":           ts = ts with { PaymentCancelUrl = value }; break;
-            case "ai_mode":                      ts = ts with { AiMode = value }; break;
-            case "ai_byok_provider":             ts = ts with { AiByokProvider = value }; break;
-            case "ai_default_model":             ts = ts with { AiDefaultModel = value }; break;
+            case "enable_group_rls": ts = ts with { EnableGroupRls = ParseBool(value, key) }; break;
+            case "payment_success_url": ts = ts with { PaymentSuccessUrl = value }; break;
+            case "payment_cancel_url": ts = ts with { PaymentCancelUrl = value }; break;
+            case "ai_mode": ts = ts with { AiMode = value }; break;
+            case "ai_byok_provider": ts = ts with { AiByokProvider = value }; break;
+            case "ai_default_model": ts = ts with { AiDefaultModel = value }; break;
             case "app_engagement_trial_enabled": ts = ts with { AppEngagementTrialEnabled = ParseBool(value, key) }; break;
-            case "app_engagement_trial_days":    ts = ts with { AppEngagementTrialDays = ParseInt(value, key) }; break;
+            case "app_engagement_trial_days": ts = ts with { AppEngagementTrialDays = ParseInt(value, key) }; break;
 
             default: return SaveResult.UnknownKey;
         }
@@ -197,8 +197,19 @@ internal sealed record CorsOrigin(string Value, string? Warning)
 {
     private static readonly string[] SharedSuffixes =
     [
-        "vercel.app", "netlify.app", "herokuapp.com", "github.io", "pages.dev", "web.app", "firebaseapp.com",
-        "azurewebsites.net", "cloudfront.net", "onrender.com", "fly.dev", "co.uk", "com.au",
+        "vercel.app",
+        "netlify.app",
+        "herokuapp.com",
+        "github.io",
+        "pages.dev",
+        "web.app",
+        "firebaseapp.com",
+        "azurewebsites.net",
+        "cloudfront.net",
+        "onrender.com",
+        "fly.dev",
+        "co.uk",
+        "com.au",
     ];
 
     public static CorsOrigin? TryParse(string input)

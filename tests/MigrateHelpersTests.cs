@@ -68,7 +68,7 @@ public class StripEmbeddedFileRefsTests
     [Fact]
     public void String_Value_Is_Unchanged()
     {
-        var node   = JsonValue.Create("hello");
+        var node = JsonValue.Create("hello");
         var result = MigrateCommand.StripEmbeddedFileRefs(node);
         result!.GetValue<string>().Should().Be("hello");
     }
@@ -76,7 +76,7 @@ public class StripEmbeddedFileRefsTests
     [Fact]
     public void Integer_Value_Is_Unchanged()
     {
-        var node   = JsonValue.Create(42);
+        var node = JsonValue.Create(42);
         var result = MigrateCommand.StripEmbeddedFileRefs(node);
         result!.GetValue<int>().Should().Be(42);
     }
@@ -98,7 +98,7 @@ public class StripEmbeddedFileRefsTests
     [Fact]
     public void Object_Without_File_Keys_Is_Preserved()
     {
-        var obj    = new JsonObject { ["name"] = "Alice", ["score"] = 100 };
+        var obj = new JsonObject { ["name"] = "Alice", ["score"] = 100 };
         var result = MigrateCommand.StripEmbeddedFileRefs(obj) as JsonObject;
         result.Should().NotBeNull();
         result!["name"]!.GetValue<string>().Should().Be("Alice");
@@ -128,7 +128,7 @@ public class StripEmbeddedFileRefsTests
     [Fact]
     public void Array_Of_Primitives_Is_Unchanged()
     {
-        var arr    = new JsonArray { 1, 2, 3 };
+        var arr = new JsonArray { 1, 2, 3 };
         var result = MigrateCommand.StripEmbeddedFileRefs(arr) as JsonArray;
         result!.Count.Should().Be(3);
     }
@@ -180,7 +180,7 @@ public class StripEmbeddedFileRefsTests
                 ["level2"] = new JsonObject
                 {
                     ["file_type"] = "image/png",
-                    ["id"]        = 99
+                    ["id"] = 99
                 }
             }
         };

@@ -99,7 +99,7 @@ public class ConfigServiceTests : IDisposable
     [Fact]
     public void SaveProfile_DoesNotOverrideExistingDefault()
     {
-        ConfigService.SaveProfile("first",  new Profile { OrgId = "org-1" });
+        ConfigService.SaveProfile("first", new Profile { OrgId = "org-1" });
         ConfigService.SaveProfile("second", new Profile { OrgId = "org-2" });
 
         var config = ConfigService.Load();
