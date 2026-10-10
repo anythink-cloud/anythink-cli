@@ -1,6 +1,25 @@
 api [read-only] project? base_url?
 api_keys_list [read-only] project?
 api_keys_revoke [destructive] project? id
+charts_create [write] project? name agg? compare? compare_days? compare_overlay? config? cumulative? entity? filter? from? group_by? interval? limit? measure? platform_metric? platform_period? quota_metric? sort? source? stack_by? target? target_mode? timeframe? to? type?
+charts_delete [destructive] project? id
+charts_get [read-only] project? id
+charts_list [read-only] project? entity?
+charts_platform_metrics [read-only] project?
+charts_preview [read-only] project? agg? compare? compare_days? compare_overlay? config? cumulative? entity? filter? from? group_by? interval? limit? measure? platform_metric? platform_period? quota_metric? rows? sort? source? stack_by? target? target_mode? timeframe? to? type?
+charts_update [destructive] project? id agg? compare? compare_days? compare_overlay? config? cumulative? entity? filter? from? group_by? interval? limit? measure? name? platform_metric? platform_period? quota_metric? sort? source? stack_by? target? target_mode? timeframe? to? type?
+dashboards_add_chart [write] project? dashboard_id chart_id column? height? row? title? width?
+dashboards_create [write] project? name allow_shared_edit? chart? config? default? description? home? shared?
+dashboards_data [read-only] project? id rows? widget?
+dashboards_delete [destructive] project? id
+dashboards_get [read-only] project? id
+dashboards_list [read-only] project?
+dashboards_mine [read-only] project?
+dashboards_promote_to_default [destructive] project? id
+dashboards_remove_widget [destructive] project? dashboard_id widget_id
+dashboards_set_home [destructive] project? id
+dashboards_update [destructive] project? id allow_shared_edit? config? description? name? shared?
+dashboards_widget_preview [read-only] project? chart? config? rows? type?
 data_create [write] project? entity data?
 data_delete [destructive] project? entity id
 data_get [read-only] project? entity id

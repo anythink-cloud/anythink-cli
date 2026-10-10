@@ -46,6 +46,8 @@ The official command-line interface for [Anythink](https://anythink.cloud) — t
   - [roles](#roles)
   - [api-keys](#api-keys)
   - [menus](#menus)
+  - [charts](#charts)
+  - [dashboards](#dashboards)
   - [integrations](#integrations)
   - [pay](#pay)
   - [oauth](#oauth)
@@ -636,6 +638,115 @@ anythink menus remove-item 250 299 --yes
 
 # Put items 301, 299 and 300 first, in that order
 anythink menus reorder-items 250 301,299,300
+```
+
+---
+
+### charts
+
+Build and manage the charts shown on dashboards in the active project. Every command takes `--json`, which prints a compact result with the ids the next step needs. In the MCP server each command is a tool of the same name (`charts_create`, `charts_preview` and so on).
+
+```
+anythink charts list [--entity <name>]            List charts, newest first
+anythink charts get <id>                          Show a chart's configuration
+anythink charts create <name> [options]           Create a chart
+anythink charts update <id> [options]             Change a chart; options you leave out keep their value
+anythink charts delete <id> [--yes]               Delete a chart
+anythink charts preview [options]                 Show the data a configuration would draw, without saving it
+anythink charts platform-metrics                  List the usage metrics a platform chart can plot
+```
+
+**Options — `charts create`, `charts update` and `charts preview`**
+
+| Flag                         | Description                                                                                  |
+| ---------------------------- | -------------------------------------------------------------------------------------------- |
+| `--entity <name>`            | Entity whose records the chart plots                                                         |
+| `--type <type>`              | `column` (bar chart), `line`, `pie`, `area`, `stat`, `gauge` or `funnel`                     |
+| `--group-by <field>`         | Field for the x axis, or the slices of a pie                                                 |
+| `--interval <size>`          | Bucket a date `--group-by`: `hour`, `day`, `week`, `month`, `quarter` or `year`               |
+| `--measure <field>`          | Numeric field to aggregate (needed unless `--agg` is `count`)                                |
+| `--agg <how>`                | `count` (default), `sum`, `avg`, `min` or `max`                                              |
+| `--stack-by <field>`         | Field that splits each bar or point into a second breakdown                                  |
+| `--filter <f:op:value>`      | Filter such as `status:eq:published`. Operators: `eq ne gt gte lt lte contains in exists not_exists`. Repeat for several fields; a chart keeps one filter per field |
+| `--timeframe <preset>`       | `all`, `24h`, `7d`, `30d`, `90d`, `365d` or `custom` (with `--from` and `--to`)              |
+| `--limit <n>`, `--sort <asc\|desc>`, `--cumulative <bool>` | Row limit, sort order and running total                       |
+| `--target <n>`, `--target-mode <goal\|warning>` | A goal or warning level on a stat or gauge                              |
+| `--compare <bool>`, `--compare-days <n>`, `--compare-overlay <bool>` | Compare with the previous period                         |
+| `--source <entity\|platform\|quota>` | Where the data comes from. Platform charts use `--platform-metric` (see `charts platform-metrics`), quota charts use `--quota-metric` |
+| `--config <json>`            | Anything else, as a JSON object, e.g. `{"funnelStages":[{"label":"Signed up"}]}` for a funnel. Typed options win over it |
+| `--rows <n>`                 | `charts preview` only: most rows to show (default 50)                                        |
+
+A missing or unknown value is refused before anything is sent, with a message naming it. Check a chart with `charts preview` before `charts create`: it takes the same options and shows what the chart would draw.
+
+**Examples**
+
+```bash
+# What would a pie of orders by status show?
+anythink charts preview --entity orders --type pie --group-by status
+
+# Save it, then a revenue chart with a filter
+anythink charts create "Orders by status" --entity orders --type pie --group-by status
+anythink charts create "UK revenue per month" --entity orders --type column --group-by created_at \
+  --interval month --measure total --agg sum --filter region:eq:uk --timeframe 365d
+
+# A usage chart from the platform metrics
+anythink charts create "Workflow runs" --source platform --platform-metric workflow_runs --type line
+
+# Change one thing
+anythink charts update 12 --timeframe 30d
+```
+
+---
+
+### dashboards
+
+Build and manage dashboards. A dashboard is a set of widgets (charts, lists, notes and so on) laid out on a 12-column grid. Every command takes `--json`.
+
+```
+anythink dashboards list                                 List the dashboards you can see
+anythink dashboards get <id>                             Show a dashboard with its widgets and their positions
+anythink dashboards mine                                 Show your landing dashboard, or the project default
+anythink dashboards create <name> [options]              Create a dashboard
+anythink dashboards update <id> [options]                Rename it, change who can see it, or replace its widgets and layout
+anythink dashboards delete <id> [--yes]                  Delete a dashboard and its widgets (the charts are kept)
+anythink dashboards add-chart <dashboard-id> <chart-id>  Add a chart as a new widget
+anythink dashboards remove-widget <dashboard-id> <widget-id>  Remove a widget
+anythink dashboards data <id> [--widget <id>]            Show the data behind the widgets
+anythink dashboards widget-preview --type <type>         Show the data a widget would draw, without saving it
+anythink dashboards set-home <id>                        Make it your landing dashboard
+anythink dashboards promote-to-default <id> [--yes]      Copy it over the project default (administrators only)
+```
+
+`add-chart` and `remove-widget` read the dashboard, change only that widget, and write the rest back as it was.
+
+**Options**
+
+| Command / flag                              | Description                                                                          |
+| ------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `create --chart <id>`                       | Put a chart on the new dashboard. Repeat for several                                 |
+| `create --description`, `--shared`, `--allow-shared-edit`, `--home`, `--default` | Description, who can see or edit it, and whether it is your landing or the project default dashboard |
+| `create`/`update --config <json>`           | Other settings as a JSON object: `widgets` (each with `type`, `title` and settings) and `layout`. On `update`, `widgets` replaces the whole list, so include every widget to keep, with its `id` |
+| `update --name`, `--description`, `--shared <bool>`, `--allow-shared-edit <bool>` | The fields to change; the rest are left alone |
+| `add-chart --title <text>`                  | Widget title (defaults to the chart's name)                                          |
+| `add-chart --column`, `--row`, `--width`, `--height` | Position and size on the grid (default width 4, height 3, placed below the existing widgets). Leave them all out and the dashboard places the widget itself |
+| `data --widget <id>`, `--rows <n>`          | Only these widgets; most rows to show per widget (default 20)                        |
+| `widget-preview --type`, `--chart`, `--config`, `--rows` | Widget type (`chart`, `list`, `markdown`, ...), the chart to show, or the widget's own settings as JSON |
+
+**Examples**
+
+```bash
+# A dashboard with two charts already on it
+anythink dashboards create Sales --chart 12 --chart 14
+
+# Add a third, half the width of the grid
+anythink dashboards add-chart 3 15 --width 6
+
+# See what is on it, then take a widget off
+anythink dashboards get 3
+anythink dashboards remove-widget 3 41
+
+# The numbers behind it
+anythink dashboards data 3 --json
 ```
 
 ---

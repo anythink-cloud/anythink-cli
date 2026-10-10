@@ -61,6 +61,10 @@ Permissions are `{entity}:{action}` — see `references/access-control.md`.
 | `menus list` / `get <menu_id>` / `create <name> <role_id>` / `update <menu_id> [--name ... --role ...]` / `delete <menu_id>` | Dashboard menus |
 | `menus add-item <menu_id> <entity> [--icon <Icon> --parent <id>]` / `update-item <menu_id> <item_id> [--name ... --icon ... --entity\|--href ... --parent <id>]` / `remove-item <menu_id> <item_id>` | Dashboard menu items |
 | `menus reorder-items <menu_id> <item_id,...>` / `menus reorder <menu_id,...>` | Order items (one parent at a time) and menus |
+| `charts list [--entity <name>]` / `get <id>` / `create <name> --entity <e> --type <t> [--group-by <f> --measure <f> --agg <a> --filter <f:op:v> --timeframe <p> --config <json>]` / `update <id> ...` / `delete <id>` | Charts (`column line pie area stat gauge funnel`) |
+| `charts preview <same options as create>` / `charts platform-metrics` | Check what a chart would draw before saving it; usage metrics for platform charts |
+| `dashboards list` / `get <id>` / `mine` / `create <name> [--chart <id> ...]` / `update <id>` / `delete <id>` | Dashboards |
+| `dashboards add-chart <dashboard-id> <chart-id> [--width N --height N]` / `remove-widget <dashboard-id> <widget-id>` / `data <id>` / `set-home <id>` | Put charts on a dashboard, take them off, read their data |
 | `pay status` / `connect` / `payments` / `methods` | Payments (Stripe Connect) |
 | `oauth google status\|configure` | First-party OAuth provider config |
 | `plans` | List plans |

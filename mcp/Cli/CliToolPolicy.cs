@@ -23,23 +23,58 @@ public static class CliToolPolicy
         "users invite last_name",
         "menus create name",
         "menus reorder menu_ids",
-        "menus reorder-items item_ids"
+        "menus reorder-items item_ids",
+        "charts create name",
+        "dashboards create name"
     ];
 
     private static readonly string[] AutomaticFlags = ["--json", "--yes"];
 
     private static readonly HashSet<string> ReadOnlyVerbs =
     [
-        "list", "get", "me", "status", "jobs", "step-get", "query", "similar", "audit", "payments", "methods",
-        "callback-url", "api", "docs", "file-handler-example"
+        "list",
+        "get",
+        "me",
+        "status",
+        "jobs",
+        "step-get",
+        "query",
+        "similar",
+        "audit",
+        "payments",
+        "methods",
+        "callback-url",
+        "api",
+        "docs",
+        "file-handler-example",
+        "mine",
+        "data",
+        "preview",
+        "platform-metrics",
+        "widget-preview"
     ];
 
     private static readonly string[] ReadOnlyRemotely = ["workflows export"];
 
     private static readonly HashSet<string> AdditiveVerbs =
     [
-        "create", "add", "add-item", "step-add", "file-handler-add", "integration-add", "connect",
-        "enable", "disable", "test", "rehydrate", "upload", "seed", "invite", "trigger", "execute"
+        "create",
+        "add",
+        "add-item",
+        "add-chart",
+        "step-add",
+        "file-handler-add",
+        "integration-add",
+        "connect",
+        "enable",
+        "disable",
+        "test",
+        "rehydrate",
+        "upload",
+        "seed",
+        "invite",
+        "trigger",
+        "execute"
     ];
 
     private static readonly HashSet<string> OpenWorldVerbs = ["execute", "trigger", "invite"];

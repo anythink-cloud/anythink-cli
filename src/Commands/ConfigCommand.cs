@@ -48,7 +48,7 @@ public class ConfigShowCommand : Command<EmptySettings>
 
         foreach (var (key, p) in config.Profiles)
         {
-            var auth      = !string.IsNullOrEmpty(p.ApiKey) ? "api-key" : "token";
+            var auth = !string.IsNullOrEmpty(p.ApiKey) ? "api-key" : "token";
             var isDefault = key == config.DefaultProfile ? "[green]●[/]" : "";
             table.AddRow(
                 key == config.DefaultProfile ? $"[bold]{Markup.Escape(key)}[/]" : Markup.Escape(key),
@@ -126,7 +126,7 @@ public class ConfigResetCommand : Command
             $"[yellow]Are you sure you want to reset your CLI config?[/]",
             defaultValue: false);
         if (!confirm) { Renderer.Info("Cancelled."); return 0; }
-        
+
         ConfigService.Reset();
         Renderer.Success("Configuration reset. Please run [bold #F97316]anythink login[/] to re-authenticate.");
         return 0;

@@ -1,6 +1,25 @@
 api [read-only] base_url?
 api_keys_list [read-only]
 api_keys_revoke [destructive] id
+charts_create [write] name agg? compare? compare_days? compare_overlay? config? cumulative? entity? filter? from? group_by? interval? limit? measure? platform_metric? platform_period? quota_metric? sort? source? stack_by? target? target_mode? timeframe? to? type?
+charts_delete [destructive] id
+charts_get [read-only] id
+charts_list [read-only] entity?
+charts_platform_metrics [read-only]
+charts_preview [read-only] agg? compare? compare_days? compare_overlay? config? cumulative? entity? filter? from? group_by? interval? limit? measure? platform_metric? platform_period? quota_metric? rows? sort? source? stack_by? target? target_mode? timeframe? to? type?
+charts_update [destructive] id agg? compare? compare_days? compare_overlay? config? cumulative? entity? filter? from? group_by? interval? limit? measure? name? platform_metric? platform_period? quota_metric? sort? source? stack_by? target? target_mode? timeframe? to? type?
+dashboards_add_chart [write] dashboard_id chart_id column? height? row? title? width?
+dashboards_create [write] name allow_shared_edit? chart? config? default? description? home? shared?
+dashboards_data [read-only] id rows? widget?
+dashboards_delete [destructive] id
+dashboards_get [read-only] id
+dashboards_list [read-only]
+dashboards_mine [read-only]
+dashboards_promote_to_default [destructive] id
+dashboards_remove_widget [destructive] dashboard_id widget_id
+dashboards_set_home [destructive] id
+dashboards_update [destructive] id allow_shared_edit? config? description? name? shared?
+dashboards_widget_preview [read-only] chart? config? rows? type?
 data_create [write] entity data?
 data_delete [destructive] entity id
 data_get [read-only] entity id

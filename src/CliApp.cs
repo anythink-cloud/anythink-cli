@@ -455,6 +455,95 @@ public static class CliApp
                 .WithExample("menus", "reorder", "92,90,91");
         });
 
+        // ── Charts ────────────────────────────────────────────────────────────────
+
+        config.AddBranch("charts", charts =>
+        {
+            charts.SetDescription("Build and manage charts in the active project");
+
+            charts.AddCommand<ChartsListCommand>("list")
+                .WithDescription("List charts, newest first")
+                .WithExample("charts", "list", "--entity", "orders");
+
+            charts.AddCommand<ChartsGetCommand>("get")
+                .WithDescription("Get a chart's full configuration")
+                .WithExample("charts", "get", "12");
+
+            charts.AddCommand<ChartsCreateCommand>("create")
+                .WithDescription("Create a chart. Check it first with charts preview")
+                .WithExample("charts", "create", "\"Orders by status\"", "--entity", "orders", "--type", "pie", "--group-by", "status")
+                .WithExample("charts", "create", "\"Revenue per month\"", "--entity", "orders", "--type", "column", "--group-by", "created_at", "--interval", "month", "--measure", "total", "--agg", "sum");
+
+            charts.AddCommand<ChartsUpdateCommand>("update")
+                .WithDescription("Change a chart. Only the settings you pass change; the rest stay as they were")
+                .WithExample("charts", "update", "12", "--name", "Orders by state", "--timeframe", "30d");
+
+            charts.AddCommand<ChartsDeleteCommand>("delete")
+                .WithDescription("Delete a chart. Dashboards that show it keep an empty widget until you remove it")
+                .WithExample("charts", "delete", "12", "--yes");
+
+            charts.AddCommand<ChartsPreviewCommand>("preview")
+                .WithDescription("Show the data a chart configuration would draw, without saving it")
+                .WithExample("charts", "preview", "--entity", "orders", "--type", "pie", "--group-by", "status");
+
+            charts.AddCommand<ChartsPlatformMetricsCommand>("platform-metrics")
+                .WithDescription("List the usage metrics a platform chart can plot")
+                .WithExample("charts", "platform-metrics");
+        });
+
+        // ── Dashboards ────────────────────────────────────────────────────────────
+
+        config.AddBranch("dashboards", dashboards =>
+        {
+            dashboards.SetDescription("Build and manage dashboards in the active project");
+
+            dashboards.AddCommand<DashboardsListCommand>("list")
+                .WithDescription("List the dashboards you can see");
+
+            dashboards.AddCommand<DashboardsGetCommand>("get")
+                .WithDescription("Get a dashboard with its widgets and their positions")
+                .WithExample("dashboards", "get", "3");
+
+            dashboards.AddCommand<DashboardsMineCommand>("mine")
+                .WithDescription("Get your landing dashboard, or the project default if you have none");
+
+            dashboards.AddCommand<DashboardsCreateCommand>("create")
+                .WithDescription("Create a dashboard, optionally with charts already on it")
+                .WithExample("dashboards", "create", "Sales", "--chart", "12", "--chart", "14");
+
+            dashboards.AddCommand<DashboardsUpdateCommand>("update")
+                .WithDescription("Rename a dashboard, change who can see it, or replace its widgets and layout")
+                .WithExample("dashboards", "update", "3", "--name", "Sales overview");
+
+            dashboards.AddCommand<DashboardsDeleteCommand>("delete")
+                .WithDescription("Delete a dashboard and its widgets. The charts on it are kept")
+                .WithExample("dashboards", "delete", "3", "--yes");
+
+            dashboards.AddCommand<DashboardsDataCommand>("data")
+                .WithDescription("Get the data behind a dashboard's widgets")
+                .WithExample("dashboards", "data", "3", "--widget", "41");
+
+            dashboards.AddCommand<DashboardsSetHomeCommand>("set-home")
+                .WithDescription("Make a dashboard of yours your landing dashboard")
+                .WithExample("dashboards", "set-home", "3");
+
+            dashboards.AddCommand<DashboardsPromoteToDefaultCommand>("promote-to-default")
+                .WithDescription("Copy a dashboard over the project default that new users start from (administrators only)")
+                .WithExample("dashboards", "promote-to-default", "3", "--yes");
+
+            dashboards.AddCommand<DashboardsWidgetPreviewCommand>("widget-preview")
+                .WithDescription("Show the data a widget would draw, without saving it")
+                .WithExample("dashboards", "widget-preview", "--type", "chart", "--chart", "12");
+
+            dashboards.AddCommand<DashboardsAddChartCommand>("add-chart")
+                .WithDescription("Add a chart to a dashboard as a new widget. Everything else on the dashboard stays as it was")
+                .WithExample("dashboards", "add-chart", "3", "12", "--width", "6");
+
+            dashboards.AddCommand<DashboardsRemoveWidgetCommand>("remove-widget")
+                .WithDescription("Remove a widget from a dashboard. Everything else on the dashboard stays as it was")
+                .WithExample("dashboards", "remove-widget", "3", "41");
+        });
+
         // ── Pay ───────────────────────────────────────────────────────────────────
 
         config.AddBranch("pay", pay =>

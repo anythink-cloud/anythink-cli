@@ -419,6 +419,28 @@ public class HostedModeTests : IAsyncLifetime
         (await _client.SendAsync(request)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
+    // Rule: Claude and MCP directories show the server's favicon, so the icons are public and real images
+    [Theory]
+    [InlineData("/favicon.ico", "image/x-icon", new byte[] { 0x00, 0x00, 0x01, 0x00 })]
+    [InlineData("/icon.png", "image/png", new byte[] { 0x89, 0x50, 0x4E, 0x47 })]
+    public async Task Icons_ServedWithoutSignIn(string path, string contentType, byte[] signature)
+    {
+        var response = await _client.GetAsync(path);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Content.Headers.ContentType!.MediaType.Should().Be(contentType);
+        (await response.Content.ReadAsByteArrayAsync()).Take(4).Should().Equal(signature);
+    }
+
+    [Fact]
+    public async Task Icons_StillRejectUnknownHosts()
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, "/favicon.ico");
+        request.Headers.Host = "evil.example";
+
+        (await _client.SendAsync(request)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
     [Fact]
     public async Task HealthCheck_IgnoresHost()
     {
