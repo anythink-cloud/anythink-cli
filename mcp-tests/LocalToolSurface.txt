@@ -30,6 +30,12 @@ data_list [read-only] entity all? filter? limit? page?
 data_rls [destructive] entity id readonly? user?
 data_update [destructive] entity id data?
 docs [read-only]
+email_preview [read-only] content? content_text? subject? wrapper? wrapper_text?
+email_shell_show [read-only]
+email_shell_update [destructive] html? html_text? reset?
+email_templates_list [read-only]
+email_templates_show [read-only] template_type rendered?
+email_templates_update [destructive] template_type content? content_text? subject?
 entities_create [write] name junction? lock_records? public? rls?
 entities_delete [destructive] name
 entities_get [read-only] name
@@ -45,6 +51,7 @@ files_delete [destructive] id
 files_get [read-only] id
 files_list [read-only] limit? page?
 files_upload [write] path public?
+import_directus [destructive] allow_insecure? dry_run? include_data? include_files? include_flows? include_roles? to? token? url?
 integrations_connect [write] provider api_key? name? user_connection?
 integrations_connections_list [read-only] provider?
 integrations_disable [write] connection_id
