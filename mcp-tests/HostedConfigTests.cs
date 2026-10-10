@@ -106,4 +106,35 @@ public class HostedConfigTests
         Load().Exchange.TokenEndpoint.Should().BeNull();
         Load(env => env["MCP_TOKEN_ENDPOINT"] = "https://sts.test/token").Exchange.TokenEndpoint.Should().Be("https://sts.test/token");
     }
+
+    // ── Rule: the billing service has its own setting, and falls back to the issuer ──
+
+    [Fact]
+    public void BillingUrl_DefaultsToTheIssuer()
+    {
+        var options = Load();
+
+        options.BillingUrl.Should().BeNull();
+        options.BillingBaseUrl.Should().Be(options.Issuer);
+    }
+
+    [Fact]
+    public void BillingUrl_WhenSet_IsUsedInsteadOfTheIssuer_WithoutATrailingSlash()
+    {
+        var options = Load(env => env["MCP_BILLING_URL"] = "https://billing.test/");
+
+        options.BillingBaseUrl.Should().Be("https://billing.test");
+        options.Issuer.Should().Be(Complete["MCP_AUTH_ISSUER"]);
+    }
+
+    [Theory]
+    [InlineData("billing.test")]
+    [InlineData("http://billing.test")]
+    [InlineData("/v1")]
+    public void BillingUrl_ThatIsNotAnAbsoluteHttpsUrl_RefusesToStart(string value)
+    {
+        var act = () => Load(env => env["MCP_BILLING_URL"] = value);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("MCP_BILLING_URL*");
+    }
 }

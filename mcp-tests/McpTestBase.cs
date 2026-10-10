@@ -29,13 +29,13 @@ public abstract class McpTestBase : IDisposable
     }
 
     /// <summary>Saves a platform config with a valid (non-expired) token.</summary>
-    protected void SetupPlatformLogin(string? accountId = null)
+    protected void SetupPlatformLogin(string? accountId = null, string? billingUrl = null)
     {
         ConfigService.SavePlatform(new PlatformConfig
         {
             MyAnythinkOrgId = PlatformOrgId,
             MyAnythinkUrl = PlatformUrl,
-            BillingUrl = BillingUrl,
+            BillingUrl = billingUrl ?? BillingUrl,
             Token = "test-platform-token",
             TokenExpiresAt = DateTime.UtcNow.AddHours(1),
             AccountId = accountId
