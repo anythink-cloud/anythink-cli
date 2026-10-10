@@ -115,6 +115,12 @@ public abstract class HttpApiClient
             throw Failure(await r.Content.ReadAsStringAsync(), r);
     }
 
+    protected async Task<T?> DeleteAsync<T>(string url)
+    {
+        var r = await Http.DeleteAsync(url);
+        return await DeserializeAsync<T>(r);
+    }
+
     private static StringContent Serialize(object body)
     {
         var json = body is JsonNode n ? n.ToJsonString() : JsonSerializer.Serialize(body, JsonOpts);

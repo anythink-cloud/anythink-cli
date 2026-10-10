@@ -112,4 +112,71 @@ public class RemoteScopeToolTests : McpTestBase
                 text.Should().NotContain(option, $"{tool.ProtocolTool.Name} must not advertise {option}");
         }
     }
+
+    // ── Rule: admin recovery and Apple credential commands are never remote tools ──
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public void AdminRecoveryPayCommands_AreNotRemoteTools(CliToolScope scope)
+    {
+        var remote = CliCommandTool.All(scope).Select(t => t.ProtocolTool.Name).ToList();
+        var local = CliCommandTool.All(CliToolScope.Local).Select(t => t.ProtocolTool.Name).ToList();
+
+        string[] recovery =
+        [
+            "pay_subscriptions_delete",
+            "pay_subscriptions_force_expire",
+            "pay_subscriptions_relink",
+            "pay_subscriptions_resync"
+        ];
+        local.Should().Contain(recovery);
+        remote.Should().NotContain(recovery);
+    }
+
+    [Theory]
+    [InlineData(CliToolScope.Local)]
+    [InlineData(CliToolScope.Internal)]
+    [InlineData(CliToolScope.Hosted)]
+    public void AppleCredentialsAndVerification_AreNeverToolsInAnyScope(CliToolScope scope)
+    {
+        var names = CliCommandTool.All(scope).Select(t => t.ProtocolTool.Name).ToList();
+
+        names.Should().NotContain(n => n.StartsWith("pay_apple"));
+        names.Should().NotContain(n => n.Contains("apple") && (n.Contains("verify") || n.Contains("credentials_set")));
+        CliCommandTool.All(scope)
+            .Select(t => t.ProtocolTool.InputSchema.GetRawText())
+            .Should().NotContain(schema => schema.Contains("private_key"));
+    }
+
+    [Theory]
+    [InlineData(CliToolScope.Local)]
+    [InlineData(CliToolScope.Internal)]
+    [InlineData(CliToolScope.Hosted)]
+    public void RiskyPayTools_AreAnnotatedAndReadOnlyOnesAreReadOnly(CliToolScope scope)
+    {
+        var tools = CliCommandTool.All(scope).ToDictionary(t => t.ProtocolTool.Name, t => t.ProtocolTool.Annotations!);
+
+        foreach (var name in new[] { "pay_plans_delete", "pay_plans_update", "pay_offers_delete", "pay_offers_pause", "pay_offers_update", "pay_subscriptions_cancel" })
+            tools[name].DestructiveHint.Should().BeTrue(name);
+        foreach (var name in new[] { "pay_plans_list", "pay_plans_get", "pay_subscriptions_list", "pay_subscriptions_get", "pay_offers_list", "pay_offers_get", "pay_trial_status",
+                                  "pay_status", "pay_payments", "pay_methods", "pay_entitlement", "pay_payment_options", "pay_plans_get",
+                                  "pay_subscriptions_events", "pay_subscriptions_by_user", "pay_offers_codes", "pay_offers_redemptions", "pay_offers_user_code" })
+            tools[name].ReadOnlyHint.Should().BeTrue(name);
+    }
+
+    [Fact]
+    public void TheGenericCliTool_IsNotARemoteTool()
+    {
+        foreach (var scope in new[] { CliToolScope.Internal, CliToolScope.Hosted })
+            CliCommandTool.All(scope).Select(t => t.ProtocolTool.Name).Should().NotContain("cli");
+    }
+
+    [Fact]
+    public void AdminRecoveryPayCommands_AreDestructiveWhereTheyExist()
+    {
+        var tools = CliCommandTool.All(CliToolScope.Local).ToDictionary(t => t.ProtocolTool.Name, t => t.ProtocolTool.Annotations!);
+
+        foreach (var name in new[] { "pay_subscriptions_delete", "pay_subscriptions_force_expire", "pay_subscriptions_relink", "pay_subscriptions_resync" })
+            tools[name].DestructiveHint.Should().BeTrue(name);
+    }
 }

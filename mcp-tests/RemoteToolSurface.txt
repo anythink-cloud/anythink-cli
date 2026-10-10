@@ -62,9 +62,37 @@ menus_reorder [destructive] menu_ids
 menus_reorder_items [destructive] menu_id item_ids
 menus_update [destructive] menu_id name? role?
 menus_update_item [destructive] menu_id item_id entity? href? icon? name? parent?
+pay_entitlement [read-only]
 pay_methods [read-only]
+pay_offers_activate [write] id
+pay_offers_add_code [write] id owner_user_id? slug?
+pay_offers_codes [read-only] id
+pay_offers_create [write] description? discount_duration? discount_percent? eligibility? kind? name? per_user_cap? redeemer_reward? redeemer_trial_days? referrer_reward? referrer_subscription_days? referrer_trial_days? status? total_cap? valid_from? valid_until?
+pay_offers_delete [destructive] id
+pay_offers_get [read-only] id
+pay_offers_list [read-only]
+pay_offers_pause [destructive] id
+pay_offers_redemptions [read-only] id limit? page?
+pay_offers_update [destructive] id description? discount_duration? discount_percent? eligibility? name? per_user_cap? redeemer_reward? redeemer_trial_days? referrer_reward? referrer_subscription_days? referrer_trial_days? status? total_cap? valid_from? valid_until?
+pay_offers_user_code [read-only] user_id
+pay_payment_options [read-only] platform? storefront?
 pay_payments [read-only] limit? page?
+pay_plans_create [write] amount? apple_product_id? apple_subscription_group_id? currency? description? inactive? interval? interval_count? name? plan_name? product_description? product_name? reference? tier_rank? trial_days? type?
+pay_plans_delete [destructive] id
+pay_plans_get [read-only] id
+pay_plans_list [read-only]
+pay_plans_update [destructive] id active? amount? apple_product_id? apple_subscription_group_id? currency? description? inactive? interval? interval_count? name? plan_name? product_description? product_name? reference? tier_rank? trial_days? type?
 pay_status [read-only]
+pay_subscriptions_by_user [read-only] user_id
+pay_subscriptions_cancel [destructive] id
+pay_subscriptions_check_access [read-only] name status?
+pay_subscriptions_events [read-only] id
+pay_subscriptions_get [read-only] id
+pay_subscriptions_list [read-only] limit? page? status?
+pay_subscriptions_resume [write] id
+pay_trial_disable [write]
+pay_trial_enable [write]
+pay_trial_status [read-only]
 roles_create [write] name description?
 roles_delete [destructive] id
 roles_list [read-only]

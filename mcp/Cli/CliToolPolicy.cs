@@ -5,11 +5,23 @@ public enum CliToolScope { Local, Internal, Hosted }
 public static class CliToolPolicy
 {
     private static readonly string[] ExcludedEverywhere =
-        ["cli", "signup", "login", "logout", "config", "accounts", "projects", "plans", "migrate"];
+        ["cli", "signup", "login", "logout", "config", "accounts", "projects", "plans", "migrate", "pay apple", "pay setup"];
 
     // Data import and export read and write a file path on the machine running the command, which a remote server can't share with the caller.
     private static readonly string[] ExcludedRemotely =
-        ["files upload", "workflows seed", "integrations oauth connect", "pay connect", "oauth google", "fetch", "api-keys create", "data import", "data export"];
+        ["files upload",
+            "workflows seed",
+            "integrations oauth connect",
+            "pay connect",
+            "oauth google",
+            "fetch",
+            "api-keys create",
+            "pay subscriptions delete",
+            "pay subscriptions force-expire",
+            "pay subscriptions relink",
+            "pay subscriptions resync",
+            "data import",
+            "data export"];
 
     internal static readonly string[] HiddenRemotely =
         ["workflows create --filter-file", "workflows export --output", "data list --all"];
@@ -48,6 +60,14 @@ public static class CliToolPolicy
         "api",
         "docs",
         "file-handler-example",
+        "entitlement",
+        "payment-options",
+        "by-user",
+        "check-access",
+        "events",
+        "codes",
+        "redemptions",
+        "user-code",
         "mine",
         "data",
         "preview",
@@ -62,6 +82,7 @@ public static class CliToolPolicy
         "create",
         "add",
         "add-item",
+        "add-code",
         "add-chart",
         "step-add",
         "file-handler-add",
@@ -69,6 +90,8 @@ public static class CliToolPolicy
         "connect",
         "enable",
         "disable",
+        "activate",
+        "resume",
         "test",
         "rehydrate",
         "upload",

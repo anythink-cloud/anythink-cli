@@ -601,8 +601,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                                 remappedDefaultRoleId = dstRoleId;
                         }
 
-                        var newSettings = srcTenant.TenantSettings == null ? null
-                            : srcTenant.TenantSettings with { DefaultRoleId = remappedDefaultRoleId };
+                        var newSettings = BuildDestinationSettings(srcTenant.TenantSettings, remappedDefaultRoleId);
 
                         try
                         {
@@ -1176,6 +1175,9 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         }
         cCreated.Value++;
     }
+
+    internal static TenantSettingsDto? BuildDestinationSettings(TenantSettingsDto? source, int? remappedDefaultRoleId)
+        => source is null ? null : source with { DefaultRoleId = remappedDefaultRoleId };
 
     /// <summary>
     /// Remaps the org ID in an href from source to destination.

@@ -16,8 +16,8 @@ public class CliTool
         "Run any Anythink CLI command and return its output. " +
         "Prefer the dedicated tools; use this for anything they don't cover. " +
         "Pass the command exactly as you would after 'anythink', e.g. 'entities list' or 'data list posts'. " +
+        "Destructive pay commands (delete, expire, relink, pause and similar) must be run by a person in a terminal; never add '--yes' on their behalf. " +
         "'data import' creates records (not destructive): run it with --dry-run first and only add '--yes' after the user approves the dry run. " +
-        "For destructive commands add '--yes' to skip confirmation prompts. " +
         "Add '--json' where supported for machine-readable output.")]
     public async Task<string> RunCli(
         [Description(
@@ -30,6 +30,9 @@ public class CliTool
         var args = SplitArgs(command);
         if (args.Count == 0)
             return "Error: command must not be empty.";
+
+        if (RefusalFor(args) is { } refusal)
+            return refusal;
 
         AnythinkClient? client;
         try
@@ -46,6 +49,36 @@ public class CliTool
             return $"CLI exited with code {result.ExitCode}: {result.Output}";
 
         return result.Output.Length > 0 ? result.Output : "(no output)";
+    }
+
+    private const string PayRefusal =
+        "Refused: this changes billing state and cannot be run through the cli tool. " +
+        "Use the generated pay_* tools (their destructive hint is the confirmation signal) or ask a person to run it in a terminal.";
+
+    internal static string? RefusalFor(string command) => RefusalFor(SplitArgs(command));
+
+    private static string? RefusalFor(List<string> args)
+    {
+        var words = args.Where(a => !a.StartsWith('-')).Select(a => a.ToLowerInvariant()).ToList();
+        if (words is not ["pay", ..]) return null;
+
+        var refused = (words.ElementAtOrDefault(1), words.ElementAtOrDefault(2)) switch
+        {
+            ("subscriptions", "delete" or "force-expire" or "relink" or "resync" or "cancel") => true,
+            ("plans", "delete") => true,
+            ("offers", "delete" or "pause") => true,
+            ("offers", "update") => StatusArg(args) is "paused" or "expired",
+            ("apple", "credentials" or "verify") => true,
+            _ => false
+        };
+        return refused ? PayRefusal : null;
+    }
+
+    private static string? StatusArg(List<string> args)
+    {
+        var i = args.FindIndex(a => a == "--status");
+        if (i >= 0 && i + 1 < args.Count) return args[i + 1].ToLowerInvariant();
+        return args.FirstOrDefault(a => a.StartsWith("--status=", StringComparison.Ordinal))?[9..].ToLowerInvariant();
     }
 
     internal static List<string> SplitArgs(string input)

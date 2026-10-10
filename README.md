@@ -77,7 +77,24 @@ This installs **both** commands onto your `PATH`:
 - `anythink` — the CLI
 - `anythink-mcp` — the MCP server (see [MCP server](#mcp-server))
 
-Upgrade later with `brew upgrade anythink`.
+Or tap first, then install:
+
+```bash
+brew tap anythink-cloud/tap
+brew install anythink
+```
+
+Update to the latest release:
+
+```bash
+brew upgrade anythink
+```
+
+Uninstall:
+
+```bash
+brew uninstall anythink
+```
 
 ### macOS / Linux — download binary
 
@@ -948,14 +965,40 @@ anythink integrations disconnect <connection-id> --yes
 
 ### pay
 
-Configure and manage Anythink Pay — the built-in Stripe Connect integration for accepting payments in your project.
+Manage **AnythinkPay** — Stripe Connect, Apple in-app purchases, payments, subscription plans, and live subscriptions.
 
 ```
 anythink pay status                    Show Stripe Connect account status
 anythink pay connect                   Set up a Stripe Connect account and start onboarding
+anythink pay setup                     Guided setup: Stripe Connect, Apple IAP, and a first plan
 anythink pay payments                  List recent payments
 anythink pay methods                   List saved payment methods
+anythink pay entitlement               Show the current user's access / trial entitlement
+anythink pay payment-options           Show available payment providers for a platform/storefront
+
+anythink pay trial status|enable|disable          Manage the app engagement trial
+
+anythink pay apple credentials set                Set Apple IAP credentials (.p8 from a file)
+anythink pay apple credentials show               Show Apple IAP credentials (identifiers masked)
+anythink pay apple credentials notification-url   Print the URL to register in App Store Connect
+anythink pay apple verify                         Verify an Apple transaction (testing)
+
+anythink pay plans list|get|create|update|delete  Manage subscription plans
+
+anythink pay subscriptions list|get|events        Inspect subscriptions and history
+anythink pay subscriptions cancel|resume          Standard lifecycle actions
+anythink pay subscriptions delete|force-expire|relink|resync   Admin recovery (project admin)
+
+anythink pay offers list|get|create|update        Manage promo and referral offers
+anythink pay offers pause|activate                Change an offer's status
+anythink pay offers delete                        Permanently delete an offer, its codes and redemption records
+anythink pay offers codes|add-code|redemptions    Inspect and extend an offer
+anythink pay offers user-code                     Look up a user's personal referral code
 ```
+
+Commands that cancel, delete, expire, relink or pause (`pay plans delete`, `pay subscriptions cancel|delete|force-expire|relink`, `pay offers pause|delete`) ask for confirmation. Pass `-y`/`--yes` to skip the prompt; in a non-interactive shell they refuse to run without it.
+
+`pay plans update` only changes the fields you pass: omitted flags keep the plan's current currency, interval, type and active state. Use `--active` or `--inactive` to change availability.
 
 **Options — `pay payments`**
 
@@ -964,14 +1007,28 @@ anythink pay methods                   List saved payment methods
 | `--page <n>`  | Page number                     |
 | `--limit <n>` | Payments per page (default: 25) |
 
-`pay connect` is interactive — it prompts for business type, country, and contact email, creates a Stripe Connect account, then opens the Stripe onboarding URL in your browser.
+`pay connect` is interactive — it prompts for business type, country, and contact email, creates a Stripe Connect account, then opens the Stripe onboarding URL in your browser. `pay setup` chains Stripe Connect, Apple IAP credentials, and a first plan; each step is optional.
+
+Subscription plans can carry an `--apple-product-id` (and optional `--apple-subscription-group-id`) so one plan covers both Stripe and Apple. `pay apple credentials set` reads the App Store Connect `.p8` private key from a file and stores it encrypted — it is never printed or logged.
+
+**Required permissions**
+
+| Command surface | Permission |
+| --- | --- |
+| Plan / subscription reads, entitlement, payment-options | `anythink_subscription_plans:read` |
+| Plan writes | `anythink_subscription_plans:create` / `:update` / `:delete` |
+| Payment reads/writes | `anythink_payments:read` / `:create` |
+| Apple credentials, admin recovery (`delete`/`force-expire`/`relink`/`resync`) | project administrator |
 
 **Examples**
 
 ```bash
-anythink pay status
-anythink pay connect
-anythink pay payments --limit 50
+anythink pay setup
+anythink pay plans create --plan-name monthly --name Monthly --amount 9.99 --currency gbp --interval month --apple-product-id example_monthly
+anythink pay apple credentials set --issuer-id <uuid> --key-id <id> --bundle-id com.example.app --private-key-file ./AuthKey.p8
+anythink pay apple verify --signed-transaction <JWS>
+anythink pay subscriptions events <subId>
+anythink pay entitlement
 ```
 
 ---

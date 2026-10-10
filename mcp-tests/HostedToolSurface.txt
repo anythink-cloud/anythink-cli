@@ -62,9 +62,37 @@ menus_reorder [destructive] project? menu_ids
 menus_reorder_items [destructive] project? menu_id item_ids
 menus_update [destructive] project? menu_id name? role?
 menus_update_item [destructive] project? menu_id item_id entity? href? icon? name? parent?
+pay_entitlement [read-only] project?
 pay_methods [read-only] project?
+pay_offers_activate [write] project? id
+pay_offers_add_code [write] project? id owner_user_id? slug?
+pay_offers_codes [read-only] project? id
+pay_offers_create [write] project? description? discount_duration? discount_percent? eligibility? kind? name? per_user_cap? redeemer_reward? redeemer_trial_days? referrer_reward? referrer_subscription_days? referrer_trial_days? status? total_cap? valid_from? valid_until?
+pay_offers_delete [destructive] project? id
+pay_offers_get [read-only] project? id
+pay_offers_list [read-only] project?
+pay_offers_pause [destructive] project? id
+pay_offers_redemptions [read-only] project? id limit? page?
+pay_offers_update [destructive] project? id description? discount_duration? discount_percent? eligibility? name? per_user_cap? redeemer_reward? redeemer_trial_days? referrer_reward? referrer_subscription_days? referrer_trial_days? status? total_cap? valid_from? valid_until?
+pay_offers_user_code [read-only] project? user_id
+pay_payment_options [read-only] project? platform? storefront?
 pay_payments [read-only] project? limit? page?
+pay_plans_create [write] project? amount? apple_product_id? apple_subscription_group_id? currency? description? inactive? interval? interval_count? name? plan_name? product_description? product_name? reference? tier_rank? trial_days? type?
+pay_plans_delete [destructive] project? id
+pay_plans_get [read-only] project? id
+pay_plans_list [read-only] project?
+pay_plans_update [destructive] project? id active? amount? apple_product_id? apple_subscription_group_id? currency? description? inactive? interval? interval_count? name? plan_name? product_description? product_name? reference? tier_rank? trial_days? type?
 pay_status [read-only] project?
+pay_subscriptions_by_user [read-only] project? user_id
+pay_subscriptions_cancel [destructive] project? id
+pay_subscriptions_check_access [read-only] project? name status?
+pay_subscriptions_events [read-only] project? id
+pay_subscriptions_get [read-only] project? id
+pay_subscriptions_list [read-only] project? limit? page? status?
+pay_subscriptions_resume [write] project? id
+pay_trial_disable [write] project?
+pay_trial_enable [write] project?
+pay_trial_status [read-only] project?
 roles_create [write] project? name description?
 roles_delete [destructive] project? id
 roles_list [read-only] project?
