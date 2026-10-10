@@ -119,6 +119,35 @@ public class CliCommandToolTests
 
     [Theory]
     [MemberData(nameof(RemoteScopes))]
+    public void DataImportAndExport_UseLocalFilePaths_SoAreLocalOnly(CliToolScope remote)
+    {
+        foreach (var name in new[] { "data_import", "data_export" })
+        {
+            Find(name, CliToolScope.Local).Should().NotBeNull(name);
+            Find(name, remote).Should().BeNull($"{name} in {remote}");
+        }
+    }
+
+    [Theory]
+    [InlineData("data_import")]
+    [InlineData("data_export")]
+    public void DataImportAndExport_AreAdditive_NotReadOnlyAndNotDestructive(string name)
+    {
+        var annotations = Tool(name, CliToolScope.Local).ProtocolTool.Annotations!;
+
+        annotations.ReadOnlyHint.Should().BeFalse();
+        annotations.DestructiveHint.Should().BeFalse();
+    }
+
+    [Fact]
+    public void DataImportAndExport_HaveNoParameterNamedProject()
+    {
+        foreach (var name in new[] { "data_import", "data_export" })
+            Properties(Tool(name, CliToolScope.Local)).Should().NotContain("project");
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
     public void FileOptions_AreHiddenRemotely(CliToolScope remote)
     {
         Properties(Tool("workflows_create", CliToolScope.Local)).Should().Contain("filter_file");
