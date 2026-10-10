@@ -8,8 +8,8 @@ namespace AnythinkCli.Client;
 
 public class AnythinkClient : HttpApiClient
 {
-    public  string OrgId   { get; }
-    public  string BaseUrl { get; }
+    public string OrgId { get; }
+    public string BaseUrl { get; }
     private string _org;
 
     /// <summary>
@@ -37,9 +37,9 @@ public class AnythinkClient : HttpApiClient
     public AnythinkClient(string orgId, string baseUrl, string? token = null, string? apiKey = null)
         : base(token, apiKey)
     {
-        OrgId   = RequireOrgId(orgId);
+        OrgId = RequireOrgId(orgId);
         BaseUrl = baseUrl.TrimEnd('/');
-        _org    = $"{BaseUrl}/org/{OrgId}";
+        _org = $"{BaseUrl}/org/{OrgId}";
         _anonymousHttp = NewClient();
         ConfineTo(_org);
     }
@@ -51,9 +51,9 @@ public class AnythinkClient : HttpApiClient
 
     internal AnythinkClient(string orgId, string baseUrl, HttpClient http, HttpClient anonymousHttp) : base(http)
     {
-        OrgId   = RequireOrgId(orgId);
+        OrgId = RequireOrgId(orgId);
         BaseUrl = baseUrl.TrimEnd('/');
-        _org    = $"{BaseUrl}/org/{OrgId}";
+        _org = $"{BaseUrl}/org/{OrgId}";
         _anonymousHttp = anonymousHttp;
         ConfineTo(_org);
     }
@@ -89,6 +89,18 @@ public class AnythinkClient : HttpApiClient
         if (!response.IsSuccessStatusCode)
             throw new AnythinkException(content, (int)response.StatusCode);
         return content;
+    }
+
+    public async IAsyncEnumerable<string> FetchPagesAsync(string url)
+    {
+        var size = Math.Min(FetchPaging.QueryInt(url, "pageSize") ?? FetchPaging.MaxPageSize, FetchPaging.MaxPageSize);
+        var sized = FetchPaging.WithQuery(url, "pageSize", size);
+        for (var page = FetchPaging.QueryInt(url, "page") ?? 1; ; page++)
+        {
+            var body = await FetchRawAsync(FetchPaging.WithQuery(sized, "page", page));
+            yield return body;
+            if (!FetchPaging.HasNextPage(body)) yield break;
+        }
     }
 
     // ── Project Auth ──────────────────────────────────────────────────────────
@@ -145,7 +157,7 @@ public class AnythinkClient : HttpApiClient
     public async Task<Workflow> UpdateWorkflowAsync(int id, UpdateWorkflowRequest req)
         => (await PutAsync<Workflow>(_org + $"/workflows/{id}", req))!;
 
-    public Task EnableWorkflowAsync(int id)  => PostAsync<JsonObject>(_org + $"/workflows/{id}/enable");
+    public Task EnableWorkflowAsync(int id) => PostAsync<JsonObject>(_org + $"/workflows/{id}/enable");
     public Task DisableWorkflowAsync(int id) => PostAsync<JsonObject>(_org + $"/workflows/{id}/disable");
 
     public Task TriggerWorkflowAsync(int id, object? payload = null)
@@ -239,7 +251,7 @@ public class AnythinkClient : HttpApiClient
     /// <summary>Fetches all files across pages — use for migration where completeness matters.</summary>
     public async Task<List<FileResponse>> GetAllFilesAsync()
     {
-        var all  = new List<FileResponse>();
+        var all = new List<FileResponse>();
         var page = 1;
         while (true)
         {
@@ -321,7 +333,7 @@ public class AnythinkClient : HttpApiClient
 
     public async Task<List<Permission>> GetPermissionsAsync()
         => (await GetAsync<List<Permission>>(_org + "/permissions")) ?? [];
-        
+
     public Task<RoleResponse?> UpdateRoleWithPermissionsAsync(int roleId, UpdateRolePermissionsRequest req)
         => PutAsync<RoleResponse>(_org + $"/roles/{roleId}", req);
 
@@ -586,14 +598,14 @@ public class AnythinkClient : HttpApiClient
     internal static async Task<LoginResponse?> RefreshTokenAsync(
         string baseUrl, string orgId, string refreshToken, HttpClient http)
     {
-        var body    = JsonSerializer.Serialize(new { token = refreshToken }, JsonOpts);
+        var body = JsonSerializer.Serialize(new { token = refreshToken }, JsonOpts);
         var content = new StringContent(body, Encoding.UTF8, "application/json");
-        var url     = $"{baseUrl.TrimEnd('/')}/org/{orgId}/auth/v1/refresh";
-        var r       = await http.PostAsync(url, content);
+        var url = $"{baseUrl.TrimEnd('/')}/org/{orgId}/auth/v1/refresh";
+        var r = await http.PostAsync(url, content);
         if (!r.IsSuccessStatusCode) return null;
-        var raw     = await r.Content.ReadAsStringAsync();
+        var raw = await r.Content.ReadAsStringAsync();
         if (string.IsNullOrWhiteSpace(raw)) return null;
-        try   { return JsonSerializer.Deserialize<LoginResponse>(raw, JsonOpts); }
+        try { return JsonSerializer.Deserialize<LoginResponse>(raw, JsonOpts); }
         catch (JsonException) { return null; }
     }
 
@@ -643,4 +655,7 @@ public class AnythinkClient : HttpApiClient
 
     public Task<TenantResponse?> UpdateTenantAsync(UpdateTenantRequest req)
         => PutAsync<TenantResponse>(BaseUrl + $"/org/{OrgId}", req);
+
+    public Task ClearCorsCacheAsync()
+        => PostVoidAsync(BaseUrl + $"/org/{OrgId}/cors/clear-cache");
 }

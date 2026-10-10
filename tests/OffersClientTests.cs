@@ -10,7 +10,7 @@ namespace AnythinkCli.Tests;
 public class OffersClientTests
 {
     private const string BaseUrl = "https://api.example.com";
-    private const string OrgId   = "99999";
+    private const string OrgId = "99999";
     private const string PayPath = $"{BaseUrl}/org/{OrgId}/integrations/anythinkpay";
 
     private static AnythinkClient BuildClient(MockHttpMessageHandler handler)

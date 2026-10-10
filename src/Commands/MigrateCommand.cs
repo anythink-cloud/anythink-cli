@@ -82,22 +82,22 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         new(StringComparer.OrdinalIgnoreCase) { "many-to-one", "one-to-one" };
 
     // Migration scope keys used for the interactive prompt
-    private const string ScopeEntities  = "Entities + Fields";
+    private const string ScopeEntities = "Entities + Fields";
     private const string ScopeWorkflows = "Workflows";
-    private const string ScopeRoles     = "Roles";
-    private const string ScopeSettings  = "Organisation Settings";
-    private const string ScopeMenus     = "Menu Configuration";
-    private const string ScopeFiles     = "Files";
-    private const string ScopeData      = "Data (Entity Records)";
+    private const string ScopeRoles = "Roles";
+    private const string ScopeSettings = "Organisation Settings";
+    private const string ScopeMenus = "Menu Configuration";
+    private const string ScopeFiles = "Files";
+    private const string ScopeData = "Data (Entity Records)";
 
     public override async Task<int> ExecuteAsync(CommandContext context, MigrateSettings settings)
     {
         // ── Resolve profiles ──────────────────────────────────────────────────
         var fromKey = settings.From ?? AnsiConsole.Ask<string>("[#F97316]Source profile:[/]");
-        var toKey   = settings.To   ?? AnsiConsole.Ask<string>("[#F97316]Target profile:[/]");
+        var toKey = settings.To ?? AnsiConsole.Ask<string>("[#F97316]Target profile:[/]");
 
         var fromProfile = ConfigService.GetProfile(fromKey);
-        var toProfile   = ConfigService.GetProfile(toKey);
+        var toProfile = ConfigService.GetProfile(toKey);
 
         if (fromProfile == null)
         {
@@ -129,19 +129,19 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         // ── Determine migration scope (flags or interactive) ──────────────────
         // --force-data / --force-data-entities imply --include-data
         bool anyFlagSet = settings.IncludeWorkflows || settings.IncludeRoles ||
-                          settings.IncludeSettings  || settings.IncludeMenus ||
-                          settings.IncludeFiles      || settings.IncludeData  ||
-                          settings.ForceData         || settings.ForceDataEntities != null;
+                          settings.IncludeSettings || settings.IncludeMenus ||
+                          settings.IncludeFiles || settings.IncludeData ||
+                          settings.ForceData || settings.ForceDataEntities != null;
 
         HashSet<string> scope;
         if (anyFlagSet)
         {
             scope = new HashSet<string> { ScopeEntities };
             if (settings.IncludeWorkflows) scope.Add(ScopeWorkflows);
-            if (settings.IncludeRoles)     scope.Add(ScopeRoles);
-            if (settings.IncludeSettings)  scope.Add(ScopeSettings);
-            if (settings.IncludeMenus)     scope.Add(ScopeMenus);
-            if (settings.IncludeFiles)     scope.Add(ScopeFiles);
+            if (settings.IncludeRoles) scope.Add(ScopeRoles);
+            if (settings.IncludeSettings) scope.Add(ScopeSettings);
+            if (settings.IncludeMenus) scope.Add(ScopeMenus);
+            if (settings.IncludeFiles) scope.Add(ScopeFiles);
             if (settings.IncludeData || settings.ForceData || settings.ForceDataEntities != null) scope.Add(ScopeData);
         }
         else
@@ -152,8 +152,13 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                     .PageSize(10)
                     .HighlightStyle(new Style(foreground: new Color(249, 115, 22)))
                     .InstructionsText("[grey](Press [grey]<space>[/] to toggle, [grey]<enter>[/] to confirm)[/]")
-                    .AddChoices([ScopeEntities, ScopeWorkflows, ScopeRoles,
-                                 ScopeSettings, ScopeMenus, ScopeFiles, ScopeData])
+                    .AddChoices([ScopeEntities,
+                        ScopeWorkflows,
+                        ScopeRoles,
+                        ScopeSettings,
+                        ScopeMenus,
+                        ScopeFiles,
+                        ScopeData])
                     .Select(ScopeEntities));
             scope = [.. selected];
         }
@@ -167,12 +172,12 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
             $"→  [bold]To:[/] [#F97316]{Markup.Escape(toKey)}[/]\n");
 
         // ── Fetch source data ─────────────────────────────────────────────────
-        List<Entity>       srcEntities  = [];
-        List<Workflow>     srcWorkflows = [];
-        List<RoleResponse> srcRoles     = [];
-        List<FileResponse> srcFiles     = [];
-        TenantResponse?    srcTenant    = null;
-        List<MenuResponse> srcMenus     = [];
+        List<Entity> srcEntities = [];
+        List<Workflow> srcWorkflows = [];
+        List<RoleResponse> srcRoles = [];
+        List<FileResponse> srcFiles = [];
+        TenantResponse? srcTenant = null;
+        List<MenuResponse> srcMenus = [];
         var srcRecordCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
         await AnsiConsole.Status().Spinner(Spinner.Known.Dots)
@@ -181,11 +186,11 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                 srcEntities = await srcClient.GetEntitiesAsync();
                 if (scope.Contains(ScopeWorkflows)) srcWorkflows = await srcClient.GetWorkflowsAsync();
                 // Always fetch roles — needed for menu role-ID remapping even when ScopeRoles not selected
-                srcRoles    = await srcClient.GetRolesAsync();
+                srcRoles = await srcClient.GetRolesAsync();
                 if (scope.Contains(ScopeFiles) || scope.Contains(ScopeData))
-                    srcFiles  = await srcClient.GetAllFilesAsync();
+                    srcFiles = await srcClient.GetAllFilesAsync();
                 if (scope.Contains(ScopeSettings)) srcTenant = await srcClient.GetTenantAsync();
-                if (scope.Contains(ScopeMenus))    srcMenus  = await srcClient.GetMenusAsync();
+                if (scope.Contains(ScopeMenus)) srcMenus = await srcClient.GetMenusAsync();
                 if (scope.Contains(ScopeData))
                 {
                     // Count records per entity — paginate fully if TotalCount is unavailable
@@ -205,26 +210,26 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
             .ToDictionary(e => e.Id!.Value, e => e.Name);
 
         // ── Fetch existing target data ────────────────────────────────────────
-        List<Entity>       dstEntities    = [];
-        List<Workflow>     dstWorkflows   = [];
-        List<RoleResponse> dstRoles       = [];
-        List<Permission>   dstPermissions = [];
-        List<FileResponse> dstFiles       = [];
-        TenantResponse?    dstTenant      = null;
-        List<MenuResponse> dstMenus       = [];
+        List<Entity> dstEntities = [];
+        List<Workflow> dstWorkflows = [];
+        List<RoleResponse> dstRoles = [];
+        List<Permission> dstPermissions = [];
+        List<FileResponse> dstFiles = [];
+        TenantResponse? dstTenant = null;
+        List<MenuResponse> dstMenus = [];
 
         await AnsiConsole.Status().Spinner(Spinner.Known.Dots)
             .StartAsync("Reading target project...", async _ =>
             {
                 dstEntities = await dstClient.GetEntitiesAsync();
-                if (scope.Contains(ScopeWorkflows)) dstWorkflows   = await dstClient.GetWorkflowsAsync();
+                if (scope.Contains(ScopeWorkflows)) dstWorkflows = await dstClient.GetWorkflowsAsync();
                 // Always fetch target roles — needed for menu + settings role-ID remapping
-                dstRoles    = await dstClient.GetRolesAsync();
-                if (scope.Contains(ScopeRoles))     dstPermissions = await dstClient.GetPermissionsAsync();
+                dstRoles = await dstClient.GetRolesAsync();
+                if (scope.Contains(ScopeRoles)) dstPermissions = await dstClient.GetPermissionsAsync();
                 if (scope.Contains(ScopeFiles) || scope.Contains(ScopeData))
-                    dstFiles       = await dstClient.GetAllFilesAsync();
-                if (scope.Contains(ScopeSettings))  dstTenant      = await dstClient.GetTenantAsync();
-                if (scope.Contains(ScopeMenus))     dstMenus       = await dstClient.GetMenusAsync();
+                    dstFiles = await dstClient.GetAllFilesAsync();
+                if (scope.Contains(ScopeSettings)) dstTenant = await dstClient.GetTenantAsync();
+                if (scope.Contains(ScopeMenus)) dstMenus = await dstClient.GetMenusAsync();
             });
 
         // Target: entity name → internal ID (populated as entities are created)
@@ -238,18 +243,18 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
 
         // ── Progress bars ─────────────────────────────────────────────────────
         // Counters — written by progress tasks, read for summary
-        var entitiesCreated  = new Counter(); var entitiesSkipped = new Counter();
-        var fieldsCreated    = new Counter(); var fieldsSkipped   = new Counter(); var fieldsFailed = new Counter();
+        var entitiesCreated = new Counter(); var entitiesSkipped = new Counter();
+        var fieldsCreated = new Counter(); var fieldsSkipped = new Counter(); var fieldsFailed = new Counter();
         var workflowsCreated = new Counter();
-        var rolesCreated     = new Counter(); var rolesSkipped    = new Counter();
-        var settingsDone     = new Counter();
-        var menusCreated     = new Counter(); var menuItemsCreated = new Counter();
-        var filesCreated     = new Counter(); var filesFailed      = new Counter();
-        var recordsCreated   = new Counter(); var recordsSkipped   = new Counter();
-        var recordsFailed    = new Counter();
-        var dataDetail       = new List<(string Entity, int WouldCreate, int Skipped)>();
+        var rolesCreated = new Counter(); var rolesSkipped = new Counter();
+        var settingsDone = new Counter();
+        var menusCreated = new Counter(); var menuItemsCreated = new Counter();
+        var filesCreated = new Counter(); var filesFailed = new Counter();
+        var recordsCreated = new Counter(); var recordsSkipped = new Counter();
+        var recordsFailed = new Counter();
+        var dataDetail = new List<(string Entity, int WouldCreate, int Skipped)>();
         // Populated by Files section; used by Data section for file field remapping
-        var fileIdMap        = new Dictionary<int, int>();
+        var fileIdMap = new Dictionary<int, int>();
 
         var errors = new List<string>();
 
@@ -261,7 +266,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                 new ProgressBarColumn
                 {
                     CompletedStyle = new Style(foreground: new Color(249, 115, 22)),
-                    FinishedStyle  = new Style(foreground: new Color(249, 115, 22)),
+                    FinishedStyle = new Style(foreground: new Color(249, 115, 22)),
                     RemainingStyle = new Style(foreground: Color.Grey23),
                 },
                 new PercentageColumn(),
@@ -270,24 +275,24 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
             .StartAsync(async ctx =>
             {
                 // Add a task for every scope item; hidden tasks stay at 0 and complete immediately
-                var entityTask   = scope.Contains(ScopeEntities)  ? ctx.AddTask($"[bold]{ScopeEntities}[/]",  maxValue: Math.Max(1, migratable.Count)) : ctx.AddTask(ScopeEntities,  maxValue: 1);
-                var fieldTask    = scope.Contains(ScopeEntities)  ? ctx.AddTask($"[bold]Fields[/]",           maxValue: Math.Max(1, totalFields))       : ctx.AddTask("Fields",        maxValue: 1);
-                var wfTask       = scope.Contains(ScopeWorkflows) ? ctx.AddTask($"[bold]{ScopeWorkflows}[/]", maxValue: Math.Max(1, srcWorkflows.Count)) : ctx.AddTask(ScopeWorkflows, maxValue: 1);
-                var roleTask     = scope.Contains(ScopeRoles)     ? ctx.AddTask($"[bold]{ScopeRoles}[/]",     maxValue: Math.Max(1, srcRoles.Count(r => !r.Name.Equals("Admin User", StringComparison.OrdinalIgnoreCase)))) : ctx.AddTask(ScopeRoles, maxValue: 1);
-                var settingsTask = scope.Contains(ScopeSettings)  ? ctx.AddTask($"[bold]{ScopeSettings}[/]",  maxValue: 1) : ctx.AddTask(ScopeSettings,  maxValue: 1);
-                var menuTask     = scope.Contains(ScopeMenus)     ? ctx.AddTask($"[bold]{ScopeMenus}[/]",     maxValue: Math.Max(1, srcMenus.Count))    : ctx.AddTask(ScopeMenus,     maxValue: 1);
-                var fileTask     = scope.Contains(ScopeFiles)     ? ctx.AddTask($"[bold]{ScopeFiles}[/]",     maxValue: Math.Max(1, srcFiles.Count))    : ctx.AddTask(ScopeFiles,     maxValue: 1);
+                var entityTask = scope.Contains(ScopeEntities) ? ctx.AddTask($"[bold]{ScopeEntities}[/]", maxValue: Math.Max(1, migratable.Count)) : ctx.AddTask(ScopeEntities, maxValue: 1);
+                var fieldTask = scope.Contains(ScopeEntities) ? ctx.AddTask($"[bold]Fields[/]", maxValue: Math.Max(1, totalFields)) : ctx.AddTask("Fields", maxValue: 1);
+                var wfTask = scope.Contains(ScopeWorkflows) ? ctx.AddTask($"[bold]{ScopeWorkflows}[/]", maxValue: Math.Max(1, srcWorkflows.Count)) : ctx.AddTask(ScopeWorkflows, maxValue: 1);
+                var roleTask = scope.Contains(ScopeRoles) ? ctx.AddTask($"[bold]{ScopeRoles}[/]", maxValue: Math.Max(1, srcRoles.Count(r => !r.Name.Equals("Admin User", StringComparison.OrdinalIgnoreCase)))) : ctx.AddTask(ScopeRoles, maxValue: 1);
+                var settingsTask = scope.Contains(ScopeSettings) ? ctx.AddTask($"[bold]{ScopeSettings}[/]", maxValue: 1) : ctx.AddTask(ScopeSettings, maxValue: 1);
+                var menuTask = scope.Contains(ScopeMenus) ? ctx.AddTask($"[bold]{ScopeMenus}[/]", maxValue: Math.Max(1, srcMenus.Count)) : ctx.AddTask(ScopeMenus, maxValue: 1);
+                var fileTask = scope.Contains(ScopeFiles) ? ctx.AddTask($"[bold]{ScopeFiles}[/]", maxValue: Math.Max(1, srcFiles.Count)) : ctx.AddTask(ScopeFiles, maxValue: 1);
                 var totalSrcRecords = srcRecordCounts.Values.Sum();
-                var dataTask     = scope.Contains(ScopeData)      ? ctx.AddTask($"[bold]{ScopeData}[/]",      maxValue: Math.Max(1, totalSrcRecords))   : ctx.AddTask(ScopeData,      maxValue: 1);
+                var dataTask = scope.Contains(ScopeData) ? ctx.AddTask($"[bold]{ScopeData}[/]", maxValue: Math.Max(1, totalSrcRecords)) : ctx.AddTask(ScopeData, maxValue: 1);
 
                 // Complete tasks that are out of scope immediately
-                if (!scope.Contains(ScopeEntities))  { entityTask.Value  = 1; fieldTask.Value    = 1; }
-                if (!scope.Contains(ScopeWorkflows))   wfTask.Value       = 1;
-                if (!scope.Contains(ScopeRoles))       roleTask.Value     = 1;
-                if (!scope.Contains(ScopeSettings))    settingsTask.Value = 1;
-                if (!scope.Contains(ScopeMenus))       menuTask.Value     = 1;
-                if (!scope.Contains(ScopeFiles))       fileTask.Value     = 1;
-                if (!scope.Contains(ScopeData))        dataTask.Value     = 1;
+                if (!scope.Contains(ScopeEntities)) { entityTask.Value = 1; fieldTask.Value = 1; }
+                if (!scope.Contains(ScopeWorkflows)) wfTask.Value = 1;
+                if (!scope.Contains(ScopeRoles)) roleTask.Value = 1;
+                if (!scope.Contains(ScopeSettings)) settingsTask.Value = 1;
+                if (!scope.Contains(ScopeMenus)) menuTask.Value = 1;
+                if (!scope.Contains(ScopeFiles)) fileTask.Value = 1;
+                if (!scope.Contains(ScopeData)) dataTask.Value = 1;
 
                 // ── Entities + Fields ─────────────────────────────────────────
                 if (scope.Contains(ScopeEntities))
@@ -382,7 +387,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                     }
 
                     entityTask.Value = entityTask.MaxValue;
-                    fieldTask.Value  = fieldTask.MaxValue;
+                    fieldTask.Value = fieldTask.MaxValue;
                 }
 
                 // ── Workflows ─────────────────────────────────────────────────
@@ -425,7 +430,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                         if (steps.Count > 0)
                         {
                             var stepIdMap = new Dictionary<int, int>();
-                            var ordered   = steps.OrderByDescending(s => s.IsStartStep).ToList();
+                            var ordered = steps.OrderByDescending(s => s.IsStartStep).ToList();
 
                             foreach (var step in ordered)
                             {
@@ -758,7 +763,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                             return null;
                         }
 
-                        int? newSquareId   = ResolveLogoId(srcTenant.LogoSquare);
+                        int? newSquareId = ResolveLogoId(srcTenant.LogoSquare);
                         int? newStandardId = ResolveLogoId(srcTenant.LogoStandard);
 
                         try
@@ -871,7 +876,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                         // Wrap in try-catch: Anythink JOINs anythink_files even on SELECT
                         // and that table may not exist yet on a new project.
                         int dstCount;
-                        try   { dstCount = await CountRecordsAsync(dstClient, entity.Name); }
+                        try { dstCount = await CountRecordsAsync(dstClient, entity.Name); }
                         catch { dstCount = 0; } // table missing — assume empty, proceed
 
                         var isForced = forceEntities == null || forceEntities.Contains(entity.Name);
@@ -890,7 +895,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                         while (true)
                         {
                             PaginatedResult<JsonObject> result;
-                            try   { result = await srcClient.ListItemsAsync(entity.Name, page, pageSize); }
+                            try { result = await srcClient.ListItemsAsync(entity.Name, page, pageSize); }
                             catch (AnythinkException ex)
                             {
                                 errors.Add($"{entity.Name} page {page}: {ex.Message}");
@@ -1102,12 +1107,12 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
 
         // TotalCount not in response — paginate to count
         var total = first.Items.Count;
-        var page  = 2;
+        var page = 2;
         while (first.Items.Count == 100)
         {
             var next = await client.ListItemsAsync(entityName, page++, 100);
             total += next.Items.Count;
-            first  = next;
+            first = next;
         }
         return total;
     }
@@ -1142,7 +1147,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
 
     /// <summary>
     /// Remaps the org ID in an href from source to destination.
-    /// "/org/54925003/entities/categories" → "/org/37523255/entities/categories"
+    /// "/org/11111111/entities/categories" → "/org/22222222/entities/categories"
     /// Hrefs without an org prefix are returned unchanged.
     /// </summary>
     internal static string RemapHref(string href, string srcOrgId, string dstOrgId) =>

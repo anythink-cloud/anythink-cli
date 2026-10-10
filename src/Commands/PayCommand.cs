@@ -77,7 +77,7 @@ internal static class PayStripeConnectFlow
         );
 
         var country = AnsiConsole.Ask<string>("Country code (e.g. [dim]GB[/]):", "GB");
-        var email   = AnsiConsole.Ask<string>("Email address:");
+        var email = AnsiConsole.Ask<string>("Email address:");
 
         OnboardingLinkResponse? link = null;
 
@@ -258,8 +258,8 @@ internal static class PayFormat
             "GBP" => $"£{number}",
             "USD" => $"${number}",
             "EUR" => $"€{number}",
-            ""    => number,
-            _     => $"{number} {code}"
+            "" => number,
+            _ => $"{number} {code}"
         };
     }
 
@@ -447,10 +447,10 @@ public class PayPlansCreateCommand : BaseCommand<PayPlansCreateSettings>
             if (settings.ValidateSupplied() is { } invalid) { Renderer.Warn(Markup.Escape(invalid)); return 1; }
 
             var currency = (settings.Currency ?? "gbp").ToLowerInvariant();
-            var planName = settings.PlanName    ?? AnsiConsole.Ask<string>("Plan name (internal id):");
-            var name     = settings.Name        ?? AnsiConsole.Ask<string>("Display name:");
-            var desc     = settings.Description  ?? AnsiConsole.Ask<string>("Description:");
-            var amount   = settings.Amount       ?? AnsiConsole.Ask<decimal>($"Amount ({currency}):");
+            var planName = settings.PlanName ?? AnsiConsole.Ask<string>("Plan name (internal id):");
+            var name = settings.Name ?? AnsiConsole.Ask<string>("Display name:");
+            var desc = settings.Description ?? AnsiConsole.Ask<string>("Description:");
+            var amount = settings.Amount ?? AnsiConsole.Ask<decimal>($"Amount ({currency}):");
             if (PayValidation.Amount(amount) is { } amountError) { Renderer.Warn(Markup.Escape(amountError)); return 1; }
 
             var req = new CreateSubscriptionPlanRequest(
@@ -843,11 +843,11 @@ public class PayTrialStatusCommand : BaseCommand<EmptySettings>
                 .StartAsync("Fetching app trial status...", async _ =>
                 {
                     tenant = await client.GetTenantAsync();
-                    plans  = await client.GetSubscriptionPlansAsync();
+                    plans = await client.GetSubscriptionPlansAsync();
                 });
 
             var enabled = tenant?.TenantSettings?.AppEngagementTrialEnabled ?? false;
-            var source  = plans
+            var source = plans
                 .Where(p => p.IsActive && p.TrialPeriodDays is > 0)
                 .OrderByDescending(p => p.TrialPeriodDays)
                 .FirstOrDefault();
@@ -906,7 +906,7 @@ public abstract class PayTrialToggleCommand(bool enable) : BaseCommand<EmptySett
     }
 }
 
-public class PayTrialEnableCommand()  : PayTrialToggleCommand(true);
+public class PayTrialEnableCommand() : PayTrialToggleCommand(true);
 public class PayTrialDisableCommand() : PayTrialToggleCommand(false);
 
 // ── pay apple credentials ───────────────────────────────────────────────────────
@@ -941,9 +941,9 @@ public class PayAppleCredentialsSetCommand : BaseCommand<PayAppleCredentialsSetS
         try
         {
             var issuerId = settings.IssuerId ?? AnsiConsole.Ask<string>("Issuer id:");
-            var keyId    = settings.KeyId    ?? AnsiConsole.Ask<string>("Key id:");
+            var keyId = settings.KeyId ?? AnsiConsole.Ask<string>("Key id:");
             var bundleId = settings.BundleId ?? AnsiConsole.Ask<string>("Bundle id:");
-            var keyFile  = settings.PrivateKeyFile ?? AnsiConsole.Ask<string>("Private key (.p8) file path:");
+            var keyFile = settings.PrivateKeyFile ?? AnsiConsole.Ask<string>("Private key (.p8) file path:");
 
             if (!File.Exists(keyFile))
             { Renderer.Warn($"Private key file not found: {Markup.Escape(keyFile)}"); return 1; }
@@ -1319,9 +1319,9 @@ public class PayEntitlementCommand : BaseCommand<EmptySettings>
             if (e.SubscriptionId.HasValue) Renderer.KeyValue("Subscription id", e.SubscriptionId.Value.ToString());
             Renderer.KeyValue("Provider", e.Provider);
             Renderer.KeyValue("Product id", e.ProductId);
-            if (e.ExpiresAt.HasValue)    Renderer.KeyValue("Expires", e.ExpiresAt.Value.ToString("yyyy-MM-dd"));
+            if (e.ExpiresAt.HasValue) Renderer.KeyValue("Expires", e.ExpiresAt.Value.ToString("yyyy-MM-dd"));
             if (e.AutoCancelAt.HasValue) Renderer.KeyValue("Auto-cancel", e.AutoCancelAt.Value.ToString("yyyy-MM-dd"));
-            if (e.CancelledAt.HasValue)  Renderer.KeyValue("Cancelled", e.CancelledAt.Value.ToString("yyyy-MM-dd HH:mm"));
+            if (e.CancelledAt.HasValue) Renderer.KeyValue("Cancelled", e.CancelledAt.Value.ToString("yyyy-MM-dd HH:mm"));
             return 0;
         }
         catch (Exception ex) { HandleError(ex); return 1; }
@@ -1355,9 +1355,9 @@ public class PaySetupCommand : BaseCommand<EmptySettings>
             if (AnsiConsole.Confirm("Configure Apple IAP credentials now?", false))
             {
                 var issuerId = AnsiConsole.Ask<string>("Issuer id:");
-                var keyId    = AnsiConsole.Ask<string>("Key id:");
+                var keyId = AnsiConsole.Ask<string>("Key id:");
                 var bundleId = AnsiConsole.Ask<string>("Bundle id:");
-                var keyFile  = AnsiConsole.Ask<string>("Private key (.p8) file path:");
+                var keyFile = AnsiConsole.Ask<string>("Private key (.p8) file path:");
 
                 if (!File.Exists(keyFile))
                 {
@@ -1390,10 +1390,10 @@ public class PaySetupCommand : BaseCommand<EmptySettings>
             if (AnsiConsole.Confirm("Create a subscription plan now?", false))
             {
                 var planName = AnsiConsole.Ask<string>("Plan name (internal id):");
-                var name     = AnsiConsole.Ask<string>("Display name:");
-                var desc     = AnsiConsole.Ask<string>("Description:");
+                var name = AnsiConsole.Ask<string>("Display name:");
+                var desc = AnsiConsole.Ask<string>("Description:");
                 var currency = AnsiConsole.Ask<string>("Currency:", "gbp");
-                var amount   = AnsiConsole.Ask<decimal>($"Amount ({currency}):");
+                var amount = AnsiConsole.Ask<decimal>($"Amount ({currency}):");
                 var interval = AnsiConsole.Ask<string>("Billing interval (day/week/month/year):", "month");
 
                 var invalid = PayValidation.Currency(currency) ?? PayValidation.Amount(amount);

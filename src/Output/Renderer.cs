@@ -1,3 +1,4 @@
+using AnythinkCli.Client;
 using Spectre.Console;
 using System.Text;
 using System.Text.Json;
@@ -10,9 +11,9 @@ public static class Renderer
     public static readonly JsonSerializerOptions PrettyJson = new() { WriteIndented = true };
 
     public static void Success(string msg) => AnsiConsole.MarkupLine($"[green]✓[/] {msg}");
-    public static void Info(string msg)    => AnsiConsole.MarkupLine($"[blue]i[/] {msg}");
-    public static void Warn(string msg)    => AnsiConsole.MarkupLine($"[yellow]![/] {msg}");
-    public static void Error(string msg)   => AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(msg)}");
+    public static void Info(string msg) => AnsiConsole.MarkupLine($"[blue]i[/] {msg}");
+    public static void Warn(string msg) => AnsiConsole.MarkupLine($"[yellow]![/] {msg}");
+    public static void Error(string msg) => AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(msg)}");
 
     public static void Header(string title)
     {
@@ -29,6 +30,13 @@ public static class Renderer
 
     public static void PrintJson(string json)
     {
+        // JsonText wraps long lines at the console width, which breaks the JSON for a program reading it
+        if (ClientContext.MachineOutput)
+        {
+            AnsiConsole.Profile.Out.Writer.WriteLine(json);
+            return;
+        }
+
         try
         {
             AnsiConsole.Write(new Spectre.Console.Json.JsonText(json));

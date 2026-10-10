@@ -8,30 +8,82 @@ public static class CliToolPolicy
         ["cli", "signup", "login", "logout", "config", "accounts", "projects", "plans", "migrate", "pay apple", "pay setup"];
 
     private static readonly string[] ExcludedRemotely =
-        ["files upload", "workflows seed", "integrations oauth connect", "pay connect", "oauth google", "fetch", "api-keys create",
-         "pay subscriptions delete", "pay subscriptions force-expire", "pay subscriptions relink", "pay subscriptions resync"];
+        ["files upload",
+            "workflows seed",
+            "integrations oauth connect",
+            "pay connect",
+            "oauth google",
+            "fetch",
+            "api-keys create",
+            "pay subscriptions delete",
+            "pay subscriptions force-expire",
+            "pay subscriptions relink",
+            "pay subscriptions resync"];
 
     internal static readonly string[] HiddenRemotely =
         ["workflows create --filter-file", "workflows export --output", "data list --all"];
 
     private static readonly string[] FreeTextArguments =
-        ["search query text", "workflows create name", "roles create name", "users invite email", "users invite first_name", "users invite last_name"];
+        ["search query text", "workflows create name", "roles create name", "users invite email", "users invite first_name", "users invite last_name", "charts create name", "dashboards create name"];
 
     private static readonly string[] AutomaticFlags = ["--json", "--yes"];
 
     private static readonly HashSet<string> ReadOnlyVerbs =
     [
-        "list", "get", "me", "status", "jobs", "step-get", "query", "similar", "audit", "payments", "methods",
-        "callback-url", "api", "docs", "file-handler-example",
-        "entitlement", "payment-options", "by-user", "check-access", "events", "codes", "redemptions", "user-code"
+        "list",
+        "get",
+        "me",
+        "status",
+        "jobs",
+        "step-get",
+        "query",
+        "similar",
+        "audit",
+        "payments",
+        "methods",
+        "callback-url",
+        "api",
+        "docs",
+        "file-handler-example",
+        "entitlement",
+        "payment-options",
+        "by-user",
+        "check-access",
+        "events",
+        "codes",
+        "redemptions",
+        "user-code",
+        "mine",
+        "data",
+        "preview",
+        "platform-metrics",
+        "widget-preview"
     ];
 
     private static readonly string[] ReadOnlyRemotely = ["workflows export"];
 
     private static readonly HashSet<string> AdditiveVerbs =
     [
-        "create", "add", "add-item", "add-code", "step-add", "file-handler-add", "integration-add", "connect",
-        "enable", "disable", "activate", "resume", "test", "rehydrate", "upload", "seed", "invite", "trigger", "execute"
+        "create",
+        "add",
+        "add-item",
+        "add-code",
+        "add-chart",
+        "step-add",
+        "file-handler-add",
+        "integration-add",
+        "connect",
+        "enable",
+        "disable",
+        "activate",
+        "resume",
+        "test",
+        "rehydrate",
+        "upload",
+        "seed",
+        "invite",
+        "trigger",
+        "execute"
     ];
 
     private static readonly HashSet<string> OpenWorldVerbs = ["execute", "trigger", "invite"];

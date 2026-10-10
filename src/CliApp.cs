@@ -423,6 +423,95 @@ public static class CliApp
                 .WithExample("menus", "add-item", "250", "badges", "--icon", "Award", "--parent", "168");
         });
 
+        // ── Charts ────────────────────────────────────────────────────────────────
+
+        config.AddBranch("charts", charts =>
+        {
+            charts.SetDescription("Build and manage charts in the active project");
+
+            charts.AddCommand<ChartsListCommand>("list")
+                .WithDescription("List charts, newest first")
+                .WithExample("charts", "list", "--entity", "orders");
+
+            charts.AddCommand<ChartsGetCommand>("get")
+                .WithDescription("Get a chart's full configuration")
+                .WithExample("charts", "get", "12");
+
+            charts.AddCommand<ChartsCreateCommand>("create")
+                .WithDescription("Create a chart. Check it first with charts preview")
+                .WithExample("charts", "create", "\"Orders by status\"", "--entity", "orders", "--type", "pie", "--group-by", "status")
+                .WithExample("charts", "create", "\"Revenue per month\"", "--entity", "orders", "--type", "column", "--group-by", "created_at", "--interval", "month", "--measure", "total", "--agg", "sum");
+
+            charts.AddCommand<ChartsUpdateCommand>("update")
+                .WithDescription("Change a chart. Only the settings you pass change; the rest stay as they were")
+                .WithExample("charts", "update", "12", "--name", "Orders by state", "--timeframe", "30d");
+
+            charts.AddCommand<ChartsDeleteCommand>("delete")
+                .WithDescription("Delete a chart. Dashboards that show it keep an empty widget until you remove it")
+                .WithExample("charts", "delete", "12", "--yes");
+
+            charts.AddCommand<ChartsPreviewCommand>("preview")
+                .WithDescription("Show the data a chart configuration would draw, without saving it")
+                .WithExample("charts", "preview", "--entity", "orders", "--type", "pie", "--group-by", "status");
+
+            charts.AddCommand<ChartsPlatformMetricsCommand>("platform-metrics")
+                .WithDescription("List the usage metrics a platform chart can plot")
+                .WithExample("charts", "platform-metrics");
+        });
+
+        // ── Dashboards ────────────────────────────────────────────────────────────
+
+        config.AddBranch("dashboards", dashboards =>
+        {
+            dashboards.SetDescription("Build and manage dashboards in the active project");
+
+            dashboards.AddCommand<DashboardsListCommand>("list")
+                .WithDescription("List the dashboards you can see");
+
+            dashboards.AddCommand<DashboardsGetCommand>("get")
+                .WithDescription("Get a dashboard with its widgets and their positions")
+                .WithExample("dashboards", "get", "3");
+
+            dashboards.AddCommand<DashboardsMineCommand>("mine")
+                .WithDescription("Get your landing dashboard, or the project default if you have none");
+
+            dashboards.AddCommand<DashboardsCreateCommand>("create")
+                .WithDescription("Create a dashboard, optionally with charts already on it")
+                .WithExample("dashboards", "create", "Sales", "--chart", "12", "--chart", "14");
+
+            dashboards.AddCommand<DashboardsUpdateCommand>("update")
+                .WithDescription("Rename a dashboard, change who can see it, or replace its widgets and layout")
+                .WithExample("dashboards", "update", "3", "--name", "Sales overview");
+
+            dashboards.AddCommand<DashboardsDeleteCommand>("delete")
+                .WithDescription("Delete a dashboard and its widgets. The charts on it are kept")
+                .WithExample("dashboards", "delete", "3", "--yes");
+
+            dashboards.AddCommand<DashboardsDataCommand>("data")
+                .WithDescription("Get the data behind a dashboard's widgets")
+                .WithExample("dashboards", "data", "3", "--widget", "41");
+
+            dashboards.AddCommand<DashboardsSetHomeCommand>("set-home")
+                .WithDescription("Make a dashboard of yours your landing dashboard")
+                .WithExample("dashboards", "set-home", "3");
+
+            dashboards.AddCommand<DashboardsPromoteToDefaultCommand>("promote-to-default")
+                .WithDescription("Copy a dashboard over the project default that new users start from (administrators only)")
+                .WithExample("dashboards", "promote-to-default", "3", "--yes");
+
+            dashboards.AddCommand<DashboardsWidgetPreviewCommand>("widget-preview")
+                .WithDescription("Show the data a widget would draw, without saving it")
+                .WithExample("dashboards", "widget-preview", "--type", "chart", "--chart", "12");
+
+            dashboards.AddCommand<DashboardsAddChartCommand>("add-chart")
+                .WithDescription("Add a chart to a dashboard as a new widget. Everything else on the dashboard stays as it was")
+                .WithExample("dashboards", "add-chart", "3", "12", "--width", "6");
+
+            dashboards.AddCommand<DashboardsRemoveWidgetCommand>("remove-widget")
+                .WithDescription("Remove a widget from a dashboard. Everything else on the dashboard stays as it was")
+                .WithExample("dashboards", "remove-widget", "3", "41");
+        });
+
         // ── Pay ───────────────────────────────────────────────────────────────────
 
         config.AddBranch("pay", pay =>
@@ -741,12 +830,46 @@ public static class CliApp
             });
         });
 
+        // ── Settings (project) ─────────────────────────────────────────────
+
+        config.AddBranch("settings", settings =>
+        {
+            settings.SetDescription("View and manage project settings (registrations, AI, CORS, …)");
+
+            settings.AddCommand<SettingsGetCommand>("get")
+                .WithDescription("Show all project settings")
+                .WithExample("settings", "get")
+                .WithExample("settings", "get", "--json");
+
+            settings.AddCommand<SettingsSetCommand>("set")
+                .WithDescription("Set a single project setting")
+                .WithExample("settings", "set", "allow_registrations", "true")
+                .WithExample("settings", "set", "require_email_confirmation", "false");
+
+            settings.AddBranch("cors", cors =>
+            {
+                cors.SetDescription("Manage allowed application URLs (browser CORS origins)");
+
+                cors.AddCommand<SettingsCorsListCommand>("list")
+                    .WithDescription("List allowed application URLs");
+
+                cors.AddCommand<SettingsCorsAddCommand>("add")
+                    .WithDescription("Add an allowed origin (clears the CORS cache)")
+                    .WithExample("settings", "cors", "add", "https://app.example.com");
+
+                cors.AddCommand<SettingsCorsRemoveCommand>("remove")
+                    .WithDescription("Remove an allowed origin (clears the CORS cache)")
+                    .WithExample("settings", "cors", "remove", "https://app.example.com");
+            });
+        });
+
         // ── Fetch (raw API call) ──────────────────────────────────────────────────
 
         config.AddCommand<FetchCommand>("fetch")
             .WithDescription("Make an authenticated API request to the active project")
             .WithExample("fetch", "/integrations/definitions")
             .WithExample("fetch", "/integrations/definitions/slack/fields/channel/options")
+            .WithExample("fetch", "/workflows/12/jobs", "--all")
             .WithExample("fetch", "/integrations/connections", "--method", "POST", "--body", "{\"name\":\"test\"}");
 
         // ── API explorer ──────────────────────────────────────────────────────────

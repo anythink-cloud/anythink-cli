@@ -18,7 +18,9 @@ public class HostedTokenExchangerTests
 
     private static readonly TokenExchangeOptions Options = new()
     {
-        ClientId = "mcp-client", ClientSecret = "mcp-secret", Audience = "anythink-oauth"
+        ClientId = "mcp-client",
+        ClientSecret = "mcp-secret",
+        Audience = "anythink-oauth"
     };
 
     private readonly MockHttpMessageHandler _mock = new();
@@ -296,7 +298,10 @@ public class HostedTokenExchangerTests
             .Respond("application/json", """{"access_token":"via-override","expires_in":3600}""");
         var options = new TokenExchangeOptions
         {
-            ClientId = "c", ClientSecret = "s", Audience = "a", TokenEndpoint = "https://sts.test/token"
+            ClientId = "c",
+            ClientSecret = "s",
+            Audience = "a",
+            TokenEndpoint = "https://sts.test/token"
         };
 
         (await Exchanger(mock, options).ExchangeAsync("inbound", null, default)).Should().Be("via-override");

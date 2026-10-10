@@ -34,13 +34,13 @@ internal static class OfferFormat
             if (r is null || string.IsNullOrEmpty(r.Type)) return json;
             return r.Type switch
             {
-                "trial_extension"        => $"trial +{r.Days}d",
+                "trial_extension" => $"trial +{r.Days}d",
                 "subscription_extension" => $"subscription +{r.Days}d",
-                "discount"               => $"{r.PercentOff}% off{(r.Duration is null ? "" : $" ({r.Duration})")}",
-                "account_credit"         => $"credit {r.Amount} {r.Currency?.ToUpper()}",
-                "cash_payout"            => $"cash {r.Amount} {r.Currency?.ToUpper()}",
-                "tiered"                 => $"tiered ({r.Tiers?.Count ?? 0} tiers)",
-                _                        => r.Type
+                "discount" => $"{r.PercentOff}% off{(r.Duration is null ? "" : $" ({r.Duration})")}",
+                "account_credit" => $"credit {r.Amount} {r.Currency?.ToUpper()}",
+                "cash_payout" => $"cash {r.Amount} {r.Currency?.ToUpper()}",
+                "tiered" => $"tiered ({r.Tiers?.Count ?? 0} tiers)",
+                _ => r.Type
             };
         }
         catch (JsonException) { return json; }
@@ -204,7 +204,7 @@ public class PayOffersGetCommand : BaseCommand<PayOffersIdSettings>
             if (!string.IsNullOrEmpty(o.EligibilityJson)) Renderer.KeyValue("Eligibility", o.EligibilityJson);
             Renderer.KeyValue("Per-user cap", o.PerUserRedemptionCap.ToString());
             if (o.TotalRedemptionCap.HasValue) Renderer.KeyValue("Total cap", o.TotalRedemptionCap.ToString());
-            if (o.ValidFrom.HasValue)  Renderer.KeyValue("Valid from", o.ValidFrom.Value.ToString("yyyy-MM-dd"));
+            if (o.ValidFrom.HasValue) Renderer.KeyValue("Valid from", o.ValidFrom.Value.ToString("yyyy-MM-dd"));
             if (o.ValidUntil.HasValue) Renderer.KeyValue("Valid until", o.ValidUntil.Value.ToString("yyyy-MM-dd"));
             if (!string.IsNullOrEmpty(o.StripeCouponId)) Renderer.KeyValue("Stripe coupon", o.StripeCouponId);
             return 0;
