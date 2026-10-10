@@ -509,14 +509,14 @@ public record CreateMenuItemRequest(
 );
 
 public record ReorderMenuRequest(
-    [property: JsonPropertyName("menu_id")]    int MenuId,
+    [property: JsonPropertyName("menu_id")] int MenuId,
     [property: JsonPropertyName("sort_order")] int SortOrder
 );
 
 public record ReorderMenuItemRequest(
-    [property: JsonPropertyName("item_id")]    int  ItemId,
+    [property: JsonPropertyName("item_id")] int ItemId,
     [property: JsonPropertyName("sort_order")] int SortOrder,
-    [property: JsonPropertyName("parent_id")]  int? ParentId
+    [property: JsonPropertyName("parent_id")] int? ParentId
 );
 
 // ── Organisation / Tenant Settings ───────────────────────────────────────────
