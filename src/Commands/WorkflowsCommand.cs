@@ -1169,28 +1169,28 @@ public class WorkflowsSeedCommand : BaseCommand<WorkflowsSeedSettings>
 internal class WorkflowSeedSpec
 {
     [System.Text.Json.Serialization.JsonPropertyName("schema_version")] public int SchemaVersion { get; set; } = 1;
-    [System.Text.Json.Serialization.JsonPropertyName("name")]           public string Name { get; set; } = "";
-    [System.Text.Json.Serialization.JsonPropertyName("description")]    public string? Description { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("group")]          public string? Group { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("trigger")]        public string? Trigger { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("enabled")]        public bool Enabled { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("options")]        public System.Text.Json.JsonElement? Options { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("triggers")]       public List<WorkflowTrigger>? Triggers { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("api_route")]      public string? ApiRoute { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("steps")]          public List<WorkflowSeedStep>? Steps { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("name")] public string Name { get; set; } = "";
+    [System.Text.Json.Serialization.JsonPropertyName("description")] public string? Description { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("group")] public string? Group { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("trigger")] public string? Trigger { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("enabled")] public bool Enabled { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("options")] public System.Text.Json.JsonElement? Options { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("triggers")] public List<WorkflowTrigger>? Triggers { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("api_route")] public string? ApiRoute { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("steps")] public List<WorkflowSeedStep>? Steps { get; set; }
 }
 
 class WorkflowSeedStep
 {
-    [System.Text.Json.Serialization.JsonPropertyName("key")]           public string? Key { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("name")]          public string? Name { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("description")]   public string? Description { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("action")]        public string? Action { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("enabled")]       public bool Enabled { get; set; } = true;
+    [System.Text.Json.Serialization.JsonPropertyName("key")] public string? Key { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("name")] public string? Name { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("description")] public string? Description { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("action")] public string? Action { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("enabled")] public bool Enabled { get; set; } = true;
     [System.Text.Json.Serialization.JsonPropertyName("is_start_step")] public bool IsStartStep { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("parameters")]    public object? Parameters { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("on_success")]    public string? OnSuccess { get; set; }
-    [System.Text.Json.Serialization.JsonPropertyName("on_failure")]    public string? OnFailure { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("parameters")] public object? Parameters { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("on_success")] public string? OnSuccess { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("on_failure")] public string? OnFailure { get; set; }
 }
 
 // ── workflows export ─────────────────────────────────────────────────────────

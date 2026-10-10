@@ -31,8 +31,8 @@ The MCP exposes a few **dedicated tools** for auth and context — `login` /
 `logout`, `config_show/use/remove`, `accounts_*`, `projects_*`. **Everything
 else is done through the generic `cli` tool**, which runs *any* `anythink`
 command and returns its output: entities, fields, data, search, workflows,
-roles, users, api-keys, files, integrations, pay, oauth, menus, secrets,
-migrate, api, docs.
+roles, users, api-keys, files, integrations, pay, oauth, menus, charts,
+dashboards, secrets, migrate, api, docs.
 
 - Pass the command exactly as you'd type it after `anythink` — e.g. the `cli`
   tool with `entities list`, or `data create posts --data '{"title":"Hi"}'`.

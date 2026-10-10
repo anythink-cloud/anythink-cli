@@ -136,7 +136,7 @@ public class FieldAddSettings : CommandSettings
 
     [CommandOption("--type <TYPE>")]
     [Description("Database type: varchar, varchar array, text, integer, integer array, bigint, bigint array, decimal, decimal array, boolean, date, timestamp, jsonb, geo, file, user, one-to-one, one-to-many, many-to-one, many-to-many, dynamic-reference")]
-    public string? DatabaseType { get; set; }   
+    public string? DatabaseType { get; set; }
 
     [CommandOption("--display <DISPLAY>")]
     [Description("Display type: input, textarea, rich-text, select, entity-select, radio, country-select, checkbox, short-date, long-date, timestamp, relationship, file, secret, user, jsonb, geo, dynamic-reference")]
@@ -157,7 +157,7 @@ public class FieldAddSettings : CommandSettings
     [CommandOption("--name-field")]
     [Description("Set as name field")]
     public bool IsNameField { get; set; }
-    
+
     [CommandOption("--required")]
     [Description("Mark field as required")]
     public bool IsRequired { get; set; }
@@ -169,7 +169,7 @@ public class FieldAddSettings : CommandSettings
     [CommandOption("--searchable")]
     [Description("Enable full-text search on this field")]
     public bool IsSearchable { get; set; }
-    
+
     [CommandOption("--public")]
     [Description("Mark field as public")]
     public bool PubliclySearchable { get; set; }
@@ -230,26 +230,26 @@ public class FieldsAddCommand : BaseCommand<FieldAddSettings>
     // Sensible default display type for each db type
     private static readonly Dictionary<string, string> DefaultDisplay = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["varchar"]           = "input",
-        ["varchar[]"]         = "select",
-        ["text"]              = "textarea",
-        ["integer"]           = "input",
-        ["integer[]"]         = "select",
-        ["bigint"]            = "input",
-        ["bigint[]"]          = "select",
-        ["decimal"]           = "input",
-        ["decimal[]"]         = "select",
-        ["boolean"]           = "checkbox",
-        ["date"]              = "short-date",
-        ["timestamp"]         = "timestamp",
-        ["jsonb"]             = "jsonb",
-        ["geo"]               = "geo",
-        ["file"]              = "file",
-        ["user"]              = "user",
-        ["one-to-one"]        = "relationship",
-        ["one-to-many"]       = "relationship",
-        ["many-to-one"]       = "relationship",
-        ["many-to-many"]      = "relationship",
+        ["varchar"] = "input",
+        ["varchar[]"] = "select",
+        ["text"] = "textarea",
+        ["integer"] = "input",
+        ["integer[]"] = "select",
+        ["bigint"] = "input",
+        ["bigint[]"] = "select",
+        ["decimal"] = "input",
+        ["decimal[]"] = "select",
+        ["boolean"] = "checkbox",
+        ["date"] = "short-date",
+        ["timestamp"] = "timestamp",
+        ["jsonb"] = "jsonb",
+        ["geo"] = "geo",
+        ["file"] = "file",
+        ["user"] = "user",
+        ["one-to-one"] = "relationship",
+        ["one-to-many"] = "relationship",
+        ["many-to-one"] = "relationship",
+        ["many-to-many"] = "relationship",
         ["dynamic-reference"] = "dynamic-reference",
     };
 
@@ -273,7 +273,7 @@ public class FieldsAddCommand : BaseCommand<FieldAddSettings>
             ?? DefaultDisplay.GetValueOrDefault(dbType, "input");
 
         System.Text.Json.JsonElement? relationship = null;
-        var isRelational     = dbType is "many-to-one" or "one-to-many" or "many-to-many" or "one-to-one";
+        var isRelational = dbType is "many-to-one" or "one-to-many" or "many-to-many" or "one-to-one";
         var isSystemRelation = dbType is "user" or "file";
 
         if (isRelational || isSystemRelation)
@@ -459,15 +459,15 @@ public class FieldsUpdateCommand : BaseCommand<FieldUpdateSettings>
                     }
 
                     var req = new UpdateFieldRequest(
-                        DisplayType:        settings.DisplayType    ?? field.DisplayType,
-                        Label:              settings.Label          ?? field.Label,
-                        Description:        settings.Description    ?? null,
-                        DefaultValue:       settings.DefaultValue   ?? field.DefaultValue,
-                        IsRequired:         settings.NoRequired     ? false : (settings.IsRequired    ?? field.IsRequired),
-                        IsSearchable:       settings.NoSearchable   ? false : (settings.IsSearchable  ?? field.IsSearchable),
-                        PubliclySearchable: settings.NoPublic       ? false : (settings.PubliclySearchable ?? field.PubliclySearchable),
-                        IsIndexed:          settings.NoIndexed      ? false : (settings.IsIndexed     ?? field.IsIndexed),
-                        Options:            fieldOptions
+                        DisplayType: settings.DisplayType ?? field.DisplayType,
+                        Label: settings.Label ?? field.Label,
+                        Description: settings.Description ?? null,
+                        DefaultValue: settings.DefaultValue ?? field.DefaultValue,
+                        IsRequired: settings.NoRequired ? false : (settings.IsRequired ?? field.IsRequired),
+                        IsSearchable: settings.NoSearchable ? false : (settings.IsSearchable ?? field.IsSearchable),
+                        PubliclySearchable: settings.NoPublic ? false : (settings.PubliclySearchable ?? field.PubliclySearchable),
+                        IsIndexed: settings.NoIndexed ? false : (settings.IsIndexed ?? field.IsIndexed),
+                        Options: fieldOptions
                     );
 
                     updated = await client.UpdateFieldAsync(settings.Entity, field.Id, req);
@@ -476,12 +476,12 @@ public class FieldsUpdateCommand : BaseCommand<FieldUpdateSettings>
             Renderer.Success($"Field [#F97316]{Markup.Escape(updated!.Name)}[/] updated on [#F97316]{Markup.Escape(settings.Entity)}[/].");
 
             var table = Renderer.BuildTable("Property", "Value");
-            Renderer.AddRow(table, "Label",      updated.Label       ?? "");
-            Renderer.AddRow(table, "Display",    updated.DisplayType);
-            Renderer.AddRow(table, "Required",   updated.IsRequired          ? "yes" : "no");
-            Renderer.AddRow(table, "Searchable", updated.IsSearchable        ? "yes" : "no");
-            Renderer.AddRow(table, "Public",     updated.PubliclySearchable  ? "yes" : "no");
-            Renderer.AddRow(table, "Indexed",    updated.IsIndexed           ? "yes" : "no");
+            Renderer.AddRow(table, "Label", updated.Label ?? "");
+            Renderer.AddRow(table, "Display", updated.DisplayType);
+            Renderer.AddRow(table, "Required", updated.IsRequired ? "yes" : "no");
+            Renderer.AddRow(table, "Searchable", updated.IsSearchable ? "yes" : "no");
+            Renderer.AddRow(table, "Public", updated.PubliclySearchable ? "yes" : "no");
+            Renderer.AddRow(table, "Indexed", updated.IsIndexed ? "yes" : "no");
             AnsiConsole.Write(table);
 
             return 0;
