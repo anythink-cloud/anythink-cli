@@ -21,7 +21,10 @@ public class AnythinkException(string message, int statusCode) : Exception(messa
 /// User-facing CLI error that carries Spectre markup.
 /// HandleError displays it directly without double-printing.
 /// </summary>
-public class CliException(string markupMessage) : Exception(markupMessage) { }
+public class CliException(string markupMessage) : Exception(markupMessage)
+{
+    public string MarkupMessage => Message;
+}
 
 /// <summary>
 /// Shared HTTP infrastructure for AnythinkClient and BillingClient.

@@ -57,7 +57,7 @@ public class SignupCommand : BasePlatformCommand<SignupSettings>
 
             Renderer.Success("Account created!");
             AnsiConsole.MarkupLine("\n[yellow]Check your email for a confirmation link before logging in.[/]");
-            AnsiConsole.MarkupLine($"\nOnce confirmed, run:\n  [bold #F97316]anythink login --email {email}[/]");
+            AnsiConsole.MarkupLine($"\nOnce confirmed, run:\n  [bold #F97316]anythink login --email {Markup.Escape(email)}[/]");
 
             SaveAndActivatePlatform(platformKey, platform);
             return 0;
@@ -133,9 +133,9 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
             ConfigService.SetDefault(profileKey);
 
             Renderer.Success($"Profile [#F97316]{Markup.Escape(profileKey)}[/] saved and set as active.");
-            Renderer.Info($"Org ID:   {settings.OrgId}");
-            Renderer.Info($"URL:      {platform.MyAnythinkUrl}");
-            Renderer.Info($"Platform: {platformKey}");
+            Renderer.Info($"Org ID:   {Markup.Escape(settings.OrgId)}");
+            Renderer.Info($"URL:      {Markup.Escape(platform.MyAnythinkUrl)}");
+            Renderer.Info($"Platform: {Markup.Escape(platformKey)}");
             AnsiConsole.MarkupLine("\nRun [bold #F97316]anythink entities list[/] to explore the project.");
             return 0;
         }
@@ -176,7 +176,7 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
                     PlatformKey = platformKey,
                 });
                 ConfigService.SetDefault(profileKey);
-                AnsiConsole.MarkupLine($"Project profile [bold #F97316]{Markup.Escape(profileKey)}[/] saved (org: {settings.OrgId}).");
+                AnsiConsole.MarkupLine($"Project profile [bold #F97316]{Markup.Escape(profileKey)}[/] saved (org: {Markup.Escape(settings.OrgId)}).");
                 AnsiConsole.MarkupLine("Run [bold #F97316]anythink entities list[/] to explore the project.");
             }
             else
@@ -206,7 +206,7 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
             AnsiConsole.MarkupLine("\n[#F97316]Opening browser for Google sign-in...[/]");
             tokens = await GoogleAuthFlow.RunAsync(eff, url =>
             {
-                AnsiConsole.MarkupLine($"[dim]If it doesn't open automatically, visit:[/]\n{url}\n");
+                AnsiConsole.MarkupLine($"[dim]If it doesn't open automatically, visit:[/]\n{Markup.Escape(url)}\n");
                 AnsiConsole.MarkupLine("[dim]Waiting for sign-in...[/]");
             });
         }
@@ -240,7 +240,7 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
             {
                 var choices = accounts.Select(a => $"{a.OrganizationName}  ({a.BillingEmail})").ToList();
                 var picked = AnsiConsole.Prompt(
-                    Renderer.Prompt<string>().Title("[#F97316]Select billing account:[/]").AddChoices(choices));
+                    Renderer.Prompt<string>().Title("[#F97316]Select billing account:[/]").UseConverter(Markup.Escape).AddChoices(choices));
                 platform.AccountId = accounts[choices.IndexOf(picked)].Id.ToString();
                 SaveAndActivatePlatform(platformKey, platform);
             }

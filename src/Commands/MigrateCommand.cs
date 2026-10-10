@@ -122,7 +122,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         }
         catch (CliException ex)
         {
-            AnsiConsole.MarkupLine($"[red]✗[/] {ex.Message}");
+            AnsiConsole.MarkupLine($"[red]✗[/] {ex.MarkupMessage}");
             return 1;
         }
 

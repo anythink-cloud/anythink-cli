@@ -216,7 +216,7 @@ public class DashboardsCreateCommand : BaseCommand<DashboardCreateSettings>
             if (!build.Ok) return ChartsOutput.Refuse("The dashboard can't be created", build.Problems);
 
             var name = settings.Name.Trim();
-            var created = await ChartsOutput.WithStatusAsync(settings.Json, $"Creating dashboard '{Markup.Escape(name)}'...",
+            var created = await ChartsOutput.WithStatusAsync(settings.Json, $"Creating dashboard '{name}'...",
                 () => client.CreateDashboardAsync(build.Body!));
 
             var detail = DashboardView.Detail(created);
@@ -226,7 +226,7 @@ public class DashboardsCreateCommand : BaseCommand<DashboardCreateSettings>
                 return 0;
             }
 
-            Renderer.Success($"Dashboard [#F97316]{Markup.Escape(name)}[/] created (id: {DashboardsOutput.Text(created["id"])}).");
+            Renderer.Success($"Dashboard [#F97316]{Markup.Escape(name)}[/] created (id: {Markup.Escape(DashboardsOutput.Text(created["id"]))}).");
             return 0;
         }
         catch (Exception ex)
@@ -446,7 +446,7 @@ public class DashboardsPromoteToDefaultCommand : BaseCommand<DashboardDeleteSett
                 () => client.PromoteDashboardToDefaultAsync(settings.Id));
 
             if (settings.Json) ChartsOutput.Print(DashboardView.Detail(dashboard));
-            else Renderer.Success($"The project's default dashboard now matches [#F97316]{Markup.Escape(DashboardsOutput.Text(dashboard["name"]))}[/] (id: {DashboardsOutput.Text(dashboard["id"])}).");
+            else Renderer.Success($"The project's default dashboard now matches [#F97316]{Markup.Escape(DashboardsOutput.Text(dashboard["name"]))}[/] (id: {Markup.Escape(DashboardsOutput.Text(dashboard["id"]))}).");
             return 0;
         }
         catch (Exception ex)
@@ -584,7 +584,7 @@ public class DashboardsAddChartCommand : BaseCommand<DashboardAddChartSettings>
             foreach (var widget in widgets) request.Add(DashboardsOutput.WidgetRequest(widget));
             request.Add(new JsonObject { ["type"] = "chart", ["title"] = title, ["config_json"] = DashboardSpec.ChartConfig(settings.ChartId), ["sort_order"] = next });
 
-            var updated = await ChartsOutput.WithStatusAsync(settings.Json, $"Adding '{Markup.Escape(title)}' to dashboard {settings.DashboardId}...",
+            var updated = await ChartsOutput.WithStatusAsync(settings.Json, $"Adding '{title}' to dashboard {settings.DashboardId}...",
                 () => client.UpdateDashboardAsync(settings.DashboardId, new JsonObject { ["widgets"] = request }));
 
             if (place.Any)
@@ -650,7 +650,7 @@ public class DashboardsRemoveWidgetCommand : BaseCommand<DashboardRemoveWidgetSe
             if (DashboardLayout.Remove(layout, settings.WidgetId)) body["layout_json"] = layout.ToJsonString();
 
             var title = DashboardsOutput.Text(target["title"]);
-            var updated = await ChartsOutput.WithStatusAsync(settings.Json, $"Removing '{Markup.Escape(title)}' from dashboard {settings.DashboardId}...",
+            var updated = await ChartsOutput.WithStatusAsync(settings.Json, $"Removing '{title}' from dashboard {settings.DashboardId}...",
                 () => client.UpdateDashboardAsync(settings.DashboardId, body));
 
             if (settings.Json) ChartsOutput.Print(DashboardView.Detail(updated));
