@@ -23,7 +23,9 @@ public class RemoteScopeTests : IDisposable
         ConfigService.ConfigDirOverride = _tempDir;
         ConfigService.SaveProfile("server-login", new Profile
         {
-            OrgId = "1", InstanceApiUrl = "https://api.example.com", ApiKey = "ak_the_servers_own_key"
+            OrgId = "1",
+            InstanceApiUrl = "https://api.example.com",
+            ApiKey = "ak_server_key"
         });
     }
 

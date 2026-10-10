@@ -17,10 +17,10 @@ namespace AnythinkCli.Commands;
 
 public class SignupSettings : CommandSettings
 {
-    [CommandOption("--first-name <NAME>")]  public string? FirstName   { get; set; }
-    [CommandOption("--last-name <NAME>")]   public string? LastName    { get; set; }
-    [CommandOption("--email <EMAIL>")]      public string? Email       { get; set; }
-    [CommandOption("--password <PASSWORD>")] public string? Password  { get; set; }
+    [CommandOption("--first-name <NAME>")] public string? FirstName { get; set; }
+    [CommandOption("--last-name <NAME>")] public string? LastName { get; set; }
+    [CommandOption("--email <EMAIL>")] public string? Email { get; set; }
+    [CommandOption("--password <PASSWORD>")] public string? Password { get; set; }
 
     [CommandOption("--referral <CODE>")]
     [Description("Optional referral code")]
@@ -34,9 +34,9 @@ public class SignupCommand : BasePlatformCommand<SignupSettings>
         Renderer.PrintWelcomeBanner();
 
         var firstName = settings.FirstName ?? AnsiConsole.Ask<string>("[#F97316]First name:[/]");
-        var lastName  = settings.LastName  ?? AnsiConsole.Ask<string>("[#F97316]Last name:[/]");
-        var email     = settings.Email     ?? AnsiConsole.Ask<string>("[#F97316]Email:[/]");
-        var password  = settings.Password
+        var lastName = settings.LastName ?? AnsiConsole.Ask<string>("[#F97316]Last name:[/]");
+        var email = settings.Email ?? AnsiConsole.Ask<string>("[#F97316]Email:[/]");
+        var password = settings.Password
             ?? AnsiConsole.Prompt(new TextPrompt<string>("[#F97316]Password:[/]").Secret());
 
         if (settings.Password == null)
@@ -74,7 +74,7 @@ public class SignupCommand : BasePlatformCommand<SignupSettings>
 
 public class PlatformLoginSettings : CommandSettings
 {
-    [CommandOption("--email <EMAIL>")]       public string? Email    { get; set; }
+    [CommandOption("--email <EMAIL>")] public string? Email { get; set; }
     [CommandOption("--password <PASSWORD>")] public string? Password { get; set; }
 
     // ── Direct credential options (bypasses billing API) ───────────────────────
@@ -123,12 +123,12 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
 
             ConfigService.SaveProfile(profileKey, new CliProfile
             {
-                OrgId          = settings.OrgId,
-                AccessToken    = settings.Token,
-                ApiKey          = settings.ApiKey,
+                OrgId = settings.OrgId,
+                AccessToken = settings.Token,
+                ApiKey = settings.ApiKey,
                 InstanceApiUrl = platform.MyAnythinkUrl,
-                Alias          = profileKey,
-                PlatformKey    = platformKey,
+                Alias = profileKey,
+                PlatformKey = platformKey,
             });
             ConfigService.SetDefault(profileKey);
 
@@ -144,9 +144,9 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
         if (string.IsNullOrEmpty(settings.Email))
             AnsiConsole.MarkupLine("[dim]Tip: run [bold]anythink login --google[/] to sign in with Google.[/]\n");
 
-        var email    = settings.Email    ?? AnsiConsole.Ask<string>("[#F97316]Email:[/]");
+        var email = settings.Email ?? AnsiConsole.Ask<string>("[#F97316]Email:[/]");
         var password = settings.Password ?? AnsiConsole.Prompt(new TextPrompt<string>("[#F97316]Password:[/]").Secret());
-        var client   = new BillingClient(ConfigService.ApplyRuntimeOverrides(platform));
+        var client = new BillingClient(ConfigService.ApplyRuntimeOverrides(platform));
         try
         {
             LoginResponse? resp = null;
@@ -154,7 +154,7 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
                 .StartAsync("Authenticating...", async _ =>
                     resp = await client.LoginAsync(email, password));
 
-            platform.Token          = resp!.AccessToken;
+            platform.Token = resp!.AccessToken;
             platform.TokenExpiresAt = resp.ExpiresIn.HasValue
                 ? DateTime.UtcNow.AddSeconds(resp.ExpiresIn.Value - 30)  // 30s buffer
                 : DateTime.UtcNow.AddHours(1);
@@ -169,11 +169,11 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
                 var profileKey = settings.Profile ?? settings.OrgId;
                 ConfigService.SaveProfile(profileKey, new CliProfile
                 {
-                    OrgId          = settings.OrgId,
-                    AccessToken    = resp!.AccessToken,
+                    OrgId = settings.OrgId,
+                    AccessToken = resp!.AccessToken,
                     InstanceApiUrl = platform.MyAnythinkUrl,
-                    Alias          = profileKey,
-                    PlatformKey    = platformKey,
+                    Alias = profileKey,
+                    PlatformKey = platformKey,
                 });
                 ConfigService.SetDefault(profileKey);
                 AnsiConsole.MarkupLine($"Project profile [bold #F97316]{Markup.Escape(profileKey)}[/] saved (org: {settings.OrgId}).");

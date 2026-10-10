@@ -198,6 +198,96 @@ public class DocsCommand : Command<DocsSettings>
           ["anythink data import customers customers.csv --dry-run",
               "anythink data import customers customers.csv --errors rejected.csv --yes"]),
 
+        C("charts list", "List charts, newest first",
+          ["--entity ENTITY", "--json"], ["anythink charts list --entity orders"]),
+
+        C("charts get ID", "Get a chart's full configuration",
+          ["--json"], ["anythink charts get 12"]),
+
+        C("charts create NAME",
+          "Create a chart. Preview it first with charts preview, which takes the same options",
+          ["--entity ENTITY",
+              "--type TYPE",
+              "--group-by FIELD",
+              "--interval INTERVAL",
+              "--measure FIELD",
+              "--agg AGG",
+              "--stack-by FIELD",
+              "--filter FIELD:OP:VALUE",
+              "--timeframe PRESET",
+              "--from DATE",
+              "--to DATE",
+              "--limit N",
+              "--sort DIR",
+              "--source SOURCE",
+              "--platform-metric ID",
+              "--quota-metric ID",
+              "--config JSON",
+              "--json"],
+          ["anythink charts create \"Orders by status\" --entity orders --type pie --group-by status",
+              "anythink charts create \"Revenue per month\" --entity orders --type column --group-by created_at --interval month --measure total --agg sum --timeframe 365d"],
+          "Types: column (bar) line pie area stat gauge funnel. Aggregations: count sum avg min max. Filter operators: eq ne gt gte lt lte contains in exists not_exists"),
+
+        C("charts update ID",
+          "Change a chart. Only the options you pass change",
+          ["--name NAME", "(the same options as charts create)", "--json"], ["anythink charts update 12 --timeframe 30d"]),
+
+        C("charts delete ID", "Delete a chart",
+          ["--yes"], ["anythink charts delete 12 --yes"]),
+
+        C("charts preview",
+          "Show the data a chart configuration would draw, without saving it",
+          ["(the same options as charts create)", "--rows N", "--json"],
+          ["anythink charts preview --entity orders --type pie --group-by status"]),
+
+        C("charts platform-metrics", "List the usage metrics a platform chart can plot",
+          ["--json"], ["anythink charts platform-metrics"]),
+
+        C("dashboards list", "List the dashboards you can see",
+          ["--json"], ["anythink dashboards list"]),
+
+        C("dashboards get ID", "Get a dashboard with its widgets and their positions",
+          ["--json"], ["anythink dashboards get 3"]),
+
+        C("dashboards mine", "Get your landing dashboard, or the project default",
+          ["--json"], ["anythink dashboards mine"]),
+
+        C("dashboards create NAME",
+          "Create a dashboard, optionally with charts already on it",
+          ["--description TEXT", "--chart ID", "--shared", "--home", "--config JSON", "--json"],
+          ["anythink dashboards create Sales --chart 12 --chart 14"]),
+
+        C("dashboards update ID",
+          "Rename a dashboard, change who can see it, or replace its widgets and layout",
+          ["--name NAME", "--description TEXT", "--shared BOOL", "--config JSON", "--json"],
+          ["anythink dashboards update 3 --name \"Sales overview\""]),
+
+        C("dashboards delete ID", "Delete a dashboard and its widgets. The charts on it are kept",
+          ["--yes"], ["anythink dashboards delete 3 --yes"]),
+
+        C("dashboards data ID", "Get the data behind a dashboard's widgets",
+          ["--widget ID", "--rows N", "--json"], ["anythink dashboards data 3"]),
+
+        C("dashboards add-chart DASHBOARD_ID CHART_ID",
+          "Add a chart to a dashboard as a new widget. Everything else on the dashboard stays as it was",
+          ["--title TITLE", "--column N", "--row N", "--width N", "--height N", "--json"],
+          ["anythink dashboards add-chart 3 12 --width 6"],
+          "The grid is 12 columns wide. Leave the position out to let the dashboard place the widget"),
+
+        C("dashboards remove-widget DASHBOARD_ID WIDGET_ID",
+          "Remove a widget from a dashboard. Everything else on the dashboard stays as it was",
+          ["--json"], ["anythink dashboards remove-widget 3 41"]),
+
+        C("dashboards set-home ID", "Make a dashboard of yours your landing dashboard",
+          ["--json"], ["anythink dashboards set-home 3"]),
+
+        C("dashboards promote-to-default ID", "Copy a dashboard over the project default that new users start from (administrators only)",
+          ["--yes"], ["anythink dashboards promote-to-default 3 --yes"]),
+
+        C("dashboards widget-preview", "Show the data a widget would draw, without saving it",
+          ["--type TYPE", "--chart ID", "--config JSON", "--rows N", "--json"],
+          ["anythink dashboards widget-preview --type chart --chart 12"]),
+
         C("api",
           "List all REST endpoints — platform routes + dynamically generated entity CRUD routes",
           ["--json", "--base-url URL"],
@@ -309,6 +399,33 @@ public class DocsCommand : Command<DocsSettings>
         anythink data list orders --filter '{"total": {"gte": 10, "lt": 100} }'
         anythink data create blog_posts --data '{"title":"Hello","status":"draft"}'
         anythink data update blog_posts 42 --data '{"status":"published"}'
+        ```
+
+        ## Charts & Dashboards
+
+        | Command | Description |
+        |---------|-------------|
+        | `anythink charts list [--entity ENTITY] [--json]` | List charts |
+        | `anythink charts get ID [--json]` | Get a chart's configuration |
+        | `anythink charts create NAME --entity ENTITY --type TYPE [--group-by FIELD] [--measure FIELD --agg AGG] [--filter F:OP:V] [--timeframe PRESET] [--config JSON]` | Create a chart |
+        | `anythink charts update ID [--name NAME] [...same options]` | Change a chart; options you leave out keep their value |
+        | `anythink charts preview [...same options as create] [--rows N]` | Show the data a configuration would draw, without saving |
+        | `anythink charts delete ID [--yes]` | Delete a chart |
+        | `anythink charts platform-metrics` | List the usage metrics a platform chart can plot |
+        | `anythink dashboards list` / `get ID` / `mine` | Read dashboards |
+        | `anythink dashboards create NAME [--chart ID ...] [--shared] [--home]` | Create a dashboard |
+        | `anythink dashboards add-chart DASHBOARD_ID CHART_ID [--width N --height N --column N --row N]` | Add a chart as a new widget |
+        | `anythink dashboards remove-widget DASHBOARD_ID WIDGET_ID` | Remove a widget |
+        | `anythink dashboards data ID [--widget ID]` | Get the data behind the widgets |
+        | `anythink dashboards update ID` / `delete ID [--yes]` / `set-home ID` / `promote-to-default ID [--yes]` | Manage a dashboard |
+
+        **Chart types:** `column` (bar) `line` `pie` `area` `stat` `gauge` `funnel`
+
+        ```sh
+        anythink charts preview --entity orders --type pie --group-by status
+        anythink charts create "Orders by status" --entity orders --type pie --group-by status
+        anythink dashboards create Sales --chart 12
+        anythink dashboards add-chart 3 14 --width 6
         ```
 
         ## API Explorer

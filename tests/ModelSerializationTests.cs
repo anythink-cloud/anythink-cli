@@ -14,7 +14,7 @@ public class ModelSerializationTests
     private static readonly JsonSerializerOptions Opts = new()
     {
         PropertyNameCaseInsensitive = true,
-        DefaultIgnoreCondition      = JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
     // ── Entity ────────────────────────────────────────────────────────────────
@@ -48,9 +48,9 @@ public class ModelSerializationTests
     [Fact]
     public void CreateEntityRequest_Serializes_WithSnakeCaseNames()
     {
-        var req  = new CreateEntityRequest("orders", EnableRls: true, IsPublic: false);
+        var req = new CreateEntityRequest("orders", EnableRls: true, IsPublic: false);
         var json = JsonSerializer.Serialize(req, Opts);
-        var doc  = JsonDocument.Parse(json).RootElement;
+        var doc = JsonDocument.Parse(json).RootElement;
 
         doc.GetProperty("name").GetString().Should().Be("orders");
         doc.GetProperty("enable_rls").GetBoolean().Should().BeTrue();
@@ -192,9 +192,9 @@ public class ModelSerializationTests
     [Fact]
     public void UpdateFieldRequest_Serializes_WithSnakeCaseNames()
     {
-        var req  = new UpdateFieldRequest("rich-text", Label: "Description", IsSearchable: true);
+        var req = new UpdateFieldRequest("rich-text", Label: "Description", IsSearchable: true);
         var json = JsonSerializer.Serialize(req, Opts);
-        var doc  = JsonDocument.Parse(json).RootElement;
+        var doc = JsonDocument.Parse(json).RootElement;
 
         doc.GetProperty("display_type").GetString().Should().Be("rich-text");
         doc.GetProperty("label").GetString().Should().Be("Description");
@@ -263,9 +263,9 @@ public class ModelSerializationTests
     [Fact]
     public void UpdateWorkflowRequest_Serializes_WithSnakeCaseNames()
     {
-        var req  = new UpdateWorkflowRequest(Name: "New Name", Description: "Updated desc");
+        var req = new UpdateWorkflowRequest(Name: "New Name", Description: "Updated desc");
         var json = JsonSerializer.Serialize(req, Opts);
-        var doc  = JsonDocument.Parse(json).RootElement;
+        var doc = JsonDocument.Parse(json).RootElement;
 
         doc.GetProperty("name").GetString().Should().Be("New Name");
         doc.GetProperty("description").GetString().Should().Be("Updated desc");
@@ -274,9 +274,9 @@ public class ModelSerializationTests
     [Fact]
     public void UpdateWorkflowRequest_OmitsNulls()
     {
-        var req  = new UpdateWorkflowRequest(Name: "Only Name");
+        var req = new UpdateWorkflowRequest(Name: "Only Name");
         var json = JsonSerializer.Serialize(req, Opts);
-        var doc  = JsonDocument.Parse(json).RootElement;
+        var doc = JsonDocument.Parse(json).RootElement;
 
         doc.GetProperty("name").GetString().Should().Be("Only Name");
         doc.TryGetProperty("description", out _).Should().BeFalse();
@@ -305,9 +305,9 @@ public class ModelSerializationTests
     [Fact]
     public void UpdateGoogleOAuthRequest_Serializes_WithSnakeCaseNames()
     {
-        var req  = new UpdateGoogleOAuthRequest(true, "my-client-id", "my-secret");
+        var req = new UpdateGoogleOAuthRequest(true, "my-client-id", "my-secret");
         var json = JsonSerializer.Serialize(req, Opts);
-        var doc  = JsonDocument.Parse(json).RootElement;
+        var doc = JsonDocument.Parse(json).RootElement;
 
         doc.GetProperty("enabled").GetBoolean().Should().BeTrue();
         doc.GetProperty("client_id").GetString().Should().Be("my-client-id");
