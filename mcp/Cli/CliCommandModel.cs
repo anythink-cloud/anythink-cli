@@ -26,7 +26,7 @@ public static partial class CliCommandModel
 
     private static IReadOnlyList<CliCommand> Load()
     {
-        var result = CliRunner.RunAsync(["cli", "xmldoc"], client: null, CliToolScope.Local).GetAwaiter().GetResult();
+        var result = CliRunner.RunAsync(["cli", "xmldoc"], client: null, CliToolScope.Local, maxOutputCharacters: int.MaxValue).GetAwaiter().GetResult();
         if (result.ExitCode != 0)
             throw new InvalidOperationException("Could not read the CLI command model.");
 
