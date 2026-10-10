@@ -35,6 +35,7 @@ internal sealed class FakeImporter(ImportSchema schema) : IPlatformImporter
     }
 }
 
+[Collection("ConsoleOutput")]
 public class ImportRunnerTests
 {
     private const string Org = "/org/99999";
