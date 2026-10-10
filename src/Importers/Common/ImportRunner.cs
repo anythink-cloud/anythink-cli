@@ -55,13 +55,13 @@ public class ImportRunner
 
     public async Task<ImportResult> RunAsync()
     {
-        AnsiConsole.MarkupLine($"[dim]{_source.PlatformName}:[/]  {Markup.Escape(_source.ConnectionSummary)}");
+        AnsiConsole.MarkupLine($"[dim]{Markup.Escape(_source.PlatformName)}:[/]  {Markup.Escape(_source.ConnectionSummary)}");
         AnsiConsole.MarkupLine($"[dim]Anythink:[/]  org {Markup.Escape(_target.OrgId)}");
         AnsiConsole.WriteLine();
 
         ImportSchema schema = null!;
         await AnsiConsole.Status().Spinner(Spinner.Known.Dots)
-            .StartAsync($"Fetching {_source.PlatformName} schema...", async _ =>
+            .StartAsync(Renderer.Status($"Fetching {_source.PlatformName} schema..."), async _ =>
                 schema = await _source.FetchSchemaAsync(
                     _options.IncludeFlows, _options.IncludeFiles, _options.IncludeRoles));
 
@@ -521,11 +521,12 @@ public class ImportRunner
 
         var pieces = new List<string>();
         if (created > 0) pieces.Add($"{created} new step(s)");
-        if (failed > 0) pieces.Add($"[yellow]{failed} failed[/]");
-        if (reviewSteps > 0) pieces.Add($"[yellow]{reviewSteps} need review[/]");
+        if (failed > 0) pieces.Add($"{failed} failed");
+        if (reviewSteps > 0) pieces.Add($"{reviewSteps} need review");
         var summary = pieces.Count == 0 ? "no changes" : string.Join(", ", pieces);
+        var tone = failed > 0 || reviewSteps > 0 ? "yellow" : "default";
         var triggerLabel = string.Join("/", flow.Triggers.Select(t => t.Type));
-        Renderer.Success($"[bold]{Markup.Escape(flow.Name)}[/] ({Markup.Escape(triggerLabel)}) created — {summary}");
+        Renderer.Success($"[bold]{Markup.Escape(flow.Name)}[/] ({Markup.Escape(triggerLabel)}) created — [{tone}]{Markup.Escape(summary)}[/]");
     }
 
     // ── Data application ──────────────────────────────────────────────────────
@@ -564,7 +565,7 @@ public class ImportRunner
         {
             if (failedEntities.Contains(col.Name))
             {
-                Renderer.Warn($"skip {col.Name} data — its entity could not be created");
+                Renderer.Warn($"skip {Markup.Escape(col.Name)} data — its entity could not be created");
                 continue;
             }
             if (col.DataUnsupportedReason is not null)
