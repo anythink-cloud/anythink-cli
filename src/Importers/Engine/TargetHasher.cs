@@ -17,7 +17,7 @@ public static class TargetHasher
         ["name"] = entity.Name,
         ["is_public"] = entity.IsPublic,
         ["is_junction"] = entity.IsJunction,
-        ["fields"] = new JsonArray((entity.Fields ?? []).Select(f => (JsonNode?)FieldNode(f)).ToArray())
+        ["fields"] = new JsonArray((entity.Fields ?? []).OrderBy(f => f.Name, StringComparer.Ordinal).Select(f => (JsonNode?)FieldNode(f)).ToArray())
     });
 
     public static string Hash(Field field) => Hash(FieldNode(field));
@@ -26,13 +26,13 @@ public static class TargetHasher
     {
         ["name"] = workflow.Name,
         ["enabled"] = workflow.Enabled,
-        ["triggers"] = new JsonArray((workflow.Triggers ?? []).Select(t => (JsonNode?)new JsonObject
+        ["triggers"] = new JsonArray((workflow.Triggers ?? []).OrderBy(t => t.Type, StringComparer.Ordinal).ThenBy(t => t.Config?.GetRawText(), StringComparer.Ordinal).Select(t => (JsonNode?)new JsonObject
         {
             ["type"] = t.Type,
             ["enabled"] = t.Enabled,
             ["config"] = ToNode(t.Config)
         }).ToArray()),
-        ["steps"] = new JsonArray((workflow.Steps ?? []).Select(s => (JsonNode?)new JsonObject
+        ["steps"] = new JsonArray((workflow.Steps ?? []).OrderBy(s => s.Key, StringComparer.Ordinal).Select(s => (JsonNode?)new JsonObject
         {
             ["key"] = s.Key,
             ["action"] = s.Action,

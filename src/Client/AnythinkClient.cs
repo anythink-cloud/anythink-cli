@@ -127,6 +127,35 @@ public class AnythinkClient : HttpApiClient
     public Task DeleteEntityAsync(string name)
         => DeleteAsync(_org + $"/entities/{Seg(name)}");
 
+    // ── Email Templates ───────────────────────────────────────────────────────
+
+    private static string Segment(string value) => Uri.EscapeDataString(value);
+
+    public async Task<List<EmailTemplate>> GetEmailTemplatesAsync()
+        => (await GetAsync<List<EmailTemplate>>(_org + "/email-templates")) ?? [];
+
+    public async Task<EmailTemplate> GetEmailTemplateAsync(string templateType)
+        => (await GetAsync<EmailTemplate>(_org + $"/email-templates/{Segment(templateType)}"))
+           ?? throw new AnythinkException($"Email template '{templateType}' not found.", 404);
+
+    public async Task<EmailTemplatePreview> PreviewEmailTemplateAsync(string templateType)
+        => (await GetAsync<EmailTemplatePreview>(_org + $"/email-templates/{Segment(templateType)}/preview"))
+           ?? throw new AnythinkException($"Could not preview '{templateType}'.", 404);
+
+    public async Task<EmailTemplatePreview> PreviewRawEmailAsync(PreviewRawEmailRequest req)
+        => (await PostAsync<EmailTemplatePreview>(_org + "/email-templates/preview-raw", req))
+           ?? throw new AnythinkException("Preview returned no body.", 500);
+
+    public Task<EmailTemplate?> UpdateEmailTemplateAsync(string templateType, UpdateEmailTemplateRequest req)
+        => PutAsync<EmailTemplate>(_org + $"/email-templates/{Segment(templateType)}", req);
+
+    public async Task<EmailShell> GetEmailShellAsync()
+        => (await GetAsync<EmailShell>(_org + "/email-templates/shell"))
+           ?? throw new AnythinkException("Could not load shell.", 404);
+
+    public Task<EmailShell?> UpdateEmailShellAsync(UpdateEmailShellRequest req)
+        => PutAsync<EmailShell>(_org + "/email-templates/shell", req);
+
     // ── Fields ────────────────────────────────────────────────────────────────
     // Uses dedicated GET /entities/{name}/fields endpoint (not the full entity fetch)
 
@@ -474,6 +503,139 @@ public class AnythinkClient : HttpApiClient
 
     public async Task<List<PaymentMethodResponse>> GetPaymentMethodsAsync()
         => (await GetAsync<List<PaymentMethodResponse>>(_pay + "/payment-methods")) ?? [];
+
+    // ── Pay › Subscription plans ──────────────────────────────────────────────
+
+    public async Task<List<SubscriptionPlanResponse>> GetSubscriptionPlansAsync()
+        => (await GetAsync<List<SubscriptionPlanResponse>>(_pay + "/subscription-plans")) ?? [];
+
+    public Task<SubscriptionPlanResponse?> GetSubscriptionPlanAsync(int id)
+        => GetAsync<SubscriptionPlanResponse>(_pay + $"/subscription-plans/{id}");
+
+    public Task<SubscriptionPlanResponse> CreateSubscriptionPlanAsync(CreateSubscriptionPlanRequest req)
+        => PostAsync<SubscriptionPlanResponse>(_pay + "/subscription-plans", req);
+
+    public Task<SubscriptionPlanResponse?> UpdateSubscriptionPlanAsync(int id, UpdateSubscriptionPlanRequest req)
+        => PutAsync<SubscriptionPlanResponse>(_pay + $"/subscription-plans/{id}", req);
+
+    public Task DeleteSubscriptionPlanAsync(int id)
+        => DeleteAsync(_pay + $"/subscription-plans/{id}");
+
+    // ── Pay › Subscriptions ───────────────────────────────────────────────────
+
+    public async Task<PaginatedResult<SubscriptionResponse>> GetSubscriptionsAsync(int page = 1, int pageSize = 25)
+        => (await GetAsync<PaginatedResult<SubscriptionResponse>>(
+                _pay + $"/subscriptions?page={page}&pageSize={pageSize}"))
+           ?? new PaginatedResult<SubscriptionResponse>([], 0, null, false, page, pageSize);
+
+    public Task<SubscriptionResponse?> GetSubscriptionAsync(Guid id)
+        => GetAsync<SubscriptionResponse>(_pay + $"/subscriptions/{id}");
+
+    public async Task<List<SubscriptionResponse>> GetSubscriptionsByUserAsync(int userId)
+        => (await GetAsync<List<SubscriptionResponse>>(_pay + $"/subscriptions/by-user/{userId}")) ?? [];
+
+    public async Task<PaginatedResult<SubscriptionResponse>> GetSubscriptionsByStatusAsync(string status, int page = 1, int pageSize = 25)
+        => (await GetAsync<PaginatedResult<SubscriptionResponse>>(
+                _pay + $"/subscriptions/status/{Uri.EscapeDataString(status)}?page={page}&pageSize={pageSize}"))
+           ?? new PaginatedResult<SubscriptionResponse>([], 0, null, false, page, pageSize);
+
+    public Task<CheckSubscriptionAccessResponse?> CheckSubscriptionAccessAsync(string subscriptionName, string? status = null)
+    {
+        var url = _pay + $"/subscriptions/check-access?subscription_name={Uri.EscapeDataString(subscriptionName)}";
+        if (!string.IsNullOrEmpty(status)) url += $"&status={Uri.EscapeDataString(status)}";
+        return GetAsync<CheckSubscriptionAccessResponse>(url);
+    }
+
+    public Task<CreateSubscriptionResponse> CreateSubscriptionAsync(CreateSubscriptionRequest req)
+        => PostAsync<CreateSubscriptionResponse>(_pay + "/subscriptions", req);
+
+    public Task<JsonObject> CancelSubscriptionAsync(Guid id)
+        => PostAsync<JsonObject>(_pay + $"/subscriptions/{id}/cancel", new { });
+
+    public Task<JsonObject> ResumeSubscriptionAsync(Guid id)
+        => PostAsync<JsonObject>(_pay + $"/subscriptions/{id}/resume", new { });
+
+    // ── Pay › Apple IAP credentials ───────────────────────────────────────────
+
+    public Task<AppleIapCredentialsResponse?> GetAppleIapCredentialsAsync()
+        => GetAsync<AppleIapCredentialsResponse>(_pay + "/apple-iap/credentials");
+
+    public Task<AppleIapCredentialsResponse?> UpdateAppleIapCredentialsAsync(UpdateAppleIapCredentialsRequest req)
+        => PutAsync<AppleIapCredentialsResponse>(_pay + "/apple-iap/credentials", req);
+
+    // ── Pay › Entitlement / payment options ───────────────────────────────────
+
+    public Task<SubscriptionEntitlementResponse?> GetEntitlementAsync()
+        => GetAsync<SubscriptionEntitlementResponse>(_pay + "/subscriptions/me/entitlement");
+
+    /// <summary>Returns the raw object so newly-added response fields print without a CLI release.</summary>
+    public async Task<JsonObject> GetPaymentOptionsAsync(string platform, string? storefront = null)
+    {
+        var url = _pay + $"/payment-options?platform={Uri.EscapeDataString(platform)}";
+        if (!string.IsNullOrEmpty(storefront)) url += $"&storefront={Uri.EscapeDataString(storefront)}";
+        return (await GetAsync<JsonObject>(url)) ?? new JsonObject();
+    }
+
+    // ── Pay › Apple receipt verify ────────────────────────────────────────────
+
+    public Task<AppleVerifyResponse> VerifyAppleTransactionAsync(AppleVerifyRequest req)
+        => PostAsync<AppleVerifyResponse>(_pay + "/subscriptions/apple/verify", req);
+
+    // ── Pay › Subscription history + admin recovery ───────────────────────────
+
+    public async Task<List<SubscriptionEventResponse>> GetSubscriptionEventsAsync(Guid id)
+        => (await GetAsync<List<SubscriptionEventResponse>>(_pay + $"/subscriptions/{id}/events")) ?? [];
+
+    public Task AdminDeleteSubscriptionAsync(Guid id)
+        => DeleteAsync(_pay + $"/subscriptions/{id}/admin");
+
+    /// <summary>Force a subscription's status (e.g. "expired") for recovery, keeping the record.</summary>
+    public Task AdminSetSubscriptionStatusAsync(Guid id, string status, bool clearPeriod)
+        => PostVoidAsync(_pay + $"/subscriptions/{id}/admin/status", new AdminSetStatusRequest(status, clearPeriod));
+
+    public Task AdminForceExpireSubscriptionAsync(Guid id)
+        => AdminSetSubscriptionStatusAsync(id, "expired", clearPeriod: true);
+
+    public Task AdminRelinkSubscriptionAsync(Guid id, int toUserId)
+        => PostVoidAsync(_pay + $"/subscriptions/{id}/admin/relink", new AdminRelinkRequest(toUserId));
+
+    public Task<JsonObject> AdminResyncSubscriptionAsync(Guid id)
+        => PostAsync<JsonObject>(_pay + $"/subscriptions/{id}/admin/resync", new { });
+
+    // ── Pay › Offers (admin) ──────────────────────────────────────────────────
+
+    public async Task<List<OfferResponse>> GetOffersAsync()
+        => (await GetAsync<List<OfferResponse>>(_pay + "/offers")) ?? [];
+
+    public Task<OfferResponse?> GetOfferAsync(Guid id)
+        => GetAsync<OfferResponse>(_pay + $"/offers/{id}");
+
+    public Task<OfferResponse> CreateOfferAsync(CreateOfferRequest req)
+        => PostAsync<OfferResponse>(_pay + "/offers", req);
+
+    public Task<OfferResponse?> UpdateOfferAsync(Guid id, UpdateOfferRequest req)
+        => PutAsync<OfferResponse>(_pay + $"/offers/{id}", req);
+
+    /// <summary>No dedicated route — status changes go through the offer PUT.</summary>
+    public Task<OfferResponse?> SetOfferStatusAsync(Guid id, string status)
+        => UpdateOfferAsync(id, new UpdateOfferRequest(Status: status));
+
+    public Task<DeleteOfferResponse?> DeleteOfferAsync(Guid id)
+        => DeleteAsync<DeleteOfferResponse>(_pay + $"/offers/{id}");
+
+    public async Task<List<OfferCodeResponse>> GetOfferCodesAsync(Guid id)
+        => (await GetAsync<List<OfferCodeResponse>>(_pay + $"/offers/{id}/codes")) ?? [];
+
+    public Task<OfferCodeResponse> CreateOfferCodeAsync(Guid id, CreateOfferCodeRequest req)
+        => PostAsync<OfferCodeResponse>(_pay + $"/offers/{id}/codes", req);
+
+    public async Task<List<OfferRedemptionResponse>> GetOfferRedemptionsAsync(Guid id, int page = 1, int pageSize = 50)
+        => (await GetAsync<List<OfferRedemptionResponse>>(
+                _pay + $"/offers/{id}/redemptions?page={page}&pageSize={pageSize}")) ?? [];
+
+    /// <summary>Admin lookup of a user's personal/referral code (lazily generated server-side).</summary>
+    public Task<PersonalCodeResponse?> GetUserCodeAsync(int userId)
+        => GetAsync<PersonalCodeResponse>(_pay + $"/offers/users/{userId}/code");
 
     // ── Token refresh (unauthenticated — called before building a client) ─────
 

@@ -7,7 +7,7 @@ public enum CliToolScope { Local, Internal, Hosted }
 public static class CliToolPolicy
 {
     private static readonly string[] ExcludedEverywhere =
-        ["cli", "signup", "login", "logout", "config", "migrate"];
+        ["cli", "signup", "login", "logout", "config", "migrate", "pay apple", "pay setup"];
 
     private static readonly string[] AccountGroups = ["accounts", "projects", "plans"];
 
@@ -43,10 +43,34 @@ public static class CliToolPolicy
     // import directus makes the server fetch a caller-supplied URL with a token (SSRF) and may read DIRECTUS_TOKEN from the host environment;
     // data import and export read and write a file path on the machine running the command, which a remote server can't share with the caller.
     private static readonly string[] ExcludedRemotely =
-        ["files upload", "workflows seed", "integrations oauth connect", "pay connect", "oauth google", "fetch", "api-keys create", "import directus", "data import", "data export"];
+        ["files upload",
+            "workflows seed",
+            "integrations oauth connect",
+            "pay connect",
+            "oauth google",
+            "fetch",
+            "api-keys create",
+            "import directus",
+            "pay subscriptions delete",
+            "pay subscriptions force-expire",
+            "pay subscriptions relink",
+            "pay subscriptions resync",
+            "data import",
+            "data export"];
 
     internal static readonly string[] HiddenRemotely =
-        ["workflows create --filter-file", "workflows export --output", "data list --all"];
+    [
+        "workflows create --filter-file",
+        "workflows export --output",
+        "data list --all",
+        "email templates update --content",
+        "email preview --content",
+        "email preview --wrapper",
+        "email shell update --html",
+    ];
+
+    // A plan file is written to a path the caller picks, so no tool may offer it; the tool prints the plan through its automatic --json instead.
+    internal static readonly string[] HiddenEverywhere = ["import directus --plan", "import directus --force"];
 
     private static readonly string[] FreeTextArguments =
         [
@@ -83,11 +107,20 @@ public static class CliToolPolicy
         "api",
         "docs",
         "file-handler-example",
+        "entitlement",
+        "payment-options",
+        "by-user",
+        "check-access",
+        "events",
+        "codes",
+        "redemptions",
+        "user-code",
         "mine",
         "data",
         "preview",
         "platform-metrics",
-        "widget-preview"
+        "widget-preview",
+        "show",
     ];
 
     private static readonly string[] ReadOnlyRemotely = ["workflows export"];
@@ -99,6 +132,7 @@ public static class CliToolPolicy
         "create",
         "add",
         "add-item",
+        "add-code",
         "add-chart",
         "step-add",
         "file-handler-add",
@@ -106,6 +140,8 @@ public static class CliToolPolicy
         "connect",
         "enable",
         "disable",
+        "activate",
+        "resume",
         "test",
         "rehydrate",
         "upload",
@@ -140,6 +176,7 @@ public static class CliToolPolicy
     public static IReadOnlyList<CliParameter> Parameters(CliCommand command, CliToolScope scope) =>
         command.Parameters
             .Where(p => !AutomaticFlags.Contains(p.Token))
+            .Where(p => !HiddenEverywhere.Contains($"{command.Key} {p.Token}"))
             .Where(p => !IsRemote(scope) || !HiddenRemotely.Contains($"{command.Key} {p.Token}"))
             .Select(p => scope == CliToolScope.Hosted && AccountParameters.TryGetValue($"{command.Key} {p.Name}", out var adapted)
                 ? p with { Name = adapted.Name, Description = adapted.Description, Required = adapted.Required }

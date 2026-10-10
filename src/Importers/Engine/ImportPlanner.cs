@@ -11,13 +11,14 @@ public static class ImportPlanner
     public static ImportPlan Build(ImportSchema schema, TargetSnapshot target, PlanOptions options, PlanContext context)
     {
         var items = new List<PlanItem>();
+        var used = new HashSet<string>(StringComparer.Ordinal);
         var entityNames = schema.Collections.Select(c => c.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var col in schema.Collections) AddCollection(items, col, target, entityNames);
-        if (options.IncludeRoles) AddRoles(items, schema.Roles, target, entityNames);
-        if (options.IncludeFlows) AddFlows(items, schema.Flows, target);
-        if (options.IncludeFiles) AddFiles(items, schema.Files, target, context.Source.Platform);
-        if (options.IncludeData) AddData(items, schema.Collections, target);
+        foreach (var col in schema.Collections) AddCollection(items, used, col, target, entityNames);
+        if (options.IncludeRoles) AddRoles(items, used, schema.Roles, target, entityNames);
+        if (options.IncludeFlows) AddFlows(items, used, schema.Flows, target);
+        if (options.IncludeFiles) AddFiles(items, used, schema.Files, target, context.Source.Platform);
+        if (options.IncludeData) AddData(items, used, schema.Collections, target);
         AddReports(items, schema);
 
         var ordered = items
@@ -29,13 +30,21 @@ public static class ImportPlanner
             context.Source, context.Target, options, Fingerprint(ordered), ordered);
     }
 
+    private static string Unique(HashSet<string> used, string key, string? suffix = null)
+    {
+        if (used.Add(key)) return key;
+        if (suffix is not null && used.Add($"{key}#{suffix}")) return $"{key}#{suffix}";
+        for (var n = 2; ; n++)
+            if (used.Add($"{key}#{n}")) return $"{key}#{n}";
+    }
+
     private static string Fingerprint(IEnumerable<PlanItem> items) =>
         TargetHasher.Hash(string.Join("\n", items.Where(i => i.TargetHash is not null).Select(i => $"{i.Key}={i.TargetHash}")));
 
-    private static void AddCollection(List<PlanItem> items, ImportCollection col, TargetSnapshot target, HashSet<string> entityNames)
+    private static void AddCollection(List<PlanItem> items, HashSet<string> used, ImportCollection col, TargetSnapshot target, HashSet<string> entityNames)
     {
         var existing = target.Entities.FirstOrDefault(e => e.Name.Equals(col.Name, StringComparison.OrdinalIgnoreCase));
-        var entityKey = $"entity:{col.Name}";
+        var entityKey = Unique(used, $"entity:{col.Name}");
         var present = (existing?.Fields ?? []).Select(f => f.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var fieldItems = new List<PlanItem>();
@@ -47,7 +56,7 @@ public static class ImportPlanner
             if (field.ForeignKeyCollection is { } fk && entityNames.Contains(fk)) dependsOn.Add($"entity:{fk}");
 
             fieldItems.Add(new PlanItem(
-                $"field:{col.Name}.{field.Name}", PlanKind.Field,
+                Unique(used, $"field:{col.Name}.{field.Name}"), PlanKind.Field,
                 isNew ? PlanAction.Create : PlanAction.Skip, ReportCategory.Mapped,
                 isNew ? "field is missing from the project" : "field already exists",
                 SourceRef: $"{col.Name}.{field.Name}", TargetName: field.Name, Parent: entityKey,
@@ -94,13 +103,13 @@ public static class ImportPlanner
         return spec;
     }
 
-    private static void AddRoles(List<PlanItem> items, List<ImportRole> roles, TargetSnapshot target, HashSet<string> entityNames)
+    private static void AddRoles(List<PlanItem> items, HashSet<string> used, List<ImportRole> roles, TargetSnapshot target, HashSet<string> entityNames)
     {
         var knownPermissions = target.Permissions.ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
         foreach (var role in roles.Where(r => !r.Name.Equals(AdminRole, StringComparison.OrdinalIgnoreCase)))
         {
             var existing = target.Roles.FirstOrDefault(r => r.Name.Equals(role.Name, StringComparison.OrdinalIgnoreCase));
-            var roleKey = $"role:{role.Name}";
+            var roleKey = Unique(used, $"role:{role.Name}");
             if (existing is not null)
             {
                 items.Add(new PlanItem(roleKey, PlanKind.Role, PlanAction.Skip, ReportCategory.Mapped,
@@ -121,7 +130,7 @@ public static class ImportPlanner
                 var isNew = !knownPermissions.ContainsKey(name);
                 var dependsOn = new List<string> { roleKey };
                 if (entityNames.Contains(collection)) dependsOn.Add($"entity:{collection}");
-                items.Add(new PlanItem($"permission:{role.Name}/{name}", PlanKind.Permission,
+                items.Add(new PlanItem(Unique(used, $"permission:{role.Name}/{name}"), PlanKind.Permission,
                     isNew ? PlanAction.Create : PlanAction.Skip, ReportCategory.Mapped,
                     isNew ? "permission does not exist in the project" : "permission already exists and is reused",
                     SourceRef: name, TargetName: name, Parent: roleKey, DependsOn: dependsOn,
@@ -131,11 +140,11 @@ public static class ImportPlanner
         }
     }
 
-    private static void AddFlows(List<PlanItem> items, List<ImportFlow> flows, TargetSnapshot target)
+    private static void AddFlows(List<PlanItem> items, HashSet<string> used, List<ImportFlow> flows, TargetSnapshot target)
     {
         foreach (var flow in flows)
         {
-            var key = $"workflow:{flow.Name}";
+            var key = Unique(used, $"workflow:{flow.Name}");
             var existing = target.Workflows.FirstOrDefault(w => w.Name.Equals(flow.Name, StringComparison.OrdinalIgnoreCase));
             if (existing is not null)
             {
@@ -165,7 +174,7 @@ public static class ImportPlanner
                 TargetHash: TargetHasher.Absent));
 
             foreach (var step in flow.Steps)
-                items.Add(new PlanItem($"workflow_step:{flow.Name}/{step.Key}", PlanKind.WorkflowStep, PlanAction.Create,
+                items.Add(new PlanItem(Unique(used, $"workflow_step:{flow.Name}/{step.Key}", step.SourceId), PlanKind.WorkflowStep, PlanAction.Create,
                     step.NeedsManualReview ? ReportCategory.NeedsReview : ReportCategory.Mapped,
                     step.NeedsManualReview ? "step needs manual review after import" : "step is created with its workflow",
                     SourceRef: step.SourceId, TargetName: step.Name, Parent: key, DependsOn: [key],
@@ -174,12 +183,12 @@ public static class ImportPlanner
         }
     }
 
-    private static void AddFiles(List<PlanItem> items, List<ImportFile> files, TargetSnapshot target, string platform)
+    private static void AddFiles(List<PlanItem> items, HashSet<string> used, List<ImportFile> files, TargetSnapshot target, string platform)
     {
         foreach (var file in files)
         {
             var present = target.ImportedSourceFileIds.Contains(file.SourceId);
-            items.Add(new PlanItem($"file:{file.SourceId}", PlanKind.File,
+            items.Add(new PlanItem(Unique(used, $"file:{file.SourceId}"), PlanKind.File,
                 present ? PlanAction.Skip : PlanAction.Create, ReportCategory.Mapped,
                 present ? $"file was already imported from {platform}" : "file is downloaded from the source and uploaded",
                 SourceRef: file.SourceId, TargetName: file.FileName,
@@ -188,12 +197,12 @@ public static class ImportPlanner
         }
     }
 
-    private static void AddData(List<PlanItem> items, List<ImportCollection> collections, TargetSnapshot target)
+    private static void AddData(List<PlanItem> items, HashSet<string> used, List<ImportCollection> collections, TargetSnapshot target)
     {
         foreach (var col in collections)
         {
-            var key = $"records:{col.Name}";
-            var entityKey = $"entity:{col.Name}";
+            var key = Unique(used, $"records:{col.Name}");
+            var entityKey = Unique(used, $"entity:{col.Name}");
             var existing = target.RecordCounts.GetValueOrDefault(col.Name);
             var spec = new JsonObject { ["existing_target_records"] = existing };
 

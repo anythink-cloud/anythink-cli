@@ -62,7 +62,7 @@ public class ImportRunner
         var quiet = _options.PlanAsJson;
         if (!quiet)
         {
-            AnsiConsole.MarkupLine($"[dim]{_source.PlatformName}:[/]  {Markup.Escape(_source.ConnectionSummary)}");
+            AnsiConsole.MarkupLine($"[dim]{Markup.Escape(_source.PlatformName)}:[/]  {Markup.Escape(_source.ConnectionSummary)}");
             AnsiConsole.MarkupLine($"[dim]Anythink:[/]  org {Markup.Escape(_target.OrgId)}");
             AnsiConsole.WriteLine();
         }
@@ -72,7 +72,7 @@ public class ImportRunner
             schema = await _source.FetchSchemaAsync(_options.IncludeFlows, _options.IncludeFiles, _options.IncludeRoles);
         else
             await AnsiConsole.Status().Spinner(Spinner.Known.Dots)
-                .StartAsync($"Fetching {_source.PlatformName} schema...", async _ =>
+                .StartAsync(Renderer.Status($"Fetching {_source.PlatformName} schema..."), async _ =>
                     schema = await _source.FetchSchemaAsync(
                         _options.IncludeFlows, _options.IncludeFiles, _options.IncludeRoles));
 
@@ -534,11 +534,12 @@ public class ImportRunner
 
         var pieces = new List<string>();
         if (created > 0) pieces.Add($"{created} new step(s)");
-        if (failed > 0) pieces.Add($"[yellow]{failed} failed[/]");
-        if (reviewSteps > 0) pieces.Add($"[yellow]{reviewSteps} need review[/]");
+        if (failed > 0) pieces.Add($"{failed} failed");
+        if (reviewSteps > 0) pieces.Add($"{reviewSteps} need review");
         var summary = pieces.Count == 0 ? "no changes" : string.Join(", ", pieces);
+        var tone = failed > 0 || reviewSteps > 0 ? "yellow" : "default";
         var triggerLabel = string.Join("/", flow.Triggers.Select(t => t.Type));
-        Renderer.Success($"[bold]{Markup.Escape(flow.Name)}[/] ({Markup.Escape(triggerLabel)}) created — {summary}");
+        Renderer.Success($"[bold]{Markup.Escape(flow.Name)}[/] ({Markup.Escape(triggerLabel)}) created — [{tone}]{Markup.Escape(summary)}[/]");
     }
 
     // ── Data application ──────────────────────────────────────────────────────
@@ -577,7 +578,7 @@ public class ImportRunner
         {
             if (failedEntities.Contains(col.Name))
             {
-                Renderer.Warn($"skip {col.Name} data — its entity could not be created");
+                Renderer.Warn($"skip {Markup.Escape(col.Name)} data — its entity could not be created");
                 continue;
             }
             if (col.DataUnsupportedReason is not null)
@@ -795,8 +796,8 @@ public class ImportRunner
         if (_options.IncludeRoles) scope.Add("roles");
         if (_options.IncludeData) scope.Add("data");
         return new PlanContext(
-            new PlanSource(_source.PlatformName, PlanSource.SanitiseUrl(_source.ConnectionSummary), scope),
-            new PlanTarget(PlanSource.SanitiseUrl(_target.BaseUrl), _target.OrgId),
+            new PlanSource(_source.PlatformName, UrlRedaction.Redact(_source.ConnectionSummary), scope),
+            new PlanTarget(UrlRedaction.Redact(_target.BaseUrl), _target.OrgId),
             Guid.NewGuid().ToString("N"), DateTimeOffset.UtcNow);
     }
 
@@ -842,7 +843,7 @@ public class ImportRunner
     {
         Renderer.Header("Import plan");
 
-        var entitiesOnly = new TargetSnapshot(entitiesByName.Values.ToList(), [], [], [], new HashSet<string>(), new Dictionary<string, int>());
+        var entitiesOnly = TargetSnapshot.Empty with { Entities = entitiesByName.Values.ToList() };
         var plan = ImportPlanner.Build(schema, entitiesOnly, new PlanOptions(false, false, false, false), NewPlanContext());
         var entityItems = plan.Items.Where(i => i.Kind == PlanKind.Entity).GroupBy(i => i.Key).ToDictionary(g => g.Key, g => g.First());
 

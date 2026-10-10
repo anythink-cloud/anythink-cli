@@ -288,10 +288,154 @@ public class DocsCommand : Command<DocsSettings>
           ["--type TYPE", "--chart ID", "--config JSON", "--rows N", "--json"],
           ["anythink dashboards widget-preview --type chart --chart 12"]),
 
+        C("email templates list", "List the project's email templates",
+          null, ["anythink email templates list"]),
+
+        C("email templates show TYPE",
+          "Show a template's subject and content",
+          ["--rendered (print the rendered HTML instead of the source)"],
+          ["anythink email templates show confirmation", "anythink email templates show confirmation --rendered"]),
+
+        C("email templates update TYPE",
+          "Change a template's subject and/or content; whatever you leave out is kept",
+          ["--subject TEXT", "--content PATH (or - for stdin)", "--content-text HTML"],
+          ["anythink email templates update confirmation --subject \"Welcome aboard\"",
+              "anythink email templates update confirmation --content ./confirmation.html"],
+          "Pass at least one of the subject or the content. HTML is limited to 1,000,000 characters."),
+
+        C("email preview",
+          "Render an unsaved draft and print the HTML; nothing is saved",
+          ["--subject TEXT", "--content PATH", "--content-text HTML", "--wrapper PATH", "--wrapper-text HTML"],
+          ["anythink email preview --subject Hi --content ./draft.html --wrapper ./shell.html"]),
+
+        C("email shell show", "Show the HTML shell that wraps every email (custom or platform default)",
+          null, ["anythink email shell show > shell.html"]),
+
+        C("email shell update",
+          "Save new shell HTML, or reset to the platform default",
+          ["--html PATH (or - for stdin)", "--html-text HTML", "--reset"],
+          ["anythink email shell update --html ./shell.html", "anythink email shell update --reset"],
+          "Pass exactly one of the HTML options or --reset."),
+
         C("api",
           "List all REST endpoints — platform routes + dynamically generated entity CRUD routes",
           ["--json", "--base-url URL"],
           ["anythink api", "anythink api --json"]),
+
+        C("pay status", "Show Stripe Connect account status", null, ["anythink pay status"]),
+        C("pay connect", "Set up Stripe Connect and start onboarding", null, ["anythink pay connect"]),
+        C("pay setup", "Guided setup: Stripe Connect, Apple IAP, and a first plan",
+          null, ["anythink pay setup"]),
+        C("pay payments", "List recent payments",
+          ["--page N", "--limit N"], ["anythink pay payments --limit 50"]),
+        C("pay methods", "List saved payment methods", null, ["anythink pay methods"]),
+        C("pay entitlement", "Show the current user's access / trial entitlement",
+          null, ["anythink pay entitlement"]),
+        C("pay payment-options",
+          "Show available payment providers for a platform/storefront",
+          ["--platform ios|android|web", "--storefront CODE"],
+          ["anythink pay payment-options --platform ios --storefront GBR"]),
+
+        C("pay trial status", "Show whether the app engagement trial is enabled",
+          null, ["anythink pay trial status"]),
+        C("pay trial enable", "Enable the app engagement trial", null, ["anythink pay trial enable"]),
+        C("pay trial disable", "Disable the app engagement trial", null, ["anythink pay trial disable"]),
+
+        C("pay apple credentials set",
+          "Set Apple IAP credentials (reads the .p8 key from a file)",
+          ["--issuer-id ID", "--key-id ID", "--bundle-id ID", "--private-key-file PATH", "--environment sandbox|production"],
+          ["anythink pay apple credentials set --issuer-id <uuid> --key-id <id> --bundle-id com.example.app --private-key-file ./AuthKey.p8"]),
+        C("pay apple credentials show", "Show Apple IAP credentials (identifiers masked)",
+          null, ["anythink pay apple credentials show"]),
+        C("pay apple credentials notification-url",
+          "Print the App Store Server Notifications URL to register in App Store Connect",
+          null, ["anythink pay apple credentials notification-url"]),
+        C("pay apple verify",
+          "Verify an Apple transaction (testing) and bind it to the current user",
+          ["--signed-transaction JWS", "--original-transaction-id ID"],
+          ["anythink pay apple verify --signed-transaction <JWS>"]),
+
+        C("pay plans list", "List subscription plans", null, ["anythink pay plans list"]),
+        C("pay plans get ID", "Show one plan by id", null, ["anythink pay plans get 12"]),
+        C("pay plans create",
+          "Create a subscription plan (prompts for missing fields)",
+          ["--plan-name NAME",
+              "--name NAME",
+              "--description TEXT",
+              "--amount N",
+              "--currency gbp|usd|eur",
+              "--interval day|week|month|year",
+              "--trial-days N",
+              "--apple-product-id ID",
+              "--apple-subscription-group-id ID"],
+          ["anythink pay plans create --plan-name monthly --name Monthly --amount 9.99 --currency gbp --interval month --apple-product-id example_monthly"]),
+        C("pay plans update ID", "Update a plan (any --flag overrides; unset = keep)",
+          ["--name NAME", "--amount N", "--currency CODE", "--active", "--inactive", "--apple-product-id ID"],
+          ["anythink pay plans update 12 --amount 12.99"]),
+        C("pay plans delete ID", "Delete a subscription plan", ["-y|--yes"], ["anythink pay plans delete 12 --yes"]),
+
+        C("pay subscriptions list", "List subscriptions",
+          ["--page N", "--limit N", "--status STATUS"], ["anythink pay subscriptions list --status active"]),
+        C("pay subscriptions get ID", "Show one subscription by id (guid)", null, ["anythink pay subscriptions get <subId>"]),
+        C("pay subscriptions events ID", "Show the lifecycle history of a subscription",
+          null, ["anythink pay subscriptions events <subId>"]),
+        C("pay subscriptions by-user USER_ID", "List subscriptions accessible to a user",
+          null, ["anythink pay subscriptions by-user 42"]),
+        C("pay subscriptions cancel ID", "Cancel a subscription", ["-y|--yes"], ["anythink pay subscriptions cancel <subId> --yes"]),
+        C("pay subscriptions resume ID", "Resume a cancelled subscription", null, ["anythink pay subscriptions resume <subId>"]),
+        C("pay subscriptions delete ID", "Hard-delete a subscription (project admin)",
+          ["-y|--yes"], ["anythink pay subscriptions delete <subId> --yes"]),
+        C("pay subscriptions force-expire ID", "Force-expire a subscription now (project admin)",
+          ["-y|--yes"], ["anythink pay subscriptions force-expire <subId> --yes"]),
+        C("pay subscriptions relink ID", "Move a subscription to another user (project admin)",
+          ["--to-user-id USER_ID", "-y|--yes"], ["anythink pay subscriptions relink <subId> --to-user-id 42 --yes"]),
+        C("pay subscriptions resync ID", "Re-sync a subscription from the provider (project admin)",
+          ["-y|--yes"], ["anythink pay subscriptions resync <subId> --yes"]),
+
+        C("pay offers list", "List offers and their primary code",
+          null, ["anythink pay offers list"]),
+        C("pay offers get ID", "Show one offer by id (guid)", null, ["anythink pay offers get <offerId>"]),
+        C("pay offers create",
+          "Create an offer (rewards via convenience flags or raw JSON)",
+          ["--name NAME",
+              "--kind discount|trial_extension|referral",
+              "--description TEXT",
+              "--redeemer-reward JSON",
+              "--referrer-reward JSON",
+              "--eligibility JSON",
+              "--redeemer-trial-days N",
+              "--discount-percent N",
+              "--discount-duration once|forever|repeating",
+              "--referrer-trial-days N",
+              "--referrer-subscription-days N",
+              "--valid-from DATE",
+              "--valid-until DATE",
+              "--total-cap N",
+              "--per-user-cap N",
+              "--status STATUS"],
+          ["anythink pay offers create --name \"Launch 50\" --kind discount --discount-percent 50",
+              "anythink pay offers create --name Referral --kind referral --redeemer-trial-days 14 --referrer-subscription-days 30"],
+          "Rewards/eligibility are JSON strings forwarded to AnythinkPay; convenience flags build the common shapes."),
+        C("pay offers update ID",
+          "Update an offer (patch — only supplied fields change; kind is immutable)",
+          ["--name NAME", "--status active|paused|expired", "-y|--yes", "--redeemer-reward JSON", "--referrer-reward JSON", "--eligibility JSON"],
+          ["anythink pay offers update <offerId> --referrer-trial-days 30"]),
+        C("pay offers pause ID", "Pause an offer", ["-y|--yes"], ["anythink pay offers pause <offerId> --yes"]),
+        C("pay offers activate ID", "Activate a paused offer", null, ["anythink pay offers activate <offerId>"]),
+        C("pay offers delete ID",
+          "Permanently delete an offer, its codes and redemption records (user trial bonuses are kept)",
+          ["-y|--yes"], ["anythink pay offers delete <offerId>", "anythink pay offers delete <offerId> --yes"]),
+        C("pay offers codes ID", "List the promo/referral codes attached to an offer",
+          null, ["anythink pay offers codes <offerId>"]),
+        C("pay offers add-code ID", "Add a promo/referral code to an offer",
+          ["--slug SLUG", "--owner-user-id N"],
+          ["anythink pay offers add-code <offerId> --slug LAUNCH50"]),
+        C("pay offers redemptions ID",
+          "List redemptions for an offer",
+          ["--page N", "--limit N"],
+          ["anythink pay offers redemptions <offerId>"]),
+        C("pay offers user-code USER_ID", "Look up a user's personal referral code",
+          null, ["anythink pay offers user-code 42"]),
 
         C("docs", "Show this reference",
           ["--json"], ["anythink docs", "anythink docs --json"]),
@@ -426,6 +570,23 @@ public class DocsCommand : Command<DocsSettings>
         anythink charts create "Orders by status" --entity orders --type pie --group-by status
         anythink dashboards create Sales --chart 12
         anythink dashboards add-chart 3 14 --width 6
+        ```
+
+        ## Email
+
+        | Command | Description |
+        |---------|-------------|
+        | `anythink email templates list` | List the project's email templates |
+        | `anythink email templates show TYPE [--rendered]` | Show a template's subject + content, or the rendered HTML |
+        | `anythink email templates update TYPE [--subject TEXT] [--content PATH \| --content-text HTML]` | Change subject and/or content |
+        | `anythink email preview [--subject TEXT] [--content PATH \| --content-text HTML] [--wrapper PATH \| --wrapper-text HTML]` | Render an unsaved draft, print the HTML |
+        | `anythink email shell show` | Show the shell HTML that wraps every email |
+        | `anythink email shell update (--html PATH \| --html-text HTML \| --reset)` | Save new shell HTML, or reset to the platform default |
+
+        ```sh
+        anythink email templates update confirmation --subject "Welcome aboard"
+        anythink email templates update confirmation --content ./confirmation.html
+        anythink email shell show > shell.html
         ```
 
         ## API Explorer

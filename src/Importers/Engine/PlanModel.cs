@@ -2,7 +2,7 @@ using System.Text.Json.Nodes;
 
 namespace AnythinkCli.Importers.Engine;
 
-public enum PlanAction { Create, Merge, Skip, Report, Conflict }
+public enum PlanAction { Create, Merge, Skip, Report }
 
 public enum ReportCategory { Mapped, MappedWithChanges, NeedsReview, NotSupported }
 
@@ -10,31 +10,25 @@ public static class PlanKind
 {
     public const string Entity = "entity";
     public const string Field = "field";
-    public const string Relationship = "relationship";
-    public const string Public = "public";
     public const string Role = "role";
     public const string Permission = "permission";
     public const string Workflow = "workflow";
     public const string WorkflowStep = "workflow_step";
     public const string File = "file";
     public const string RecordBatch = "record_batch";
-    public const string User = "user";
     public const string Report = "report";
 
     internal static int Rank(string kind) => kind switch
     {
         Entity => 0,
         Field => 1,
-        Relationship => 2,
-        Public => 3,
-        Role => 4,
-        Permission => 5,
-        Workflow => 6,
-        WorkflowStep => 7,
-        File => 8,
-        RecordBatch => 9,
-        User => 10,
-        _ => 11
+        Role => 2,
+        Permission => 3,
+        Workflow => 4,
+        WorkflowStep => 5,
+        File => 6,
+        RecordBatch => 7,
+        _ => 8
     };
 }
 
@@ -50,19 +44,10 @@ public record PlanItem(
     IReadOnlyList<string>? DependsOn = null,
     JsonObject? Spec = null,
     string? TargetHash = null,
-    string? SuggestedFix = null,
-    string? SourceSnippet = null,
     IReadOnlyList<string>? Notes = null
 );
 
-public record PlanSource(string Platform, string Url, IReadOnlyList<string> Scope)
-{
-    public static string SanitiseUrl(string? url)
-    {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return "";
-        return new UriBuilder(uri) { UserName = "", Password = "", Query = "", Fragment = "" }.Uri.GetLeftPart(UriPartial.Path);
-    }
-}
+public record PlanSource(string Platform, string Url, IReadOnlyList<string> Scope);
 
 public record PlanTarget(string ApiUrl, string ProjectId);
 

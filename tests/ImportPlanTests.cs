@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using AnythinkCli.Client;
@@ -71,7 +72,7 @@ public class ImportPlanTests : IDisposable
         new(new FakeImporter(schema), Client(target), options);
 
     private static PlanContext Context(string url = "https://cms.example.com") => new(
-        new PlanSource("Directus", PlanSource.SanitiseUrl(url), ["schema"]),
+        new PlanSource("Directus", UrlRedaction.Redact(url), ["schema"]),
         new PlanTarget("https://api.example.com", "99999"), "run-1", new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.Zero));
 
     private static async Task<ImportPlan> PlanFor(ImportSchema schema, StubHttpHandler target) =>
@@ -90,8 +91,8 @@ public class ImportPlanTests : IDisposable
         target.Requests.Should().NotBeEmpty().And.OnlyContain(r => r.Method == HttpMethod.Get);
 
         var snapshot = await TargetSnapshotReader.ReadAsync(Client(MixedTarget()), FullPlanScope, "Directus", schema);
-        var again = ImportPlanner.Build(schema, snapshot, FullPlanScope, Context());
-        PlanJson.Serialise(ImportPlanner.Build(schema, snapshot, FullPlanScope, Context())).Should().Be(PlanJson.Serialise(again));
+        PlanJson.Serialise(ImportPlanner.Build(schema, snapshot, FullPlanScope, Context()))
+            .Should().Be(PlanJson.Serialise(ImportPlanner.Build(schema, snapshot, FullPlanScope, Context())));
         plan.Items.Should().NotBeEmpty();
     }
 
@@ -182,27 +183,23 @@ public class ImportPlanTests : IDisposable
     // ── Rule: no credential from the source or its flows reaches a plan ──
 
     [Fact]
-    public async Task Plan_Never_Contains_Source_Credentials()
+    public void Plan_Never_Contains_Source_Credentials()
     {
-        var importer = new FakeImporter(MixedSchema());
-        var schema = MixedSchema();
-        var plan = ImportPlanner.Build(schema, TargetSnapshot.Empty, FullPlanScope,
+        var plan = ImportPlanner.Build(MixedSchema(), TargetSnapshot.Empty, FullPlanScope,
             Context("https://admin:hunter2@cms.example.com/dir?access_token=tok-123#frag"));
 
         var json = PlanJson.Serialise(plan);
 
         json.Should().NotContain("hunter2").And.NotContain("tok-123").And.NotContain("s3cret-step-parameter").And.NotContain("access_token");
-        importer.SourceAuthToken.Should().BeNull();
-        await Task.CompletedTask;
     }
 
     [Theory]
-    [InlineData("https://user:pw@cms.example.com/?token=abc", "https://cms.example.com/")]
-    [InlineData("https://cms.example.com:8055/base/?a=1#x", "https://cms.example.com:8055/base/")]
-    [InlineData("not a url", "")]
+    [InlineData("https://user:pw@cms.example.com/?token=abc", "https://cms.example.com")]
+    [InlineData("https://cms.example.com:8055/base/?a=1#x", "https://cms.example.com:8055/base")]
+    [InlineData("not a url", "(invalid url)")]
     public void Plan_Source_Url_Has_No_Userinfo_Or_Query(string raw, string expected)
     {
-        PlanSource.SanitiseUrl(raw).Should().Be(expected);
+        UrlRedaction.Redact(raw).Should().Be(expected);
     }
 
     // ── Rule: a plan file is never silently replaced, and is private to its owner ──
@@ -278,5 +275,182 @@ public class ImportPlanTests : IDisposable
         });
 
         output.Should().Contain("a[/]b[red]").And.Contain("x[bold]").And.Contain("Editors [beta]");
+    }
+
+    // ── Rule: names match case-insensitively, as the runner and the API do ──
+
+    private static TargetSnapshot WithArticles() =>
+        TargetSnapshot.Empty with { Entities = [JsonSerializer.Deserialize<Entity>(ArticlesJson)!] };
+
+    private static ImportPlan Plan(ImportSchema schema, TargetSnapshot? target = null) =>
+        ImportPlanner.Build(schema, target ?? TargetSnapshot.Empty, FullPlanScope, Context());
+
+    [Fact]
+    public void Field_Differing_Only_By_Case_Is_Not_Created_Twice()
+    {
+        var plan = Plan(new ImportSchema([new("articles", [Field("Title")])], [], [], []), WithArticles());
+
+        plan.Items.Should().NotContain(i => i.Kind == PlanKind.Field && i.Action == PlanAction.Create);
+        plan.Items.Single(i => i.Kind == PlanKind.Entity).Action.Should().Be(PlanAction.Skip);
+    }
+
+    [Fact]
+    public void Entity_Is_Matched_Case_Insensitively()
+    {
+        var plan = Plan(new ImportSchema([new("Articles", [Field("body")])], [], [], []), WithArticles());
+
+        plan.Items.Single(i => i.Kind == PlanKind.Entity).Action.Should().Be(PlanAction.Merge);
+    }
+
+    [Fact]
+    public void Each_Entity_Is_Merged_Skipped_Or_Created_On_Its_Own_Merits()
+    {
+        var plan = Plan(new ImportSchema(
+            [new("articles", [Field("title")]), new("pages", [Field("slug")]), new("tags", [Field("name")])], [], [], []),
+            WithArticles());
+
+        plan.Items.Where(i => i.Kind == PlanKind.Entity).ToDictionary(i => i.TargetName!, i => i.Action)
+            .Should().Equal(new Dictionary<string, PlanAction>
+            {
+                ["articles"] = PlanAction.Skip, ["pages"] = PlanAction.Create, ["tags"] = PlanAction.Create
+            });
+        Plan(new ImportSchema([new("articles", [Field("title"), Field("body")])], [], [], []), WithArticles())
+            .Items.Single(i => i.Kind == PlanKind.Entity).Action.Should().Be(PlanAction.Merge);
+    }
+
+    [Fact]
+    public async Task Two_New_Roles_Sharing_A_New_Permission_Create_It_Once()
+    {
+        var schema = new ImportSchema([], [], [], [new("A", null, [("posts", "read")]), new("B", null, [("posts", "read")])]);
+        var plan = Plan(schema);
+
+        plan.Items.Where(i => i.Kind == PlanKind.Permission).Select(i => i.Action)
+            .Should().Equal(PlanAction.Create, PlanAction.Skip);
+
+        var target = new StubHttpHandler()
+            .On($"{Org}/entities", "[]").On($"{Org}/roles", "[]").On($"{Org}/permissions", "[]")
+            .On(HttpMethod.Post, $"{Org}/roles", """{"id":8,"name":"A","is_active":true}""")
+            .On(HttpMethod.Post, $"{Org}/permissions", """{"id":31,"name":"posts:read","is_active":true}""")
+            .On(HttpMethod.Put, $"{Org}/roles/8", """{"id":8,"name":"A","is_active":true}""");
+        await Runner(schema, target, new ImportOptions(false, false, IncludeRoles: true)).RunAsync();
+        target.Matching(HttpMethod.Post, "/permissions").Should().ContainSingle();
+    }
+
+    // ── Rule: a refused plan file stops the command before anything is sent ──
+
+    [Fact]
+    public async Task Refusing_To_Overwrite_A_Plan_File_Sends_No_Requests()
+    {
+        var path = Path.Combine(_dir, "plan.json");
+        File.WriteAllText(path, "keep me");
+        var settings = new Commands.ImportDirectusSettings { Url = "https://cms.example.com", Plan = path };
+
+        var act = () => Commands.ImportDirectusCommand.Preflight(settings);
+        act.Should().Throw<CliException>().WithMessage("*--force*");
+
+        var target = MixedTarget();
+        var run = () => Runner(MixedSchema(), target, FullScope with { DryRun = true, PlanPath = path }).RunAsync();
+        await run.Should().ThrowAsync<CliException>();
+        target.Requests.Should().BeEmpty();
+        File.ReadAllText(path).Should().Be("keep me");
+    }
+
+    [Fact]
+    public void Force_Without_A_Plan_File_Is_Rejected()
+    {
+        var act = () => Commands.ImportDirectusCommand.Preflight(new Commands.ImportDirectusSettings { Url = "https://cms.example.com", Force = true });
+
+        act.Should().Throw<CliException>().WithMessage("*--plan*");
+    }
+
+    [Fact]
+    public void Plan_File_Is_Not_Written_Through_A_Symbolic_Link()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var real = Path.Combine(_dir, "real.txt");
+        File.WriteAllText(real, "precious");
+        var link = Path.Combine(_dir, "link.json");
+        File.CreateSymbolicLink(link, real);
+
+        var act = () => PlanFile.Write(link, Plan(MixedSchema()), force: true);
+
+        act.Should().Throw<CliException>().WithMessage("*symbolic link*");
+        File.ReadAllText(real).Should().Be("precious");
+    }
+
+    [Fact]
+    public void A_Failed_Plan_Write_Leaves_No_Partial_File()
+    {
+        var path = Path.Combine(_dir, "missing-folder", "plan.json");
+
+        var act = () => PlanFile.Write(path, Plan(MixedSchema()), force: false);
+
+        act.Should().Throw<CliException>();
+        Directory.GetFileSystemEntries(_dir).Should().BeEmpty();
+    }
+
+    // ── Rule: the order the API lists things in never changes the fingerprint ──
+
+    [Fact]
+    public void Target_Hash_Ignores_The_Order_Of_Fields_Triggers_And_Steps()
+    {
+        var entity = JsonSerializer.Deserialize<Entity>(ArticlesJson)!;
+        var second = entity.Fields![0] with { Id = 2, Name = "body" };
+        var a = entity with { Fields = [entity.Fields![0], second] };
+        var b = entity with { Fields = [second, entity.Fields![0]] };
+        TargetHasher.Hash(a).Should().Be(TargetHasher.Hash(b));
+
+        Workflow Wf(params string[] keys) => new(1, "w", null, null, true,
+            keys.Select(k => new WorkflowStep(1, k, k, null, "RunScript", true, false, null, null)).ToList(),
+            Triggers: keys.Select(k => new WorkflowTrigger(null, k)).ToList());
+        TargetHasher.Hash(Wf("x", "y")).Should().Be(TargetHasher.Hash(Wf("y", "x")));
+    }
+
+    // ── Rule: a project that can't be read fails the plan with a clear message ──
+
+    [Fact]
+    public async Task Failed_Project_Read_Fails_The_Plan_With_A_Clear_Message()
+    {
+        var target = MixedTarget().On($"{Org}/workflows", "boom", HttpStatusCode.InternalServerError);
+
+        var act = () => PlanFor(MixedSchema(), target);
+
+        (await act.Should().ThrowAsync<CliException>()).WithMessage("Couldn't read the project's workflows to plan the import:*");
+    }
+
+    // ── Rule: two source items with one name still get distinct plan keys ──
+
+    [Fact]
+    public void Duplicate_Source_Names_Get_Unique_Keys()
+    {
+        var schema = new ImportSchema([], [Flow("Nightly"), Flow("Nightly")], [],
+            [new("Editor", null, []), new("Editor", null, [])]);
+
+        var plan = Plan(schema);
+
+        plan.Items.Select(i => i.Key).Should().OnlyHaveUniqueItems();
+        plan.Items.Count(i => i.Kind == PlanKind.Workflow).Should().Be(2);
+        plan.Items.Where(i => i.Kind == PlanKind.WorkflowStep).Select(i => i.Parent).Should().OnlyHaveUniqueItems();
+    }
+
+    // ── Rule: the diff groups fields under their entity and collapses what is already in place ──
+
+    [Fact]
+    public async Task Plan_Diff_Groups_Fields_And_Collapses_Unchanged_Items()
+    {
+        var plan = Plan(new ImportSchema([new("articles", [Field("title"), Field("body")])], [], [], [], ["careful"], null), WithArticles());
+
+        var (_, output) = await CommandRunner.RunAsync(new MockHttpMessageHandler(), () =>
+        {
+            PlanDiffRenderer.Render(plan);
+            return Task.FromResult(0);
+        });
+
+        var lines = output.Split('\n');
+        lines.Should().ContainSingle(l => l.StartsWith("~ entity articles"));
+        lines.Should().ContainSingle(l => l.StartsWith("    + field body"));
+        output.Should().NotContain("field title");
+        output.Should().Contain("Already in the project: 1 field(s)");
+        lines.Should().ContainSingle(l => l.StartsWith("! review  careful"));
     }
 }

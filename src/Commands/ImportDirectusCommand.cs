@@ -43,7 +43,7 @@ public class ImportDirectusSettings : CommandSettings
     public bool Force { get; set; }
 
     [CommandOption("--json")]
-    [Description("Print the plan as JSON (use with --dry-run or --plan)")]
+    [Description("Print the plan as JSON instead of text (with --dry-run or --plan)")]
     public bool Json { get; set; }
 
     [CommandOption("--include-flows")]
@@ -71,11 +71,8 @@ public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
     {
         try
         {
-            var url = ValidateUrl(settings.Url, settings.AllowInsecure);
+            var url = Preflight(settings);
             var planOnly = settings.DryRun || settings.Plan is not null;
-            if (settings.Json && !planOnly)
-                throw new CliException("--json prints the plan, so it needs [bold #F97316]--dry-run[/] or [bold #F97316]--plan <file>[/].");
-            if (settings.Plan is not null) PlanFile.EnsureWritable(settings.Plan, settings.Force);
             var interactive = IsInteractive();
             RequireConfirmationMode(planOnly, settings.Yes, interactive);
             var token = ResolveToken(settings.Token, Environment.GetEnvironmentVariable(TokenEnvVar), interactive,
@@ -94,7 +91,7 @@ public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
                     RequireConfirmation: !planOnly && !settings.Yes,
                     PlanPath: settings.Plan,
                     ForcePlanFile: settings.Force,
-                    PlanAsJson: settings.Json));
+                    PlanAsJson: settings.Json && planOnly));
 
             return ExitCodeFor(await runner.RunAsync());
         }
@@ -103,6 +100,15 @@ public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
             HandleError(ex);
             return 1;
         }
+    }
+
+    internal static string Preflight(ImportDirectusSettings settings)
+    {
+        var url = ValidateUrl(settings.Url, settings.AllowInsecure);
+        if (settings.Force && settings.Plan is null)
+            throw new CliException("--force only applies to [bold #F97316]--plan <file>[/].");
+        if (settings.Plan is not null) PlanFile.EnsureWritable(settings.Plan, settings.Force);
+        return url;
     }
 
     internal static int ExitCodeFor(ImportResult result) => result.Errors.Count > 0 ? 1 : 0;
