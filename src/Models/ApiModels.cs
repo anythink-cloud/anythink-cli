@@ -106,11 +106,28 @@ public record Workflow(
     [property: JsonPropertyName("id")] int Id,
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("description")] string? Description,
-    [property: JsonPropertyName("trigger")] string Trigger,
+    [property: JsonPropertyName("trigger")] string? Trigger,
     [property: JsonPropertyName("enabled")] bool Enabled,
     [property: JsonPropertyName("steps")] List<WorkflowStep>? Steps,
     [property: JsonPropertyName("options")] System.Text.Json.JsonElement? Options = null,
-    [property: JsonPropertyName("jobs")] List<WorkflowJob>? Jobs = null
+    [property: JsonPropertyName("jobs")] List<WorkflowJob>? Jobs = null,
+    [property: JsonPropertyName("triggers")] List<WorkflowTrigger>? Triggers = null,
+    [property: JsonPropertyName("group")] string? Group = null,
+    [property: JsonPropertyName("api_route")] string? ApiRoute = null,
+    [property: JsonPropertyName("editor_state")] string? EditorState = null
+);
+
+public record WorkflowTrigger(
+    [property: JsonPropertyName("id")] int? Id,
+    [property: JsonPropertyName("type")] string? Type,
+    [property: JsonPropertyName("enabled")] bool Enabled = true,
+    [property: JsonPropertyName("config")] System.Text.Json.JsonElement? Config = null
+);
+
+public record WorkflowTriggerRequest(
+    [property: JsonPropertyName("type")] string Type,
+    [property: JsonPropertyName("enabled")] bool Enabled,
+    [property: JsonPropertyName("config")] object Config
 );
 
 public record WorkflowJob(
@@ -148,10 +165,9 @@ public record WorkflowStep(
 public record CreateWorkflowRequest(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("description")] string? Description,
-    [property: JsonPropertyName("trigger")] string Trigger,
     [property: JsonPropertyName("enabled")] bool Enabled,
-    [property: JsonPropertyName("options")] object Options,
-    [property: JsonPropertyName("api_route")] string? ApiRoute = null
+    [property: JsonPropertyName("triggers")] List<WorkflowTriggerRequest> Triggers,
+    [property: JsonPropertyName("group")] string? Group = null
 );
 
 public record CreateWorkflowStepRequest(
@@ -166,7 +182,11 @@ public record CreateWorkflowStepRequest(
 
 public record UpdateWorkflowRequest(
     [property: JsonPropertyName("name")] string? Name = null,
-    [property: JsonPropertyName("description")] string? Description = null
+    [property: JsonPropertyName("description")] string? Description = null,
+    [property: JsonPropertyName("group")] string? Group = null,
+    [property: JsonPropertyName("enabled")] bool? Enabled = null,
+    [property: JsonPropertyName("editor_state")] string? EditorState = null,
+    [property: JsonPropertyName("triggers")] List<WorkflowTriggerRequest>? Triggers = null
 );
 
 public record UpdateWorkflowStepLinksRequest(

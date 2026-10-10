@@ -404,30 +404,45 @@ anythink search query "*" --filter "_geoRadius(51.5074,-0.1278,5000)"
 
 ### workflows
 
-Manage automation workflows. Workflows can be triggered on a cron schedule, when entities are created or updated, or manually.
+Manage automation workflows. A workflow can have several triggers: a cron schedule, an entity event, an API route, or a manual run.
 
 ```
-anythink workflows list                List all workflows
-anythink workflows get <id>            Get workflow details and steps
+anythink workflows list                List all workflows (--json for a compact summary)
+anythink workflows get <id>            Get workflow details and steps (--json for the full definition)
 anythink workflows create <name>       Create a new workflow
+anythink workflows update <id>         Rename a workflow or change its description
 anythink workflows enable <id>         Enable a workflow
 anythink workflows disable <id>        Disable a workflow
 anythink workflows trigger <id>        Manually trigger a workflow
 anythink workflows delete <id>         Delete a workflow
 ```
 
-**Options — `workflows create`**
+**Trigger types — `workflows create --trigger <type>`** (not case-sensitive; default `Manual`)
 
-| Flag               | Description                                                       |
-| ------------------ | ----------------------------------------------------------------- |
-| `--trigger <type>` | Trigger type: `Timed`, `EntityCreated`, `EntityUpdated`, `Manual` |
-| `--cron <expr>`    | Cron expression (for `Timed` trigger, e.g. `0 6 * * *`)           |
-| `--entity <name>`  | Entity name (for `EntityCreated` / `EntityUpdated` triggers)      |
+| Type     | Fires                                 | Required flag          | Other flags                          |
+| -------- | ------------------------------------- | ---------------------- | ------------------------------------ |
+| `Manual` | When run by hand, on an entity        | `--entity <name>`      |                                      |
+| `Event`  | When an event happens, such as a record being created | `--entity <name>` for the `Entity...` events | `--event <event>`, `--filter <json>` |
+| `Timed`  | On a cron schedule                    | `--cron <expr>`        |                                      |
+| `Api`    | When its API route is called          | `--api-route <route>`  |                                      |
+
+`--event` (not case-sensitive) is `EntityCreated` (default), `EntityUpdated`, `EntityDeleted`, `UserRegistered`, `UserInvited`, `SubscriptionCreated`, `SubscriptionActivated`, `SubscriptionExpired`, `PaymentCreated`, `PaymentSucceeded`, `PaymentFailed`, `PaymentMethodCaptured`, `PaymentMethodCaptureFailed`, `PaymentMethodRemoved` or `PushActionTaken`; only the three `Entity...` events need `--entity`. A trigger missing its required flag is rejected before anything is sent, and a flag that doesn't apply to the chosen type is ignored with a warning.
+
+**Other options — `workflows create`**
+
+| Flag                    | Description                                       |
+| ----------------------- | ------------------------------------------------- |
+| `--description <text>`  | Workflow description                              |
+| `--enabled`             | Enable the workflow straight away                 |
+| `--filter-file <path>`  | Read the `Event` filter JSON from a file          |
 
 **Examples**
 
 ```bash
 anythink workflows create daily-sync --trigger Timed --cron "0 6 * * *"
+anythink workflows create on-post --trigger Event --entity blog_posts --event EntityUpdated
+anythink workflows create import-hook --trigger Api --api-route hooks/import
+anythink workflows create review-posts --entity blog_posts
 anythink workflows trigger 76
 anythink workflows disable 83
 ```
