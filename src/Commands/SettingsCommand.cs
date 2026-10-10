@@ -284,6 +284,7 @@ public class SettingsGetSettings : CommandSettings
     public bool Json { get; set; }
 }
 
+[CommandGuide("Shows the project's name, description, email confirmation and sign-up rules, default role for new users, group RLS, AI mode and model, payment redirect URLs, trial settings and allowed CORS origins. Secret-like values such as google_maps_key show only as set. Its field names are the keys `settings_set` takes.")]
 public class SettingsGetCommand : BaseCommand<SettingsGetSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext ctx, SettingsGetSettings opts)
@@ -360,6 +361,7 @@ public class SettingsSetSettings : CommandSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("Changes one setting, named as in `settings_get` (for example allow_registrations, default_role_id, ai_mode or payment_success_url), and keeps the rest; booleans take true or false. Opening sign-ups, turning off email confirmation or giving new users an admin role goes through without a further prompt. For CORS origins use `settings_cors_add`.")]
 public class SettingsSetCommand : BaseCommand<SettingsSetSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext ctx, SettingsSetSettings s)
@@ -392,6 +394,7 @@ public class SettingsSetCommand : BaseCommand<SettingsSetSettings>
 
 // ── settings cors ────────────────────────────────────────────────────────────
 
+[CommandGuide("Shows the web app origins allowed to call this project's API from a browser. Anythink's own domains and localhost are always allowed and aren't listed. Change the list with `settings_cors_add` and `settings_cors_remove`.")]
 public class SettingsCorsListCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext ctx, EmptySettings _)
@@ -418,6 +421,7 @@ public class SettingsCorsUrlSettings : CommandSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("Adds a web app origin (scheme, host and optional port, no path) or a wildcard such as https://*.example.com, so browser apps there can call the project's API straight away. A wildcard over shared hosting such as vercel.app trusts other people's sites, so check with the user first. An origin already listed is left as it is.")]
 public class SettingsCorsAddCommand : BaseCommand<SettingsCorsUrlSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext ctx, SettingsCorsUrlSettings s)
@@ -447,6 +451,7 @@ public class SettingsCorsAddCommand : BaseCommand<SettingsCorsUrlSettings>
     }
 }
 
+[CommandGuide("Removes an origin from the allow-list and clears the CORS cache, so browser apps on it are blocked straight away. Pass the origin as `settings_cors_list` shows it; a value not in the list is reported and nothing changes.")]
 public class SettingsCorsRemoveCommand : BaseCommand<SettingsCorsUrlSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext ctx, SettingsCorsUrlSettings s)

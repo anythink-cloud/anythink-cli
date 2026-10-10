@@ -134,6 +134,7 @@ public class PayOffersWriteSettings : CommandSettings
 
 // ── pay offers list / get ──────────────────────────────────────────────────────
 
+[CommandGuide("Lists the project's offers (discounts, trial extensions and referral schemes that users redeem with a code): id, name, kind, primary code, redeemer and referrer rewards, and status. Read-only. Offers are separate from subscription plans (`pay_plans_list`).")]
 public class PayOffersListCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
@@ -178,6 +179,7 @@ public class PayOffersIdSettings : CommandSettings
     public string Id { get; set; } = string.Empty;
 }
 
+[CommandGuide("Shows one offer in full: kind, description, status, primary code, redeemer and referrer rewards, eligibility rules, per-user and total caps, validity dates and linked Stripe coupon id. Read-only; its codes and redemptions come from `pay_offers_codes` and `pay_offers_redemptions`.")]
 public class PayOffersGetCommand : BaseCommand<PayOffersIdSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PayOffersIdSettings settings)
@@ -226,6 +228,7 @@ public class PayOffersCreateSettings : PayOffersWriteSettings
     public string Status { get; set; } = "active";
 }
 
+[CommandGuide("Creates an offer of kind discount, trial_extension or referral. A redeemer reward is required, as raw JSON or a shortcut such as trial days or discount percent; referrer reward, eligibility, caps and dates are optional. Discount offers also create a Stripe coupon. Add a code users can enter with `pay_offers_add_code`.")]
 public class PayOffersCreateCommand : BaseCommand<PayOffersCreateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PayOffersCreateSettings settings)
@@ -298,6 +301,7 @@ public class PayOffersUpdateSettings : PayOffersWriteSettings
     public bool EndsRedemption => Status is "paused" or "expired";
 }
 
+[CommandGuide("Changes an offer's name, description, rewards, eligibility, caps, dates or status; omitted fields are kept. Setting status to paused or expired stops its codes being redeemed. Changing a discount reward does not update the Stripe coupon made at creation. For status alone, `pay_offers_pause` and `pay_offers_activate` are simpler.")]
 public class PayOffersUpdateCommand : BaseCommand<PayOffersUpdateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PayOffersUpdateSettings settings)
@@ -366,12 +370,14 @@ public abstract class PayOffersStatusCommand<TSettings>(string status) : BaseCom
     }
 }
 
+[CommandGuide("Sets an offer's status to paused so none of its codes can be redeemed; past redemptions and rewards already granted stay. Reversible with `pay_offers_activate`. Prefer this to `pay_offers_delete` to stop an offer without losing its history.")]
 public class PayOffersPauseCommand() : PayOffersStatusCommand<PayOffersPauseSettings>("paused")
 {
     protected override int? Confirm(PayOffersPauseSettings settings, Guid id)
         => PayHelpers.ConfirmOrExit(settings.SkipConfirm, $"Pause offer {id}? Its codes stop being redeemable until it is reactivated.");
 }
 
+[CommandGuide("Sets an offer's status to active so its codes can be redeemed again, still subject to its validity dates and caps. Use it to undo `pay_offers_pause` or to reopen an expired offer.")]
 public class PayOffersActivateCommand() : PayOffersStatusCommand<PayOffersIdSettings>("active");
 
 // ── pay offers delete ────────────────────────────────────────────────────────
@@ -383,6 +389,7 @@ public class PayOffersDeleteSettings : PayOffersIdSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("Returns how many codes and redemptions were deleted and how many trial bonuses were kept. The offer's Stripe coupon is not removed. To stop redemptions while keeping the history, use `pay_offers_pause` instead.")]
 public class PayOffersDeleteCommand : BaseCommand<PayOffersDeleteSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PayOffersDeleteSettings settings)
@@ -423,6 +430,7 @@ public class PayOffersDeleteCommand : BaseCommand<PayOffersDeleteSettings>
 
 // ── pay offers codes ────────────────────────────────────────────────────────────
 
+[CommandGuide("Lists every code on one offer, both shared promo codes and per-user referral codes, with slug, owner (or shared), redemption count and created date. Read-only. To find a specific user's personal referral code, use `pay_offers_user_code`.")]
 public class PayOffersCodesCommand : BaseCommand<PayOffersIdSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PayOffersIdSettings settings)
@@ -469,6 +477,7 @@ public class PayOffersAddCodeSettings : CommandSettings
     public int? OwnerUserId { get; set; }
 }
 
+[CommandGuide("Creates a code users enter to redeem the offer: a shared promo code, or with an owner user id, a personal referral code tied to that user. Returns the new code. There is no tool to remove a single code; codes go only when the offer is deleted with `pay_offers_delete`.")]
 public class PayOffersAddCodeCommand : BaseCommand<PayOffersAddCodeSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PayOffersAddCodeSettings settings)
@@ -510,6 +519,7 @@ public class PayOffersRedemptionsSettings : CommandSettings
     public int Limit { get; set; } = 50;
 }
 
+[CommandGuide("Lists who redeemed one offer, paged: the redeemer, the status of their reward, the referrer if any and the referrer's reward status, and when it was redeemed. Read-only; use it to check whether referral rewards were granted.")]
 public class PayOffersRedemptionsCommand : BaseCommand<PayOffersRedemptionsSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PayOffersRedemptionsSettings settings)
@@ -560,6 +570,7 @@ public class PayOffersUserCodeSettings : CommandSettings
     public int UserId { get; set; }
 }
 
+[CommandGuide("Returns one user's personal referral code (by numeric user id) with its slug, offer name and redemption count. If the user has no code yet the server generates one, so this call can create a code. To list all codes on one offer, use `pay_offers_codes`.")]
 public class PayOffersUserCodeCommand : BaseCommand<PayOffersUserCodeSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PayOffersUserCodeSettings settings)

@@ -12,6 +12,7 @@ namespace AnythinkCli.Commands;
 
 // ── pay status ────────────────────────────────────────────────────────────────
 
+[CommandGuide("Reads the project's Stripe Connect account, the account your end users' card payments are paid into: account id, whether onboarding is complete, and whether charges and payouts are enabled. Read-only. If there is no account or onboarding is unfinished, use `pay_connect`.")]
 public class PayStatusCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
@@ -108,6 +109,7 @@ internal static class PayStripeConnectFlow
     }
 }
 
+[CommandGuide("Creates the project's Stripe Connect account and opens Stripe's hosted onboarding page in a browser, which must be finished before plans can take card payments. It prompts for business type, country and email, so it needs an interactive terminal. Check `pay_status` first.")]
 public class PayConnectCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
@@ -138,6 +140,7 @@ public class PayPaymentsSettings : CommandSettings
     public int Limit { get; set; } = 25;
 }
 
+[CommandGuide("Lists card payments the project has taken from its end users through AnythinkPay (Stripe), with id, amount, currency, status, description and date, paged by page and limit. Read-only; there is no refund tool. For recurring billing records use `pay_subscriptions_list`.")]
 public class PayPaymentsCommand : BaseCommand<PayPaymentsSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PayPaymentsSettings settings)
@@ -188,6 +191,7 @@ public class PayPaymentsCommand : BaseCommand<PayPaymentsSettings>
 
 // ── pay methods ───────────────────────────────────────────────────────────────
 
+[CommandGuide("Lists the cards and other payment methods saved by the signed-in user as a customer of this project: type, brand, last four digits and expiry. It does not list your end users' cards or the card on your Anythink billing account. Read-only.")]
 public class PayMethodsCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
@@ -283,6 +287,7 @@ internal static class PayValidation
 
 // ── pay plans ────────────────────────────────────────────────────────────────
 
+[CommandGuide("Lists the project's own subscription plans, the recurring prices its end users can subscribe to: id, internal plan name, display name, price per interval, trial days, Apple product id and whether active. Read-only. Not the same as `plans`, which lists Anythink's hosting plans for projects.")]
 public class PayPlansListCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
@@ -329,6 +334,7 @@ public class PayPlansGetSettings : CommandSettings
     public int Id { get; set; }
 }
 
+[CommandGuide("Shows one of the project's subscription plans in full, including type, price and interval, trial, Stripe product name and description, reference, Apple product and subscription group ids, and whether it is active. Read-only; browse plans with `pay_plans_list`.")]
 public class PayPlansGetCommand : BaseCommand<PayPlansGetSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PayPlansGetSettings settings)
@@ -438,6 +444,7 @@ public class PayPlansWriteSettings : CommandSettings
 
 public class PayPlansCreateSettings : PayPlansWriteSettings;
 
+[CommandGuide("Creates a subscription plan (a recurring price end users can buy), defaulting to gbp, monthly, type web and active, and once Stripe Connect is onboarded syncs a matching Stripe product and price. Nobody is charged until a user subscribes. Set the Apple product id to map an in-app purchase to it.")]
 public class PayPlansCreateCommand : BaseCommand<PayPlansCreateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PayPlansCreateSettings settings)
@@ -498,6 +505,7 @@ public class PayPlansUpdateSettings : PayPlansWriteSettings
     public bool Active { get; set; }
 }
 
+[CommandGuide("Changes a subscription plan; omitted fields keep their current values, and active or inactive shows or hides it from the plan picker. Changing the amount, currency or interval points the plan at a new Stripe price for new sign-ups; existing subscriptions keep their old price. Prefer inactive over `pay_plans_delete`.")]
 public class PayPlansUpdateCommand : BaseCommand<PayPlansUpdateSettings>
 {
     internal static UpdateSubscriptionPlanRequest BuildRequest(PayPlansUpdateSettings s, SubscriptionPlanResponse existing) => new(
@@ -557,6 +565,7 @@ public class PayPlansDeleteSettings : CommandSettings
     public bool SkipConfirm { get; set; }
 }
 
+[CommandGuide("Removes a subscription plan so it can no longer be chosen. Existing subscriptions on it, and its Stripe product and price, are left in place and keep billing. To hide a plan reversibly, use `pay_plans_update` with inactive instead.")]
 public class PayPlansDeleteCommand : BaseCommand<PayPlansDeleteSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PayPlansDeleteSettings settings)
@@ -590,6 +599,7 @@ public class PaySubscriptionsListSettings : CommandSettings
     public string? Status { get; set; }
 }
 
+[CommandGuide("Lists the project's subscriptions (end users' recurring Stripe or Apple purchases of a plan) with id, name, status, price, customer email and created date, paged, optionally filtered by status such as active, trialing or cancelled. Read-only. Non-admins see only subscriptions they are linked to.")]
 public class PaySubscriptionsListCommand : BaseCommand<PaySubscriptionsListSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PaySubscriptionsListSettings settings)
@@ -637,6 +647,7 @@ public class PaySubscriptionsIdSettings : CommandSettings
     public string Id { get; set; } = string.Empty;
 }
 
+[CommandGuide("Shows one subscription in full: status, price, customer email and name, current billing period, trial end, cancellation and scheduled auto-cancel dates, reference and any checkout URL. Read-only; for how it got into this state use `pay_subscriptions_events`.")]
 public class PaySubscriptionsGetCommand : BaseCommand<PaySubscriptionsIdSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PaySubscriptionsIdSettings settings)
@@ -678,6 +689,7 @@ public class PaySubscriptionsConfirmSettings : PaySubscriptionsIdSettings
     public bool SkipConfirm { get; set; }
 }
 
+[CommandGuide("Schedules a Stripe subscription to cancel at the end of its current billing period: the customer keeps access until then and is not charged again. Reversible before the period ends with `pay_subscriptions_resume`. Apple subscriptions are cancelled by the customer in the App Store. To end access now, see `pay_subscriptions_force_expire`.")]
 public class PaySubscriptionsCancelCommand : BaseCommand<PaySubscriptionsConfirmSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PaySubscriptionsConfirmSettings settings)
@@ -698,6 +710,7 @@ public class PaySubscriptionsCancelCommand : BaseCommand<PaySubscriptionsConfirm
     }
 }
 
+[CommandGuide("Removes a scheduled cancellation from a Stripe subscription, so it renews and charges the customer again at the end of the current period. Use it to undo `pay_subscriptions_cancel` before the period ends.")]
 public class PaySubscriptionsResumeCommand : BaseCommand<PaySubscriptionsIdSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PaySubscriptionsIdSettings settings)
@@ -722,6 +735,7 @@ public class PaySubscriptionsByUserSettings : CommandSettings
     public int UserId { get; set; }
 }
 
+[CommandGuide("Lists the subscriptions one project user (by numeric user id) is linked to, with id, name, status, price and created date. Read-only. Use it to look up a customer's subscriptions; `pay_entitlement` and `pay_subscriptions_check_access` only report on the signed-in user.")]
 public class PaySubscriptionsByUserCommand : BaseCommand<PaySubscriptionsByUserSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PaySubscriptionsByUserSettings settings)
@@ -765,6 +779,7 @@ public class PaySubscriptionsCheckAccessSettings : CommandSettings
     public string? Status { get; set; }
 }
 
+[CommandGuide("Checks whether the signed-in user (the one this tool runs as) holds a subscription with the given name, optionally requiring a status, and returns whether they have access plus that subscription's id, name and status. Read-only. For another user use `pay_subscriptions_by_user`.")]
 public class PaySubscriptionsCheckAccessCommand : BaseCommand<PaySubscriptionsCheckAccessSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PaySubscriptionsCheckAccessSettings settings)
@@ -830,6 +845,7 @@ internal static class PayHelpers
 
 // ── pay trial ──────────────────────────────────────────────────────────────────
 
+[CommandGuide("Reports whether the project-wide app engagement trial is on and how long it lasts. The length is not set directly: it is the longest trial among active subscription plans, and that plan is named. Read-only; change it with `pay_trial_enable`, `pay_trial_disable` or a plan's trial days in `pay_plans_update`.")]
 public class PayTrialStatusCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
@@ -906,7 +922,9 @@ public abstract class PayTrialToggleCommand(bool enable) : BaseCommand<EmptySett
     }
 }
 
+[CommandGuide("Turns on the project-wide app engagement trial, so users without a subscription get free app access for the longest trial length among active plans. Changes only this project setting and leaves the others as they were; undo with `pay_trial_disable`. Unrelated to offer trial rewards (`pay_offers_create`).")]
 public class PayTrialEnableCommand() : PayTrialToggleCommand(true);
+[CommandGuide("Turns off the project-wide app engagement trial, so users without a subscription no longer get free app access. Changes only this project setting and leaves the others as they were; undo with `pay_trial_enable`. Trial days granted by offers are separate and unaffected.")]
 public class PayTrialDisableCommand() : PayTrialToggleCommand(false);
 
 // ── pay apple credentials ───────────────────────────────────────────────────────
@@ -934,6 +952,7 @@ public class PayAppleCredentialsSetSettings : CommandSettings
     public string? Environment { get; set; }
 }
 
+[CommandGuide("Saves the project's Apple App Store Connect API credentials (issuer id, key id, bundle id, optional sandbox or production environment, and the .p8 private key read from a local file), replacing any saved ones. Needs project admin. Returns the App Store Server Notifications URL to register.")]
 public class PayAppleCredentialsSetCommand : BaseCommand<PayAppleCredentialsSetSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PayAppleCredentialsSetSettings settings)
@@ -988,6 +1007,7 @@ public class PayAppleCredentialsSetCommand : BaseCommand<PayAppleCredentialsSetS
     }
 }
 
+[CommandGuide("Shows the project's saved Apple in-app purchase configuration: bundle id, environment, masked issuer and key ids, whether a private key is stored, whether it is fully configured, and the notification URL. Read-only; the key itself is never returned. Change it with `pay_apple_credentials_set`.")]
 public class PayAppleCredentialsShowCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
@@ -1015,6 +1035,7 @@ public class PayAppleCredentialsShowCommand : BaseCommand<EmptySettings>
     }
 }
 
+[CommandGuide("Prints only the project's App Store Server Notifications V2 URL, to register in App Store Connect for both production and sandbox. Read-only; `pay_apple_credentials_show` returns the same URL along with the rest of the Apple configuration.")]
 public class PayAppleCredentialsNotificationUrlCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
@@ -1051,6 +1072,7 @@ public class PayAppleVerifySettings : CommandSettings
     public string? OriginalTransactionId { get; set; }
 }
 
+[CommandGuide("Testing tool: sends a StoreKit 2 signed transaction, or an original transaction id for a restore, to be verified with Apple, then creates or updates the Apple subscription and binds it to the signed-in user. Returns the subscription id, status, product, matched plan, access and expiry.")]
 public class PayAppleVerifyCommand : BaseCommand<PayAppleVerifySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PayAppleVerifySettings settings)
@@ -1089,6 +1111,7 @@ public class PayAppleVerifyCommand : BaseCommand<PayAppleVerifySettings>
 
 // ── pay subscriptions events ────────────────────────────────────────────────────
 
+[CommandGuide("Returns a subscription's lifecycle history, one row per event with time, event type, source, status change and summary. Read-only; check it to explain a subscription's state before using `pay_subscriptions_cancel`, `pay_subscriptions_resync` or `pay_subscriptions_relink`.")]
 public class PaySubscriptionsEventsCommand : BaseCommand<PaySubscriptionsIdSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PaySubscriptionsIdSettings settings)
@@ -1129,6 +1152,7 @@ public class PaySubscriptionsEventsCommand : BaseCommand<PaySubscriptionsIdSetti
 
 // ── pay subscriptions admin recovery (project administrators) ─────────────────────
 
+[CommandGuide("Project-admin recovery tool that permanently removes a stuck or duplicate subscription record and its user links from Anythink. It does not cancel at Stripe or Apple, so the customer can still be billed; use `pay_subscriptions_cancel` first if billing should stop.")]
 public class PaySubscriptionsDeleteCommand : BaseCommand<PaySubscriptionsConfirmSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PaySubscriptionsConfirmSettings settings)
@@ -1153,6 +1177,7 @@ public class PaySubscriptionsDeleteCommand : BaseCommand<PaySubscriptionsConfirm
     }
 }
 
+[CommandGuide("Project-admin recovery tool that sets a subscription's status to expired and clears its current period, so the user loses access at once while the record is kept. It changes only Anythink's record, not Stripe or Apple, so it does not stop future charges; use `pay_subscriptions_cancel` for that.")]
 public class PaySubscriptionsForceExpireCommand : BaseCommand<PaySubscriptionsConfirmSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PaySubscriptionsConfirmSettings settings)
@@ -1192,6 +1217,7 @@ public class PaySubscriptionsRelinkSettings : CommandSettings
     public bool SkipConfirm { get; set; }
 }
 
+[CommandGuide("Project-admin tool that moves a subscription to another project user (numeric user id), replacing all its existing user links, to fix a purchase bound to the wrong account. The previous user loses access; billing at Stripe or Apple is unchanged. Undo by relinking it back.")]
 public class PaySubscriptionsRelinkCommand : BaseCommand<PaySubscriptionsRelinkSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PaySubscriptionsRelinkSettings settings)
@@ -1218,6 +1244,7 @@ public class PaySubscriptionsRelinkCommand : BaseCommand<PaySubscriptionsRelinkS
     }
 }
 
+[CommandGuide("Project-admin tool that fetches a Stripe subscription's live state from Stripe and overwrites the stored record, returning the result. Use it when the status shown disagrees with Stripe. Apple subscriptions aren't supported yet and return an error.")]
 public class PaySubscriptionsResyncCommand : BaseCommand<PaySubscriptionsConfirmSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PaySubscriptionsConfirmSettings settings)
@@ -1260,6 +1287,7 @@ public class PayPaymentOptionsSettings : CommandSettings
     public string? Storefront { get; set; }
 }
 
+[CommandGuide("Shows which payment providers (such as Stripe or Apple in-app purchase) the project offers to an app on a platform (ios, android or web), optionally for an App Store storefront country code. Read-only; use it to see what a client app will be offered.")]
 public class PayPaymentOptionsCommand : BaseCommand<PayPaymentOptionsSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PayPaymentOptionsSettings settings)
@@ -1294,6 +1322,7 @@ public class PayPaymentOptionsCommand : BaseCommand<PayPaymentOptionsSettings>
 
 // ── pay entitlement ──────────────────────────────────────────────────────────────
 
+[CommandGuide("Reports whether the signed-in user (the one this tool runs as) has paid or trial access in the project's app: status, trial end and days left, subscription id, provider, product and expiry. Read-only. To look up another user, use `pay_subscriptions_by_user`.")]
 public class PayEntitlementCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
@@ -1330,6 +1359,7 @@ public class PayEntitlementCommand : BaseCommand<EmptySettings>
 
 // ── pay setup (guided) ───────────────────────────────────────────────────────────
 
+[CommandGuide("Interactive wizard that asks before each step: run the `pay_connect` flow, save Apple App Store Connect credentials from a .p8 file, and create a first subscription plan. For scripted setup use `pay_connect`, `pay_apple_credentials_set` and `pay_plans_create` instead.")]
 public class PaySetupCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)

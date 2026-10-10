@@ -11,7 +11,7 @@ namespace AnythinkMcp.Tools;
 [McpServerToolType]
 public class ConfigTools
 {
-    [McpServerTool(Name = "config_show"),
+    [McpServerTool(Name = "config_show", Title = "Show saved profiles", ReadOnly = true),
      Description(
         "Show the local CLI configuration: all saved project profiles and platform logins, and which " +
         "of each is active. For every profile it returns the name, org id, auth method (api-key or token), " +
@@ -50,7 +50,7 @@ public class ConfigTools
         }));
     }
 
-    [McpServerTool(Name = "config_use"),
+    [McpServerTool(Name = "config_use", Title = "Switch the active project profile", Destructive = false),
      Description(
         "Switch the active project profile that the 'cli' tool's commands operate against. " +
         "Use this to move between already-connected projects without re-authenticating. " +
@@ -71,7 +71,7 @@ public class ConfigTools
         }
     }
 
-    [McpServerTool(Name = "config_remove"),
+    [McpServerTool(Name = "config_remove", Title = "Remove a saved project profile", Destructive = true),
      Description(
         "Delete a saved project profile from the local CLI configuration. " +
         "Removes only the locally stored credentials and settings — it does not delete the project " +

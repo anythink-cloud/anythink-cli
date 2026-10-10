@@ -12,6 +12,7 @@ namespace AnythinkCli.Commands;
 
 // ── integrations list ────────────────────────────────────────────────────────
 
+[CommandGuide("Start here when connecting a third-party service. Shows each provider's key, category, auth type (api_key or oauth2) and operation count; providers turned off for this project are left out. Next, read a provider with `integrations_get`, then connect it with `integrations_connect` (API key) or `integrations_oauth_configure` (OAuth).")]
 public class IntegrationsListCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
@@ -68,6 +69,7 @@ public class IntegrationGetSettings : CommandSettings
     public string Provider { get; set; } = "";
 }
 
+[CommandGuide("Shows the provider's description, auth type and each operation's key, name and description. Operation keys are what `integrations_execute` and workflow integration steps (`workflows_integration_add`) take. It does not say whether the project is connected; `integrations_connections_list` does.")]
 public class IntegrationsGetCommand : BaseCommand<IntegrationGetSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, IntegrationGetSettings settings)
@@ -128,6 +130,7 @@ public class IntegrationConnectionsListSettings : CommandSettings
     public string? Provider { get; set; }
 }
 
+[CommandGuide("Shows each connection's id, provider, name, scope (the whole project or one user) and whether it is enabled; stored credentials are never shown. Use the id with `integrations_test`, `integrations_enable`, `integrations_disable` and `integrations_disconnect`.")]
 public class IntegrationsConnectionsListCommand : BaseCommand<IntegrationConnectionsListSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, IntegrationConnectionsListSettings settings)
@@ -199,6 +202,7 @@ public class IntegrationConnectSettings : CommandSettings
     public bool UserConnection { get; set; }
 }
 
+[CommandGuide("Only for providers whose auth type is api_key (see `integrations_get`); OAuth providers fail here and need `integrations_oauth_configure`. Stores the key encrypted on the server and creates a project-wide connection, or a private one with user_connection, printing its id. Pass the key in api_key, then check the connection with `integrations_test`.")]
 public class IntegrationsConnectCommand : BaseCommand<IntegrationConnectSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, IntegrationConnectSettings settings)
@@ -288,6 +292,7 @@ public class IntegrationConnectionIdSettings : CommandSettings
     public string ConnectionId { get; set; } = "";
 }
 
+[CommandGuide("Use after connecting, with an id from `integrations_connections_list`. The API currently only confirms the connection exists in this project and does not call the provider, so a pass does not prove the stored credentials work.")]
 public class IntegrationsTestCommand : BaseCommand<IntegrationConnectionIdSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, IntegrationConnectionIdSettings settings)
@@ -328,6 +333,7 @@ public class IntegrationsTestCommand : BaseCommand<IntegrationConnectionIdSettin
 
 // ── integrations enable / disable ────────────────────────────────────────────
 
+[CommandGuide("Turns a disabled connection back on so `integrations_execute` and workflow steps can use it again; its stored credentials are unchanged. Returns the connection's name and new state. The opposite is `integrations_disable`.")]
 public class IntegrationsEnableCommand : BaseCommand<IntegrationConnectionIdSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, IntegrationConnectionIdSettings settings)
@@ -364,6 +370,7 @@ public class IntegrationsEnableCommand : BaseCommand<IntegrationConnectionIdSett
     }
 }
 
+[CommandGuide("Stops `integrations_execute` and workflow steps from using the connection but keeps its stored credentials, so `integrations_enable` can turn it back on. Prefer this to `integrations_disconnect` when the pause may be temporary.")]
 public class IntegrationsDisableCommand : BaseCommand<IntegrationConnectionIdSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, IntegrationConnectionIdSettings settings)
@@ -410,6 +417,7 @@ public class IntegrationDisconnectSettings : CommandSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("Removes the connection and its stored credentials from the project; workflow steps that rely on it fail until the provider is connected again with `integrations_connect` or the OAuth flow. Use `integrations_disable` to pause it instead.")]
 public class IntegrationsDisconnectCommand : BaseCommand<IntegrationDisconnectSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, IntegrationDisconnectSettings settings)
@@ -473,6 +481,7 @@ public class IntegrationOAuthProviderSettings : CommandSettings
     public string Provider { get; set; } = "";
 }
 
+[CommandGuide("Shows whether a client ID is saved for the provider, whether it is enabled and also used for end-user social sign-in, and the redirect URL its OAuth app must allow. Check it before `integrations_oauth_configure`, or after to confirm the credentials were saved.")]
 public class IntegrationsOAuthStatusCommand : BaseCommand<IntegrationOAuthProviderSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, IntegrationOAuthProviderSettings settings)
@@ -518,6 +527,7 @@ public class IntegrationsOAuthStatusCommand : BaseCommand<IntegrationOAuthProvid
 
 // ── integrations oauth callback-url ──────────────────────────────────────────
 
+[CommandGuide("Prints only the dashboard redirect URL for this project, worked out locally from the API address and project id without an API call. Give it to the user to add to their OAuth app at the provider before `integrations_oauth_configure`; `integrations_oauth_status` shows it with the provider's setup state.")]
 public class IntegrationsOAuthCallbackUrlCommand : BaseCommand<EmptySettings>
 {
     public override Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
@@ -554,6 +564,7 @@ public class IntegrationOAuthConfigureSettings : CommandSettings
     public bool Disable { get; set; }
 }
 
+[CommandGuide("Saves the client ID and secret of an OAuth app the user created at the provider and enables it for the project (disable saves it switched off). Each run replaces the previous settings, so social sign-in turns off unless use_social_sign_in is passed again. Afterwards users connect from the dashboard or with `integrations_oauth_connect`.")]
 public class IntegrationsOAuthConfigureCommand : BaseCommand<IntegrationOAuthConfigureSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, IntegrationOAuthConfigureSettings settings)
@@ -634,6 +645,7 @@ public class IntegrationOAuthConnectSettings : CommandSettings
     public int TimeoutSeconds { get; set; } = 300;
 }
 
+[CommandGuide("Opens the provider's sign-in page in a browser on this machine and waits up to five minutes for the callback on localhost (port 8745 by default), then creates the connection. A person must complete the sign-in, and the provider must first be set up with `integrations_oauth_configure`; for API-key providers use `integrations_connect`.")]
 public class IntegrationsOAuthConnectCommand : BaseCommand<IntegrationOAuthConnectSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, IntegrationOAuthConnectSettings settings)
@@ -863,6 +875,7 @@ public class IntegrationExecuteSettings : CommandSettings
     public bool Json { get; set; }
 }
 
+[CommandGuide("Calls the provider live with the project's first enabled connection to it, using inputs given as key=value pairs or a JSON object, and may incur the provider's charges. The API currently runs only the claude provider (inputs prompt, system_prompt, model, max_tokens); other providers return an error, so use them in workflow steps via `workflows_integration_add`.")]
 public class IntegrationsExecuteCommand : BaseCommand<IntegrationExecuteSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, IntegrationExecuteSettings settings)

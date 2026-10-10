@@ -50,6 +50,7 @@ public class ImportDirectusSettings : CommandSettings
     public bool IncludeRoles { get; set; }
 }
 
+[CommandGuide("Copies a Directus instance's collections and fields into the active project as entities and fields; flows, files, roles and records come across only with include_flows, include_files, include_roles and include_data. Call it with dry_run first and show the user the plan, because a call without dry_run applies the import straight away.")]
 public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
 {
     public const string TokenEnvVar = "DIRECTUS_TOKEN";

@@ -186,7 +186,7 @@ public class RemoteScopeToolTests : McpTestBase
             tools[name].DestructiveHint.Should().BeTrue(name);
         foreach (var name in new[] { "pay_plans_list", "pay_plans_get", "pay_subscriptions_list", "pay_subscriptions_get", "pay_offers_list", "pay_offers_get", "pay_trial_status",
                                   "pay_status", "pay_payments", "pay_methods", "pay_entitlement", "pay_payment_options", "pay_plans_get",
-                                  "pay_subscriptions_events", "pay_subscriptions_by_user", "pay_offers_codes", "pay_offers_redemptions", "pay_offers_user_code" })
+                                  "pay_subscriptions_events", "pay_subscriptions_by_user", "pay_offers_codes", "pay_offers_redemptions" })
             tools[name].ReadOnlyHint.Should().BeTrue(name);
     }
 

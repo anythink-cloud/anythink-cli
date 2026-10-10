@@ -27,6 +27,7 @@ public class FetchSettings : CommandSettings
     public bool All { get; set; }
 }
 
+[CommandGuide("Sends a request to any project endpoint, with the path relative to /org/{project}, using the CLI's credentials, and prints the response body. Use it only where no dedicated tool exists, such as /permissions or integration field options; POST, PUT and DELETE change data. all follows every page of a GET.")]
 public class FetchCommand : BaseCommand<FetchSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, FetchSettings settings)

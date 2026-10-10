@@ -10,6 +10,7 @@ namespace AnythinkCli.Commands;
 
 public class EmptySettings : CommandSettings { }
 
+[CommandGuide("Returns each entity (table) in the active project with its database table name, field count, and whether it is public or has row-level security (RLS) on. System entities are not included. To see one entity's settings and field definitions, use `entities_get`.")]
 public class EntitiesListCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
@@ -68,6 +69,7 @@ public class EntityGetSettings : CommandSettings
     public string Name { get; set; } = "";
 }
 
+[CommandGuide("Takes the entity name. Returns its table name, its public, RLS and lock-new-records flags, and each field's id, name, database type, display type and required, unique and indexed flags. For one field's full definition, including relationship and select options, use `fields_get`.")]
 public class EntitiesGetCommand : BaseCommand<EntityGetSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EntityGetSettings settings)
@@ -149,6 +151,7 @@ public class EntityCreateSettings : CommandSettings
     public bool IsJunction { get; set; }
 }
 
+[CommandGuide("Creates an empty entity, which is a new database table in the active project; add its columns afterwards with `fields_add`. Options make it public (queryable without signing in), turn on row-level security (RLS), block new records through the API, or mark it as a many-to-many junction table.")]
 public class EntitiesCreateCommand : BaseCommand<EntityCreateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EntityCreateSettings settings)
@@ -203,6 +206,7 @@ public class EntityUpdateSettings : CommandSettings
     public bool? LockNewRecords { get; set; }
 }
 
+[CommandGuide("Changes an entity's public, row-level security (RLS) and lock-new-records settings; any you leave out keep their current value. It cannot rename the entity or change its fields, so use `fields_update` for columns. Making an entity public lets anyone query its records without signing in.")]
 public class EntitiesUpdateCommand : BaseCommand<EntityUpdateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EntityUpdateSettings settings)
@@ -252,6 +256,7 @@ public class EntityDeleteSettings : CommandSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("Drops the entity's table, removing all of its fields and every record in it for good. To remove one column, use `fields_delete`; to remove one record, use `data_delete`.")]
 public class EntitiesDeleteCommand : BaseCommand<EntityDeleteSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EntityDeleteSettings settings)
