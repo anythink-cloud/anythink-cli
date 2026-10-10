@@ -53,15 +53,11 @@ public record SelectFieldOptions(
     [property: JsonPropertyName("multiple")] bool Multiple = false
 );
 
-[JsonConverter(typeof(SelectOptionJsonConverter))]
+// Option values can be strings, numbers or booleans, so keep the raw JSON value.
 public record SelectOption(
     [property: JsonPropertyName("label")] string Label,
-    [property: JsonPropertyName("value")] string Value
-)
-{
-    // Undefined means the server sent no value, so none is written back.
-    [JsonIgnore] public System.Text.Json.JsonValueKind ValueKind { get; init; } = System.Text.Json.JsonValueKind.String;
-}
+    [property: JsonPropertyName("value")] System.Text.Json.Nodes.JsonNode? Value
+);
 
 public record CreateEntityRequest(
     [property: JsonPropertyName("name")] string Name,
