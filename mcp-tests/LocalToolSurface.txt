@@ -45,6 +45,7 @@ files_delete [destructive] id
 files_get [read-only] id
 files_list [read-only] limit? page?
 files_upload [write] path public?
+import_directus [destructive] allow_insecure? dry_run? force? include_data? include_files? include_flows? include_roles? plan? to? token? url?
 integrations_connect [write] provider api_key? name? user_connection?
 integrations_connections_list [read-only] provider?
 integrations_disable [write] connection_id

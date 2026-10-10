@@ -1,6 +1,7 @@
 using AnythinkCli.Client;
 using AnythinkCli.Importers;
 using AnythinkCli.Importers.Directus;
+using AnythinkCli.Importers.Engine;
 using Spectre.Console.Cli;
 using Spectre.Console;
 using System.ComponentModel;
@@ -33,6 +34,18 @@ public class ImportDirectusSettings : CommandSettings
     [Description("Preview what would be imported without making any changes")]
     public bool DryRun { get; set; }
 
+    [CommandOption("--plan <FILE>")]
+    [Description("Write the import plan to a file and stop. Makes no changes to the project")]
+    public string? Plan { get; set; }
+
+    [CommandOption("--force")]
+    [Description("Overwrite the --plan file if it already exists")]
+    public bool Force { get; set; }
+
+    [CommandOption("--json")]
+    [Description("Print the plan as JSON (use with --dry-run or --plan)")]
+    public bool Json { get; set; }
+
     [CommandOption("--include-flows")]
     [Description("Also import Directus flows as Anythink workflows")]
     public bool IncludeFlows { get; set; }
@@ -59,8 +72,12 @@ public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
         try
         {
             var url = ValidateUrl(settings.Url, settings.AllowInsecure);
+            var planOnly = settings.DryRun || settings.Plan is not null;
+            if (settings.Json && !planOnly)
+                throw new CliException("--json prints the plan, so it needs [bold #F97316]--dry-run[/] or [bold #F97316]--plan <file>[/].");
+            if (settings.Plan is not null) PlanFile.EnsureWritable(settings.Plan, settings.Force);
             var interactive = IsInteractive();
-            RequireConfirmationMode(settings.DryRun, settings.Yes, interactive);
+            RequireConfirmationMode(planOnly, settings.Yes, interactive);
             var token = ResolveToken(settings.Token, Environment.GetEnvironmentVariable(TokenEnvVar), interactive,
                 () => AnsiConsole.Prompt(new TextPrompt<string>("Directus token:").Secret()));
 
@@ -69,12 +86,15 @@ public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
 
             var runner = new ImportRunner(importer, target,
                 new ImportOptions(
-                    DryRun: settings.DryRun,
+                    DryRun: planOnly,
                     IncludeFlows: settings.IncludeFlows,
                     IncludeData: settings.IncludeData,
                     IncludeFiles: settings.IncludeFiles,
                     IncludeRoles: settings.IncludeRoles,
-                    RequireConfirmation: !settings.DryRun && !settings.Yes));
+                    RequireConfirmation: !planOnly && !settings.Yes,
+                    PlanPath: settings.Plan,
+                    ForcePlanFile: settings.Force,
+                    PlanAsJson: settings.Json));
 
             return ExitCodeFor(await runner.RunAsync());
         }
