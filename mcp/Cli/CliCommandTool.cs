@@ -92,7 +92,7 @@ public sealed class CliCommandTool : McpServerTool
             return new CliRunResult(1, $"Error: {ex.Message}");
         }
 
-        return await CliRunner.RunAsync(args, client, _scope, cancellationToken, billing, singleProjectConnection);
+        return await CliRunner.RunAsync(args, client, _scope, cancellationToken, billing: billing, singleProjectConnection: singleProjectConnection);
     }
 
     internal IReadOnlyList<string> BuildArgs(IEnumerable<KeyValuePair<string, JsonElement>>? arguments)

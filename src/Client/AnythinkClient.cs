@@ -91,6 +91,18 @@ public class AnythinkClient : HttpApiClient
         return content;
     }
 
+    public async IAsyncEnumerable<string> FetchPagesAsync(string url)
+    {
+        var size = Math.Min(FetchPaging.QueryInt(url, "pageSize") ?? FetchPaging.MaxPageSize, FetchPaging.MaxPageSize);
+        var sized = FetchPaging.WithQuery(url, "pageSize", size);
+        for (var page = FetchPaging.QueryInt(url, "page") ?? 1; ; page++)
+        {
+            var body = await FetchRawAsync(FetchPaging.WithQuery(sized, "page", page));
+            yield return body;
+            if (!FetchPaging.HasNextPage(body)) yield break;
+        }
+    }
+
     // ── Project Auth ──────────────────────────────────────────────────────────
 
     public Task<LoginResponse> ExchangeTransferTokenAsync(string transferToken)
@@ -102,8 +114,8 @@ public class AnythinkClient : HttpApiClient
     public async Task<List<Entity>> GetEntitiesAsync()
         => (await GetAsync<List<Entity>>(_org + "/entities")) ?? [];
 
-    public async Task<Entity> GetEntityAsync(string name)
-        => (await GetAsync<Entity>(_org + $"/entities/{Seg(name)}"))
+    public async Task<Entity> GetEntityAsync(string name, bool includeSystem = false)
+        => (await GetAsync<Entity>(_org + $"/entities/{Seg(name)}" + (includeSystem ? "?includeSystem=true" : "")))
            ?? throw new AnythinkException($"Entity '{name}' not found.", 404);
 
     public Task<Entity> CreateEntityAsync(CreateEntityRequest req)
@@ -138,6 +150,9 @@ public class AnythinkClient : HttpApiClient
     public async Task<Workflow> GetWorkflowAsync(int id)
         => (await GetAsync<Workflow>(_org + $"/workflows/{id}"))
            ?? throw new AnythinkException($"Workflow {id} not found.", 404);
+
+    public Task<string> GetWorkflowRawAsync(int id)
+        => FetchRawAsync(_org + $"/workflows/{id}");
 
     public Task<Workflow> CreateWorkflowAsync(CreateWorkflowRequest req)
         => PostAsync<Workflow>(_org + "/workflows", req);
@@ -500,8 +515,23 @@ public class AnythinkClient : HttpApiClient
     public Task<MenuItemResponse> CreateMenuItemAsync(int menuId, CreateMenuItemRequest req)
         => PostAsync<MenuItemResponse>(_org + $"/menus/{menuId}/items", req);
 
+    public Task UpdateMenuAsync(int menuId, CreateMenuRequest req)
+        => PutVoidAsync(_org + $"/menus/{menuId}", req);
+
+    public Task UpdateMenuItemAsync(int menuId, int itemId, CreateMenuItemRequest req)
+        => PutVoidAsync(_org + $"/menus/{menuId}/items/{itemId}", req);
+
     public Task DeleteMenuAsync(int menuId)
         => DeleteAsync(_org + $"/menus/{menuId}");
+
+    public Task DeleteMenuItemAsync(int menuId, int itemId)
+        => DeleteAsync(_org + $"/menus/{menuId}/items/{itemId}");
+
+    public Task ReorderMenusAsync(IReadOnlyList<ReorderMenuRequest> order)
+        => PutVoidAsync(_org + "/menus/reorder", order);
+
+    public Task ReorderMenuItemsAsync(int menuId, IReadOnlyList<ReorderMenuItemRequest> order)
+        => PutVoidAsync(_org + $"/menus/{menuId}/items/reorder", order);
 
     // ── Tenant / Organisation Settings ────────────────────────────────────────
 
@@ -510,4 +540,7 @@ public class AnythinkClient : HttpApiClient
 
     public Task<TenantResponse?> UpdateTenantAsync(UpdateTenantRequest req)
         => PutAsync<TenantResponse>(BaseUrl + $"/org/{OrgId}", req);
+
+    public Task ClearCorsCacheAsync()
+        => PostVoidAsync(BaseUrl + $"/org/{OrgId}/cors/clear-cache");
 }

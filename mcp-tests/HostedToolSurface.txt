@@ -55,7 +55,15 @@ integrations_oauth_configure [destructive] project? provider client_id? client_s
 integrations_oauth_status [read-only] project? provider
 integrations_test [write] project? connection_id
 menus_add_item [write] project? menu_id entity icon? name? parent?
+menus_create [write] project? name role_id
+menus_delete [destructive] project? menu_id
+menus_get [read-only] project? menu_id
 menus_list [read-only] project?
+menus_remove_item [destructive] project? menu_id item_id
+menus_reorder [destructive] project? menu_ids
+menus_reorder_items [destructive] project? menu_id item_ids
+menus_update [destructive] project? menu_id name? role?
+menus_update_item [destructive] project? menu_id item_id entity? href? icon? name? parent?
 pay_methods [read-only] project?
 pay_payments [read-only] project? limit? page?
 pay_status [read-only] project?
@@ -77,6 +85,11 @@ secrets_create [write] project? key value?
 secrets_delete [destructive] project? key
 secrets_list [read-only] project?
 secrets_update [destructive] project? key value?
+settings_cors_add [write] project? url
+settings_cors_list [read-only] project?
+settings_cors_remove [destructive] project? url
+settings_get [read-only] project?
+settings_set [destructive] project? key value
 users_delete [destructive] project? id
 users_get [read-only] project? id
 users_invite [write, open-world] project? email first_name last_name role_id?

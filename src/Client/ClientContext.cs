@@ -7,6 +7,7 @@ public static class ClientContext
     private static readonly AsyncLocal<bool> AmbientRemote = new();
     private static readonly AsyncLocal<BillingClient?> AmbientBilling = new();
     private static readonly AsyncLocal<bool> AmbientSingleProject = new();
+    private static readonly AsyncLocal<bool> AmbientMachineOutput = new();
 
     public static AnythinkClient? Current
     {
@@ -30,6 +31,12 @@ public static class ClientContext
     {
         get => AmbientRemote.Value;
         set => AmbientRemote.Value = value;
+    }
+
+    public static bool MachineOutput
+    {
+        get => AmbientMachineOutput.Value;
+        set => AmbientMachineOutput.Value = value;
     }
 
     public static void RequireLocal()

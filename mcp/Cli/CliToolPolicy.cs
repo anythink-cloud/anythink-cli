@@ -55,6 +55,9 @@ public static class CliToolPolicy
             "users invite first_name",
             "users invite last_name",
             "projects create name",
+            "menus create name",
+            "menus reorder menu_ids",
+            "menus reorder-items item_ids",
             "charts create name",
             "dashboards create name"
         ];
