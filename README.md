@@ -49,6 +49,7 @@ The official command-line interface for [Anythink](https://anythink.cloud) — t
   - [menus](#menus)
   - [charts](#charts)
   - [dashboards](#dashboards)
+  - [settings](#settings)
   - [integrations](#integrations)
   - [pay](#pay)
   - [oauth](#oauth)
@@ -295,6 +296,8 @@ anythink data get <entity> <id>        Get a single record by ID
 anythink data create <entity>          Create a new record
 anythink data update <entity> <id>     Update a record
 anythink data delete <entity> <id>     Delete a record
+anythink data export <entity> <file>   Export records to CSV, JSON or JSONL
+anythink data import <entity> <file>   Create records from CSV, JSON or JSONL
 ```
 
 **Options — `data list`**
@@ -334,6 +337,50 @@ anythink data create blog_posts --data '{"title":"Hello World","status":"draft"}
 anythink data update blog_posts 42 --data '{"status":"approved"}'
 anythink data delete blog_posts 42 --yes
 ```
+
+**Export and import** — `data export` streams records page by page to a file; `data import` creates one record per row. Always run an import with `--dry-run` first: it validates every row and sends nothing.
+
+```bash
+anythink data export customers customers.csv
+anythink data export orders orders.jsonl --filter 'status=paid' --fields id,total
+anythink data import customers customers.csv --dry-run
+anythink data import customers customers.csv --errors rejected.csv --yes
+```
+
+| Flag (`export`)       | Description |
+| --------------------- | ----------- |
+| `--format <fmt>`      | `csv`, `json` or `jsonl`. Default: from the extension (`.csv`, `.json`, `.jsonl`, `.ndjson`). `-` as the file writes to stdout (needs `--format`) |
+| `--filter <expr>`     | Same syntax as `data list --filter` |
+| `--fields a,b`        | Columns to export, in order. CSV defaults to the entity's fields |
+| `--page-size <n>`     | Records per request (default 200, max 1000) |
+| `--force`             | Overwrite an existing file. Without it an existing file is never touched. The file is written to a temporary name and renamed on success, so a failed export never leaves a partial file |
+| `--no-formula-guard`  | CSV only: see below |
+
+| Flag (`import`)       | Description |
+| --------------------- | ----------- |
+| `--format <fmt>`      | `csv`, `json` (an array of objects) or `jsonl`. Default: from the extension, else the first character (`[` or `{`) |
+| `--dry-run`           | Validate and report; nothing is sent |
+| `--concurrency <n>`   | Parallel creates (default 4, max 16) |
+| `--errors <file>`     | Write skipped and failed rows, with an `_error` column or property, so they can be fixed and re-imported |
+| `--ignore-unknown`    | Drop columns that aren't fields on the entity instead of rejecting the row |
+| `--yes`               | Skip the confirmation prompt. Required when not running interactively (CI, scripts, agents), otherwise the import refuses before writing anything |
+
+How values are handled:
+
+- **CSV is RFC 4180**: cells containing a comma, quote or line break are quoted, quotes are doubled, and quoted cells can span lines. Objects, arrays, JSON fields and relations are written as compact JSON text.
+- **Formula guard (export)**: CSV text starting with `=`, `+`, `-`, `@`, tab or carriage return is prefixed with `'` so spreadsheets don't run it as a formula. Numbers are never changed. This includes phone numbers such as `+44 20 7946 0000` and any text with a leading `+` or `-`. The guard is one-way: importing the file keeps the `'` unless the file was exported with `--no-formula-guard`.
+- **Types follow the entity's fields.** Text keeps its exact characters (`00123` stays `00123`); integers and decimals are parsed with `.` as the decimal separator (`1,5` is rejected, never guessed); booleans accept `true/false`, `1/0` and `yes/no`; dates must be ISO 8601 (`2025-03-31`, `2025-03-31T09:30:00Z`; no offset means UTC); JSON fields must be valid JSON.
+- **An empty CSV cell is sent as `null`.** In JSON and JSONL input an empty string stays an empty string.
+- **Bad rows are skipped, never sent.** They are reported with a row number (CSV: record number, so the header is row 1; JSONL: line number; JSON: position in the array) and counted as *skipped*. Rows the server rejects are counted as *failed*. The exit code is non-zero if any row was skipped or failed.
+- **Retries**: `400`, `409` and `422` are never retried, so a create is not repeated. See *Uncertain failures* below for what is retried.
+- **System columns are ignored on import**: `id`, `created_at`, `updated_at`, `tenant_id` and `locked` are never sent, and the import says which it ignored. Importing an export back into the same project therefore creates duplicates with new ids and timestamps; it does not update the originals.
+- **One-to-many collections and secret fields are skipped on import** (the import lists them), and one-to-many columns are left out of an export unless you name them in `--fields`. Many-to-many, file and user columns are copied as ids, which only mean something inside the same project; the import warns once per column.
+- **Empty boolean cells** are sent as `null` rather than `false`.
+- **Uncertain failures**: only `429`/`503` responses and requests that never reached the server (DNS, connection or TLS failures) are retried. If a request times out or the connection drops after sending, the row is reported as `UNCERTAIN: may have been created`, in the errors file too; check the project before re-importing it. Rate-limit waits pause every worker together and are retried for over a minute before giving up.
+- **Ctrl+C** stops reading the file, finishes the rows already queued and prints a partial summary (exit code 1). An interrupted export removes its temporary file.
+- `data import` and `data export` read and write local files, so they are not available through the hosted (HTTP) MCP server.
+
+Not supported yet: updating or upserting existing records by key, looking up relations by a natural key (use the related record's id), and file uploads.
 
 ---
 
@@ -404,30 +451,45 @@ anythink search query "*" --filter "_geoRadius(51.5074,-0.1278,5000)"
 
 ### workflows
 
-Manage automation workflows. Workflows can be triggered on a cron schedule, when entities are created or updated, or manually.
+Manage automation workflows. A workflow can have several triggers: a cron schedule, an entity event, an API route, or a manual run.
 
 ```
-anythink workflows list                List all workflows
-anythink workflows get <id>            Get workflow details and steps
+anythink workflows list                List all workflows (--json for a compact summary)
+anythink workflows get <id>            Get workflow details and steps (--json for the full definition)
 anythink workflows create <name>       Create a new workflow
+anythink workflows update <id>         Rename a workflow or change its description
 anythink workflows enable <id>         Enable a workflow
 anythink workflows disable <id>        Disable a workflow
 anythink workflows trigger <id>        Manually trigger a workflow
 anythink workflows delete <id>         Delete a workflow
 ```
 
-**Options — `workflows create`**
+**Trigger types — `workflows create --trigger <type>`** (not case-sensitive; default `Manual`)
 
-| Flag               | Description                                                       |
-| ------------------ | ----------------------------------------------------------------- |
-| `--trigger <type>` | Trigger type: `Timed`, `EntityCreated`, `EntityUpdated`, `Manual` |
-| `--cron <expr>`    | Cron expression (for `Timed` trigger, e.g. `0 6 * * *`)           |
-| `--entity <name>`  | Entity name (for `EntityCreated` / `EntityUpdated` triggers)      |
+| Type     | Fires                                 | Required flag          | Other flags                          |
+| -------- | ------------------------------------- | ---------------------- | ------------------------------------ |
+| `Manual` | When run by hand, on an entity        | `--entity <name>`      |                                      |
+| `Event`  | When an event happens, such as a record being created | `--entity <name>` for the `Entity...` events | `--event <event>`, `--filter <json>` |
+| `Timed`  | On a cron schedule                    | `--cron <expr>`        |                                      |
+| `Api`    | When its API route is called          | `--api-route <route>`  |                                      |
+
+`--event` (not case-sensitive) is `EntityCreated` (default), `EntityUpdated`, `EntityDeleted`, `UserRegistered`, `UserInvited`, `SubscriptionCreated`, `SubscriptionActivated`, `SubscriptionExpired`, `PaymentCreated`, `PaymentSucceeded`, `PaymentFailed`, `PaymentMethodCaptured`, `PaymentMethodCaptureFailed`, `PaymentMethodRemoved` or `PushActionTaken`; only the three `Entity...` events need `--entity`. A trigger missing its required flag is rejected before anything is sent, and a flag that doesn't apply to the chosen type is ignored with a warning.
+
+**Other options — `workflows create`**
+
+| Flag                    | Description                                       |
+| ----------------------- | ------------------------------------------------- |
+| `--description <text>`  | Workflow description                              |
+| `--enabled`             | Enable the workflow straight away                 |
+| `--filter-file <path>`  | Read the `Event` filter JSON from a file          |
 
 **Examples**
 
 ```bash
 anythink workflows create daily-sync --trigger Timed --cron "0 6 * * *"
+anythink workflows create on-post --trigger Event --entity blog_posts --event EntityUpdated
+anythink workflows create import-hook --trigger Api --api-route hooks/import
+anythink workflows create review-posts --entity blog_posts
 anythink workflows trigger 76
 anythink workflows disable 83
 ```
@@ -642,8 +704,17 @@ anythink api-keys revoke 42 --yes
 Manage dashboard sidebar menus in the active project. Menus control what entities appear in the Anythink dashboard and how they are grouped.
 
 ```
-anythink menus list                              List all menus with tree structure
-anythink menus add-item <menu_id> <entity>       Add an entity to a dashboard menu
+anythink menus list                                        List all menus with tree structure
+anythink menus get <menu_id> [--json]                      Show one menu (and its role) with its items and child items
+anythink menus create <name> <role_id>                     Create a menu shown to a role
+anythink menus update <menu_id> [--name <text>] [--role <id>]
+                                                           Rename a menu or change its role
+anythink menus delete <menu_id> [--yes]                    Delete a menu and all of its items
+anythink menus add-item <menu_id> <entity>                 Add an entity to a dashboard menu
+anythink menus update-item <menu_id> <item_id> [options]   Change an item's name, icon, link or parent
+anythink menus remove-item <menu_id> <item_id> [--yes]     Remove an item, along with its child items
+anythink menus reorder-items <menu_id> <item_ids>          Set the order of items that share a parent
+anythink menus reorder <menu_ids>                          Set the order of menus
 ```
 
 **Options — `menus add-item`**
@@ -654,17 +725,47 @@ anythink menus add-item <menu_id> <entity>       Add an entity to a dashboard me
 | `--name <text>`   | Display name (defaults to entity name, title-cased)  |
 | `--parent <id>`   | Parent menu item ID for nesting under a group        |
 
+**Options — `menus update-item`** (only the fields you pass change)
+
+| Flag              | Description                                                |
+| ----------------- | ---------------------------------------------------------- |
+| `--name <text>`   | New display name                                           |
+| `--icon <name>`   | New Lucide icon name                                       |
+| `--entity <name>` | Point the item at an entity's page (instead of `--href`)   |
+| `--href <path>`   | Point the item at any path (instead of `--entity`)         |
+| `--parent <id>`   | Parent item ID to nest under; `0` moves it to the top level |
+
+`reorder-items` and `reorder` take comma-separated IDs in the order you want them (`301,299,300`). The items you name take the first places within their group; items you leave out follow in their current order, and `reorder-items` needs all the items to share one parent. Locked items (the built-in ones) can't be changed, removed or moved; they keep their place, and the items between them reuse their own position numbers (they are only renumbered when two of them tie).
+
+`add-item` and `update-item --entity` look the entity up first (system entities count), and stop only if it doesn't exist; if the lookup itself fails (for example, no permission), the item is saved and a warning says the entity couldn't be checked. Moving an item to a new parent with `update-item --parent` puts it last among its new siblings.
+
+Removing an item also removes its direct child items. The command says so, and refuses when those children are locked or have items of their own.
+
+A role is shown only its first menu, so `create` (and `update --role`) warns when the role already has one. `delete` removes the menu's locked built-in items with it, and says when the role is left with no menu.
+
 **Examples**
 
 ```bash
 # List all menus and their items
 anythink menus list
 
+# Show menu 250 with the item IDs you need for the commands below
+anythink menus get 250
+
 # Add "Check-ins" under the Profiles group (parent 168) in admin menu (250)
 anythink menus add-item 250 check_ins --icon MessageCircle --parent 168
 
 # Add a top-level menu item
 anythink menus add-item 250 badges --icon Award
+
+# Rename an item and give it another icon
+anythink menus update-item 250 299 --name "Achievements" --icon Trophy
+
+# Remove an item
+anythink menus remove-item 250 299 --yes
+
+# Put items 301, 299 and 300 first, in that order
+anythink menus reorder-items 250 301,299,300
 ```
 
 ---
@@ -774,6 +875,58 @@ anythink dashboards remove-widget 3 41
 
 # The numbers behind it
 anythink dashboards data 3 --json
+```
+
+---
+
+### settings
+
+View and change project settings in the active project, including the allowed application URLs that browsers may call the API from (CORS).
+
+```
+anythink settings get [--json]                   Show all project settings
+anythink settings set <key> <value> [--yes]     Set a single project setting
+anythink settings cors list                      List allowed application URLs
+anythink settings cors add <url> [--yes]         Add an allowed origin
+anythink settings cors remove <url>              Remove an allowed origin
+```
+
+**Keys — `settings set`**
+
+| Key                            | Value                                     |
+| ------------------------------ | ----------------------------------------- |
+| `name`, `description`          | Text                                      |
+| `require_email_confirmation`   | `true` / `false`                          |
+| `allow_registrations`          | `true` / `false`                          |
+| `default_role_id`              | Role ID for newly registered users        |
+| `enable_group_rls`             | `true` / `false`                          |
+| `payment_success_url`, `payment_cancel_url` | URL                          |
+| `app_engagement_trial_enabled` | `true` / `false`                          |
+| `app_engagement_trial_days`    | Number of days                            |
+| `ai_mode`                      | `platform` or `byok`                      |
+| `ai_byok_provider`, `ai_default_model` | Text                              |
+| `google_maps_key`              | Text                                      |
+
+Origins must be `http`/`https` with a host and optional port, with no path, query or fragment; a trailing `/` is stripped. A wildcard such as `https://*.example.com` is only safe on a domain you control, so wildcards under shared hosting domains (`vercel.app`, `github.io`, …) or a bare TLD are refused unless you pass `--yes`.
+
+Some changes widen who can sign up: `default_role_id` pointing at an administrator role is refused unless you pass `--yes`, and `allow_registrations true` and `require_email_confirmation false` ask for confirmation (pass `--yes` when running non-interactively).
+
+`cors add` and `cors remove` clear the project's CORS cache, so the change applies straight away. Matching is case-insensitive and adding a URL that is already present does nothing. Anythink's own domains and `localhost` are always allowed and don't need adding.
+
+**Examples**
+
+```bash
+# Allow a deployed front end to call the API
+anythink settings cors add https://my-app.vercel.app
+
+# Allow every subdomain of a domain you own
+anythink settings cors add "https://*.example.com"
+
+# Remove an origin
+anythink settings cors remove https://my-app.vercel.app
+
+# Let users sign up on their own
+anythink settings set allow_registrations true
 ```
 
 ---

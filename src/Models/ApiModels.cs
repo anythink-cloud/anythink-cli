@@ -54,9 +54,10 @@ public record SelectFieldOptions(
     [property: JsonPropertyName("multiple")] bool Multiple = false
 );
 
+// Option values can be strings, numbers or booleans, so keep the raw JSON value.
 public record SelectOption(
     [property: JsonPropertyName("label")] string Label,
-    [property: JsonPropertyName("value")] string Value
+    [property: JsonPropertyName("value")] System.Text.Json.Nodes.JsonNode? Value
 );
 
 public record CreateEntityRequest(
@@ -106,11 +107,28 @@ public record Workflow(
     [property: JsonPropertyName("id")] int Id,
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("description")] string? Description,
-    [property: JsonPropertyName("trigger")] string Trigger,
+    [property: JsonPropertyName("trigger")] string? Trigger,
     [property: JsonPropertyName("enabled")] bool Enabled,
     [property: JsonPropertyName("steps")] List<WorkflowStep>? Steps,
     [property: JsonPropertyName("options")] System.Text.Json.JsonElement? Options = null,
-    [property: JsonPropertyName("jobs")] List<WorkflowJob>? Jobs = null
+    [property: JsonPropertyName("jobs")] List<WorkflowJob>? Jobs = null,
+    [property: JsonPropertyName("triggers")] List<WorkflowTrigger>? Triggers = null,
+    [property: JsonPropertyName("group")] string? Group = null,
+    [property: JsonPropertyName("api_route")] string? ApiRoute = null,
+    [property: JsonPropertyName("editor_state")] string? EditorState = null
+);
+
+public record WorkflowTrigger(
+    [property: JsonPropertyName("id")] int? Id,
+    [property: JsonPropertyName("type")] string? Type,
+    [property: JsonPropertyName("enabled")] bool Enabled = true,
+    [property: JsonPropertyName("config")] System.Text.Json.JsonElement? Config = null
+);
+
+public record WorkflowTriggerRequest(
+    [property: JsonPropertyName("type")] string Type,
+    [property: JsonPropertyName("enabled")] bool Enabled,
+    [property: JsonPropertyName("config")] object Config
 );
 
 public record WorkflowJob(
@@ -148,10 +166,9 @@ public record WorkflowStep(
 public record CreateWorkflowRequest(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("description")] string? Description,
-    [property: JsonPropertyName("trigger")] string Trigger,
     [property: JsonPropertyName("enabled")] bool Enabled,
-    [property: JsonPropertyName("options")] object Options,
-    [property: JsonPropertyName("api_route")] string? ApiRoute = null
+    [property: JsonPropertyName("triggers")] List<WorkflowTriggerRequest> Triggers,
+    [property: JsonPropertyName("group")] string? Group = null
 );
 
 public record CreateWorkflowStepRequest(
@@ -166,7 +183,11 @@ public record CreateWorkflowStepRequest(
 
 public record UpdateWorkflowRequest(
     [property: JsonPropertyName("name")] string? Name = null,
-    [property: JsonPropertyName("description")] string? Description = null
+    [property: JsonPropertyName("description")] string? Description = null,
+    [property: JsonPropertyName("group")] string? Group = null,
+    [property: JsonPropertyName("enabled")] bool? Enabled = null,
+    [property: JsonPropertyName("editor_state")] string? EditorState = null,
+    [property: JsonPropertyName("triggers")] List<WorkflowTriggerRequest>? Triggers = null
 );
 
 public record UpdateWorkflowStepLinksRequest(
@@ -365,7 +386,8 @@ public record RoleResponse(
     [property: JsonPropertyName("description")] string? Description,
     [property: JsonPropertyName("is_active")] bool IsActive,
     [property: JsonPropertyName("anyapi_access")] bool AnyApiAccess = false,
-    [property: JsonPropertyName("permissions")] List<Permission>? Permissions = null
+    [property: JsonPropertyName("permissions")] List<Permission>? Permissions = null,
+    [property: JsonPropertyName("is_administrator")] bool IsAdministrator = false
 );
 
 public record CreateRoleRequest(
@@ -493,7 +515,8 @@ public record MenuItemResponse(
     [property: JsonPropertyName("href")] string Href,
     [property: JsonPropertyName("parent_id")] int? ParentId,
     [property: JsonPropertyName("sort_order")] int SortOrder,
-    [property: JsonPropertyName("items")] List<MenuItemResponse> Items
+    [property: JsonPropertyName("items")] List<MenuItemResponse> Items,
+    [property: JsonPropertyName("locked")] bool Locked = false
 );
 
 public record CreateMenuRequest(
@@ -508,6 +531,17 @@ public record CreateMenuItemRequest(
     [property: JsonPropertyName("parent_id")] int ParentId
 );
 
+public record ReorderMenuRequest(
+    [property: JsonPropertyName("menu_id")] int MenuId,
+    [property: JsonPropertyName("sort_order")] int SortOrder
+);
+
+public record ReorderMenuItemRequest(
+    [property: JsonPropertyName("item_id")] int ItemId,
+    [property: JsonPropertyName("sort_order")] int SortOrder,
+    [property: JsonPropertyName("parent_id")] int? ParentId
+);
+
 // ── Organisation / Tenant Settings ───────────────────────────────────────────
 
 public record TenantSettingsDto(
@@ -515,16 +549,26 @@ public record TenantSettingsDto(
     [property: JsonPropertyName("default_role_id")] int? DefaultRoleId,
     [property: JsonPropertyName("allowed_application_urls")] List<string> AllowedApplicationUrls,
     [property: JsonPropertyName("payment_success_url")] string? PaymentSuccessUrl,
-    [property: JsonPropertyName("payment_cancel_url")] string? PaymentCancelUrl
-);
+    [property: JsonPropertyName("payment_cancel_url")] string? PaymentCancelUrl,
+    [property: JsonPropertyName("app_engagement_trial_enabled")] bool? AppEngagementTrialEnabled = null,
+    [property: JsonPropertyName("app_engagement_trial_days")] int? AppEngagementTrialDays = null,
+    [property: JsonPropertyName("ai_mode")] string? AiMode = null,
+    [property: JsonPropertyName("ai_byok_provider")] string? AiByokProvider = null,
+    [property: JsonPropertyName("ai_default_model")] string? AiDefaultModel = null,
+    [property: JsonPropertyName("enable_group_rls")] bool? EnableGroupRls = null
+)
+{
+    // Update replaces the whole object, so unmodelled fields must round-trip.
+    [JsonExtensionData] public Dictionary<string, JsonElement>? Extra { get; init; }
+}
 
 public record ThemeSettingsDto(
     [property: JsonPropertyName("primary_color")] string? PrimaryColor,
     [property: JsonPropertyName("gray_color")] string? GrayColor
 )
 {
-    [JsonExtensionData]
-    public Dictionary<string, JsonElement>? Extra { get; init; }
+    // Carries radius, email wrapper and any other theme fields through an update unchanged.
+    [JsonExtensionData] public Dictionary<string, JsonElement>? Extra { get; init; }
 }
 
 public record TenantResponse(
@@ -535,7 +579,8 @@ public record TenantResponse(
     [property: JsonPropertyName("theme_settings")] ThemeSettingsDto? ThemeSettings,
     [property: JsonPropertyName("logo_square")] FileResponse? LogoSquare,
     [property: JsonPropertyName("logo_standard")] FileResponse? LogoStandard,
-    [property: JsonPropertyName("google_maps_key")] string? GoogleMapsKey
+    [property: JsonPropertyName("google_maps_key")] string? GoogleMapsKey,
+    [property: JsonPropertyName("require_email_confirmation")] bool? RequireEmailConfirmation = null
 );
 
 public record UpdateTenantRequest(
@@ -545,7 +590,8 @@ public record UpdateTenantRequest(
     [property: JsonPropertyName("logo_square_id")] int? LogoSquareId,
     [property: JsonPropertyName("logo_standard_id")] int? LogoStandardId,
     [property: JsonPropertyName("tenant_settings")] TenantSettingsDto? TenantSettings,
-    [property: JsonPropertyName("theme_settings")] ThemeSettingsDto? ThemeSettings
+    [property: JsonPropertyName("theme_settings")] ThemeSettingsDto? ThemeSettings,
+    [property: JsonPropertyName("require_email_confirmation")] bool? RequireEmailConfirmation = null
 );
 
 public record EmailTemplate(
