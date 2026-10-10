@@ -592,8 +592,17 @@ anythink api-keys revoke 42 --yes
 Manage dashboard sidebar menus in the active project. Menus control what entities appear in the Anythink dashboard and how they are grouped.
 
 ```
-anythink menus list                              List all menus with tree structure
-anythink menus add-item <menu_id> <entity>       Add an entity to a dashboard menu
+anythink menus list                                        List all menus with tree structure
+anythink menus get <menu_id> [--json]                      Show one menu (and its role) with its items and child items
+anythink menus create <name> <role_id>                     Create a menu shown to a role
+anythink menus update <menu_id> [--name <text>] [--role <id>]
+                                                           Rename a menu or change its role
+anythink menus delete <menu_id> [--yes]                    Delete a menu and all of its items
+anythink menus add-item <menu_id> <entity>                 Add an entity to a dashboard menu
+anythink menus update-item <menu_id> <item_id> [options]   Change an item's name, icon, link or parent
+anythink menus remove-item <menu_id> <item_id> [--yes]     Remove an item, along with its child items
+anythink menus reorder-items <menu_id> <item_ids>          Set the order of items that share a parent
+anythink menus reorder <menu_ids>                          Set the order of menus
 ```
 
 **Options — `menus add-item`**
@@ -604,17 +613,47 @@ anythink menus add-item <menu_id> <entity>       Add an entity to a dashboard me
 | `--name <text>`   | Display name (defaults to entity name, title-cased)  |
 | `--parent <id>`   | Parent menu item ID for nesting under a group        |
 
+**Options — `menus update-item`** (only the fields you pass change)
+
+| Flag              | Description                                                |
+| ----------------- | ---------------------------------------------------------- |
+| `--name <text>`   | New display name                                           |
+| `--icon <name>`   | New Lucide icon name                                       |
+| `--entity <name>` | Point the item at an entity's page (instead of `--href`)   |
+| `--href <path>`   | Point the item at any path (instead of `--entity`)         |
+| `--parent <id>`   | Parent item ID to nest under; `0` moves it to the top level |
+
+`reorder-items` and `reorder` take comma-separated IDs in the order you want them (`301,299,300`). The items you name take the first places within their group; items you leave out follow in their current order, and `reorder-items` needs all the items to share one parent. Locked items (the built-in ones) can't be changed, removed or moved; they keep their place, and the items between them reuse their own position numbers (they are only renumbered when two of them tie).
+
+`add-item` and `update-item --entity` look the entity up first (system entities count), and stop only if it doesn't exist; if the lookup itself fails (for example, no permission), the item is saved and a warning says the entity couldn't be checked. Moving an item to a new parent with `update-item --parent` puts it last among its new siblings.
+
+Removing an item also removes its direct child items. The command says so, and refuses when those children are locked or have items of their own.
+
+A role is shown only its first menu, so `create` (and `update --role`) warns when the role already has one. `delete` removes the menu's locked built-in items with it, and says when the role is left with no menu.
+
 **Examples**
 
 ```bash
 # List all menus and their items
 anythink menus list
 
+# Show menu 250 with the item IDs you need for the commands below
+anythink menus get 250
+
 # Add "Check-ins" under the Profiles group (parent 168) in admin menu (250)
 anythink menus add-item 250 check_ins --icon MessageCircle --parent 168
 
 # Add a top-level menu item
 anythink menus add-item 250 badges --icon Award
+
+# Rename an item and give it another icon
+anythink menus update-item 250 299 --name "Achievements" --icon Trophy
+
+# Remove an item
+anythink menus remove-item 250 299 --yes
+
+# Put items 301, 299 and 300 first, in that order
+anythink menus reorder-items 250 301,299,300
 ```
 
 ---

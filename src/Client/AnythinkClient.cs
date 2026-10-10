@@ -114,8 +114,8 @@ public class AnythinkClient : HttpApiClient
     public async Task<List<Entity>> GetEntitiesAsync()
         => (await GetAsync<List<Entity>>(_org + "/entities")) ?? [];
 
-    public async Task<Entity> GetEntityAsync(string name)
-        => (await GetAsync<Entity>(_org + $"/entities/{Seg(name)}"))
+    public async Task<Entity> GetEntityAsync(string name, bool includeSystem = false)
+        => (await GetAsync<Entity>(_org + $"/entities/{Seg(name)}" + (includeSystem ? "?includeSystem=true" : "")))
            ?? throw new AnythinkException($"Entity '{name}' not found.", 404);
 
     public Task<Entity> CreateEntityAsync(CreateEntityRequest req)
@@ -515,8 +515,23 @@ public class AnythinkClient : HttpApiClient
     public Task<MenuItemResponse> CreateMenuItemAsync(int menuId, CreateMenuItemRequest req)
         => PostAsync<MenuItemResponse>(_org + $"/menus/{menuId}/items", req);
 
+    public Task UpdateMenuAsync(int menuId, CreateMenuRequest req)
+        => PutVoidAsync(_org + $"/menus/{menuId}", req);
+
+    public Task UpdateMenuItemAsync(int menuId, int itemId, CreateMenuItemRequest req)
+        => PutVoidAsync(_org + $"/menus/{menuId}/items/{itemId}", req);
+
     public Task DeleteMenuAsync(int menuId)
         => DeleteAsync(_org + $"/menus/{menuId}");
+
+    public Task DeleteMenuItemAsync(int menuId, int itemId)
+        => DeleteAsync(_org + $"/menus/{menuId}/items/{itemId}");
+
+    public Task ReorderMenusAsync(IReadOnlyList<ReorderMenuRequest> order)
+        => PutVoidAsync(_org + "/menus/reorder", order);
+
+    public Task ReorderMenuItemsAsync(int menuId, IReadOnlyList<ReorderMenuItemRequest> order)
+        => PutVoidAsync(_org + $"/menus/{menuId}/items/reorder", order);
 
     // ── Tenant / Organisation Settings ────────────────────────────────────────
 
