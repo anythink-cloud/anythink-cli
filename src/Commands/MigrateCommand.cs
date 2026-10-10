@@ -588,12 +588,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                         }
 
                         var newSettings = srcTenant.TenantSettings == null ? null
-                            : new TenantSettingsDto(
-                                srcTenant.TenantSettings.AllowRegistrations,
-                                remappedDefaultRoleId,
-                                srcTenant.TenantSettings.AllowedApplicationUrls,
-                                srcTenant.TenantSettings.PaymentSuccessUrl,
-                                srcTenant.TenantSettings.PaymentCancelUrl);
+                            : srcTenant.TenantSettings with { DefaultRoleId = remappedDefaultRoleId };
 
                         try
                         {
