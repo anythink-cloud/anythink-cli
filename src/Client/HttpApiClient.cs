@@ -12,7 +12,7 @@ public class AnythinkException(string message, int statusCode) : Exception(messa
     public int StatusCode { get; } = statusCode;
     public TimeSpan? RetryAfter { get; init; }
 
-    public string StatusOnlyMessage => StatusCode is >= 200 and < 300
+    public virtual string StatusOnlyMessage => StatusCode is >= 200 and < 300
         ? "The project API returned a response this command couldn't read."
         : $"The project API returned status {StatusCode}.";
 }
@@ -21,7 +21,10 @@ public class AnythinkException(string message, int statusCode) : Exception(messa
 /// User-facing CLI error that carries Spectre markup.
 /// HandleError displays it directly without double-printing.
 /// </summary>
-public class CliException(string markupMessage) : Exception(markupMessage) { }
+public class CliException(string markupMessage) : Exception(markupMessage)
+{
+    public string MarkupMessage => Message;
+}
 
 /// <summary>
 /// Shared HTTP infrastructure for AnythinkClient and BillingClient.
@@ -78,11 +81,14 @@ public abstract class HttpApiClient
     protected async Task<T?> GetAsync<T>(string url) =>
         await DeserializeAsync<T>(await Http.GetAsync(Target(url), ClientContext.Cancellation));
 
+    protected virtual AnythinkException Failure(string message, int statusCode, TimeSpan? retryAfter = null) =>
+        new(message, statusCode) { RetryAfter = retryAfter };
+
     protected async Task<T> PostAsync<T>(string url, object? body = null)
     {
         var r = await Http.PostAsync(Target(url), Serialize(body ?? new { }), ClientContext.Cancellation);
         return await DeserializeAsync<T>(r)
-               ?? throw new AnythinkException("Empty response.", (int)r.StatusCode);
+               ?? throw Failure("Empty response.", (int)r.StatusCode);
     }
 
     protected async Task<T?> PutAsync<T>(string url, object body)
@@ -91,7 +97,7 @@ public abstract class HttpApiClient
         // 204 No Content = success with no body (e.g. entity item updates)
         if (r.StatusCode == System.Net.HttpStatusCode.NoContent) return default;
         return await DeserializeAsync<T>(r)
-               ?? throw new AnythinkException("Empty response.", (int)r.StatusCode);
+               ?? throw Failure("Empty response.", (int)r.StatusCode);
     }
 
     protected async Task PostVoidAsync(string url, object? body = null)
@@ -127,12 +133,12 @@ public abstract class HttpApiClient
         return new StringContent(json, Encoding.UTF8, "application/json");
     }
 
-    private static AnythinkException Failure(string raw, HttpResponseMessage r)
+    private AnythinkException Failure(string raw, HttpResponseMessage r)
     {
         var wait = r.Headers.RetryAfter?.Delta
                    ?? (r.Headers.RetryAfter?.Date is { } at ? (TimeSpan?)(at - DateTimeOffset.UtcNow) : null)
                    ?? RateLimitWait(raw, r);
-        return new AnythinkException(raw, (int)r.StatusCode) { RetryAfter = wait is { } w && w > TimeSpan.Zero ? w : null };
+        return Failure(raw, (int)r.StatusCode, wait is { } w && w > TimeSpan.Zero ? w : null);
     }
 
     // The rate limiter reports its wait as retry_after seconds in the body or an X-RateLimit-Reset header, not Retry-After.
@@ -150,13 +156,13 @@ public abstract class HttpApiClient
         return null;
     }
 
-    private static async Task<T?> DeserializeAsync<T>(HttpResponseMessage r)
+    private async Task<T?> DeserializeAsync<T>(HttpResponseMessage r)
     {
         var raw = await r.Content.ReadAsStringAsync();
         if (!r.IsSuccessStatusCode) throw Failure(raw, r);
         if (string.IsNullOrWhiteSpace(raw)) return default;
         try { return JsonSerializer.Deserialize<T>(raw, JsonOpts); }
         catch (JsonException ex)
-        { throw new AnythinkException($"Parse error: {ex.Message}\n{raw}", (int)r.StatusCode); }
+        { throw Failure($"Parse error: {ex.Message}\n{raw}", (int)r.StatusCode); }
     }
 }

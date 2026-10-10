@@ -13,6 +13,10 @@ public abstract class BasePlatformCommand<TSettings> : BaseCommand<TSettings>
 {
     protected BillingClient GetBillingClient()
     {
+        if (ClientContext.Billing is { } caller)
+            return caller;
+        ClientContext.RequireLocal();
+
         var platform = EffectivePlatform();
         if (string.IsNullOrEmpty(platform.Token))
             throw new CliException(
@@ -23,7 +27,14 @@ public abstract class BasePlatformCommand<TSettings> : BaseCommand<TSettings>
         return new BillingClient(platform);
     }
 
-    protected BillingClient GetUnauthenticatedBillingClient() => new(EffectivePlatform());
+    protected BillingClient GetUnauthenticatedBillingClient()
+    {
+        if (ClientContext.Billing is { } caller)
+            return caller.Unauthenticated();
+        ClientContext.RequireLocal();
+
+        return new(EffectivePlatform());
+    }
 
     protected PlatformContext ResolvePlatformContext(string? myanythinkUrlFlag = null, string? billingUrlFlag = null)
         => ConfigService.ResolvePlatformContext(myanythinkUrlFlag, billingUrlFlag);
@@ -51,5 +62,24 @@ public abstract class BasePlatformCommand<TSettings> : BaseCommand<TSettings>
 
         throw new CliException(
             "No billing account selected. Run [bold #F97316]anythink accounts use <id>[/]");
+    }
+
+    protected async Task<Guid> ResolveAccountIdAsync(string? flagValue)
+    {
+        if (!ClientContext.Remote)
+            return GetAccountId(flagValue);
+
+        if (!string.IsNullOrEmpty(flagValue))
+            return Guid.TryParse(flagValue, out var id)
+                ? id
+                : throw new CliException("'account_id' must be an account id from accounts_list.");
+
+        var accounts = await GetBillingClient().GetAccountsAsync();
+        return accounts.Count switch
+        {
+            1 => accounts[0].Id,
+            0 => throw new CliException("You have no billing account yet. Create one with accounts_create."),
+            _ => throw new CliException($"You have {accounts.Count} billing accounts. Pass 'account_id', one of the ids from accounts_list.")
+        };
     }
 }

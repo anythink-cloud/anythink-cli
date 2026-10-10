@@ -16,11 +16,15 @@ public sealed class HostedCredentials
     public string? ProjectId { get; set; }
     public string? InboundToken { get; set; }
     public bool AllProjects { get; set; }
+    public bool AccountAccess { get; set; }
 }
 
 internal static class HostedAuth
 {
     public static bool IsAllProjects([NotNullWhen(true)] ClaimsPrincipal? principal) => principal?.FindFirstValue("projects") == "all";
+
+    public static bool HasAccountScope(ClaimsPrincipal? principal) =>
+        principal?.FindAll("scope").Any(claim => claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains("account")) == true;
 
     public static bool IsValidOrgId(string? value) => !string.IsNullOrEmpty(value) && value.All(char.IsAsciiDigit);
 
@@ -68,6 +72,7 @@ internal static class HostedAuth
 
         var creds = context.RequestServices.GetRequiredService<HostedCredentials>();
         creds.InboundToken = inbound;
+        creds.AccountAccess = HasAccountScope(context.User);
         if (IsAllProjects(context.User))
         {
             creds.AllProjects = true;

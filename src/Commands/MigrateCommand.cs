@@ -122,7 +122,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         }
         catch (CliException ex)
         {
-            AnsiConsole.MarkupLine($"[red]✗[/] {ex.Message}");
+            AnsiConsole.MarkupLine($"[red]✗[/] {ex.MarkupMessage}");
             return 1;
         }
 
@@ -440,44 +440,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
 
                         workflowsCreated.Value++;
 
-                        var steps = wf.Steps ?? [];
-                        if (steps.Count > 0)
-                        {
-                            var stepIdMap = new Dictionary<int, int>();
-                            var ordered = steps.OrderByDescending(s => s.IsStartStep).ToList();
-
-                            foreach (var step in ordered)
-                            {
-                                try
-                                {
-                                    var cs = await dstClient.AddWorkflowStepAsync(created.Id,
-                                        new CreateWorkflowStepRequest(step.Key, step.Name, step.Action,
-                                            step.Enabled, step.IsStartStep, step.Description, step.Parameters));
-                                    stepIdMap[step.Id] = cs.Id;
-                                }
-                                catch (AnythinkException ex)
-                                {
-                                    errors.Add($"Step '{step.Name}' in workflow '{wf.Name}': {ex.Message}");
-                                }
-                            }
-
-                            foreach (var step in ordered)
-                            {
-                                if (step.OnSuccessStepId == null && step.OnFailureStepId == null) continue;
-                                if (!stepIdMap.TryGetValue(step.Id, out var dstStepId)) continue;
-                                int? dstSuccess = step.OnSuccessStepId.HasValue && stepIdMap.TryGetValue(step.OnSuccessStepId.Value, out var s) ? s : null;
-                                int? dstFailure = step.OnFailureStepId.HasValue && stepIdMap.TryGetValue(step.OnFailureStepId.Value, out var f) ? f : null;
-                                try
-                                {
-                                    await dstClient.UpdateWorkflowStepAsync(created.Id, dstStepId,
-                                        new UpdateWorkflowStepLinksRequest(step.Name, step.Action, dstSuccess, dstFailure));
-                                }
-                                catch (AnythinkException ex)
-                                {
-                                    errors.Add($"Step link '{step.Name}': {ex.Message}");
-                                }
-                            }
-                        }
+                        await CopyWorkflowStepsAsync(dstClient, created.Id, wf, errors);
 
                         wfTask.Increment(1);
                     }
@@ -1178,6 +1141,49 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
 
     internal static TenantSettingsDto? BuildDestinationSettings(TenantSettingsDto? source, int? remappedDefaultRoleId)
         => source is null ? null : source with { DefaultRoleId = remappedDefaultRoleId };
+
+    internal static async Task CopyWorkflowStepsAsync(
+        AnythinkClient dstClient, int dstWorkflowId, Workflow src, List<string> errors)
+    {
+        var steps = src.Steps ?? [];
+        if (steps.Count == 0) return;
+
+        var stepIdMap = new Dictionary<int, int>();
+        var ordered = steps.OrderByDescending(s => s.IsStartStep).ToList();
+
+        foreach (var step in ordered)
+        {
+            try
+            {
+                var cs = await dstClient.AddWorkflowStepAsync(dstWorkflowId,
+                    new CreateWorkflowStepRequest(step.Key, step.Name, step.Action,
+                        step.Enabled, step.IsStartStep, step.Description, step.Parameters));
+                stepIdMap[step.Id] = cs.Id;
+            }
+            catch (AnythinkException ex)
+            {
+                errors.Add($"Step '{step.Name}' in workflow '{src.Name}': {ex.Message}");
+            }
+        }
+
+        foreach (var step in ordered)
+        {
+            if (step.OnSuccessStepId == null && step.OnFailureStepId == null) continue;
+            if (!stepIdMap.TryGetValue(step.Id, out var dstStepId)) continue;
+            int? dstSuccess = step.OnSuccessStepId.HasValue && stepIdMap.TryGetValue(step.OnSuccessStepId.Value, out var s) ? s : null;
+            int? dstFailure = step.OnFailureStepId.HasValue && stepIdMap.TryGetValue(step.OnFailureStepId.Value, out var f) ? f : null;
+            try
+            {
+                await dstClient.UpdateWorkflowStepFullAsync(dstWorkflowId, dstStepId,
+                    new UpdateWorkflowStepRequest(step.Name, step.Description, step.Enabled, step.Action,
+                        step.Parameters, step.IsStartStep, dstSuccess, dstFailure));
+            }
+            catch (AnythinkException ex)
+            {
+                errors.Add($"Step link '{step.Name}': {ex.Message}");
+            }
+        }
+    }
 
     /// <summary>
     /// Remaps the org ID in an href from source to destination.

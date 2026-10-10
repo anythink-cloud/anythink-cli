@@ -61,7 +61,7 @@ internal sealed class DataImportRunner(
             if (!o.Interactive)
                 throw new CliException("Refusing to import without confirmation in a non-interactive session. Run with [bold #F97316]--dry-run[/] first, then add [bold #F97316]--yes[/].");
             var estimate = EstimateRows(o.FilePath, format) is { } n ? $"about {n}" : "unknown";
-            if (!(confirm ?? DefaultConfirm)($"Import into [bold #F97316]{Spectre.Console.Markup.Escape(o.Entity)}[/] from {Spectre.Console.Markup.Escape(o.FilePath)} ({estimate} rows)?"))
+            if (!(confirm ?? DefaultConfirm)($"Import into {o.Entity} from {o.FilePath} ({estimate} rows)?"))
                 return new DataImportResult(0, 0, 0, 0, true, [], []);
         }
 
@@ -179,7 +179,7 @@ internal sealed class DataImportRunner(
         return text.Length > 300 ? text[..300] + "…" : text;
     }
 
-    private static bool DefaultConfirm(string prompt) => Spectre.Console.AnsiConsole.Confirm(prompt, defaultValue: false);
+    private static bool DefaultConfirm(string prompt) => Spectre.Console.AnsiConsole.Confirm(Spectre.Console.Markup.Escape(prompt), defaultValue: false);
 
     internal static int? EstimateRows(string path, DataFormat format)
     {
