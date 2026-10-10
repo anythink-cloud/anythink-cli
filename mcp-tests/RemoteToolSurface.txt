@@ -27,6 +27,12 @@ data_list [read-only] entity filter? limit? page?
 data_rls [destructive] entity id readonly? user?
 data_update [destructive] entity id data?
 docs [read-only]
+email_preview [read-only] content_text? subject? wrapper_text?
+email_shell_show [read-only]
+email_shell_update [destructive] html_text? reset?
+email_templates_list [read-only]
+email_templates_show [read-only] template_type rendered?
+email_templates_update [destructive] template_type content_text? subject?
 entities_create [write] name junction? lock_records? public? rls?
 entities_delete [destructive] name
 entities_get [read-only] name

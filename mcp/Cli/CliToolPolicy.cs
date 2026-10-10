@@ -59,7 +59,15 @@ public static class CliToolPolicy
             "data export"];
 
     internal static readonly string[] HiddenRemotely =
-        ["workflows create --filter-file", "workflows export --output", "data list --all"];
+    [
+        "workflows create --filter-file",
+        "workflows export --output",
+        "data list --all",
+        "email templates update --content",
+        "email preview --content",
+        "email preview --wrapper",
+        "email shell update --html",
+    ];
 
     private static readonly string[] FreeTextArguments =
         [
@@ -118,7 +126,8 @@ public static class CliToolPolicy
         "data",
         "preview",
         "platform-metrics",
-        "widget-preview"
+        "widget-preview",
+        "show",
     ];
 
     private static readonly string[] ReadOnlyRemotely = ["workflows export"];
