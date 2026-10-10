@@ -91,6 +91,18 @@ public class AnythinkClient : HttpApiClient
         return content;
     }
 
+    public async IAsyncEnumerable<string> FetchPagesAsync(string url)
+    {
+        var size = Math.Min(FetchPaging.QueryInt(url, "pageSize") ?? FetchPaging.MaxPageSize, FetchPaging.MaxPageSize);
+        var sized = FetchPaging.WithQuery(url, "pageSize", size);
+        for (var page = FetchPaging.QueryInt(url, "page") ?? 1; ; page++)
+        {
+            var body = await FetchRawAsync(FetchPaging.WithQuery(sized, "page", page));
+            yield return body;
+            if (!FetchPaging.HasNextPage(body)) yield break;
+        }
+    }
+
     // ── Project Auth ──────────────────────────────────────────────────────────
 
     public Task<LoginResponse> ExchangeTransferTokenAsync(string transferToken)

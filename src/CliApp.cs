@@ -670,6 +670,7 @@ public static class CliApp
             .WithDescription("Make an authenticated API request to the active project")
             .WithExample("fetch", "/integrations/definitions")
             .WithExample("fetch", "/integrations/definitions/slack/fields/channel/options")
+            .WithExample("fetch", "/workflows/12/jobs", "--all")
             .WithExample("fetch", "/integrations/connections", "--method", "POST", "--body", "{\"name\":\"test\"}");
 
         // ── API explorer ──────────────────────────────────────────────────────────
