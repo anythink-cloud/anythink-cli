@@ -95,7 +95,7 @@ public class SecretsCreateCommand : BaseCommand<SecretCreateSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Creating secret '{settings.Key}'...", async _ =>
+                .StartAsync(Renderer.Status($"Creating secret '{settings.Key}'..."), async _ =>
                 {
                     created = await client.CreateSecretAsync(new CreateSecretRequest(settings.Key, value));
                 });
@@ -148,7 +148,7 @@ public class SecretsUpdateCommand : BaseCommand<SecretKeySettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Updating secret '{settings.Key}'...", async _ =>
+                .StartAsync(Renderer.Status($"Updating secret '{settings.Key}'..."), async _ =>
                 {
                     await client.UpdateSecretAsync(settings.Key, new UpdateSecretRequest(value));
                 });
@@ -195,7 +195,7 @@ public class SecretsDeleteCommand : BaseCommand<SecretDeleteSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Deleting secret '{settings.Key}'...", async _ =>
+                .StartAsync(Renderer.Status($"Deleting secret '{settings.Key}'..."), async _ =>
                 {
                     await client.DeleteSecretAsync(settings.Key);
                 });

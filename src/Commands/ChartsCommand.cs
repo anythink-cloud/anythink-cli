@@ -19,10 +19,10 @@ internal static class ChartsOutput
 {
     private static readonly System.Text.Json.JsonSerializerOptions Compact = new(JsonOutput.PrettyRelaxed) { WriteIndented = false };
 
-    public static async Task<T> WithStatusAsync<T>(bool json, string markup, Func<Task<T>> work)
+    public static async Task<T> WithStatusAsync<T>(bool json, string text, Func<Task<T>> work)
     {
         if (json) return await work();
-        return await AnsiConsole.Status().Spinner(Spinner.Known.Dots).StartAsync(markup, async _ => await work());
+        return await AnsiConsole.Status().Spinner(Spinner.Known.Dots).StartAsync(Renderer.Status(text), async _ => await work());
     }
 
     public static void Print(JsonNode? node) =>
@@ -71,7 +71,7 @@ internal static class ChartsOutput
     {
         if (rows.Count == 0)
         {
-            Renderer.Info($"No {key}.");
+            Renderer.Info($"No {Markup.Escape(key)}.");
             return;
         }
 
@@ -306,7 +306,7 @@ public class ChartsCreateCommand : BaseCommand<ChartCreateSettings>
 
             var client = GetClient();
             var name = settings.Name.Trim();
-            var created = await ChartsOutput.WithStatusAsync(settings.Json, $"Creating chart '{Markup.Escape(name)}'...",
+            var created = await ChartsOutput.WithStatusAsync(settings.Json, $"Creating chart '{name}'...",
                 () => client.CreateChartAsync(build.Body!));
 
             if (settings.Json)
@@ -315,8 +315,8 @@ public class ChartsCreateCommand : BaseCommand<ChartCreateSettings>
                 return 0;
             }
 
-            Renderer.Success($"Chart [#F97316]{Markup.Escape(name)}[/] created (id: {ChartsOutput.Display(created["id"])}).");
-            Renderer.Info($"Put it on a dashboard with: anythink dashboards add-chart <dashboard-id> {ChartsOutput.Display(created["id"])}");
+            Renderer.Success($"Chart [#F97316]{Markup.Escape(name)}[/] created (id: {Markup.Escape(ChartsOutput.Display(created["id"]))}).");
+            Renderer.Info(Markup.Escape($"Put it on a dashboard with: anythink dashboards add-chart <dashboard-id> {ChartsOutput.Display(created["id"])}"));
             return 0;
         }
         catch (Exception ex)

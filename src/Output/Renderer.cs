@@ -15,6 +15,9 @@ public static class Renderer
     public static void Warn(string msg) => AnsiConsole.MarkupLine($"[yellow]![/] {msg}");
     public static void Error(string msg) => AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(msg)}");
 
+    // Spinner text is parsed as markup on a background thread, where a bad tag kills the process.
+    public static string Status(string plainText) => Markup.Escape(plainText);
+
     public static void Header(string title)
     {
         AnsiConsole.Write(new Rule($"[bold #F97316]{Markup.Escape(title)}[/]").LeftJustified());
@@ -25,7 +28,7 @@ public static class Renderer
         if (value is null)
             AnsiConsole.MarkupLine($"  [dim]{Markup.Escape(key)}:[/] [dim]—[/]");
         else
-            AnsiConsole.MarkupLine($"  [dim]{Markup.Escape(key)}:[/] [{color}]{Markup.Escape(value)}[/]");
+            AnsiConsole.MarkupLine($"  [dim]{Markup.Escape(key)}:[/] [{Markup.Escape(color)}]{Markup.Escape(value)}[/]");
     }
 
     public static void PrintJson(string json)

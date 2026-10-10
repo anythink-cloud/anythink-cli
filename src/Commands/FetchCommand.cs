@@ -50,7 +50,7 @@ public class FetchCommand : BaseCommand<FetchSettings>
                 Renderer.Warn($"pageSize capped at {FetchPaging.MaxPageSize}. Use --all to fetch every page.");
             }
 
-            Renderer.Info($"[bold]{settings.Method}[/] {url}");
+            Renderer.Info($"[bold]{Markup.Escape(settings.Method)}[/] {Markup.Escape(url)}");
 
             if (settings.All)
                 await foreach (var page in client.FetchPagesAsync(url))

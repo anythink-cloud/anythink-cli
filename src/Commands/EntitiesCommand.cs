@@ -79,7 +79,7 @@ public class EntitiesGetCommand : BaseCommand<EntityGetSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Fetching entity '{settings.Name}'...", async _ =>
+                .StartAsync(Renderer.Status($"Fetching entity '{settings.Name}'..."), async _ =>
                 {
                     entity = await client.GetEntityAsync(settings.Name);
                 });
@@ -160,7 +160,7 @@ public class EntitiesCreateCommand : BaseCommand<EntityCreateSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Creating entity '{settings.Name}'...", async _ =>
+                .StartAsync(Renderer.Status($"Creating entity '{settings.Name}'..."), async _ =>
                 {
                     entity = await client.CreateEntityAsync(new CreateEntityRequest(
                         settings.Name,
@@ -223,7 +223,7 @@ public class EntitiesUpdateCommand : BaseCommand<EntityUpdateSettings>
             Entity? updated = null;
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Updating entity '{settings.Name}'...", async _ =>
+                .StartAsync(Renderer.Status($"Updating entity '{settings.Name}'..."), async _ =>
                 {
                     updated = await client.UpdateEntityAsync(settings.Name, req);
                 });
@@ -259,7 +259,7 @@ public class EntitiesDeleteCommand : BaseCommand<EntityDeleteSettings>
         if (!settings.Yes)
         {
             var confirm = AnsiConsole.Confirm(
-                $"[yellow]Delete entity[/] [bold red]{settings.Name}[/][yellow]? This will drop all data.[/]",
+                $"[yellow]Delete entity[/] [bold red]{Markup.Escape(settings.Name)}[/][yellow]? This will drop all data.[/]",
                 defaultValue: false);
             if (!confirm)
             {
@@ -274,7 +274,7 @@ public class EntitiesDeleteCommand : BaseCommand<EntityDeleteSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Deleting entity '{settings.Name}'...", async _ =>
+                .StartAsync(Renderer.Status($"Deleting entity '{settings.Name}'..."), async _ =>
                 {
                     await client.DeleteEntityAsync(settings.Name);
                 });

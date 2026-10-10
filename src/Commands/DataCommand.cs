@@ -85,7 +85,7 @@ public class DataListCommand : BaseCommand<DataListSettings>
             // Table output — single page only.
             var result = await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Fetching {settings.Entity} items...", async _ =>
+                .StartAsync(Renderer.Status($"Fetching {settings.Entity} items..."), async _ =>
                     await client.ListItemsAsync(settings.Entity, settings.Page, settings.Limit, settings.Filter));
 
             var items = result.Items;
@@ -155,7 +155,7 @@ public class DataGetCommand : BaseCommand<DataGetSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Fetching {settings.Entity}/{settings.Id}...", async _ =>
+                .StartAsync(Renderer.Status($"Fetching {settings.Entity}/{settings.Id}..."), async _ =>
                 {
                     item = await client.GetItemAsync(settings.Entity, settings.Id);
                 });
@@ -236,7 +236,7 @@ public class DataCreateCommand : BaseCommand<DataCreateSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Creating {settings.Entity} record...", async _ =>
+                .StartAsync(Renderer.Status($"Creating {settings.Entity} record..."), async _ =>
                 {
                     created = await client.CreateItemAsync(settings.Entity, data);
                 });
@@ -291,7 +291,7 @@ public class DataUpdateCommand : BaseCommand<DataUpdateSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Updating {settings.Entity}/{settings.Id}...", async _ =>
+                .StartAsync(Renderer.Status($"Updating {settings.Entity}/{settings.Id}..."), async _ =>
                 {
                     updated = await client.UpdateItemAsync(settings.Entity, settings.Id, data);
                 });
@@ -332,7 +332,7 @@ public class DataDeleteCommand : BaseCommand<DataDeleteSettings>
         if (!settings.Yes)
         {
             var confirm = AnsiConsole.Confirm(
-                $"[yellow]Delete[/] [bold red]{settings.Entity}/{settings.Id}[/][yellow]?[/]",
+                $"[yellow]Delete[/] [bold red]{Markup.Escape(settings.Entity)}/{settings.Id}[/][yellow]?[/]",
                 defaultValue: false);
             if (!confirm) { Renderer.Info("Cancelled."); return 0; }
         }
@@ -423,12 +423,12 @@ public class DataRlsCommand : BaseCommand<DataRlsSettings>
                 // Set RLS user
                 await AnsiConsole.Status()
                     .Spinner(Spinner.Known.Dots)
-                    .StartAsync($"Setting RLS access for user {settings.UserId}...", async _ =>
+                    .StartAsync(Renderer.Status($"Setting RLS access for user {settings.UserId}..."), async _ =>
                     {
                         await client.SetItemRlsUserAsync(settings.Entity, settings.Id, settings.UserId.Value, settings.ReadOnly);
                     });
 
-                Renderer.Success($"RLS access set for user {settings.UserId} on {settings.Entity}/{settings.Id} (readonly: {settings.ReadOnly}).");
+                Renderer.Success($"RLS access set for user {settings.UserId} on {Markup.Escape(settings.Entity)}/{settings.Id} (readonly: {settings.ReadOnly}).");
             }
 
             return 0;

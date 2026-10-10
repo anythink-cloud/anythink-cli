@@ -272,7 +272,7 @@ internal sealed record CorsOrigin(string Value, string? Warning)
     }
 
     private static CliException Invalid(string input, string why) =>
-        new($"'{Markup.Escape(input)}' is not a valid origin: {why}.");
+        new($"'{Markup.Escape(input)}' is not a valid origin: {Markup.Escape(why)}.");
 }
 
 // ── settings get ─────────────────────────────────────────────────────────────
@@ -377,7 +377,7 @@ public class SettingsSetCommand : BaseCommand<SettingsSetSettings>
 
             if (result == SaveResult.UnknownKey)
             {
-                Renderer.Error($"Unknown setting key '{Markup.Escape(s.Key)}'.");
+                Renderer.Error($"Unknown setting key '{s.Key}'.");
                 AnsiConsole.MarkupLine("[dim]Run [bold]anythink settings get[/] to see available keys. For CORS URLs use [bold]anythink settings cors add/remove[/].[/]");
                 return 1;
             }

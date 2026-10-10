@@ -136,7 +136,7 @@ public class MenuAddItemCommand : BaseCommand<MenuAddItemSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Adding '{Markup.Escape(displayName)}' to menu {settings.MenuId}...", async _ =>
+                .StartAsync(Renderer.Status($"Adding '{displayName}' to menu {settings.MenuId}..."), async _ =>
                 {
                     item = await client.CreateMenuItemAsync(settings.MenuId, new CreateMenuItemRequest(
                         displayName,
@@ -252,7 +252,7 @@ public class MenuCreateCommand : BaseCommand<MenuCreateSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Creating menu '{Markup.Escape(settings.Name)}'...", async _ =>
+                .StartAsync(Renderer.Status($"Creating menu '{settings.Name}'..."), async _ =>
                 {
                     menu = await client.CreateMenuAsync(new CreateMenuRequest(settings.Name, settings.RoleId));
                 });
@@ -313,7 +313,7 @@ public class MenuUpdateCommand : BaseCommand<MenuUpdateSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Updating menu {settings.MenuId}...", async _ =>
+                .StartAsync(Renderer.Status($"Updating menu {settings.MenuId}..."), async _ =>
                 {
                     await client.UpdateMenuAsync(settings.MenuId, request);
                 });
@@ -374,7 +374,7 @@ public class MenuDeleteCommand : BaseCommand<MenuDeleteSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Deleting menu {settings.MenuId}...", async _ =>
+                .StartAsync(Renderer.Status($"Deleting menu {settings.MenuId}..."), async _ =>
                 {
                     await client.DeleteMenuAsync(settings.MenuId);
                 });
@@ -488,7 +488,7 @@ public class MenuUpdateItemCommand : BaseCommand<MenuUpdateItemSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Updating menu item {item.Id}...", async _ =>
+                .StartAsync(Renderer.Status($"Updating menu item {item.Id}..."), async _ =>
                 {
                     await client.UpdateMenuItemAsync(settings.MenuId, item.Id, request);
                 });
@@ -590,7 +590,7 @@ public class MenuRemoveItemCommand : BaseCommand<MenuRemoveItemSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Removing menu item {item.Id}...", async _ =>
+                .StartAsync(Renderer.Status($"Removing menu item {item.Id}..."), async _ =>
                 {
                     await client.DeleteMenuItemAsync(settings.MenuId, item.Id);
                 });
@@ -654,7 +654,7 @@ public class MenuReorderItemsCommand : BaseCommand<MenuReorderItemsSettings>
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Reordering items in menu {settings.MenuId}...", async _ =>
+                .StartAsync(Renderer.Status($"Reordering items in menu {settings.MenuId}..."), async _ =>
                 {
                     await client.ReorderMenuItemsAsync(settings.MenuId, plan);
                 });
