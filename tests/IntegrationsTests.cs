@@ -270,10 +270,10 @@ public class IntegrationsTests
     [Fact]
     public void IntegrationsCallbackUrl_DerivesDashboardUrl_FromCloudApiUrl()
     {
-        var client = new AnythinkClient("37523255", "https://api.uk01-lon.anythink.cloud");
+        var client = new AnythinkClient("12345678", "https://api.acme.anythink.cloud");
 
         client.IntegrationsCallbackUrl.Should().Be(
-            "https://uk01-lon.anythink.cloud/org/37523255/settings/integrations/callback");
+            "https://acme.anythink.cloud/org/12345678/settings/integrations/callback");
     }
 
     [Fact]
