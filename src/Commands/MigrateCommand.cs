@@ -257,6 +257,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         var fileIdMap = new Dictionary<int, int>();
 
         var errors = new List<string>();
+        var workflowsSkipped = new List<string>();
 
         await AnsiConsole.Progress()
             .AutoClear(false)
@@ -403,7 +404,22 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
 
                     foreach (var wf in srcFull.OrderBy(w => w.Name))
                     {
-                        if (dstWfNames.Contains(wf.Name) || settings.DryRun)
+                        if (dstWfNames.Contains(wf.Name))
+                        {
+                            workflowsCreated.Value++;
+                            wfTask.Increment(1);
+                            continue;
+                        }
+
+                        var (request, skipReason) = BuildWorkflowRequest(wf);
+                        if (skipReason is not null)
+                        {
+                            workflowsSkipped.Add(skipReason);
+                            wfTask.Increment(1);
+                            continue;
+                        }
+
+                        if (settings.DryRun)
                         {
                             workflowsCreated.Value++;
                             wfTask.Increment(1);
@@ -413,9 +429,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                         Workflow? created = null;
                         try
                         {
-                            created = await dstClient.CreateWorkflowAsync(new CreateWorkflowRequest(
-                                wf.Name, wf.Description, wf.Trigger, false,
-                                wf.Options.HasValue ? (object)wf.Options.Value : new { }));
+                            created = await dstClient.CreateWorkflowAsync(request);
                         }
                         catch (AnythinkException ex)
                         {
@@ -1048,7 +1062,8 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                                    (fieldsFailed.Value > 0 ? $"  [red]failed {fieldsFailed.Value}[/]" : ""));
         }
         if (scope.Contains(ScopeWorkflows))
-            AnsiConsole.MarkupLine($"  Workflows             [green]+{workflowsCreated.Value}[/]");
+            AnsiConsole.MarkupLine($"  Workflows             [green]+{workflowsCreated.Value}[/]" +
+                                   (workflowsSkipped.Count > 0 ? $"  [yellow]not copied {workflowsSkipped.Count}[/]" : ""));
         if (scope.Contains(ScopeRoles))
             AnsiConsole.MarkupLine($"  Roles                 [green]+{rolesCreated.Value}[/]  skipped [dim]{rolesSkipped.Value}[/]");
         if (scope.Contains(ScopeSettings))
@@ -1072,6 +1087,14 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
             }
         }
 
+        if (workflowsSkipped.Count > 0)
+        {
+            AnsiConsole.WriteLine();
+            AnsiConsole.MarkupLine($"[yellow]{workflowsSkipped.Count} workflow(s) not copied because a trigger is incomplete:[/]");
+            foreach (var skipped in workflowsSkipped)
+                AnsiConsole.MarkupLine($"  [dim]·[/] {Markup.Escape(skipped)}");
+        }
+
         if (errors.Count > 0)
         {
             AnsiConsole.WriteLine();
@@ -1089,7 +1112,18 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         else
             Renderer.Info("Nothing new — target is already up to date.");
 
-        return (fieldsFailed.Value > 0 || filesFailed.Value > 0 || recordsFailed.Value > 0 || errors.Count > 0) ? 2 : 0;
+        return ExitCode(fieldsFailed.Value, filesFailed.Value, recordsFailed.Value, errors.Count, workflowsSkipped.Count);
+    }
+
+    internal static int ExitCode(int fieldsFailed, int filesFailed, int recordsFailed, int errors, int workflowsSkipped) =>
+        fieldsFailed > 0 || filesFailed > 0 || recordsFailed > 0 || errors > 0 || workflowsSkipped > 0 ? 2 : 0;
+
+    internal static (CreateWorkflowRequest Request, string? SkipReason) BuildWorkflowRequest(Workflow wf)
+    {
+        var triggers = WorkflowTriggers.ForRequest(wf);
+        var problems = WorkflowTriggers.Problems(triggers);
+        var skipReason = problems.Count > 0 ? $"Workflow '{wf.Name}': {string.Join("; ", problems)}" : null;
+        return (new CreateWorkflowRequest(wf.Name, wf.Description, false, triggers, wf.Group), skipReason);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
