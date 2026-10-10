@@ -40,7 +40,10 @@ public class CliCommandToolTests
         dataList.Description.Should().Be("List records in an entity");
         dataList.Parameters.Should().ContainEquivalentOf(new
         {
-            Name = "entity", Kind = CliParameterKind.Argument, Position = 0, Required = true
+            Name = "entity",
+            Kind = CliParameterKind.Argument,
+            Position = 0,
+            Required = true
         });
         dataList.Parameters.Should().ContainEquivalentOf(new { Name = "limit", Token = "--limit", Kind = CliParameterKind.Scalar });
     }

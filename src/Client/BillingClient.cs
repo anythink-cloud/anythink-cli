@@ -83,14 +83,14 @@ public class BillingClient : HttpApiClient
         : base(p.Token, null)
     {
         _billing = p.BillingUrl.TrimEnd('/');
-        _auth    = $"{p.MyAnythinkUrl.TrimEnd('/')}/org/{p.MyAnythinkOrgId}";
+        _auth = $"{p.MyAnythinkUrl.TrimEnd('/')}/org/{p.MyAnythinkOrgId}";
     }
 
     /// <summary>Test-only constructor — accepts a pre-configured HttpClient (e.g. with a mock handler).</summary>
     internal BillingClient(PlatformConfig p, HttpClient http) : base(http)
     {
         _billing = p.BillingUrl.TrimEnd('/');
-        _auth    = $"{p.MyAnythinkUrl.TrimEnd('/')}/org/{p.MyAnythinkOrgId}";
+        _auth = $"{p.MyAnythinkUrl.TrimEnd('/')}/org/{p.MyAnythinkOrgId}";
     }
 
     public BillingClient(string billingUrl, HttpClient http, HttpClient anonymous) : base(http)

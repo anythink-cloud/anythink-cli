@@ -13,17 +13,17 @@ namespace AnythinkCli.Tests;
 public class RefreshTokenAsyncTests
 {
     private const string BaseUrl = "https://api.example.com";
-    private const string OrgId   = "42";
-    private const string RefTok  = "refresh-abc-123";
+    private const string OrgId = "42";
+    private const string RefTok = "refresh-abc-123";
 
     private static string RefreshUrl => $"{BaseUrl}/org/{OrgId}/auth/v1/refresh";
 
     private static string ValidResponse(string access = "new-access", string? refresh = "new-refresh", int? expiresIn = 3600) =>
         JsonSerializer.Serialize(new
         {
-            access_token  = access,
+            access_token = access,
             refresh_token = refresh,
-            expires_in    = expiresIn
+            expires_in = expiresIn
         });
 
     [Fact]
@@ -87,7 +87,7 @@ public class RefreshTokenAsyncTests
     [Fact]
     public async Task Posts_To_Correct_Url()
     {
-        var mock    = new MockHttpMessageHandler();
+        var mock = new MockHttpMessageHandler();
         var handler = mock.When(HttpMethod.Post, RefreshUrl).Respond("application/json", ValidResponse());
 
         await AnythinkClient.RefreshTokenAsync(BaseUrl, OrgId, RefTok, mock.ToHttpClient());
@@ -144,7 +144,7 @@ public class RefreshTokenAsyncTests
     [Fact]
     public async Task Trims_Trailing_Slash_From_BaseUrl()
     {
-        var mock    = new MockHttpMessageHandler();
+        var mock = new MockHttpMessageHandler();
         var handler = mock.When(HttpMethod.Post, RefreshUrl).Respond("application/json", ValidResponse());
 
         await AnythinkClient.RefreshTokenAsync(BaseUrl + "/", OrgId, RefTok, mock.ToHttpClient());
@@ -179,19 +179,19 @@ public class TryRefreshSyncTests : IDisposable
     private static Profile ExpiredProfile(string baseUrl = "https://api.example.com", string orgId = "42") =>
         new()
         {
-            OrgId          = orgId,
-            InstanceApiUrl =baseUrl,
-            AccessToken    = "old-access",
-            RefreshToken   = "old-refresh",
+            OrgId = orgId,
+            InstanceApiUrl = baseUrl,
+            AccessToken = "old-access",
+            RefreshToken = "old-refresh",
             TokenExpiresAt = DateTime.UtcNow.AddHours(-1)   // already expired
         };
 
     private static string TokenResponse(string access = "fresh-access", string? refresh = "fresh-refresh", int? expiresIn = 7200) =>
         JsonSerializer.Serialize(new
         {
-            access_token  = access,
+            access_token = access,
             refresh_token = refresh,
-            expires_in    = expiresIn
+            expires_in = expiresIn
         });
 
     private void SaveProfile(Profile profile, string key = "default")

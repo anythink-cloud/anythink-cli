@@ -151,8 +151,24 @@ public static class HostedMode
         });
 
         app.MapGet("/health", () => new { status = "healthy", timestamp = DateTime.UtcNow });
+        MapIcon(app, "/favicon.ico", "AnythinkMcp.favicon.ico", "image/x-icon");
+        MapIcon(app, "/icon.png", "AnythinkMcp.icon.png", "image/png");
         app.MapMcp(resourcePath).RequireAuthorization().RequireRateLimiting(ProjectConcurrencyPolicy);
 
         return app;
+    }
+
+    private static void MapIcon(WebApplication app, string path, string resource, string contentType)
+    {
+        using var stream = typeof(HostedMode).Assembly.GetManifestResourceStream(resource)
+            ?? throw new InvalidOperationException($"Missing embedded resource {resource}");
+        using var buffer = new MemoryStream();
+        stream.CopyTo(buffer);
+        var bytes = buffer.ToArray();
+        app.MapGet(path, (HttpContext context) =>
+        {
+            context.Response.Headers.CacheControl = "public, max-age=86400";
+            return Results.Bytes(bytes, contentType);
+        });
     }
 }

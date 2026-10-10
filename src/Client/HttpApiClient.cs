@@ -41,7 +41,7 @@ public abstract class HttpApiClient
     protected static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNameCaseInsensitive = true,
-        DefaultIgnoreCondition      = JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
     protected HttpApiClient(string? token, string? apiKey)
@@ -127,8 +127,8 @@ public abstract class HttpApiClient
         var raw = await r.Content.ReadAsStringAsync();
         if (!r.IsSuccessStatusCode) throw Failure(raw, (int)r.StatusCode);
         if (string.IsNullOrWhiteSpace(raw)) return default;
-        try   { return JsonSerializer.Deserialize<T>(raw, JsonOpts); }
+        try { return JsonSerializer.Deserialize<T>(raw, JsonOpts); }
         catch (JsonException ex)
-              { throw Failure($"Parse error: {ex.Message}\n{raw}", (int)r.StatusCode); }
+        { throw Failure($"Parse error: {ex.Message}\n{raw}", (int)r.StatusCode); }
     }
 }
