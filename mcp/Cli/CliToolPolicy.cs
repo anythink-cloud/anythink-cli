@@ -66,6 +66,16 @@ public static class CliToolPolicy
 
     private static readonly string[] AutomaticFlags = ["--json", "--yes"];
 
+    private const string PlanOnlyGroup = "import";
+
+    // Applying an import writes a whole project's schema and data, so a person must run it in a terminal; a future reviewed-plan apply command would be listed here.
+    private static readonly string[] ApplyCommands = [];
+
+    private static readonly string[] PlanOnlyHiddenFlags = ["--dry-run"];
+
+    private const string PlanOnlyNote =
+        " In this tool it only shows what the import would do and changes nothing. To apply it, a person has to run the command themselves in a terminal.";
+
     private static readonly HashSet<string> ReadOnlyVerbs =
     [
         "list",
@@ -132,14 +142,21 @@ public static class CliToolPolicy
         && (!Matches(command.Key, AccountGroups) || (scope == CliToolScope.Hosted && IsAccountCommand(command)))
         && (!IsRemote(scope) || !Matches(command.Key, ExcludedRemotely));
 
-    public static string Description(CliCommand command, CliToolScope scope) =>
-        scope == CliToolScope.Hosted && AccountDescriptions.TryGetValue(command.Key, out var description)
-            ? description
+    public static bool IsPlanOnly(CliCommand command) =>
+        Matches(command.Key, [PlanOnlyGroup]) && !Matches(command.Key, ApplyCommands);
+
+    public static string Description(CliCommand command, CliToolScope scope)
+    {
+        var description = scope == CliToolScope.Hosted && AccountDescriptions.TryGetValue(command.Key, out var adapted)
+            ? adapted
             : command.Description;
+        return IsPlanOnly(command) ? description.TrimEnd() + PlanOnlyNote : description;
+    }
 
     public static IReadOnlyList<CliParameter> Parameters(CliCommand command, CliToolScope scope) =>
         command.Parameters
             .Where(p => !AutomaticFlags.Contains(p.Token))
+            .Where(p => !IsPlanOnly(command) || !PlanOnlyHiddenFlags.Contains(p.Token))
             .Where(p => !IsRemote(scope) || !HiddenRemotely.Contains($"{command.Key} {p.Token}"))
             .Select(p => scope == CliToolScope.Hosted && AccountParameters.TryGetValue($"{command.Key} {p.Name}", out var adapted)
                 ? p with { Name = adapted.Name, Description = adapted.Description, Required = adapted.Required }
@@ -148,8 +165,9 @@ public static class CliToolPolicy
 
     public static IReadOnlyList<string> AutomaticArgs(CliCommand command) =>
         command.Parameters
-            .Where(p => p.Kind == CliParameterKind.Flag && AutomaticFlags.Contains(p.Token))
+            .Where(p => p.Kind == CliParameterKind.Flag && AutomaticFlags.Contains(p.Token) && !(IsPlanOnly(command) && p.Token == "--yes"))
             .Select(p => p.Token)
+            .Concat(IsPlanOnly(command) ? PlanOnlyHiddenFlags : [])
             .ToList();
 
     public static bool IsFreeText(CliCommand command, CliParameter parameter) =>
@@ -159,7 +177,7 @@ public static class CliToolPolicy
         value.Length > 0 && value.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-' or '.') && !value.Contains("..", StringComparison.Ordinal);
 
     public static bool IsReadOnly(CliCommand command, CliToolScope scope) =>
-        ReadOnlyVerbs.Contains(command.Verb) || ReadOnlyCommands.Contains(command.Key)
+        IsPlanOnly(command) || ReadOnlyVerbs.Contains(command.Verb) || ReadOnlyCommands.Contains(command.Key)
         || (IsRemote(scope) && ReadOnlyRemotely.Contains(command.Key));
 
     public static bool IsDestructive(CliCommand command, CliToolScope scope) =>
