@@ -13,7 +13,7 @@ public static class CliRunner
     static CliRunner() => AmbientConsole.Install();
 
     public static async Task<CliRunResult> RunAsync(
-        IReadOnlyList<string> args, AnythinkClient? client, CliToolScope scope, CancellationToken cancellationToken = default)
+        IReadOnlyList<string> args, AnythinkClient? client, CliToolScope scope, CancellationToken cancellationToken = default, int maxOutputCharacters = MaxOutputCharacters)
     {
         using var output = new StringWriter();
         AmbientConsole.Use(output);
@@ -38,16 +38,16 @@ public static class CliRunner
         var exitCode = await app.RunAsync(args);
         return cancellationToken.IsCancellationRequested
             ? new CliRunResult(1, "Cancelled.")
-            : new CliRunResult(exitCode, Capped(output.ToString().Trim()));
+            : new CliRunResult(exitCode, Capped(output.ToString().Trim(), maxOutputCharacters));
     }
 
-    private static string Capped(string text)
+    private static string Capped(string text, int limit)
     {
-        if (text.Length <= MaxOutputCharacters)
+        if (text.Length <= limit)
             return text;
 
-        var length = char.IsHighSurrogate(text[MaxOutputCharacters - 1]) ? MaxOutputCharacters - 1 : MaxOutputCharacters;
+        var length = char.IsHighSurrogate(text[limit - 1]) ? limit - 1 : limit;
         return text[..length]
-            + $"\n[Output cut off at {MaxOutputCharacters:N0} characters. Narrow the query (a filter, a smaller limit, fewer fields) to see the rest.]";
+            + $"\n[Output cut off at {limit:N0} characters. Narrow the query (a filter, a smaller limit, fewer fields) to see the rest.]";
     }
 }
