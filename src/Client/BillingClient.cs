@@ -95,7 +95,7 @@ public class BillingClient : HttpApiClient
 
     public BillingClient(string billingUrl, HttpClient http, HttpClient anonymous) : base(http)
     {
-        _billing   = billingUrl.TrimEnd('/');
+        _billing = billingUrl.TrimEnd('/');
         _anonymous = anonymous;
         ConfineTo(_billing);
     }

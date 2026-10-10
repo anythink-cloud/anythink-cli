@@ -149,7 +149,7 @@ public class AccountsCreateCommand : BasePlatformCommand<AccountsCreateSettings>
         }
         else
         {
-            name = settings.Name  ?? AnsiConsole.Ask<string>("[#F97316]Organisation name:[/]");
+            name = settings.Name ?? AnsiConsole.Ask<string>("[#F97316]Organisation name:[/]");
             email = settings.Email ?? AnsiConsole.Ask<string>("[#F97316]Billing email:[/]");
             currency = settings.Currency
                 ?? AnsiConsole.Prompt(
