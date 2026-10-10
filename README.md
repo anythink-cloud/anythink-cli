@@ -404,30 +404,45 @@ anythink search query "*" --filter "_geoRadius(51.5074,-0.1278,5000)"
 
 ### workflows
 
-Manage automation workflows. Workflows can be triggered on a cron schedule, when entities are created or updated, or manually.
+Manage automation workflows. A workflow can have several triggers: a cron schedule, an entity event, an API route, or a manual run.
 
 ```
-anythink workflows list                List all workflows
-anythink workflows get <id>            Get workflow details and steps
+anythink workflows list                List all workflows (--json for a compact summary)
+anythink workflows get <id>            Get workflow details and steps (--json for the full definition)
 anythink workflows create <name>       Create a new workflow
+anythink workflows update <id>         Rename a workflow or change its description
 anythink workflows enable <id>         Enable a workflow
 anythink workflows disable <id>        Disable a workflow
 anythink workflows trigger <id>        Manually trigger a workflow
 anythink workflows delete <id>         Delete a workflow
 ```
 
-**Options — `workflows create`**
+**Trigger types — `workflows create --trigger <type>`** (not case-sensitive; default `Manual`)
 
-| Flag               | Description                                                       |
-| ------------------ | ----------------------------------------------------------------- |
-| `--trigger <type>` | Trigger type: `Timed`, `EntityCreated`, `EntityUpdated`, `Manual` |
-| `--cron <expr>`    | Cron expression (for `Timed` trigger, e.g. `0 6 * * *`)           |
-| `--entity <name>`  | Entity name (for `EntityCreated` / `EntityUpdated` triggers)      |
+| Type     | Fires                                 | Required flag          | Other flags                          |
+| -------- | ------------------------------------- | ---------------------- | ------------------------------------ |
+| `Manual` | When run by hand, on an entity        | `--entity <name>`      |                                      |
+| `Event`  | When an event happens, such as a record being created | `--entity <name>` for the `Entity...` events | `--event <event>`, `--filter <json>` |
+| `Timed`  | On a cron schedule                    | `--cron <expr>`        |                                      |
+| `Api`    | When its API route is called          | `--api-route <route>`  |                                      |
+
+`--event` (not case-sensitive) is `EntityCreated` (default), `EntityUpdated`, `EntityDeleted`, `UserRegistered`, `UserInvited`, `SubscriptionCreated`, `SubscriptionActivated`, `SubscriptionExpired`, `PaymentCreated`, `PaymentSucceeded`, `PaymentFailed`, `PaymentMethodCaptured`, `PaymentMethodCaptureFailed`, `PaymentMethodRemoved` or `PushActionTaken`; only the three `Entity...` events need `--entity`. A trigger missing its required flag is rejected before anything is sent, and a flag that doesn't apply to the chosen type is ignored with a warning.
+
+**Other options — `workflows create`**
+
+| Flag                    | Description                                       |
+| ----------------------- | ------------------------------------------------- |
+| `--description <text>`  | Workflow description                              |
+| `--enabled`             | Enable the workflow straight away                 |
+| `--filter-file <path>`  | Read the `Event` filter JSON from a file          |
 
 **Examples**
 
 ```bash
 anythink workflows create daily-sync --trigger Timed --cron "0 6 * * *"
+anythink workflows create on-post --trigger Event --entity blog_posts --event EntityUpdated
+anythink workflows create import-hook --trigger Api --api-route hooks/import
+anythink workflows create review-posts --entity blog_posts
 anythink workflows trigger 76
 anythink workflows disable 83
 ```
@@ -577,8 +592,17 @@ anythink api-keys revoke 42 --yes
 Manage dashboard sidebar menus in the active project. Menus control what entities appear in the Anythink dashboard and how they are grouped.
 
 ```
-anythink menus list                              List all menus with tree structure
-anythink menus add-item <menu_id> <entity>       Add an entity to a dashboard menu
+anythink menus list                                        List all menus with tree structure
+anythink menus get <menu_id> [--json]                      Show one menu (and its role) with its items and child items
+anythink menus create <name> <role_id>                     Create a menu shown to a role
+anythink menus update <menu_id> [--name <text>] [--role <id>]
+                                                           Rename a menu or change its role
+anythink menus delete <menu_id> [--yes]                    Delete a menu and all of its items
+anythink menus add-item <menu_id> <entity>                 Add an entity to a dashboard menu
+anythink menus update-item <menu_id> <item_id> [options]   Change an item's name, icon, link or parent
+anythink menus remove-item <menu_id> <item_id> [--yes]     Remove an item, along with its child items
+anythink menus reorder-items <menu_id> <item_ids>          Set the order of items that share a parent
+anythink menus reorder <menu_ids>                          Set the order of menus
 ```
 
 **Options — `menus add-item`**
@@ -589,17 +613,47 @@ anythink menus add-item <menu_id> <entity>       Add an entity to a dashboard me
 | `--name <text>`   | Display name (defaults to entity name, title-cased)  |
 | `--parent <id>`   | Parent menu item ID for nesting under a group        |
 
+**Options — `menus update-item`** (only the fields you pass change)
+
+| Flag              | Description                                                |
+| ----------------- | ---------------------------------------------------------- |
+| `--name <text>`   | New display name                                           |
+| `--icon <name>`   | New Lucide icon name                                       |
+| `--entity <name>` | Point the item at an entity's page (instead of `--href`)   |
+| `--href <path>`   | Point the item at any path (instead of `--entity`)         |
+| `--parent <id>`   | Parent item ID to nest under; `0` moves it to the top level |
+
+`reorder-items` and `reorder` take comma-separated IDs in the order you want them (`301,299,300`). The items you name take the first places within their group; items you leave out follow in their current order, and `reorder-items` needs all the items to share one parent. Locked items (the built-in ones) can't be changed, removed or moved; they keep their place, and the items between them reuse their own position numbers (they are only renumbered when two of them tie).
+
+`add-item` and `update-item --entity` look the entity up first (system entities count), and stop only if it doesn't exist; if the lookup itself fails (for example, no permission), the item is saved and a warning says the entity couldn't be checked. Moving an item to a new parent with `update-item --parent` puts it last among its new siblings.
+
+Removing an item also removes its direct child items. The command says so, and refuses when those children are locked or have items of their own.
+
+A role is shown only its first menu, so `create` (and `update --role`) warns when the role already has one. `delete` removes the menu's locked built-in items with it, and says when the role is left with no menu.
+
 **Examples**
 
 ```bash
 # List all menus and their items
 anythink menus list
 
+# Show menu 250 with the item IDs you need for the commands below
+anythink menus get 250
+
 # Add "Check-ins" under the Profiles group (parent 168) in admin menu (250)
 anythink menus add-item 250 check_ins --icon MessageCircle --parent 168
 
 # Add a top-level menu item
 anythink menus add-item 250 badges --icon Award
+
+# Rename an item and give it another icon
+anythink menus update-item 250 299 --name "Achievements" --icon Trophy
+
+# Remove an item
+anythink menus remove-item 250 299 --yes
+
+# Put items 301, 299 and 300 first, in that order
+anythink menus reorder-items 250 301,299,300
 ```
 
 ---

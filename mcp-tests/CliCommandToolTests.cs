@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using AnythinkCli.Client;
 using AnythinkMcp.Cli;
@@ -308,7 +309,7 @@ public partial class CliCommandToolTests
         });
 
         var result = await Tool("workflows_create").RunAsync(
-            Args(new { name = "Nightly", trigger = "Manual", description }), Client(mock));
+            Args(new { name = "Nightly", trigger = "Manual", entity = "sources", description }), Client(mock));
 
         result.ExitCode.Should().Be(0, result.Output);
         JsonDocument.Parse(body!).RootElement.GetProperty("description").GetString().Should().Be(description);
@@ -447,10 +448,88 @@ public partial class CliCommandToolTests
             return new HttpResponseMessage { Content = new StringContent("""{"id":7,"name":"x","trigger":"Manual"}""") };
         });
 
-        var result = await Tool("workflows_create", scope).RunAsync(Args(new { name = "Sales / support? #1", trigger = "Manual" }), Client(mock));
+        var result = await Tool("workflows_create", scope).RunAsync(Args(new { name = "Sales / support? #1", trigger = "Manual", entity = "sources" }), Client(mock));
 
         result.ExitCode.Should().Be(0, result.Output);
         JsonDocument.Parse(body!).RootElement.GetProperty("name").GetString().Should().Be("Sales / support? #1");
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task WorkflowsCreate_ManualWithoutAnEntity_SaysWhatIsMissingInsteadOfAnApiStatus(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        var any = AnyRequest(mock);
+
+        var result = await Tool("workflows_create", scope).RunAsync(Args(new { name = "Nightly" }), Client(mock));
+
+        result.ExitCode.Should().Be(1);
+        result.Output.Should().Contain("Manual trigger needs --entity");
+        mock.GetMatchCount(any).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task WorkflowsList_ReturnsASmallSummaryForAWorkflowWhoseStepsAreNested()
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.When($"{ApiUrl}/org/42/workflows").Respond("application/json", """
+            [{"id":7,"name":"chain","enabled":true,"trigger":null,
+              "triggers":[{"id":3,"type":"Timed","enabled":true,"config":{"cron_expression":"0 9 * * *","next_run_at":"2026-10-08T09:00:00Z"}}],
+              "steps":[{"id":1,"key":"a","name":"A","action":"RunScript","enabled":true,"is_start_step":true,
+                        "on_success_step_id":2,"on_success_step":{"id":2,"key":"b","name":"B","action":"RunScript","enabled":true,"is_start_step":false}},
+                       {"id":2,"key":"b","name":"B","action":"RunScript","enabled":true,"is_start_step":false}]}]
+            """);
+
+        var result = await Tool("workflows_list").RunAsync(Args(new { }), Client(mock));
+
+        result.ExitCode.Should().Be(0, result.Output);
+        var summary = JsonDocument.Parse(result.Output).RootElement[0];
+        summary.GetProperty("step_count").GetInt32().Should().Be(2);
+        summary.GetProperty("triggers")[0].GetProperty("config").TryGetProperty("next_run_at", out _).Should().BeFalse();
+    }
+
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public async Task WorkflowsUpdate_WorkflowWithAnIncompleteTrigger_SaysWhatIsMissingInsteadOfAnApiStatus(CliToolScope scope)
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.When(HttpMethod.Get, $"{ApiUrl}/org/42/workflows/7").Respond("application/json", """
+            {"id":7,"name":"nightly","enabled":true,
+             "triggers":[{"id":3,"type":"Manual","enabled":true,"config":{"manual_entities":[]}}]}
+            """);
+        var put = mock.When(HttpMethod.Put, $"{ApiUrl}/org/42/workflows/7").Respond(HttpStatusCode.BadRequest);
+
+        var result = await Tool("workflows_update", scope).RunAsync(Args(new { id = 7, description = "new" }), Client(mock));
+
+        result.ExitCode.Should().Be(1);
+        result.Output.Should().Contain("Trigger 1: Manual trigger has no entities").And.Contain("dashboard");
+        mock.GetMatchCount(put).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task WorkflowsUpdate_SendsTheWholeWorkflowBackWithOnlyTheGivenFieldChanged()
+    {
+        string? put = null;
+        var mock = new MockHttpMessageHandler();
+        const string workflow = """
+            {"id":7,"name":"nightly","description":"old","group":"ops","enabled":true,"editor_state":"{}",
+             "triggers":[{"id":3,"type":"Timed","enabled":true,"config":{"cron_expression":"0 9 * * *"}}]}
+            """;
+        mock.When(HttpMethod.Get, $"{ApiUrl}/org/42/workflows/7").Respond("application/json", workflow);
+        mock.When(HttpMethod.Put, $"{ApiUrl}/org/42/workflows/7").Respond(async req =>
+        {
+            put = await req.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage { Content = new StringContent(workflow) };
+        });
+
+        var result = await Tool("workflows_update").RunAsync(Args(new { id = 7, description = "new" }), Client(mock));
+
+        result.ExitCode.Should().Be(0, result.Output);
+        var body = JsonDocument.Parse(put!).RootElement;
+        body.GetProperty("description").GetString().Should().Be("new");
+        body.GetProperty("enabled").GetBoolean().Should().BeTrue();
+        body.GetProperty("group").GetString().Should().Be("ops");
+        body.GetProperty("triggers")[0].GetProperty("type").GetString().Should().Be("Timed");
     }
 
     [Theory]
