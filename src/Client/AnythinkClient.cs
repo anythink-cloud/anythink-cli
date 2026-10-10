@@ -182,9 +182,6 @@ public class AnythinkClient : HttpApiClient
     public Task<WorkflowStep> AddWorkflowStepAsync(int workflowId, CreateWorkflowStepRequest req)
         => PostAsync<WorkflowStep>(_org + $"/workflows/{workflowId}/steps", req);
 
-    public Task<WorkflowStep?> UpdateWorkflowStepAsync(int workflowId, int stepId, UpdateWorkflowStepLinksRequest req)
-        => PutAsync<WorkflowStep>(_org + $"/workflows/{workflowId}/steps/{stepId}", req);
-
     public Task<WorkflowStep?> UpdateWorkflowStepFullAsync(int workflowId, int stepId, object body)
         => PutAsync<WorkflowStep>(_org + $"/workflows/{workflowId}/steps/{stepId}", body);
 
@@ -271,6 +268,9 @@ public class AnythinkClient : HttpApiClient
     public Task<FileResponse?> GetFileAsync(int id)
         => GetAsync<FileResponse>(_org + $"/files/{id}");
 
+    public Task UpdateFileMetadataAsync(int id, UpdateFileMetadataRequest req)
+        => PutAsync<JsonObject>(_org + $"/files/{id}", req);
+
     public Task DeleteFileAsync(int id)
         => DeleteAsync(_org + $"/files/{id}");
 
@@ -290,19 +290,16 @@ public class AnythinkClient : HttpApiClient
         return JsonSerializer.Deserialize<FileResponse>(json, JsonOpts)!;
     }
 
-    /// <summary>
-    /// Downloads a file from <paramref name="sourceUrl"/> (using <paramref name="sourceToken"/>
-    /// for auth if provided) and re-uploads it to this project.
-    /// </summary>
     public async Task<FileResponse> UploadFileFromUrlAsync(
-        string sourceUrl, string fileName, bool isPublic = false, string? sourceToken = null)
+        string sourceUrl, string fileName, bool isPublic = false, string? sourceToken = null,
+        long? maxBytes = null)
     {
         using var downloader = new HttpClient();
         if (!string.IsNullOrEmpty(sourceToken))
             downloader.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", sourceToken);
 
-        var bytes = await downloader.GetByteArrayAsync(sourceUrl);
+        var bytes = await DownloadCappedAsync(downloader, sourceUrl, fileName, maxBytes);
 
         using var form = new MultipartFormDataContent();
         var fileContent = new ByteArrayContent(bytes);
@@ -316,6 +313,31 @@ public class AnythinkClient : HttpApiClient
             throw new AnythinkException(await resp.Content.ReadAsStringAsync(), (int)resp.StatusCode);
         var json = await resp.Content.ReadAsStringAsync();
         return JsonSerializer.Deserialize<FileResponse>(json, JsonOpts)!;
+    }
+
+    internal static async Task<byte[]> DownloadCappedAsync(
+        HttpClient http, string url, string fileName, long? maxBytes)
+    {
+        using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+        response.EnsureSuccessStatusCode();
+
+        if (maxBytes is null)
+            return await response.Content.ReadAsByteArrayAsync();
+
+        var tooLarge = new AnythinkException(
+            $"Source file '{fileName}' exceeds the {maxBytes / (1024 * 1024)} MB import cap.", 413);
+        if (response.Content.Headers.ContentLength > maxBytes) throw tooLarge;
+
+        await using var stream = await response.Content.ReadAsStreamAsync();
+        using var buffer = new MemoryStream();
+        var chunk = new byte[81920];
+        int read;
+        while ((read = await stream.ReadAsync(chunk)) > 0)
+        {
+            buffer.Write(chunk, 0, read);
+            if (buffer.Length > maxBytes) throw tooLarge;
+        }
+        return buffer.ToArray();
     }
 
     // ── Roles ─────────────────────────────────────────────────────────────────

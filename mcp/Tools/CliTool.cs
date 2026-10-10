@@ -18,6 +18,7 @@ public class CliTool
         "Pass the command exactly as you would after 'anythink', e.g. 'entities list' or 'data list posts'. " +
         "'data import' creates records (not destructive): run it with --dry-run first and only add '--yes' after the user approves the dry run. " +
         "For destructive commands add '--yes' to skip confirmation prompts. " +
+        "'import directus' changes the project: run it with '--dry-run' first and only add '--yes' once the user has approved the plan. " +
         "Add '--json' where supported for machine-readable output.")]
     public async Task<string> RunCli(
         [Description(
