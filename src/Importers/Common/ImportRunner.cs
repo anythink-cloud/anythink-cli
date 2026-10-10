@@ -426,6 +426,13 @@ public class ImportRunner
             return;
         }
 
+        if (WorkflowTriggers.Problems(flow.Triggers) is { Count: > 0 } problems)
+        {
+            result.WorkflowsSkipped++;
+            result.Warnings.Add($"workflow '{flow.Name}' skipped: {string.Join("; ", problems)}.");
+            return;
+        }
+
         Workflow wf;
         try
         {

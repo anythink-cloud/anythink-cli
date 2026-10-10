@@ -117,7 +117,7 @@ public class ImportRunnerTests
     // ── Rule: existing workflows are never modified ──
 
     private static ImportFlow Flow(params ImportStep[] steps) =>
-        new("Nightly", [new("Manual", true, new AnythinkCli.Models.WorkflowTriggerConfig())], steps.ToList());
+        new("Nightly", [new("Manual", true, new { manual_entities = new[] { "orders" } })], steps.ToList());
 
     private static ImportStep Step(string id, string? next = null, bool start = false, bool enabled = true) =>
         new(id, $"key_{id}", $"Step {id}", "RunScript", start, "d",

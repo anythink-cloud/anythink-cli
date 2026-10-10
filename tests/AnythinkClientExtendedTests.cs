@@ -146,12 +146,8 @@ public class AnythinkClientExtendedTests
                .Respond("application/json",
                    """{"id":101,"name":"daily-sync","trigger":"Timed","enabled":true,"description":null}""");
 
-        var req = new CreateWorkflowRequest(
-            Name: "daily-sync",
-            Description: null,
-            Enabled: true,
-            Triggers: [new WorkflowTriggerRequest("Timed", true,
-                            new WorkflowTriggerConfig(CronExpression: "0 6 * * *"))]);
+        var req = new CreateWorkflowRequest("daily-sync", null, true,
+            [new WorkflowTriggerRequest("Timed", true, new { cron_expression = "0 6 * * *" })]);
         var wf = await BuildClient(handler).CreateWorkflowAsync(req);
 
         wf.Id.Should().Be(101);

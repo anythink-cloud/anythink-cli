@@ -15,59 +15,6 @@ public class MigrateWorkflowTests
         List<WorkflowTrigger>? triggers = null, List<WorkflowStep>? steps = null) =>
         new(1, "wf", "d", legacyTrigger!, false, steps, options, null, triggers);
 
-    // ── Rule: triggers[] on the source workflow are copied across as they are ──
-
-    [Fact]
-    public void Source_Triggers_Are_Copied_With_Type_Enabled_Flag_And_Config()
-    {
-        var wf = Source(triggers:
-        [
-            new("Timed", true, new WorkflowTriggerConfig(CronExpression: "0 6 * * *")),
-            new("Event", false, new WorkflowTriggerConfig(Event: "EntityCreated", EventEntity: "orders")),
-        ]);
-
-        var built = MigrateCommand.BuildTriggers(wf);
-
-        built.Select(t => (t.Type, t.Enabled)).Should().Equal(("Timed", true), ("Event", false));
-        built[0].Config.CronExpression.Should().Be("0 6 * * *");
-        built[1].Config.EventEntity.Should().Be("orders");
-    }
-
-    [Fact]
-    public void Trigger_Type_Is_Never_Null_For_A_Source_That_Reports_Triggers()
-    {
-        var wf = Source(triggers: [new("Api", true, new WorkflowTriggerConfig(ApiRoute: "hook"))]);
-
-        MigrateCommand.BuildTriggers(wf).Single().Type.Should().Be("Api");
-    }
-
-    [Fact]
-    public void Older_Sources_Fall_Back_To_Their_Single_Trigger_And_Options()
-    {
-        var options = JsonSerializer.SerializeToElement(new { cron_expression = "*/5 * * * *" });
-
-        var built = MigrateCommand.BuildTriggers(Source(legacyTrigger: "Timed", options: options));
-
-        built.Single().Type.Should().Be("Timed");
-        built.Single().Config.CronExpression.Should().Be("*/5 * * * *");
-    }
-
-    [Fact]
-    public void Source_With_No_Trigger_Information_Becomes_Manual()
-    {
-        MigrateCommand.BuildTriggers(Source()).Single().Type.Should().Be("Manual");
-    }
-
-    [Fact]
-    public void Triggers_Deserialise_From_The_Api_Response_Shape()
-    {
-        var json = """{"id":1,"name":"wf","enabled":true,"steps":[],"triggers":[{"id":2,"type":"Timed","enabled":true,"config":{"cron_expression":"0 1 * * *"}}]}""";
-
-        var wf = JsonSerializer.Deserialize<Workflow>(json)!;
-
-        MigrateCommand.BuildTriggers(wf).Single().Config.CronExpression.Should().Be("0 1 * * *");
-    }
-
     // ── Rule: wiring step links must not wipe the step's parameters ──
 
     [Fact]

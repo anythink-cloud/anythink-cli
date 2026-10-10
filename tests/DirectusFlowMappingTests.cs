@@ -1,3 +1,4 @@
+using AnythinkCli.Models;
 using AnythinkCli.Importers.Directus;
 using FluentAssertions;
 using System.Text.Json;
@@ -22,6 +23,9 @@ public class DirectusFlowMappingTests
             Resolve: null, Reject: null,
             Options: options is null ? null : JsonSerializer.SerializeToElement(options));
 
+    private static string? Cfg(WorkflowTriggerRequest t, string name) =>
+        JsonSerializer.SerializeToNode(t.Config)?[name]?.ToString();
+
     // ── Trigger mapping ───────────────────────────────────────────────────────
 
     [Fact]
@@ -30,7 +34,7 @@ public class DirectusFlowMappingTests
         var t = DirectusFlowMapping.MapTrigger(Flow("schedule", new { cron = "*/5 * * * *" }));
 
         t.Type.Should().Be("Timed");
-        t.Config.CronExpression.Should().Be("*/5 * * * *");
+        Cfg(t, "cron_expression").Should().Be("*/5 * * * *");
         t.Enabled.Should().BeTrue();
     }
 
@@ -40,7 +44,7 @@ public class DirectusFlowMappingTests
         var t = DirectusFlowMapping.MapTrigger(Flow("schedule"));
 
         t.Type.Should().Be("Timed");
-        t.Config.CronExpression.Should().NotBeNullOrEmpty();
+        Cfg(t, "cron_expression").Should().NotBeNullOrEmpty();
     }
 
     [Theory]
@@ -57,8 +61,8 @@ public class DirectusFlowMappingTests
         }));
 
         t.Type.Should().Be("Event");
-        t.Config.Event.Should().Be(expectedEvent);
-        t.Config.EventEntity.Should().Be("articles");
+        Cfg(t, "event").Should().Be(expectedEvent);
+        Cfg(t, "event_entity").Should().Be("articles");
     }
 
     [Fact]
@@ -71,7 +75,7 @@ public class DirectusFlowMappingTests
             Trigger: "webhook", Options: null, FirstOperation: null));
 
         t.Type.Should().Be("Api");
-        t.Config.ApiRoute.Should().Be("sync-external-articles");
+        Cfg(t, "api_route").Should().Be("sync-external-articles");
     }
 
     [Fact]

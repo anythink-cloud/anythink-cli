@@ -27,7 +27,7 @@ public static class DirectusFlowMapping
                         cronEl.ValueKind == JsonValueKind.String)
                         cron = cronEl.GetString() ?? cron;
                     return new WorkflowTriggerRequest("Timed", true,
-                        new WorkflowTriggerConfig(CronExpression: cron));
+                        new { cron_expression = cron });
                 }
 
             case "event":
@@ -59,20 +59,26 @@ public static class DirectusFlowMapping
                     }
 
                     return new WorkflowTriggerRequest("Event", true,
-                        new WorkflowTriggerConfig(Event: eventName, EventEntity: entity));
+                        new EventWorkflowOptions(eventName, entity));
                 }
 
             case "webhook":
                 // Api triggers need a route and Directus webhooks have none, so derive it from the flow name.
                 var route = SanitizeRoute(flow.Name);
                 return new WorkflowTriggerRequest("Api", true,
-                    new WorkflowTriggerConfig(ApiRoute: route));
+                    new { api_route = route });
 
             default: // manual, operation, or unknown
                 return new WorkflowTriggerRequest("Manual", true,
-                    new WorkflowTriggerConfig());
+                    new { manual_entities = ManualEntities(opts) });
         }
     }
+
+    private static string[] ManualEntities(JsonElement? opts) =>
+        opts.HasValue && opts.Value.ValueKind == JsonValueKind.Object &&
+        opts.Value.TryGetProperty("collections", out var cols) && cols.ValueKind == JsonValueKind.Array
+            ? cols.EnumerateArray().Where(c => c.ValueKind == JsonValueKind.String).Select(c => c.GetString()!).ToArray()
+            : [];
 
     public static FlowStepTranslation Translate(DirectusOperation op)
     {
