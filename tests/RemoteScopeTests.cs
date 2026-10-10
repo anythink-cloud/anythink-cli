@@ -2,6 +2,7 @@ using AnythinkCli.Client;
 using AnythinkCli.Commands;
 using AnythinkCli.Config;
 using FluentAssertions;
+using RichardSzalay.MockHttp;
 using Spectre.Console.Cli;
 
 namespace AnythinkCli.Tests;
@@ -15,6 +16,13 @@ public class RemoteScopeTests : IDisposable
     {
         public override Task<int> ExecuteAsync(CommandContext ctx, EmptyCommandSettings s) => Task.FromResult(0);
         public AnythinkClient CallGetClient() => GetClient();
+    }
+
+    private sealed class BillingCommand : BasePlatformCommand<EmptyCommandSettings>
+    {
+        public override Task<int> ExecuteAsync(CommandContext ctx, EmptyCommandSettings s) => Task.FromResult(0);
+        public BillingClient CallGetBillingClient() => GetBillingClient();
+        public BillingClient CallGetUnauthenticatedBillingClient() => GetUnauthenticatedBillingClient();
     }
 
     public RemoteScopeTests()
@@ -33,6 +41,7 @@ public class RemoteScopeTests : IDisposable
     {
         ClientContext.Remote = false;
         ClientContext.Current = null;
+        ClientContext.Billing = null;
         ConfigService.ConfigDirOverride = null;
         if (Directory.Exists(_tempDir)) Directory.Delete(_tempDir, recursive: true);
     }
@@ -63,6 +72,53 @@ public class RemoteScopeTests : IDisposable
         ClientContext.Current = ambient;
 
         new TestCommand().CallGetClient().Should().BeSameAs(ambient);
+    }
+
+    // ── Rule: a remote run never bills through the server's saved platform login ──
+
+    private static void SaveAPlatformLogin() =>
+        ConfigService.SavePlatform(new PlatformConfig { Token = "saved-login", TokenExpiresAt = DateTime.UtcNow.AddHours(1) });
+
+    [Fact]
+    public void LocalRun_WithASavedPlatformLogin_UsesItForBilling()
+    {
+        SaveAPlatformLogin();
+
+        var act = () => new BillingCommand().CallGetBillingClient();
+
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void RemoteRun_WithNoAmbientBillingClient_IsRefused_EvenWithASavedPlatformLogin()
+    {
+        SaveAPlatformLogin();
+        ClientContext.Remote = true;
+
+        new BillingCommand().Invoking(c => c.CallGetBillingClient())
+            .Should().Throw<InvalidOperationException>().WithMessage("*aren't available to remote callers*");
+        new BillingCommand().Invoking(c => c.CallGetUnauthenticatedBillingClient())
+            .Should().Throw<InvalidOperationException>().WithMessage("*aren't available to remote callers*");
+    }
+
+    [Fact]
+    public async Task RemoteRun_WithAnAmbientBillingClient_UsesItForBilling_AndItsAnonymousTwinForPlans()
+    {
+        SaveAPlatformLogin();
+        var mock = new MockHttpMessageHandler();
+        var signedIn = mock.When("https://billing.example/v1/plans").WithHeaders("Authorization", "Bearer callers-token").Respond("application/json", "[]");
+        var anonymous = mock.When("https://billing.example/v1/plans").With(request => request.Headers.Authorization is null).Respond("application/json", "[]");
+        var authenticated = new HttpClient(mock);
+        authenticated.DefaultRequestHeaders.Authorization = new("Bearer", "callers-token");
+        var ambient = new BillingClient("https://billing.example", authenticated, new HttpClient(mock));
+        ClientContext.Remote = true;
+        ClientContext.Billing = ambient;
+
+        new BillingCommand().CallGetBillingClient().Should().BeSameAs(ambient);
+        await new BillingCommand().CallGetUnauthenticatedBillingClient().GetPlansAsync();
+
+        mock.GetMatchCount(anonymous).Should().Be(1);
+        mock.GetMatchCount(signedIn).Should().Be(0);
     }
 
     [Fact]

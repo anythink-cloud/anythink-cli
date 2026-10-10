@@ -36,6 +36,32 @@ public class RemoteScopeToolTests : McpTestBase
         result.Output.Should().Contain("aren't available to remote callers");
     }
 
+    [Theory]
+    [InlineData("accounts_list")]
+    [InlineData("plans")]
+    public async Task HostedAccountRun_WithoutACallerBillingClient_DoesNotUseTheServersSavedPlatformLogin(string name)
+    {
+        using var trap = new LoopbackTrap();
+        SetupPlatformLogin(billingUrl: trap.Url);
+
+        var result = await Tool(name, CliToolScope.Hosted).RunAsync(NoArguments, client: null);
+
+        result.ExitCode.Should().Be(1);
+        result.Output.Should().Contain("aren't available to remote callers");
+        (await trap.WaitForAConnectionAsync(TimeSpan.FromMilliseconds(300))).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ATerminalRun_WithTheSameSavedLogin_DoesReachIt_SoTheTrapCanCatchAFallback()
+    {
+        using var trap = new LoopbackTrap();
+        SetupPlatformLogin(billingUrl: trap.Url);
+
+        await CliRunner.RunAsync(["plans", "--json"], client: null, CliToolScope.Local);
+
+        (await trap.WaitForAConnectionAsync(TimeSpan.FromSeconds(10))).Should().BeTrue();
+    }
+
     [Fact]
     public async Task LocalRun_WithoutAClient_StillReportsMissingCredentials()
     {

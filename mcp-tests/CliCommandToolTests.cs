@@ -70,15 +70,29 @@ public class CliCommandToolTests
     [InlineData("login")]
     [InlineData("signup")]
     [InlineData("config_show")]
-    [InlineData("accounts_list")]
+    [InlineData("accounts_use")]
     [InlineData("projects_list")]
-    [InlineData("plans")]
+    [InlineData("projects_use")]
     [InlineData("migrate")]
     [InlineData("cli_xmldoc")]
     public void PlatformAndCrossProjectCommands_AreLeftOutEverywhere(string name)
     {
         Find(name, CliToolScope.Local).Should().BeNull();
         Find(name, CliToolScope.Internal).Should().BeNull();
+        Find(name, CliToolScope.Hosted).Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("accounts_list")]
+    [InlineData("accounts_create")]
+    [InlineData("plans")]
+    [InlineData("projects_create")]
+    [InlineData("projects_delete")]
+    public void AccountCommands_AreHostedOnly(string name)
+    {
+        Find(name, CliToolScope.Local).Should().BeNull();
+        Find(name, CliToolScope.Internal).Should().BeNull();
+        Find(name, CliToolScope.Hosted).Should().NotBeNull();
     }
 
     [Theory]
@@ -828,11 +842,14 @@ public class CliCommandToolTests
     }
 
     [Fact]
-    public void OnlyHostedTools_TakeAProjectArgument()
+    public void OnlyHostedProjectTools_TakeAProjectArgument()
     {
         foreach (var scope in new[] { CliToolScope.Local, CliToolScope.Internal })
             CliCommandTool.All(scope).Should().AllSatisfy(tool => Properties(tool).Should().NotContain(HostedProjects.ParameterName));
-        CliCommandTool.All(CliToolScope.Hosted).Should().AllSatisfy(tool => Properties(tool).Should().Contain(HostedProjects.ParameterName));
+
+        var hosted = CliCommandTool.All(CliToolScope.Hosted).ToLookup(tool => tool.NeedsAccountAccess);
+        hosted[false].Should().AllSatisfy(tool => Properties(tool).Should().Contain(HostedProjects.ParameterName));
+        hosted[true].Should().AllSatisfy(tool => Properties(tool).Should().NotContain(HostedProjects.ParameterName));
     }
 
     [Fact]

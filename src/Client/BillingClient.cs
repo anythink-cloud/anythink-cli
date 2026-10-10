@@ -1,12 +1,83 @@
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using AnythinkCli.Config;
 using AnythinkCli.Models;
 
 namespace AnythinkCli.Client;
 
+public sealed partial class BillingException(string message, int statusCode) : AnythinkException(message, statusCode)
+{
+    private const int MaxMessageLength = 300;
+
+    public override string StatusOnlyMessage => StatusCode switch
+    {
+        400 when Describe(Message) is { } detail => detail,
+        >= 200 and < 300 => "The billing service returned a response this command couldn't read.",
+        _ => $"The billing service returned status {StatusCode}."
+    };
+
+    internal static string? Describe(string body)
+    {
+        var text = body.Trim();
+        if (text.Length == 0 || text[0] == '<')
+            return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(text);
+            text = Detail(doc.RootElement) ?? "";
+        }
+        catch (JsonException)
+        {
+            if (text[0] is '{' or '[' or '"')
+                return null;
+        }
+
+        text = string.Concat(Whitespace().Replace(text, " ").Where(c => !char.IsControl(c))).Trim();
+        if (text.Length == 0)
+            return null;
+        return text.Length <= MaxMessageLength ? text : text[..MaxMessageLength].TrimEnd() + "...";
+    }
+
+    private static string? Detail(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.String)
+            return element.GetString();
+        if (element.ValueKind == JsonValueKind.Array)
+            return string.Join(" ", Items(element).Select(Detail).Where(detail => !string.IsNullOrWhiteSpace(detail)));
+        if (element.ValueKind != JsonValueKind.Object)
+            return null;
+
+        foreach (var name in new[] { "error", "message", "detail" })
+            if (element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String)
+                return value.GetString();
+
+        if (element.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Object)
+        {
+            var messages = errors.EnumerateObject()
+                .SelectMany(field => Items(field.Value))
+                .Where(message => message.ValueKind == JsonValueKind.String)
+                .Select(message => message.GetString());
+            var joined = string.Join(" ", messages);
+            if (joined.Length > 0)
+                return joined;
+        }
+
+        return element.TryGetProperty("title", out var title) && title.ValueKind == JsonValueKind.String ? title.GetString() : null;
+    }
+
+    private static List<JsonElement> Items(JsonElement element) =>
+        element.ValueKind == JsonValueKind.Array ? element.EnumerateArray().ToList() : [];
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex Whitespace();
+}
+
 public class BillingClient : HttpApiClient
 {
     private readonly string _billing;
-    private readonly string _auth;   // = ApiUrl + /org/{platformOrgId}
+    private readonly string? _auth;   // = ApiUrl + /org/{platformOrgId}
+    private readonly HttpClient? _anonymous;
 
     public BillingClient(PlatformConfig p)
         : base(p.Token, null)
@@ -22,13 +93,30 @@ public class BillingClient : HttpApiClient
         _auth = $"{p.MyAnythinkUrl.TrimEnd('/')}/org/{p.MyAnythinkOrgId}";
     }
 
+    public BillingClient(string billingUrl, HttpClient http, HttpClient anonymous) : base(http)
+    {
+        _billing = billingUrl.TrimEnd('/');
+        _anonymous = anonymous;
+        ConfineTo(_billing);
+    }
+
+    public BillingClient Unauthenticated() =>
+        _anonymous is null
+            ? throw new InvalidOperationException("This billing client has no unauthenticated twin.")
+            : new BillingClient(_billing, _anonymous, _anonymous);
+
+    protected override AnythinkException Failure(string message, int statusCode, TimeSpan? retryAfter = null) =>
+        new BillingException(message, statusCode) { RetryAfter = retryAfter };
+
     // ── Platform Auth ─────────────────────────────────────────────────────────
 
+    private string AuthUrl => _auth ?? throw new InvalidOperationException("This billing client has no platform sign-in.");
+
     public Task RegisterAsync(RegisterRequest req)
-        => PostAsync<object>(_auth + "/auth/v1/register", req);
+        => PostAsync<object>(AuthUrl + "/auth/v1/register", req);
 
     public Task<LoginResponse> LoginAsync(string email, string password)
-        => PostAsync<LoginResponse>(_auth + "/auth/v1/token", new LoginRequest(email, password));
+        => PostAsync<LoginResponse>(AuthUrl + "/auth/v1/token", new LoginRequest(email, password));
 
     // ── Plans ─────────────────────────────────────────────────────────────────
 

@@ -5,22 +5,32 @@ using AnythinkCli.Output;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System.ComponentModel;
+using System.Text.Json.Nodes;
 using CliProfile = AnythinkCli.Config.Profile;
 
 namespace AnythinkCli.Commands;
 
-static class ProjectStatusMarkup
+static class ProjectStatusText
 {
-    public static string Render(int status) => status switch
+    public static string Name(int status) => status switch
     {
-        0 => "[dim]initializing[/]",
-        1 => "[yellow]provisioning[/]",
-        2 => "[green]active[/]",
-        3 => "[yellow]suspended[/]",
-        4 => "[red]terminated[/]",
-        5 => "[red]error[/]",
+        0 => "initializing",
+        1 => "provisioning",
+        2 => "active",
+        3 => "suspended",
+        4 => "terminated",
+        5 => "error",
         _ => status.ToString()
     };
+
+    public static Text Cell(int status) => new(Name(status), status switch
+    {
+        0 => new Style(decoration: Decoration.Dim),
+        1 or 3 => new Style(Color.Yellow),
+        2 => new Style(Color.Green),
+        4 or 5 => new Style(Color.Red),
+        _ => Style.Plain
+    });
 }
 
 // ── projects list ─────────────────────────────────────────────────────────────
@@ -65,13 +75,13 @@ public class ProjectsListCommand : BasePlatformCommand<ProjectsListSettings>
             {
                 var isActive = p.TenantId?.ToString() == activeOrgId;
                 table.AddRow(
-                    Markup.Escape(p.Id.ToString()[..8] + "…"),
-                    $"[bold]{Markup.Escape(p.Name)}[/]",
-                    ProjectStatusMarkup.Render(p.Status),
-                    Markup.Escape(p.Region ?? "—"),
-                    Markup.Escape(p.TenantId?.ToString() ?? "—"),
-                    Markup.Escape(p.ApiUrl ?? "—"),
-                    isActive ? "[green]●[/]" : ""
+                    new Text(p.Id.ToString()[..8] + "…"),
+                    new Text(p.Name, new Style(decoration: Decoration.Bold)),
+                    ProjectStatusText.Cell(p.Status),
+                    new Text(p.Region ?? "—"),
+                    new Text(p.TenantId?.ToString() ?? "—"),
+                    new Text(p.ApiUrl ?? "—"),
+                    new Text(isActive ? "●" : "", new Style(Color.Green))
                 );
             }
             AnsiConsole.Write(table);
@@ -105,60 +115,118 @@ public class ProjectsCreateSettings : CommandSettings
     [CommandOption("--account <ID>")]
     [Description("Billing account ID (uses active account if omitted)")]
     public string? AccountId { get; set; }
+
+    [CommandOption("--json")]
+    [Description("Output raw JSON")]
+    public bool Json { get; set; }
 }
 
 public class ProjectsCreateCommand : BasePlatformCommand<ProjectsCreateSettings>
 {
+    public const string DefaultRegion = "lon1";
+
     public override async Task<int> ExecuteAsync(CommandContext context, ProjectsCreateSettings settings)
     {
-        var name = settings.Name ?? AnsiConsole.Ask<string>("[#F97316]Project name:[/]");
-
-        // Fetch and display plans if no --plan given
+        string name;
         Guid planId;
-        if (!string.IsNullOrEmpty(settings.PlanId) && Guid.TryParse(settings.PlanId, out var parsedId))
+        string region;
+
+        if (ClientContext.Remote)
         {
-            planId = parsedId;
+            if (string.IsNullOrWhiteSpace(settings.Name))
+            {
+                Renderer.Error("'name' is required.");
+                return 1;
+            }
+            if (!Guid.TryParse(settings.PlanId, out planId))
+            {
+                Renderer.Error("'plan_id' must be a plan id from the plans tool.");
+                return 1;
+            }
+            name = settings.Name;
+            region = settings.Region ?? DefaultRegion;
         }
         else
         {
-            planId = await PickPlanInteractively();
-            if (planId == Guid.Empty) return 1;
-        }
+            name = settings.Name ?? AnsiConsole.Ask<string>("[#F97316]Project name:[/]");
 
-        var region = settings.Region ?? AnsiConsole.Prompt(
-            Renderer.Prompt<string>()
-                .Title("[#F97316]Region:[/]")
-                .AddChoices("lon1"));
+            if (!string.IsNullOrEmpty(settings.PlanId) && Guid.TryParse(settings.PlanId, out var parsedId))
+            {
+                planId = parsedId;
+            }
+            else
+            {
+                planId = await PickPlanInteractively();
+                if (planId == Guid.Empty) return 1;
+            }
+
+            region = settings.Region ?? AnsiConsole.Prompt(
+                Renderer.Prompt<string>()
+                    .Title("[#F97316]Region:[/]")
+                    .AddChoices(DefaultRegion));
+        }
 
         try
         {
-            var accountId = GetAccountId(settings.AccountId);
+            var accountId = await ResolveAccountIdAsync(settings.AccountId);
             var client = GetBillingClient();
             SharedTenant? project = null;
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Creating project '{name}'...", async _ =>
+                .StartAsync($"Creating project '{Markup.Escape(name)}'...", async _ =>
                 {
                     project = await client.CreateProjectAsync(accountId,
                         new CreateSharedTenantRequest(name, planId, region, settings.Description));
                 });
 
+            if (settings.Json)
+            {
+                PrintCreated(project!, planId);
+                return 0;
+            }
+
             Renderer.Success($"Project [#F97316]{Markup.Escape(project!.Name)}[/] created!");
             Renderer.KeyValue("ID", project.Id.ToString());
-            Renderer.KeyValue("Status", ProjectStatusMarkup.Render(project.Status));
+            Renderer.KeyValue("Status", ProjectStatusText.Name(project.Status));
             Renderer.KeyValue("Region", project.Region ?? "—");
 
             if (project.Status is 0 or 1) // 0=Initializing, 1=Provisioning
             {
                 AnsiConsole.MarkupLine("\n[yellow]Your project is being provisioned.[/]");
                 AnsiConsole.MarkupLine("Run [bold #F97316]anythink projects list[/] to check status.");
-                AnsiConsole.MarkupLine("Once [green]active[/], run [bold #F97316]anythink projects use {0}[/] to connect.", project.Id.ToString()[..8]);
+                AnsiConsole.MarkupLine("Once [green]active[/], run [bold #F97316]anythink projects use {0}[/] to connect.", Markup.Escape(project.Id.ToString()[..8]));
             }
 
             return 0;
         }
         catch (Exception ex) { HandleError(ex); return 1; }
+    }
+
+    private const string OneProjectNote =
+        " This connection covers one project, so reconnect with All projects to work in it here.";
+
+    private static void PrintCreated(SharedTenant project, Guid requestedPlan)
+    {
+        var settingUp = project.Status is 0 or 1;
+        var oneProject = ClientContext.Remote && ClientContext.SingleProjectConnection;
+        Renderer.PrintJsonObject(new JsonObject
+        {
+            ["project_id"] = project.Id.ToString(),
+            ["name"] = project.Name,
+            ["status"] = ProjectStatusText.Name(project.Status),
+            ["plan_id"] = (project.PlanId ?? requestedPlan).ToString(),
+            ["region"] = project.Region,
+            ["message"] = (settingUp, ClientContext.Remote, oneProject) switch
+            {
+                (true, true, false) => $"Project {project.Name} is being set up and will appear in projects_list in about a minute.",
+                (true, true, true) => $"Project {project.Name} is being set up and will be ready in about a minute.{OneProjectNote}",
+                (true, false, _) => $"Project {project.Name} is being set up and will be ready in about a minute.",
+                (false, true, false) => $"Project {project.Name} was created. Check projects_list for its status.",
+                (false, true, true) => $"Project {project.Name} was created.{OneProjectNote}",
+                _ => $"Project {project.Name} was created."
+            }
+        });
     }
 
     private async Task<Guid> PickPlanInteractively()
@@ -197,6 +265,7 @@ public class ProjectsCreateCommand : BasePlatformCommand<ProjectsCreateSettings>
         var selected = AnsiConsole.Prompt(
             Renderer.Prompt<string>()
                 .Title("[#F97316]Choose a plan:[/]")
+                .UseConverter(Markup.Escape)
                 .AddChoices(choices));
 
         var idx = choices.IndexOf(selected);
@@ -244,12 +313,13 @@ public class ProjectsUseCommand : BasePlatformCommand<ProjectsUseSettings>
             {
                 // Interactive picker
                 var choices = projects.OrderBy(p => p.Name).Select(p =>
-                    $"{Markup.Escape(p.Name)}  (org: {p.TenantId?.ToString() ?? "—"})  ({p.Id.ToString()[..8]}…)"
+                    $"{p.Name}  (org: {p.TenantId?.ToString() ?? "—"})  ({p.Id.ToString()[..8]}…)"
                 ).ToList();
 
                 var selected = AnsiConsole.Prompt(
                     Renderer.Prompt<string>()
                         .Title("[#F97316]Select project:[/]")
+                        .UseConverter(Markup.Escape)
                         .AddChoices(choices));
 
                 var idx = choices.IndexOf(selected);
@@ -271,7 +341,7 @@ public class ProjectsUseCommand : BasePlatformCommand<ProjectsUseSettings>
 
             if (match.Status != 2) // 2 = Active
             {
-                Renderer.Warn($"Project status is {ProjectStatusMarkup.Render(match.Status)} — it may not be ready yet.");
+                Renderer.Warn($"Project status is {Markup.Escape(ProjectStatusText.Name(match.Status))} — it may not be ready yet.");
             }
 
             if (match.TenantId == null)
@@ -296,7 +366,7 @@ public class ProjectsUseCommand : BasePlatformCommand<ProjectsUseSettings>
             ConfigService.SetDefault(profileKey);
 
             Renderer.Success($"Now using project [#F97316]{Markup.Escape(match.Name)}[/].");
-            Renderer.Info($"Profile: {profileKey}  |  Org ID: {match.TenantId}  |  API: {baseUrl}");
+            Renderer.Info($"Profile: {Markup.Escape(profileKey)}  |  Org ID: {match.TenantId}  |  API: {Markup.Escape(baseUrl)}");
 
             // If an API key was provided we're done — no JWT needed
             if (!string.IsNullOrEmpty(settings.ApiKey))
@@ -328,7 +398,7 @@ public class ProjectsUseCommand : BasePlatformCommand<ProjectsUseSettings>
             }
             catch (AnythinkException ae)
             {
-                Renderer.Warn($"Could not get project token ({ae.StatusCode}): {ae.Message}");
+                Renderer.Warn($"Could not get project token ({ae.StatusCode}): {Markup.Escape(ae.Message)}");
                 AnsiConsole.MarkupLine("Provide an API key with [#F97316]--api-key ak_...[/] to authenticate manually.");
             }
 
@@ -358,29 +428,37 @@ public class ProjectsDeleteCommand : BasePlatformCommand<ProjectsDeleteSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, ProjectsDeleteSettings settings)
     {
+        if (ClientContext.Remote && !Guid.TryParse(settings.Id, out _))
+        {
+            Renderer.Error("'id' must be the full project id from projects_list.");
+            return 1;
+        }
+
         try
         {
-            var accountId = GetAccountId(settings.AccountId);
+            var accountId = await ResolveAccountIdAsync(settings.AccountId);
             var client = GetBillingClient();
             var projects = await client.GetProjectsAsync(accountId);
 
-            var match = projects.FirstOrDefault(p =>
-                p.Id.ToString().StartsWith(settings.Id, StringComparison.OrdinalIgnoreCase) ||
-                p.Name.Equals(settings.Id, StringComparison.OrdinalIgnoreCase));
+            var match = ClientContext.Remote
+                ? projects.FirstOrDefault(p => p.Id == Guid.Parse(settings.Id))
+                : projects.FirstOrDefault(p =>
+                    p.Id.ToString().StartsWith(settings.Id, StringComparison.OrdinalIgnoreCase) ||
+                    p.Name.Equals(settings.Id, StringComparison.OrdinalIgnoreCase));
 
             if (match == null) { Renderer.Error($"No project matching '{settings.Id}'."); return 1; }
 
             if (!settings.Yes)
             {
                 var confirm = AnsiConsole.Confirm(
-                    $"[yellow]Delete project[/] [bold red]{match.Name}[/][yellow]? All data will be destroyed.[/]",
+                    $"[yellow]Delete project[/] [bold red]{Markup.Escape(match.Name)}[/][yellow]? All data will be destroyed.[/]",
                     defaultValue: false);
                 if (!confirm) { Renderer.Info("Cancelled."); return 0; }
             }
 
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
-                .StartAsync($"Deleting '{match.Name}'...", async _ =>
+                .StartAsync($"Deleting '{Markup.Escape(match.Name)}'...", async _ =>
                 {
                     await client.DeleteProjectAsync(accountId, match.Id);
                 });

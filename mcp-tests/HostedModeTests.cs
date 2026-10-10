@@ -249,7 +249,8 @@ public class HostedModeTests : IAsyncLifetime
         var tools = await mcpClient.ListToolsAsync();
 
         tools.Select(t => t.Name).Should().BeEquivalentTo(
-            CliCommandTool.All(CliToolScope.Hosted).Select(t => t.ProtocolTool.Name).Append("project_details").Append("projects_list"));
+            CliCommandTool.All(CliToolScope.Hosted).Where(t => !t.NeedsAccountAccess).Select(t => t.ProtocolTool.Name)
+                .Append("project_details").Append("projects_list"));
 
         foreach (var tool in tools)
         {

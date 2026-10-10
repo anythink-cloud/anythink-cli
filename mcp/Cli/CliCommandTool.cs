@@ -25,8 +25,8 @@ public sealed class CliCommandTool : McpServerTool
         {
             Name = command.ToolName,
             Title = title,
-            Description = command.Description,
-            InputSchema = Schema(_parameters, scope == CliToolScope.Hosted),
+            Description = CliToolPolicy.Description(command, scope),
+            InputSchema = Schema(_parameters, CliToolPolicy.TakesProject(command, scope)),
             Annotations = new ToolAnnotations
             {
                 Title = title,
@@ -45,6 +45,8 @@ public sealed class CliCommandTool : McpServerTool
 
     public override Tool ProtocolTool { get; }
 
+    public bool NeedsAccountAccess => _scope == CliToolScope.Hosted && CliToolPolicy.IsAccountCommand(_command);
+
     public override IReadOnlyList<object> Metadata => [];
 
     public override async ValueTask<CallToolResult> InvokeAsync(
@@ -54,8 +56,15 @@ public sealed class CliCommandTool : McpServerTool
         CliRunResult result;
         try
         {
-            var client = await ResolveClientAsync(request.Services!, arguments, cancellationToken);
-            result = await RunAsync(arguments, client, cancellationToken);
+            if (NeedsAccountAccess)
+            {
+                var accounts = request.Services!.GetRequiredService<HostedAccounts>();
+                result = await RunAsync(arguments, client: null, cancellationToken, accounts.Client(), !accounts.CoversAllProjects);
+            }
+            else
+            {
+                result = await RunAsync(arguments, await ResolveClientAsync(request.Services!, arguments, cancellationToken), cancellationToken);
+            }
         }
         catch (Exception ex) when (ex is InvalidOperationException or HostedProjectException)
         {
@@ -70,7 +79,8 @@ public sealed class CliCommandTool : McpServerTool
     }
 
     public async Task<CliRunResult> RunAsync(
-        IEnumerable<KeyValuePair<string, JsonElement>>? arguments, AnythinkClient? client, CancellationToken cancellationToken = default)
+        IEnumerable<KeyValuePair<string, JsonElement>>? arguments, AnythinkClient? client, CancellationToken cancellationToken = default,
+        BillingClient? billing = null, bool singleProjectConnection = false)
     {
         IReadOnlyList<string> args;
         try
@@ -82,7 +92,7 @@ public sealed class CliCommandTool : McpServerTool
             return new CliRunResult(1, $"Error: {ex.Message}");
         }
 
-        return await CliRunner.RunAsync(args, client, _scope, cancellationToken);
+        return await CliRunner.RunAsync(args, client, _scope, cancellationToken, billing: billing, singleProjectConnection: singleProjectConnection);
     }
 
     internal IReadOnlyList<string> BuildArgs(IEnumerable<KeyValuePair<string, JsonElement>>? arguments)
@@ -121,7 +131,11 @@ public sealed class CliCommandTool : McpServerTool
         foreach (var parameter in _parameters.Where(p => p.Kind != CliParameterKind.Argument))
         {
             if (!values.TryGetValue(parameter.Name, out var value))
+            {
+                if (parameter.Required)
+                    throw new ArgumentException($"'{parameter.Name}' is required.");
                 continue;
+            }
 
             switch (parameter.Kind)
             {
