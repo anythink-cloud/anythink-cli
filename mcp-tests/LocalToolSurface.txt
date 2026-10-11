@@ -9,6 +9,15 @@ charts_list [read-only] entity?
 charts_platform_metrics [read-only]
 charts_preview [read-only] agg? compare? compare_days? compare_overlay? config? cumulative? entity? filter? from? group_by? interval? limit? measure? platform_metric? platform_period? quota_metric? rows? sort? source? stack_by? target? target_mode? timeframe? to? type?
 charts_update [destructive] id agg? compare? compare_days? compare_overlay? config? cumulative? entity? filter? from? group_by? interval? limit? measure? name? platform_metric? platform_period? quota_metric? sort? source? stack_by? target? target_mode? timeframe? to? type?
+contacts_create [write] email consent? consent_source? first_name? last_name? source? wording?
+contacts_erase [destructive] id
+contacts_export [read-only] id
+contacts_get [read-only] id
+contacts_import [destructive] file? csv_text? dry_run? skip_invalid?
+contacts_list [read-only] is_user? limit? page? search? source? status?
+contacts_subscribe [write, open-world] email first_name? last_name? source? wording?
+contacts_unsubscribe [destructive] id
+contacts_update [destructive] id first_name? last_name? source?
 dashboards_add_chart [write] dashboard_id chart_id column? height? row? title? width?
 dashboards_create [write] name allow_shared_edit? chart? config? default? description? home? shared?
 dashboards_data [read-only] id rows? widget?
@@ -30,6 +39,9 @@ data_list [read-only] entity all? filter? limit? page?
 data_rls [destructive] entity id readonly? user?
 data_update [destructive] entity id data?
 docs [read-only]
+email_marketing_options [read-only]
+email_marketing_settings_get [read-only]
+email_marketing_settings_set [destructive] default_consent_wording? double_opt_in? postal_address? privacy_policy_url? signup_opt_out_wording? soft_opt_in? soft_opt_in_declaration?
 email_preview [read-only] content? content_text? subject? wrapper? wrapper_text?
 email_shell_show [read-only]
 email_shell_update [destructive] html? html_text? reset?
