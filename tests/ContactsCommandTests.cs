@@ -14,17 +14,17 @@ public class ContactsCommandTests
 
     [Fact]
     public void ConfirmErase_WithYes_NeedsNoPrompt() =>
-        ContactsOutput.ConfirmErase("c1", yes: true, interactive: false).Should().BeNull();
+        ContactsOutput.ConfirmErase(1, yes: true, interactive: false).Should().BeNull();
 
     [Fact]
     public async Task ConfirmErase_NonInteractiveWithoutYes_RefusesAndErasesNothing()
     {
         var handler = new MockHttpMessageHandler();
         var erases = 0;
-        handler.When(HttpMethod.Post, $"{Org}/contacts/c1/erase").Respond(_ => { erases++; return new HttpResponseMessage(HttpStatusCode.NoContent); });
+        handler.When(HttpMethod.Post, $"{Org}/contacts/1/erase").Respond(_ => { erases++; return new HttpResponseMessage(HttpStatusCode.NoContent); });
 
         var (code, _) = await CommandRunner.RunAsync(handler, () =>
-            new ContactsEraseCommand().ExecuteAsync(null!, new ContactsEraseSettings { Id = "c1" }));
+            new ContactsEraseCommand().ExecuteAsync(null!, new ContactsEraseSettings { Id = 1 }));
 
         code.Should().NotBe(0);
         erases.Should().Be(0);
@@ -32,24 +32,24 @@ public class ContactsCommandTests
 
     [Fact]
     public void ConfirmErase_TypingTheId_Proceeds() =>
-        ContactsOutput.ConfirmErase("c1", yes: false, interactive: true, ask: () => " c1 ").Should().BeNull();
+        ContactsOutput.ConfirmErase(1, yes: false, interactive: true, ask: () => " 1 ").Should().BeNull();
 
     [Theory]
     [InlineData("")]
-    [InlineData("c2")]
+    [InlineData("2")]
     [InlineData("yes")]
-    [InlineData("C1")]
+    [InlineData("01")]
     public void ConfirmErase_TypingAnythingElse_Cancels(string typed) =>
-        ContactsOutput.ConfirmErase("c1", yes: false, interactive: true, ask: () => typed).Should().Be(0);
+        ContactsOutput.ConfirmErase(1, yes: false, interactive: true, ask: () => typed).Should().Be(0);
 
     [Fact]
     public async Task Erase_WithYes_PostsTheEraseRoute()
     {
         var handler = new MockHttpMessageHandler();
-        handler.Expect(HttpMethod.Post, $"{Org}/contacts/c1/erase").Respond(HttpStatusCode.NoContent);
+        handler.Expect(HttpMethod.Post, $"{Org}/contacts/1/erase").Respond(HttpStatusCode.NoContent);
 
         var (code, output) = await CommandRunner.RunAsync(handler, () =>
-            new ContactsEraseCommand().ExecuteAsync(null!, new ContactsEraseSettings { Id = "c1", Yes = true }));
+            new ContactsEraseCommand().ExecuteAsync(null!, new ContactsEraseSettings { Id = 1, Yes = true }));
 
         code.Should().Be(0);
         output.Should().Contain("erased");
@@ -68,8 +68,8 @@ public class ContactsCommandTests
     [Fact]
     public void Update_WithNothingToChange_IsRejected()
     {
-        new ContactsUpdateSettings { Id = "c1" }.Validate().Successful.Should().BeFalse();
-        new ContactsUpdateSettings { Id = "c1", Source = "web" }.Validate().Successful.Should().BeTrue();
+        new ContactsUpdateSettings { Id = 1 }.Validate().Successful.Should().BeFalse();
+        new ContactsUpdateSettings { Id = 1, Source = "web" }.Validate().Successful.Should().BeTrue();
     }
 
     // ── Rule: settings set changes only what is passed and sends the rest back unchanged ──
@@ -112,7 +112,7 @@ public class ContactsCommandTests
     {
         var handler = new MockHttpMessageHandler();
         handler.When(HttpMethod.Get, $"{Org}/contacts*").Respond("application/json",
-            """{"items":[{"id":"c1","email":"a@example.com","first_name":"Ann","is_user":false,"email_marketing_status":"subscribed"}],"total_items":40,"has_next_page":true,"page":1,"page_size":1}""");
+            """{"items":[{"id":1,"email":"a@example.com","first_name":"Ann","is_user":false,"email_marketing_status":"subscribed"}],"total_items":40,"has_next_page":true,"page":1,"page_size":1}""");
 
         var (code, output) = await CommandRunner.RunAsync(handler, () =>
             new ContactsListCommand().ExecuteAsync(null!, new ContactsListSettings()));

@@ -21,7 +21,7 @@ internal static class ContactsOutput
 
     public static void Show(Contact c)
     {
-        Renderer.KeyValue("ID", c.Id);
+        Renderer.KeyValue("ID", c.Id.ToString());
         Renderer.KeyValue("Email", c.Email);
         Renderer.KeyValue("Name", Name(c) is { Length: > 0 } n ? n : null);
         Renderer.KeyValue("Marketing status", c.EmailMarketingStatus);
@@ -34,7 +34,7 @@ internal static class ContactsOutput
     }
 
     // Typing the id makes erasing something you have to mean; --yes is for scripts.
-    public static int? ConfirmErase(string id, bool yes, bool? interactive = null, Func<string?>? ask = null)
+    public static int? ConfirmErase(int id, bool yes, bool? interactive = null, Func<string?>? ask = null)
     {
         if (yes) return null;
         if (!(interactive ?? AnsiConsole.Profile.Capabilities.Interactive))
@@ -45,9 +45,9 @@ internal static class ContactsOutput
 
         Renderer.Warn("Erasing a contact permanently removes their personal details and can't be undone.");
         var typed = ask is null
-            ? AnsiConsole.Prompt(new TextPrompt<string>($"Type the contact id ([bold]{Markup.Escape(id)}[/]) to confirm:").AllowEmpty())
+            ? AnsiConsole.Prompt(new TextPrompt<string>($"Type the contact id ([bold]{id}[/]) to confirm:").AllowEmpty())
             : ask();
-        if (string.Equals(typed?.Trim(), id, StringComparison.Ordinal)) return null;
+        if (typed?.Trim() == id.ToString()) return null;
 
         Renderer.Info("Cancelled.");
         return 0;
@@ -104,7 +104,7 @@ public class ContactsListCommand : BaseCommand<ContactsListSettings>
             Renderer.Header($"Contacts ({result.TotalCount?.ToString() ?? result.Items.Count.ToString()})");
             var table = Renderer.BuildTable("ID", "Email", "Name", "Status", "Source", "User", "Created");
             foreach (var c in result.Items)
-                Renderer.AddRow(table, c.Id, c.Email, ContactsOutput.Name(c), c.EmailMarketingStatus, c.Source,
+                Renderer.AddRow(table, c.Id.ToString(), c.Email, ContactsOutput.Name(c), c.EmailMarketingStatus, c.Source,
                     c.IsUser ? "yes" : "no", ContactsOutput.When(c.CreatedAt));
             AnsiConsole.Write(table);
 
@@ -121,8 +121,13 @@ public class ContactsListCommand : BaseCommand<ContactsListSettings>
 public class ContactIdSettings : JsonSettings
 {
     [CommandArgument(0, "<ID>")]
-    [Description("Contact ID")]
-    public string Id { get; set; } = string.Empty;
+    [Description("Contact ID (a whole number)")]
+    public int Id { get; set; }
+
+    public override Spectre.Console.ValidationResult Validate() =>
+        Id > 0
+            ? Spectre.Console.ValidationResult.Success()
+            : Spectre.Console.ValidationResult.Error("The contact ID must be a positive whole number.");
 }
 
 public class ContactsGetCommand : BaseCommand<ContactIdSettings>
@@ -207,7 +212,7 @@ public class ContactsCreateCommand : BaseCommand<ContactsCreateSettings>
 
             if (settings.Json) { ContactsOutput.PrintJson(contact); return 0; }
 
-            Renderer.Success($"Contact [#F97316]{Markup.Escape(contact.Id)}[/] created.");
+            Renderer.Success($"Contact [#F97316]{contact.Id}[/] created.");
             ContactsOutput.Show(contact);
             return 0;
         }
@@ -232,7 +237,8 @@ public class ContactsUpdateSettings : ContactIdSettings
     public string? Source { get; set; }
 
     public override Spectre.Console.ValidationResult Validate() =>
-        FirstName is null && LastName is null && Source is null
+        !base.Validate().Successful ? base.Validate()
+        : FirstName is null && LastName is null && Source is null
             ? Spectre.Console.ValidationResult.Error("Pass at least one of --first-name, --last-name or --source.")
             : Spectre.Console.ValidationResult.Success();
 }
@@ -248,7 +254,7 @@ public class ContactsUpdateCommand : BaseCommand<ContactsUpdateSettings>
 
             if (settings.Json) { ContactsOutput.PrintJson(contact); return 0; }
 
-            Renderer.Success($"Contact [#F97316]{Markup.Escape(contact.Id)}[/] updated.");
+            Renderer.Success($"Contact [#F97316]{contact.Id}[/] updated.");
             ContactsOutput.Show(contact);
             return 0;
         }
@@ -268,7 +274,7 @@ public class ContactsUnsubscribeCommand : BaseCommand<ContactIdSettings>
 
             if (settings.Json) { ContactsOutput.PrintJson(contact); return 0; }
 
-            Renderer.Success($"Contact [#F97316]{Markup.Escape(contact.Id)}[/] is now {Markup.Escape(contact.EmailMarketingStatus ?? "unsubscribed")}.");
+            Renderer.Success($"Contact [#F97316]{contact.Id}[/] is now {Markup.Escape(contact.EmailMarketingStatus ?? "unsubscribed")}.");
             return 0;
         }
         catch (Exception ex) { HandleError(ex); return 1; }
@@ -294,7 +300,7 @@ public class ContactsEraseCommand : BaseCommand<ContactsEraseSettings>
                 return exit;
 
             await GetClient().EraseContactAsync(settings.Id);
-            Renderer.Success($"Contact [#F97316]{Markup.Escape(settings.Id)}[/] erased.");
+            Renderer.Success($"Contact [#F97316]{settings.Id}[/] erased.");
             return 0;
         }
         catch (Exception ex) { HandleError(ex); return 1; }

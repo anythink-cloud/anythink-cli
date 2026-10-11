@@ -69,9 +69,9 @@ public class ContactsToolsTests
     public async Task ContactsErase_RunsWithoutAPrompt()
     {
         var mock = new MockHttpMessageHandler();
-        var erase = mock.When(HttpMethod.Post, $"{Org}/contacts/c1/erase").Respond(System.Net.HttpStatusCode.NoContent);
+        var erase = mock.When(HttpMethod.Post, $"{Org}/contacts/1/erase").Respond(System.Net.HttpStatusCode.NoContent);
 
-        var result = await Tool("contacts_erase").RunAsync(Args(new { id = "c1" }), Client(mock));
+        var result = await Tool("contacts_erase").RunAsync(Args(new { id = 1 }), Client(mock));
 
         result.ExitCode.Should().Be(0, result.Output);
         mock.GetMatchCount(erase).Should().Be(1);
@@ -112,7 +112,7 @@ public class ContactsToolsTests
     {
         var mock = new MockHttpMessageHandler();
         mock.When(HttpMethod.Post, $"{Org}/contacts").Respond(System.Net.HttpStatusCode.Created, "application/json",
-            """{"id":"c1","email":"a@example.com","is_user":false,"email_marketing_status":"not_subscribed"}""");
+            """{"id":1,"email":"a@example.com","is_user":false,"email_marketing_status":"not_subscribed"}""");
 
         var result = await Tool("contacts_create", CliToolScope.Internal).RunAsync(Args(new { email = "a@example.com" }), Client(mock));
 

@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using AnythinkCli.Client;
+using AnythinkCli.Commands;
 using AnythinkCli.Models;
 using FluentAssertions;
 using RichardSzalay.MockHttp;
@@ -12,7 +13,7 @@ public class ContactsClientTests
     private const string Org = "https://api.example.com/org/99999";
 
     private const string ContactJson =
-        """{"id":"c1","email":"a@example.com","first_name":"Ann","last_name":null,"user_id":null,"is_user":false,"email_marketing_status":"subscribed","consent_basis":"consent","status_changed_at":"2026-01-01T00:00:00Z","source":"web","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}""";
+        """{"id":1,"email":"a@example.com","first_name":"Ann","last_name":null,"user_id":7,"is_user":false,"email_marketing_status":"subscribed","consent_basis":"consent","status_changed_at":"2026-01-01T00:00:00Z","source":"web","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}""";
 
     private static AnythinkClient Client(MockHttpMessageHandler handler) =>
         new("99999", "https://api.example.com", new HttpClient(handler));
@@ -48,10 +49,10 @@ public class ContactsClientTests
     public async Task GetContactAsync_ReadsTheConsentEvents()
     {
         var handler = new MockHttpMessageHandler();
-        var withEvents = ContactJson.TrimEnd('}') + ""","consent_events":[{"id":"e1","action":"subscribed","basis":"consent","source":"web","wording":"Yes please","ip_address":"203.0.113.9","campaign_id":null,"actor_user_id":null,"occurred_at":"2026-01-01T00:00:00Z","created_at":"2026-01-01T00:00:00Z"}]}""";
-        handler.Expect(HttpMethod.Get, $"{Org}/contacts/c1").Respond("application/json", withEvents);
+        var withEvents = ContactJson.TrimEnd('}') + ""","consent_events":[{"id":10,"action":"subscribed","basis":"consent","source":"web","wording":"Yes please","ip_address":"203.0.113.9","campaign_id":null,"actor_user_id":null,"occurred_at":"2026-01-01T00:00:00Z","created_at":"2026-01-01T00:00:00Z"}]}""";
+        handler.Expect(HttpMethod.Get, $"{Org}/contacts/1").Respond("application/json", withEvents);
 
-        var contact = await Client(handler).GetContactAsync("c1");
+        var contact = await Client(handler).GetContactAsync(1);
 
         contact.ConsentEvents.Should().ContainSingle().Which.Wording.Should().Be("Yes please");
     }
@@ -78,10 +79,10 @@ public class ContactsClientTests
     public async Task UpdateContactAsync_PatchesOnlyTheFieldsGiven()
     {
         var handler = new MockHttpMessageHandler();
-        handler.Expect(new HttpMethod("PATCH"), $"{Org}/contacts/c1").WithContent("""{"last_name":"Lee"}""")
+        handler.Expect(new HttpMethod("PATCH"), $"{Org}/contacts/1").WithContent("""{"last_name":"Lee"}""")
             .Respond("application/json", ContactJson);
 
-        await Client(handler).UpdateContactAsync("c1", new UpdateContactRequest(LastName: "Lee"));
+        await Client(handler).UpdateContactAsync(1, new UpdateContactRequest(LastName: "Lee"));
 
         handler.VerifyNoOutstandingExpectation();
     }
@@ -90,9 +91,9 @@ public class ContactsClientTests
     public async Task UnsubscribeContactAsync_PostsToTheUnsubscribeRoute()
     {
         var handler = new MockHttpMessageHandler();
-        handler.Expect(HttpMethod.Post, $"{Org}/contacts/c1/unsubscribe").Respond("application/json", ContactJson);
+        handler.Expect(HttpMethod.Post, $"{Org}/contacts/1/unsubscribe").Respond("application/json", ContactJson);
 
-        await Client(handler).UnsubscribeContactAsync("c1");
+        await Client(handler).UnsubscribeContactAsync(1);
 
         handler.VerifyNoOutstandingExpectation();
     }
@@ -101,9 +102,9 @@ public class ContactsClientTests
     public async Task EraseContactAsync_AcceptsNoContent()
     {
         var handler = new MockHttpMessageHandler();
-        handler.Expect(HttpMethod.Post, $"{Org}/contacts/c1/erase").Respond(HttpStatusCode.NoContent);
+        handler.Expect(HttpMethod.Post, $"{Org}/contacts/1/erase").Respond(HttpStatusCode.NoContent);
 
-        await Client(handler).EraseContactAsync("c1");
+        await Client(handler).EraseContactAsync(1);
 
         handler.VerifyNoOutstandingExpectation();
     }
@@ -112,9 +113,9 @@ public class ContactsClientTests
     public async Task EraseContactAsync_ApiRefusal_Throws()
     {
         var handler = new MockHttpMessageHandler();
-        handler.When(HttpMethod.Post, $"{Org}/contacts/c1/erase").Respond(HttpStatusCode.Forbidden, "application/json", "{}");
+        handler.When(HttpMethod.Post, $"{Org}/contacts/1/erase").Respond(HttpStatusCode.Forbidden, "application/json", "{}");
 
-        var act = () => Client(handler).EraseContactAsync("c1");
+        var act = () => Client(handler).EraseContactAsync(1);
 
         (await act.Should().ThrowAsync<AnythinkException>()).Which.StatusCode.Should().Be(403);
     }
@@ -123,12 +124,12 @@ public class ContactsClientTests
     public async Task ExportContactAsync_ReturnsTheRawDocument()
     {
         var handler = new MockHttpMessageHandler();
-        handler.Expect(HttpMethod.Get, $"{Org}/contacts/c1/export")
-            .Respond("application/json", """{"contact":{"id":"c1"},"events":[]}""");
+        handler.Expect(HttpMethod.Get, $"{Org}/contacts/1/export")
+            .Respond("application/json", """{"contact":{"id":1},"events":[]}""");
 
-        var export = await Client(handler).ExportContactAsync("c1");
+        var export = await Client(handler).ExportContactAsync(1);
 
-        export["contact"]!["id"]!.GetValue<string>().Should().Be("c1");
+        export["contact"]!["id"]!.GetValue<int>().Should().Be(1);
     }
 
     [Fact]
@@ -144,19 +145,31 @@ public class ContactsClientTests
         result.Should().Be(new ImportContactsResult(1, 2, 3, 4));
     }
 
+    // ── Rule: ids are whole numbers on the wire ──────────────────────────────
+
     [Fact]
-    public async Task ContactId_IsOnePathSegment_AndCannotReachAnotherRoute()
+    public async Task GetContactAsync_ReadsNumericIdsForTheContactItsEventsAndTheirCampaign()
     {
         var handler = new MockHttpMessageHandler();
-        handler.Expect(HttpMethod.Get, $"{Org}/contacts/..%2Fusers").Respond("application/json", ContactJson);
-        var client = Client(handler);
+        handler.Expect(HttpMethod.Get, $"{Org}/contacts/42").Respond("application/json", """
+            {"id":42,"email":"a@example.com","user_id":7,"is_user":true,"email_marketing_status":"subscribed",
+             "consent_events":[{"id":314,"action":"subscribed","basis":"consent","source":"web","wording":"Yes",
+             "ip_address":"203.0.113.9","campaign_id":5,"actor_user_id":9,"occurred_at":"2026-01-01T00:00:00Z","created_at":"2026-01-01T00:00:00Z"}]}
+            """);
 
-        await client.GetContactAsync("../users");
-        var act = () => client.GetContactAsync("..");
+        var contact = await Client(handler).GetContactAsync(42);
 
-        await act.Should().ThrowAsync<ArgumentException>();
-        handler.VerifyNoOutstandingExpectation();
+        contact.Id.Should().Be(42);
+        contact.UserId.Should().Be(7);
+        var e = contact.ConsentEvents.Should().ContainSingle().Subject;
+        (e.Id, e.CampaignId, e.ActorUserId).Should().Be((314, 5, 9));
     }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-3)]
+    public void ContactId_MustBeAPositiveWholeNumber(int id) =>
+        new ContactIdSettings { Id = id }.Validate().Successful.Should().BeFalse();
 
     // ── Rule: the public routes send no credentials ──────────────────────────
 

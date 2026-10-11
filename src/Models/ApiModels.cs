@@ -967,20 +967,20 @@ public record UpdateEmailShellRequest(
 // ── Contacts and email marketing ─────────────────────────────────────────────
 
 public record ContactConsentEvent(
-    [property: JsonPropertyName("id")] string? Id,
+    [property: JsonPropertyName("id")] int? Id,
     [property: JsonPropertyName("action")] string? Action,
     [property: JsonPropertyName("basis")] string? Basis,
     [property: JsonPropertyName("source")] string? Source,
     [property: JsonPropertyName("wording")] string? Wording,
     [property: JsonPropertyName("ip_address")] string? IpAddress,
-    [property: JsonPropertyName("campaign_id")] string? CampaignId,
+    [property: JsonPropertyName("campaign_id")] int? CampaignId,
     [property: JsonPropertyName("actor_user_id")] int? ActorUserId,
     [property: JsonPropertyName("occurred_at")] DateTime? OccurredAt,
     [property: JsonPropertyName("created_at")] DateTime? CreatedAt
 );
 
 public record Contact(
-    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("id")] int Id,
     [property: JsonPropertyName("email")] string Email,
     [property: JsonPropertyName("first_name")] string? FirstName,
     [property: JsonPropertyName("last_name")] string? LastName,

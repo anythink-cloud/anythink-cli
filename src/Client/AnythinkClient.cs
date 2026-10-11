@@ -151,24 +151,24 @@ public class AnythinkClient : HttpApiClient
                ?? new PaginatedResult<Contact>([], 0, null, false, page, pageSize);
     }
 
-    public async Task<Contact> GetContactAsync(string id)
-        => (await GetAsync<Contact>(_org + $"/contacts/{Seg(id)}"))
+    public async Task<Contact> GetContactAsync(int id)
+        => (await GetAsync<Contact>(_org + $"/contacts/{id}"))
            ?? throw new AnythinkException("Contact not found.", 404);
 
     public Task<Contact> CreateContactAsync(CreateContactRequest req)
         => PostAsync<Contact>(_org + "/contacts", req);
 
-    public Task<Contact> UpdateContactAsync(string id, UpdateContactRequest req)
-        => PatchAsync<Contact>(_org + $"/contacts/{Seg(id)}", req);
+    public Task<Contact> UpdateContactAsync(int id, UpdateContactRequest req)
+        => PatchAsync<Contact>(_org + $"/contacts/{id}", req);
 
-    public Task<Contact> UnsubscribeContactAsync(string id)
-        => PostAsync<Contact>(_org + $"/contacts/{Seg(id)}/unsubscribe");
+    public Task<Contact> UnsubscribeContactAsync(int id)
+        => PostAsync<Contact>(_org + $"/contacts/{id}/unsubscribe");
 
-    public Task EraseContactAsync(string id)
-        => PostVoidAsync(_org + $"/contacts/{Seg(id)}/erase");
+    public Task EraseContactAsync(int id)
+        => PostVoidAsync(_org + $"/contacts/{id}/erase");
 
-    public async Task<JsonNode> ExportContactAsync(string id)
-        => (await GetAsync<JsonNode>(_org + $"/contacts/{Seg(id)}/export"))
+    public async Task<JsonNode> ExportContactAsync(int id)
+        => (await GetAsync<JsonNode>(_org + $"/contacts/{id}/export"))
            ?? throw new AnythinkException("Contact not found.", 404);
 
     public Task<ImportContactsResult> ImportContactsAsync(IReadOnlyList<ImportContactRow> rows)
