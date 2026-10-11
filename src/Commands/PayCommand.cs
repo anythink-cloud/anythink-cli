@@ -565,7 +565,7 @@ public class PayPlansDeleteSettings : CommandSettings
     public bool SkipConfirm { get; set; }
 }
 
-[CommandGuide("Removes a subscription plan so it can no longer be chosen. Existing subscriptions on it, and its Stripe product and price, are left in place and keep billing. To hide a plan reversibly, use `pay_plans_update` with inactive instead.")]
+[CommandGuide("Removes a subscription plan. Refused while anyone is still subscribed to it; to stop new sign-ups meanwhile, use `pay_plans_update` with inactive.")]
 public class PayPlansDeleteCommand : BaseCommand<PayPlansDeleteSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PayPlansDeleteSettings settings)
@@ -1152,7 +1152,7 @@ public class PaySubscriptionsEventsCommand : BaseCommand<PaySubscriptionsIdSetti
 
 // ── pay subscriptions admin recovery (project administrators) ─────────────────────
 
-[CommandGuide("Project-admin recovery tool that permanently removes a stuck or duplicate subscription record and its user links from Anythink. It does not cancel at Stripe or Apple, so the customer can still be billed; use `pay_subscriptions_cancel` first if billing should stop.")]
+[CommandGuide("Project-admin recovery tool that permanently removes a subscription and its user links. A live Stripe subscription is cancelled at Stripe first, so billing stops. A live Apple subscription is refused until the customer cancels it in the App Store.")]
 public class PaySubscriptionsDeleteCommand : BaseCommand<PaySubscriptionsConfirmSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PaySubscriptionsConfirmSettings settings)
@@ -1177,7 +1177,7 @@ public class PaySubscriptionsDeleteCommand : BaseCommand<PaySubscriptionsConfirm
     }
 }
 
-[CommandGuide("Project-admin recovery tool that sets a subscription's status to expired and clears its current period, so the user loses access at once while the record is kept. It changes only Anythink's record, not Stripe or Apple, so it does not stop future charges; use `pay_subscriptions_cancel` for that.")]
+[CommandGuide("Project-admin recovery tool that expires a subscription now, so the user loses access at once while the record is kept. A live Stripe subscription is cancelled at Stripe too. A live Apple subscription is refused until the customer cancels it in the App Store. To end at the period's end instead, use `pay_subscriptions_cancel`.")]
 public class PaySubscriptionsForceExpireCommand : BaseCommand<PaySubscriptionsConfirmSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PaySubscriptionsConfirmSettings settings)
