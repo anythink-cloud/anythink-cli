@@ -87,7 +87,7 @@ internal static class ContactsImport
             yield return [.. rows.Skip(i).Take(MaxRowsPerCall)];
     }
 
-    // A failed chunk stops the import with the totals so far; the error carries the status only, as the API may echo an address.
+    // A failed chunk stops the import with the totals so far; a 4xx carries the API's fixed error text and anything else the status only, as the API may echo an address.
     public static async Task<ContactsImportSummary> SendAsync(AnythinkClient client, IReadOnlyList<ImportContactRow> rows, int localInvalid = 0)
     {
         var chunks = Chunk(rows).ToList();
@@ -141,13 +141,13 @@ internal static class ContactsImport
         return [.. dates.SelectMany(d => times.SelectMany(t => new[] { d + t, d + t + "K" }))];
     }
 
-    // Ambiguous day/month orders (01/02/2024) are rejected rather than guessed; no offset means UTC.
+    // Ambiguous day/month orders (01/02/2024) are rejected rather than guessed; no offset means UTC, and the value is always sent as UTC with a Z suffix.
     public static bool TryParseConsentedAt(string value, out string? iso)
     {
         if (System.DateTimeOffset.TryParseExact(value.Trim(), DateFormats, System.Globalization.CultureInfo.InvariantCulture,
                 System.Globalization.DateTimeStyles.AssumeUniversal, out var parsed))
         {
-            iso = parsed.ToString("o", System.Globalization.CultureInfo.InvariantCulture);
+            iso = parsed.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ", System.Globalization.CultureInfo.InvariantCulture);
             return true;
         }
         iso = null;

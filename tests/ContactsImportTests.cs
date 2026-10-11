@@ -30,7 +30,7 @@ public class ContactsImportTests
 
         parsed.Issues.Should().BeEmpty();
         parsed.Rows.Should().ContainSingle().Which.Should().Be(new ImportContactRow(
-            "ann@example.com", "subscribed", "Ann", "Lee", "mailchimp", "2025-03-01T10:00:00.0000000+00:00", "Yes, please", "203.0.113.9"));
+            "ann@example.com", "subscribed", "Ann", "Lee", "mailchimp", "2025-03-01T10:00:00.0000000Z", "Yes, please", "203.0.113.9"));
     }
 
     [Fact]
@@ -87,17 +87,17 @@ public class ContactsImportTests
         parsed.Issues.Select(i => i.Row).Should().Equal(3, 4, 5, 6);
     }
 
-    // ── Rule: consented_at is sent as ISO 8601 (UTC when no offset), whatever unambiguous form the sheet used ──
+    // ── Rule: consented_at is sent as ISO 8601 in UTC with a Z suffix (UTC assumed when no offset), whatever unambiguous form the sheet used ──
 
     [Theory]
-    [InlineData("2024-01-02", "2024-01-02T00:00:00.0000000+00:00")]
-    [InlineData("2024-01-02 10:00", "2024-01-02T10:00:00.0000000+00:00")]
-    [InlineData("2024-01-02 10:00:30", "2024-01-02T10:00:30.0000000+00:00")]
-    [InlineData("2024-01-02T10:00:00", "2024-01-02T10:00:00.0000000+00:00")]
-    [InlineData("2024-01-02T10:00:00Z", "2024-01-02T10:00:00.0000000+00:00")]
-    [InlineData("2024-01-02T10:00:00+01:00", "2024-01-02T10:00:00.0000000+01:00")]
-    [InlineData("2 Jan 2024", "2024-01-02T00:00:00.0000000+00:00")]
-    [InlineData("2 January 2024 09:30", "2024-01-02T09:30:00.0000000+00:00")]
+    [InlineData("2024-01-02", "2024-01-02T00:00:00.0000000Z")]
+    [InlineData("2024-01-02 10:00", "2024-01-02T10:00:00.0000000Z")]
+    [InlineData("2024-01-02 10:00:30", "2024-01-02T10:00:30.0000000Z")]
+    [InlineData("2024-01-02T10:00:00", "2024-01-02T10:00:00.0000000Z")]
+    [InlineData("2024-01-02T10:00:00Z", "2024-01-02T10:00:00.0000000Z")]
+    [InlineData("2024-01-02T10:00:00+01:00", "2024-01-02T09:00:00.0000000Z")]
+    [InlineData("2 Jan 2024", "2024-01-02T00:00:00.0000000Z")]
+    [InlineData("2 January 2024 09:30", "2024-01-02T09:30:00.0000000Z")]
     public void Parse_ConsentedAt_IsSentAsIso8601(string input, string expected)
     {
         var parsed = Parse($"email,status,consented_at\na@example.com,subscribed,{input}\n");
