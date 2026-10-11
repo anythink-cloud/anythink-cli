@@ -455,4 +455,53 @@ public class ImportPlanTests : IDisposable
         output.Should().Contain("Already in the project: 1 field(s)");
         lines.Should().ContainSingle(l => l.StartsWith("! review  careful"));
     }
+
+    // ── Rule: a role's fingerprint is its permission set, not the order or ids the API lists them with ──
+
+    [Fact]
+    public void Target_Hash_Of_A_Role_Ignores_Permission_Order_But_Notices_A_Different_Set()
+    {
+        RoleResponse Role(params string[] permissions) => new(5, "editor", null, true,
+            Permissions: permissions.Select((name, i) => new Permission(i + 1, name, null, null, true)).ToList());
+
+        TargetHasher.Hash(Role("a:read", "b:read")).Should().Be(TargetHasher.Hash(Role("b:read", "a:read")));
+        TargetHasher.Hash(Role("a:read", "b:read")).Should().NotBe(TargetHasher.Hash(Role("a:read")));
+    }
+
+    // ── Rule: the import command passes its plan flags through to the runner ──
+
+    private static Commands.ImportDirectusCommand ImportCommand() =>
+        new() { ImporterFactory = (_, _) => new FakeImporter(new ImportSchema([new("articles", [Field("title")])], [], [], [])) };
+
+    // MockHttp rejects any request it has no stub for, so a write here would fail the command
+    private static MockHttpMessageHandler EmptyProject()
+    {
+        var project = new MockHttpMessageHandler();
+        project.ReplyWith(HttpMethod.Get, $"{CommandRunner.Org}/entities", "[]");
+        return project;
+    }
+
+    [Fact]
+    public async Task Plan_Flag_Saves_The_Plan_And_Changes_Nothing()
+    {
+        var path = Path.Combine(_dir, "plan.json");
+
+        var (code, output) = await CommandRunner.RunAsync(EmptyProject(), () => ImportCommand().ExecuteAsync(null!,
+            new Commands.ImportDirectusSettings { Url = "https://cms.example.com", Token = "t", Plan = path }));
+
+        code.Should().Be(0, output);
+        PlanJson.Deserialise(File.ReadAllText(path)).Items.Should().Contain(i => i.Kind == PlanKind.Entity && i.Action == PlanAction.Create);
+        output.Should().Contain("Nothing in the project was changed");
+    }
+
+    [Fact]
+    public async Task Json_With_Dry_Run_Prints_Only_The_Plan_As_Json()
+    {
+        var (code, output) = await CommandRunner.RunAsync(EmptyProject(), () => ImportCommand().ExecuteAsync(null!,
+            new Commands.ImportDirectusSettings { Url = "https://cms.example.com", Token = "t", DryRun = true, Json = true }));
+
+        code.Should().Be(0, output);
+        JsonNode.Parse(output)!["items"]!.AsArray().Should().NotBeEmpty();
+        output.Should().NotContain("Directus:").And.NotContain("Reading the project");
+    }
 }

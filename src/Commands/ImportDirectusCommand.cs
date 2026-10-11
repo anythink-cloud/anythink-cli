@@ -67,6 +67,8 @@ public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
 {
     public const string TokenEnvVar = "DIRECTUS_TOKEN";
 
+    internal Func<string, string, IPlatformImporter>? ImporterFactory { get; set; }
+
     public override async Task<int> ExecuteAsync(CommandContext context, ImportDirectusSettings settings)
     {
         try
@@ -78,7 +80,7 @@ public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
             var token = ResolveToken(settings.Token, Environment.GetEnvironmentVariable(TokenEnvVar), interactive,
                 () => AnsiConsole.Prompt(new TextPrompt<string>("Directus token:").Secret()));
 
-            var importer = new DirectusImporter(url, token);
+            var importer = ImporterFactory?.Invoke(url, token) ?? new DirectusImporter(url, token);
             var target = settings.To is not null ? GetClientForProfile(settings.To) : GetClient();
 
             var runner = new ImportRunner(importer, target,
