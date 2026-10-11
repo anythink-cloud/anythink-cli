@@ -72,24 +72,106 @@ public class ContactsCommandTests
         new ContactsUpdateSettings { Id = 1, Source = "web" }.Validate().Successful.Should().BeTrue();
     }
 
-    // ── Rule: settings set changes only what is passed and sends the rest back unchanged ──
+    // ── Rule: settings set sends only the fields given, with no read first (the API merges them) ──
 
     [Fact]
-    public async Task SettingsSet_MergesOntoTheCurrentSettings()
+    public async Task SettingsSet_SendsOnlyTheFieldsGiven_AndReadsNothingFirst()
     {
-        var current = """{"double_opt_in":true,"soft_opt_in":false,"postal_address":"1 High St","default_consent_wording":"Yes","privacy_policy_url":"https://x.test/p","signup_opt_out_wording":"No"}""";
+        var current = """{"double_opt_in":true,"soft_opt_in":false,"postal_address":"2 Low Rd","default_consent_wording":"Yes","privacy_policy_url":"https://x.test/p","signup_opt_out_wording":"No"}""";
         var handler = new MockHttpMessageHandler();
         var bodies = new List<string>();
-        handler.When(HttpMethod.Get, $"{Org}/email-marketing/settings").Respond("application/json", current);
         handler.ReplyWith(HttpMethod.Put, $"{Org}/email-marketing/settings", current, bodies);
 
         var (code, _) = await CommandRunner.RunAsync(handler, () =>
             new EmailMarketingSettingsSetCommand().ExecuteAsync(null!, new EmailMarketingSettingsSetSettings { PostalAddress = "2 Low Rd" }));
 
         code.Should().Be(0);
-        bodies.Should().ContainSingle().Which.Should()
-            .Contain("\"double_opt_in\":true").And.Contain("\"postal_address\":\"2 Low Rd\"").And.Contain("\"privacy_policy_url\":\"https://x.test/p\"")
-            .And.NotContain("soft_opt_in_declaration");
+        bodies.Should().ContainSingle().Which.Should().Be("""{"postal_address":"2 Low Rd"}""");
+    }
+
+    [Fact]
+    public async Task SettingsGet_ShowsWhoDeclaredTheSoftOptIn_AndWhen()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.When(HttpMethod.Get, $"{Org}/email-marketing/settings").Respond("application/json",
+            """{"double_opt_in":true,"soft_opt_in":true,"soft_opt_in_declared_at":"2026-03-01T10:00:00Z","soft_opt_in_declared_by":7}""");
+
+        var (_, output) = await CommandRunner.RunAsync(handler, () =>
+            new EmailMarketingSettingsGetCommand().ExecuteAsync(null!, new JsonSettings()));
+
+        output.Should().Contain("2026-03-01 10:00").And.Contain("7");
+    }
+
+    // ── Rule: subscribe warns that it fakes a form signup, and records the source as cli by default ──
+
+    [Fact]
+    public async Task Subscribe_WarnsAndDefaultsTheSourceToCli()
+    {
+        var handler = new MockHttpMessageHandler();
+        var bodies = new List<string>();
+        handler.ReplyWith(HttpMethod.Post, $"{Org}/contacts/subscribe", """{"status":"accepted"}""", bodies);
+
+        var (code, output) = await CommandRunner.RunAsync(handler, () =>
+            new ContactsSubscribeCommand().ExecuteAsync(null!, new ContactsSubscribeSettings { Email = "me@example.com" }));
+
+        code.Should().Be(0);
+        output.Should().Contain("as if the person filled in the signup form").And.Contain("testing with your own address");
+        bodies.Single().Should().Contain("\"source\":\"cli\"");
+    }
+
+    // ── Rule: erase --json prints the erased id ──
+
+    [Fact]
+    public async Task Erase_Json_PrintsTheErasedId()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.When(HttpMethod.Post, $"{Org}/contacts/5/erase").Respond(HttpStatusCode.NoContent);
+
+        var (code, output) = await CommandRunner.RunAsync(handler, () =>
+            new ContactsEraseCommand().ExecuteAsync(null!, new ContactsEraseSettings { Id = 5, Yes = true, Json = true }));
+
+        code.Should().Be(0);
+        output.Should().Contain("\"erased\": 5");
+    }
+
+    // ── Rule: a bare 404 means the API has no contacts routes; a JSON 404 means the contact is missing ──
+
+    [Fact]
+    public async Task ContactsCall_ThatGetsABare404_SaysContactsAreNotAvailableYet()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.When(HttpMethod.Get, $"{Org}/contacts*").Respond(HttpStatusCode.NotFound);
+
+        var (code, output) = await CommandRunner.RunAsync(handler, () =>
+            new ContactsListCommand().ExecuteAsync(null!, new ContactsListSettings()));
+
+        code.Should().Be(1);
+        output.Should().Contain("Contacts aren't available on this project yet (the API returned 404).").And.NotContain("API error");
+    }
+
+    [Fact]
+    public async Task EmailMarketingCall_ThatGetsABare404_SaysContactsAreNotAvailableYet()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.When(HttpMethod.Get, $"{Org}/email-marketing/settings").Respond(HttpStatusCode.NotFound);
+
+        var (code, output) = await CommandRunner.RunAsync(handler, () =>
+            new EmailMarketingSettingsGetCommand().ExecuteAsync(null!, new JsonSettings()));
+
+        code.Should().Be(1);
+        output.Should().Contain("Contacts aren't available on this project yet");
+    }
+
+    [Fact]
+    public async Task GetContact_WhoDoesNotExist_StillReportsTheApiError()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.When(HttpMethod.Get, $"{Org}/contacts/9").Respond(HttpStatusCode.NotFound, "application/json", """{"error":"Contact not found"}""");
+
+        var (_, output) = await CommandRunner.RunAsync(handler, () =>
+            new ContactsGetCommand().ExecuteAsync(null!, new ContactIdSettings { Id = 9 }));
+
+        output.Should().Contain("Contact not found").And.NotContain("aren't available");
     }
 
     [Fact]

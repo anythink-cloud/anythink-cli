@@ -13,7 +13,7 @@ internal sealed record ParsedContacts(
     List<string> IgnoredColumns);
 
 internal sealed record ContactsImportSummary(
-    int Sent, int Created, int Updated, int Suppressed, int Invalid, int Chunks, int ChunksCompleted, int? FailedStatus);
+    int Sent, int Created, int Updated, int Suppressed, int Invalid, int Chunks, int ChunksCompleted, int? FailedStatus, string? FailedMessage = null);
 
 internal static class ContactsImport
 {
@@ -64,7 +64,7 @@ internal static class ContactsImport
                 email is null ? "email is missing"
                 : !LooksLikeEmail(email) ? "email isn't a valid address"
                 : status is null ? "status is missing"
-                : consentedAt is not null && !DateTimeOffset.TryParse(consentedAt, out _) ? "consented_at isn't a date"
+                : consentedAt is not null && !TryParseConsentedAt(consentedAt, out consentedAt) ? "consented_at isn't a recognised date (use YYYY-MM-DD with an optional time; day/month and month/day formats are ambiguous)"
                 : ip is not null && !IPAddress.TryParse(ip, out _) ? "ip_address isn't an IP address"
                 : null;
 
@@ -93,6 +93,7 @@ internal static class ContactsImport
         var chunks = Chunk(rows).ToList();
         int created = 0, updated = 0, suppressed = 0, invalid = localInvalid, done = 0, sent = 0;
         int? failedStatus = null;
+        string? failedMessage = null;
 
         foreach (var chunk in chunks)
         {
@@ -109,11 +110,48 @@ internal static class ContactsImport
             catch (AnythinkException ex)
             {
                 failedStatus = ex.StatusCode;
+                failedMessage = ex.StatusCode is >= 400 and < 500 ? ErrorText(ex.Message) : null;
                 break;
             }
         }
 
-        return new ContactsImportSummary(sent, created, updated, suppressed, invalid, chunks.Count, done, failedStatus);
+        return new ContactsImportSummary(sent, created, updated, suppressed, invalid, chunks.Count, done, failedStatus, failedMessage);
+    }
+
+    // Import errors are fixed strings that never echo an address, so the error field is safe to show.
+    internal static string? ErrorText(string body)
+    {
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(body);
+            return doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object
+                   && doc.RootElement.TryGetProperty("error", out var e) && e.ValueKind == System.Text.Json.JsonValueKind.String
+                ? e.GetString()
+                : null;
+        }
+        catch (System.Text.Json.JsonException) { return null; }
+    }
+
+    private static readonly string[] DateFormats = BuildDateFormats();
+
+    private static string[] BuildDateFormats()
+    {
+        var dates = new[] { "yyyy-MM-dd", "d MMM yyyy", "d MMMM yyyy", "MMM d yyyy", "MMMM d yyyy", "MMM d, yyyy", "MMMM d, yyyy" };
+        var times = new[] { "", "THH:mm", "THH:mm:ss", "THH:mm:ss.FFFFFFF", " HH:mm", " HH:mm:ss", " HH:mm:ss.FFFFFFF" };
+        return [.. dates.SelectMany(d => times.SelectMany(t => new[] { d + t, d + t + "K" }))];
+    }
+
+    // Ambiguous day/month orders (01/02/2024) are rejected rather than guessed; no offset means UTC.
+    public static bool TryParseConsentedAt(string value, out string? iso)
+    {
+        if (System.DateTimeOffset.TryParseExact(value.Trim(), DateFormats, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal, out var parsed))
+        {
+            iso = parsed.ToString("o", System.Globalization.CultureInfo.InvariantCulture);
+            return true;
+        }
+        iso = null;
+        return false;
     }
 
     public static bool LooksLikeEmail(string value)

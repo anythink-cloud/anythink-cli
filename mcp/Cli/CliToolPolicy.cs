@@ -7,7 +7,7 @@ public enum CliToolScope { Local, Internal, Hosted }
 public static class CliToolPolicy
 {
     private static readonly string[] ExcludedEverywhere =
-        ["cli", "signup", "login", "logout", "config", "migrate", "pay apple", "pay setup"];
+        ["cli", "signup", "login", "logout", "config", "migrate", "pay apple", "pay setup", "contacts subscribe"];
 
     private static readonly string[] AccountGroups = ["accounts", "projects", "plans"];
 
@@ -78,7 +78,6 @@ public static class CliToolPolicy
             "users invite first_name",
             "users invite last_name",
             "contacts create email",
-            "contacts subscribe email",
             "projects create name",
             "menus create name",
             "menus reorder menu_ids",

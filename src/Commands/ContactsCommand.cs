@@ -14,6 +14,23 @@ internal static class ContactsOutput
     public static void PrintJson(object value) =>
         Renderer.PrintJson(JsonSerializer.Serialize(value, JsonOutput.PrettyRelaxed));
 
+    public const string UnavailableMessage = "Contacts aren't available on this project yet (the API returned 404).";
+
+    // A missing contact comes back as a JSON error; a route the API doesn't have comes back bare.
+    public static void HandleError(Exception ex)
+    {
+        if (ex is AnythinkException { StatusCode: 404 } ae && !IsJsonError(ae.Message))
+            Renderer.Error(UnavailableMessage);
+        else
+            BaseCommand<ContactsListSettings>.HandleError(ex);
+    }
+
+    private static bool IsJsonError(string body)
+    {
+        try { return JsonDocument.Parse(body).RootElement.ValueKind == JsonValueKind.Object; }
+        catch (JsonException) { return false; }
+    }
+
     public static string Name(Contact c) =>
         string.Join(' ', new[] { c.FirstName, c.LastName }.Where(n => !string.IsNullOrWhiteSpace(n)));
 
@@ -112,7 +129,7 @@ public class ContactsListCommand : BaseCommand<ContactsListSettings>
                 Renderer.Info($"More contacts available: re-run with --page {settings.Page + 1}.");
             return 0;
         }
-        catch (Exception ex) { HandleError(ex); return 1; }
+        catch (Exception ex) { ContactsOutput.HandleError(ex); return 1; }
     }
 }
 
@@ -158,7 +175,7 @@ public class ContactsGetCommand : BaseCommand<ContactIdSettings>
             }
             return 0;
         }
-        catch (Exception ex) { HandleError(ex); return 1; }
+        catch (Exception ex) { ContactsOutput.HandleError(ex); return 1; }
     }
 }
 
@@ -216,7 +233,7 @@ public class ContactsCreateCommand : BaseCommand<ContactsCreateSettings>
             ContactsOutput.Show(contact);
             return 0;
         }
-        catch (Exception ex) { HandleError(ex); return 1; }
+        catch (Exception ex) { ContactsOutput.HandleError(ex); return 1; }
     }
 }
 
@@ -258,7 +275,7 @@ public class ContactsUpdateCommand : BaseCommand<ContactsUpdateSettings>
             ContactsOutput.Show(contact);
             return 0;
         }
-        catch (Exception ex) { HandleError(ex); return 1; }
+        catch (Exception ex) { ContactsOutput.HandleError(ex); return 1; }
     }
 }
 
@@ -277,7 +294,7 @@ public class ContactsUnsubscribeCommand : BaseCommand<ContactIdSettings>
             Renderer.Success($"Contact [#F97316]{contact.Id}[/] is now {Markup.Escape(contact.EmailMarketingStatus ?? "unsubscribed")}.");
             return 0;
         }
-        catch (Exception ex) { HandleError(ex); return 1; }
+        catch (Exception ex) { ContactsOutput.HandleError(ex); return 1; }
     }
 }
 
@@ -300,10 +317,11 @@ public class ContactsEraseCommand : BaseCommand<ContactsEraseSettings>
                 return exit;
 
             await GetClient().EraseContactAsync(settings.Id);
+            if (settings.Json) { ContactsOutput.PrintJson(new { erased = settings.Id }); return 0; }
             Renderer.Success($"Contact [#F97316]{settings.Id}[/] erased.");
             return 0;
         }
-        catch (Exception ex) { HandleError(ex); return 1; }
+        catch (Exception ex) { ContactsOutput.HandleError(ex); return 1; }
     }
 }
 
@@ -319,7 +337,7 @@ public class ContactsExportCommand : BaseCommand<ContactIdSettings>
             Renderer.PrintJson(export.ToJsonString(JsonOutput.PrettyRelaxed));
             return 0;
         }
-        catch (Exception ex) { HandleError(ex); return 1; }
+        catch (Exception ex) { ContactsOutput.HandleError(ex); return 1; }
     }
 }
 
@@ -340,7 +358,7 @@ public class ContactsSubscribeSettings : JsonSettings
     public string? LastName { get; set; }
 
     [CommandOption("--source <SOURCE>")]
-    [Description("Where the signup came from, e.g. website")]
+    [Description("Where the signup came from (default: cli)")]
     public string? Source { get; set; }
 
     [CommandOption("--wording <TEXT>")]
@@ -354,15 +372,19 @@ public class ContactsSubscribeCommand : BaseCommand<ContactsSubscribeSettings>
     {
         try
         {
+            const string warning = "This records consent as if the person filled in the signup form. It is meant for testing with your own address.";
+            if (settings.Json) await Console.Error.WriteLineAsync(warning);
+            else Renderer.Warn(warning);
+
             var result = await GetClient().SubscribeAsync(new SubscribeRequest(
-                settings.Email, settings.FirstName, settings.LastName, settings.Source, settings.Wording));
+                settings.Email, settings.FirstName, settings.LastName, settings.Source ?? "cli", settings.Wording));
 
             if (settings.Json) { ContactsOutput.PrintJson(result ?? new SubscribeResult("accepted")); return 0; }
 
             Renderer.Success("Signup accepted. With double opt-in on, a confirmation email goes to the address before they're subscribed.");
             return 0;
         }
-        catch (Exception ex) { HandleError(ex); return 1; }
+        catch (Exception ex) { ContactsOutput.HandleError(ex); return 1; }
     }
 }
 
@@ -437,11 +459,11 @@ public class ContactsImportCommand : BaseCommand<ContactsImportSettings>
             var summary = await ContactsImport.SendAsync(GetClient(), parsed.Rows, parsed.Issues.Count);
 
             if (settings.Json) ContactsOutput.PrintJson(summary);
-            else Print(summary, parsed.Rows.Count);
+            else Print(summary);
 
             return summary.FailedStatus is null ? 0 : 1;
         }
-        catch (Exception ex) { HandleError(ex); return 1; }
+        catch (Exception ex) { ContactsOutput.HandleError(ex); return 1; }
     }
 
     private static TextReader Open(ContactsImportSettings settings)
@@ -457,12 +479,15 @@ public class ContactsImportCommand : BaseCommand<ContactsImportSettings>
         return new StreamReader(info.FullName);
     }
 
-    private static void Print(ContactsImportSummary s, int total)
+    private static void Print(ContactsImportSummary s)
     {
         if (s.FailedStatus is { } status)
-            Renderer.Error($"The import stopped after {s.ChunksCompleted} of {s.Chunks} batches (the API returned status {status}). Importing again is safe; existing contacts are updated, not duplicated.");
+        {
+            var reason = s.FailedMessage is { Length: > 0 } m ? $": {m}" : "";
+            Renderer.Error($"The import stopped after {s.ChunksCompleted} of {s.Chunks} batches (the API returned status {status}{reason}). Importing again is safe; existing contacts are updated, not duplicated.");
+        }
         else
-            Renderer.Success($"Imported {s.Sent} of {total} rows in {s.Chunks} batch{(s.Chunks == 1 ? "" : "es")}.");
+            Renderer.Success("Import complete.");
 
         Renderer.KeyValue("Created", s.Created.ToString());
         Renderer.KeyValue("Updated", s.Updated.ToString());

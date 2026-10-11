@@ -140,7 +140,7 @@ public abstract class BaseCommand<TSettings> : AsyncCommand<TSettings>
     /// Unified error display. CliException carries markup and is printed as-is.
     /// AnythinkException shows status code. Everything else shows the message.
     /// </summary>
-    protected static void HandleError(Exception ex)
+    protected internal static void HandleError(Exception ex)
     {
         switch (ex)
         {

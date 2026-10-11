@@ -656,7 +656,7 @@ anythink contacts unsubscribe <id>         Unsubscribe a contact from marketing 
 anythink contacts erase <id>               Permanently erase a contact's personal details
 anythink contacts export <id>              Print everything held about a contact as JSON
 anythink contacts import <file.csv>        Import contacts from a CSV, 1,000 at a time
-anythink contacts subscribe <email>        Try the public signup form (no sign-in)
+anythink contacts subscribe <email>        Test the public signup form with your own address (not offered as an MCP tool)
 ```
 
 **Options — `contacts list`**
@@ -679,11 +679,13 @@ anythink contacts subscribe <email>        Try the public signup form (no sign-i
 | `--wording <text>`           | The exact wording they agreed to (needs `--consent`)                          |
 | `--consent-source <source>`  | Where the consent was given (needs `--consent`)                               |
 
+`contacts subscribe` records consent as if the person filled in the signup form, with source `cli` unless you pass `--source`; use it only for testing with your own address.
+
 `contacts erase` asks you to type the contact's id before it does anything; pass `--yes` to skip that in scripts.
 
 **`contacts import`**
 
-The CSV needs a header row with `email` and `status`; `first_name`, `last_name`, `source`, `consented_at`, `wording` and `ip_address` are optional and other columns are ignored. Statuses are sent as they are, so a provider export's `unsubscribed` carries across. Every row is checked first and nothing is sent while any row has a problem, unless you pass `--skip-invalid`. `--dry-run` checks the file and sends nothing. Problems are reported by row number only (row 1 is the header), never by email address, and the summary shows counts of created, updated, suppressed and invalid rows.
+The CSV needs a header row with `email` and `status`; `first_name`, `last_name`, `source`, `consented_at`, `wording` and `ip_address` are optional and other columns are ignored. Accepted statuses are `subscribed`, `unsubscribed`, `bounced` and `complained`; any other status makes the row invalid. An import can never resubscribe someone who has unsubscribed, bounced or complained. `consented_at` takes an ISO 8601 date or a plain `YYYY-MM-DD HH:mm` (UTC when there's no offset); day/month and month/day forms are ambiguous and rejected. Every row is checked first and nothing is sent while any row has a problem, unless you pass `--skip-invalid`. `--dry-run` checks the file and sends nothing. Problems are reported by row number only (row 1 is the header), never by email address, and the summary reports the API's counts of created, updated, suppressed and invalid rows. Needs `anythink_contacts:create` only. If the API rejects a batch, its error message is shown (never your rows).
 
 ---
 
@@ -697,7 +699,7 @@ anythink email-marketing settings set     Change settings; anything left out sta
 anythink email-marketing options          Show what the public signup form is told (no sign-in needed)
 ```
 
-`settings set` takes `--double-opt-in <bool>`, `--soft-opt-in <bool>`, `--postal-address`, `--default-consent-wording`, `--privacy-policy-url` and `--signup-opt-out-wording`. Turning the soft opt-in on also needs `--soft-opt-in-declaration`.
+`settings set` takes `--double-opt-in <bool>`, `--soft-opt-in <bool>`, `--postal-address`, `--default-consent-wording`, `--privacy-policy-url` and `--signup-opt-out-wording`. Turning the soft opt-in on also needs `--soft-opt-in-declaration`. Only the settings you pass are sent. `--privacy-policy-url` must be an https link. `settings get` also shows who declared the soft opt-in and when.
 
 ---
 

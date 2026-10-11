@@ -15,7 +15,6 @@ contacts_export [read-only] id
 contacts_get [read-only] id
 contacts_import [destructive] file? csv_text? dry_run? skip_invalid?
 contacts_list [read-only] is_user? limit? page? search? source? status?
-contacts_subscribe [write, open-world] email first_name? last_name? source? wording?
 contacts_unsubscribe [destructive] id
 contacts_update [destructive] id first_name? last_name? source?
 dashboards_add_chart [write] dashboard_id chart_id column? height? row? title? width?

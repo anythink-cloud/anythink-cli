@@ -234,13 +234,13 @@ public static class CliApp
                 .WithExample("contacts", "export", "<id>");
 
             contacts.AddCommand<ContactsImportCommand>("import")
-                .WithDescription("Import contacts from a CSV with email and status columns, in batches of 1,000. Needs the anythink_contacts:create and anythink_contacts:update permissions on your role")
+                .WithDescription("Import contacts from a CSV with email and status columns, in batches of 1,000. Needs the anythink_contacts:create permission on your role")
                 .WithExample("contacts", "import", "./mailing-list.csv", "--dry-run")
                 .WithExample("contacts", "import", "./mailing-list.csv");
 
             contacts.AddCommand<ContactsSubscribeCommand>("subscribe")
-                .WithDescription("Try the public signup form: submits an email as a visitor would, with no sign-in")
-                .WithExample("contacts", "subscribe", "alice@example.com", "--source", "website");
+                .WithDescription("For testing with your own address: submits the public signup form without signing in, and records consent as if that person filled it in")
+                .WithExample("contacts", "subscribe", "you@example.com");
         });
 
         config.AddBranch("email-marketing", marketing =>

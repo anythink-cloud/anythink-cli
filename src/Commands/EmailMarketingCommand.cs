@@ -17,6 +17,8 @@ internal static class EmailMarketingOutput
         Renderer.KeyValue("Default consent wording", s.DefaultConsentWording);
         Renderer.KeyValue("Privacy policy URL", s.PrivacyPolicyUrl);
         Renderer.KeyValue("Signup opt-out wording", s.SignupOptOutWording);
+        Renderer.KeyValue("Soft opt-in declared at", s.SoftOptInDeclaredAt is null ? null : ContactsOutput.When(s.SoftOptInDeclaredAt));
+        Renderer.KeyValue("Soft opt-in declared by", s.SoftOptInDeclaredBy?.ToString());
     }
 }
 
@@ -35,7 +37,7 @@ public class EmailMarketingSettingsGetCommand : BaseCommand<JsonSettings>
             EmailMarketingOutput.Show(current);
             return 0;
         }
-        catch (Exception ex) { HandleError(ex); return 1; }
+        catch (Exception ex) { ContactsOutput.HandleError(ex); return 1; }
     }
 }
 
@@ -64,7 +66,7 @@ public class EmailMarketingSettingsSetSettings : JsonSettings
     public string? DefaultConsentWording { get; set; }
 
     [CommandOption("--privacy-policy-url <URL>")]
-    [Description("Link to your privacy policy")]
+    [Description("Link to your privacy policy (must be an https link)")]
     public string? PrivacyPolicyUrl { get; set; }
 
     [CommandOption("--signup-opt-out-wording <TEXT>")]
@@ -84,20 +86,17 @@ public class EmailMarketingSettingsSetCommand : BaseCommand<EmailMarketingSettin
     {
         try
         {
-            var client = GetClient();
-            var current = await client.GetEmailMarketingSettingsAsync();
-            var softOptIn = settings.SoftOptIn ?? current.SoftOptIn;
-
             var request = new UpdateEmailMarketingSettingsRequest(
-                settings.DoubleOptIn ?? current.DoubleOptIn,
-                softOptIn,
-                settings.PostalAddress ?? current.PostalAddress,
-                settings.DefaultConsentWording ?? current.DefaultConsentWording,
-                settings.PrivacyPolicyUrl ?? current.PrivacyPolicyUrl,
-                settings.SignupOptOutWording ?? current.SignupOptOutWording,
+                settings.DoubleOptIn,
+                settings.SoftOptIn,
+                settings.PostalAddress,
+                settings.DefaultConsentWording,
+                settings.PrivacyPolicyUrl,
+                settings.SignupOptOutWording,
                 settings.SoftOptInDeclaration ? true : null);
 
-            var saved = await client.UpdateEmailMarketingSettingsAsync(request) ?? current;
+            var client = GetClient();
+            var saved = await client.UpdateEmailMarketingSettingsAsync(request) ?? await client.GetEmailMarketingSettingsAsync();
 
             if (settings.Json) { ContactsOutput.PrintJson(saved); return 0; }
 
@@ -105,7 +104,7 @@ public class EmailMarketingSettingsSetCommand : BaseCommand<EmailMarketingSettin
             EmailMarketingOutput.Show(saved);
             return 0;
         }
-        catch (Exception ex) { HandleError(ex); return 1; }
+        catch (Exception ex) { ContactsOutput.HandleError(ex); return 1; }
     }
 }
 
@@ -128,6 +127,6 @@ public class EmailMarketingOptionsCommand : BaseCommand<JsonSettings>
             Renderer.KeyValue("Signup opt-out wording", options.Signup?.OptOutWording);
             return 0;
         }
-        catch (Exception ex) { HandleError(ex); return 1; }
+        catch (Exception ex) { ContactsOutput.HandleError(ex); return 1; }
     }
 }

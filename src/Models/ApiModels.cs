@@ -975,8 +975,7 @@ public record ContactConsentEvent(
     [property: JsonPropertyName("ip_address")] string? IpAddress,
     [property: JsonPropertyName("campaign_id")] int? CampaignId,
     [property: JsonPropertyName("actor_user_id")] int? ActorUserId,
-    [property: JsonPropertyName("occurred_at")] DateTime? OccurredAt,
-    [property: JsonPropertyName("created_at")] DateTime? CreatedAt
+    [property: JsonPropertyName("occurred_at")] DateTime? OccurredAt
 );
 
 public record Contact(
@@ -1050,12 +1049,14 @@ public record EmailMarketingSettings(
     [property: JsonPropertyName("postal_address")] string? PostalAddress,
     [property: JsonPropertyName("default_consent_wording")] string? DefaultConsentWording,
     [property: JsonPropertyName("privacy_policy_url")] string? PrivacyPolicyUrl,
-    [property: JsonPropertyName("signup_opt_out_wording")] string? SignupOptOutWording
+    [property: JsonPropertyName("signup_opt_out_wording")] string? SignupOptOutWording,
+    [property: JsonPropertyName("soft_opt_in_declared_at")] DateTime? SoftOptInDeclaredAt = null,
+    [property: JsonPropertyName("soft_opt_in_declared_by")] int? SoftOptInDeclaredBy = null
 );
 
 public record UpdateEmailMarketingSettingsRequest(
-    [property: JsonPropertyName("double_opt_in")] bool DoubleOptIn,
-    [property: JsonPropertyName("soft_opt_in")] bool SoftOptIn,
+    [property: JsonPropertyName("double_opt_in")] bool? DoubleOptIn,
+    [property: JsonPropertyName("soft_opt_in")] bool? SoftOptIn,
     [property: JsonPropertyName("postal_address")] string? PostalAddress,
     [property: JsonPropertyName("default_consent_wording")] string? DefaultConsentWording,
     [property: JsonPropertyName("privacy_policy_url")] string? PrivacyPolicyUrl,

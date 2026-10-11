@@ -30,7 +30,6 @@ public class ContactsToolsTests
     [InlineData("contacts_erase")]
     [InlineData("contacts_export")]
     [InlineData("contacts_import")]
-    [InlineData("contacts_subscribe")]
     [InlineData("email_marketing_settings_get")]
     [InlineData("email_marketing_settings_set")]
     [InlineData("email_marketing_options")]
@@ -39,6 +38,15 @@ public class ContactsToolsTests
         foreach (var scope in new[] { CliToolScope.Local, CliToolScope.Internal, CliToolScope.Hosted })
             CliCommandTool.All(scope).Should().Contain(t => t.ProtocolTool.Name == name, $"{name} in {scope}");
     }
+
+    // ── Rule: signing someone up anonymously is never offered as a tool, because it fakes form-signup consent ──
+
+    [Theory]
+    [InlineData(CliToolScope.Local)]
+    [InlineData(CliToolScope.Internal)]
+    [InlineData(CliToolScope.Hosted)]
+    public void ContactsSubscribe_IsNeverOfferedAsATool(CliToolScope scope) =>
+        CliCommandTool.All(scope).Should().NotContain(t => t.ProtocolTool.Name == "contacts_subscribe");
 
     // ── Rule: reading is read-only, erasing and changing are destructive ──
 
@@ -49,7 +57,6 @@ public class ContactsToolsTests
     [InlineData("email_marketing_settings_get", true, null)]
     [InlineData("email_marketing_options", true, null)]
     [InlineData("contacts_create", false, false)]
-    [InlineData("contacts_subscribe", false, false)]
     [InlineData("contacts_erase", false, true)]
     [InlineData("contacts_unsubscribe", false, true)]
     [InlineData("contacts_update", false, true)]
