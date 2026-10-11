@@ -46,13 +46,7 @@ public class DirectusImporter : IPlatformImporter
 
     internal static bool IsValidCollectionName(string name) => CollectionNamePattern.IsMatch(name);
 
-    // Userinfo, query and fragment can carry credentials and are never needed: auth is the bearer token.
-    internal static string RedactUrl(string url)
-    {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return "(invalid url)";
-        return new UriBuilder(uri) { UserName = "", Password = "", Query = "", Fragment = "" }
-            .Uri.GetLeftPart(UriPartial.Path).TrimEnd('/');
-    }
+    internal static string RedactUrl(string url) => UrlRedaction.Redact(url);
 
     public async Task<ImportSchema> FetchSchemaAsync(bool includeFlows, bool includeFiles, bool includeRoles)
     {

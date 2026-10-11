@@ -69,6 +69,9 @@ public static class CliToolPolicy
         "email shell update --html",
     ];
 
+    // A plan file is written to a path the caller picks, so no tool may offer it; the tool prints the plan through its automatic --json instead.
+    internal static readonly string[] HiddenEverywhere = ["import directus --plan", "import directus --force"];
+
     private static readonly string[] FreeTextArguments =
         [
             "search query text",
@@ -182,6 +185,7 @@ public static class CliToolPolicy
     public static IReadOnlyList<CliParameter> Parameters(CliCommand command, CliToolScope scope) =>
         command.Parameters
             .Where(p => !AutomaticFlags.Contains(p.Token))
+            .Where(p => !HiddenEverywhere.Contains($"{command.Key} {p.Token}"))
             .Where(p => !IsRemote(scope) || !HiddenRemotely.Contains($"{command.Key} {p.Token}"))
             .Select(p => scope == CliToolScope.Hosted && AccountParameters.TryGetValue($"{command.Key} {p.Name}", out var adapted)
                 ? p with { Name = adapted.Name, Description = adapted.Description, Required = adapted.Required }

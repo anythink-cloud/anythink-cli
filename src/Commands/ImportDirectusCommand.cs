@@ -1,6 +1,7 @@
 using AnythinkCli.Client;
 using AnythinkCli.Importers;
 using AnythinkCli.Importers.Directus;
+using AnythinkCli.Importers.Engine;
 using Spectre.Console.Cli;
 using Spectre.Console;
 using System.ComponentModel;
@@ -33,6 +34,18 @@ public class ImportDirectusSettings : CommandSettings
     [Description("Preview what would be imported without making any changes")]
     public bool DryRun { get; set; }
 
+    [CommandOption("--plan <FILE>")]
+    [Description("Write the import plan to a file and stop. Makes no changes to the project")]
+    public string? Plan { get; set; }
+
+    [CommandOption("--force")]
+    [Description("Overwrite the --plan file if it already exists")]
+    public bool Force { get; set; }
+
+    [CommandOption("--json")]
+    [Description("Print the plan as JSON instead of text (with --dry-run or --plan)")]
+    public bool Json { get; set; }
+
     [CommandOption("--include-flows")]
     [Description("Also import Directus flows as Anythink workflows")]
     public bool IncludeFlows { get; set; }
@@ -55,27 +68,33 @@ public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
 {
     public const string TokenEnvVar = "DIRECTUS_TOKEN";
 
+    internal Func<string, string, IPlatformImporter>? ImporterFactory { get; set; }
+
     public override async Task<int> ExecuteAsync(CommandContext context, ImportDirectusSettings settings)
     {
         try
         {
-            var url = ValidateUrl(settings.Url, settings.AllowInsecure);
+            var url = Preflight(settings);
+            var planOnly = settings.DryRun || settings.Plan is not null;
             var interactive = IsInteractive();
-            RequireConfirmationMode(settings.DryRun, settings.Yes, interactive);
+            RequireConfirmationMode(planOnly, settings.Yes, interactive);
             var token = ResolveToken(settings.Token, Environment.GetEnvironmentVariable(TokenEnvVar), interactive,
                 () => AnsiConsole.Prompt(new TextPrompt<string>("Directus token:").Secret()));
 
-            var importer = new DirectusImporter(url, token);
+            var importer = ImporterFactory?.Invoke(url, token) ?? new DirectusImporter(url, token);
             var target = settings.To is not null ? GetClientForProfile(settings.To) : GetClient();
 
             var runner = new ImportRunner(importer, target,
                 new ImportOptions(
-                    DryRun: settings.DryRun,
+                    DryRun: planOnly,
                     IncludeFlows: settings.IncludeFlows,
                     IncludeData: settings.IncludeData,
                     IncludeFiles: settings.IncludeFiles,
                     IncludeRoles: settings.IncludeRoles,
-                    RequireConfirmation: !settings.DryRun && !settings.Yes));
+                    RequireConfirmation: !planOnly && !settings.Yes,
+                    PlanPath: settings.Plan,
+                    ForcePlanFile: settings.Force,
+                    PlanAsJson: settings.Json && planOnly));
 
             return ExitCodeFor(await runner.RunAsync());
         }
@@ -84,6 +103,15 @@ public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
             HandleError(ex);
             return 1;
         }
+    }
+
+    internal static string Preflight(ImportDirectusSettings settings)
+    {
+        var url = ValidateUrl(settings.Url, settings.AllowInsecure);
+        if (settings.Force && settings.Plan is null)
+            throw new CliException("--force only applies to [bold #F97316]--plan <file>[/].");
+        if (settings.Plan is not null) PlanFile.EnsureWritable(settings.Plan, settings.Force);
+        return url;
     }
 
     internal static int ExitCodeFor(ImportResult result) => result.Errors.Count > 0 ? 1 : 0;
