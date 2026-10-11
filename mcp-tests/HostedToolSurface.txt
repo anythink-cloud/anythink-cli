@@ -10,6 +10,14 @@ charts_list [read-only] project? entity?
 charts_platform_metrics [read-only] project?
 charts_preview [read-only] project? agg? compare? compare_days? compare_overlay? config? cumulative? entity? filter? from? group_by? interval? limit? measure? platform_metric? platform_period? quota_metric? rows? sort? source? stack_by? target? target_mode? timeframe? to? type?
 charts_update [destructive] project? id agg? compare? compare_days? compare_overlay? config? cumulative? entity? filter? from? group_by? interval? limit? measure? name? platform_metric? platform_period? quota_metric? sort? source? stack_by? target? target_mode? timeframe? to? type?
+contacts_create [write] project? email consent? consent_source? first_name? last_name? source? wording?
+contacts_erase [destructive] project? id
+contacts_export [read-only] project? id
+contacts_get [read-only] project? id
+contacts_import [destructive] project? file? csv_text? dry_run? skip_invalid?
+contacts_list [read-only] project? is_user? limit? page? search? source? status?
+contacts_unsubscribe [destructive] project? id
+contacts_update [destructive] project? id first_name? last_name? source?
 dashboards_add_chart [write] project? dashboard_id chart_id column? height? row? title? width?
 dashboards_create [write] project? name allow_shared_edit? chart? config? default? description? home? shared?
 dashboards_data [read-only] project? id rows? widget?
@@ -29,6 +37,9 @@ data_list [read-only] project? entity filter? limit? page?
 data_rls [destructive] project? entity id readonly? user?
 data_update [destructive] project? entity id data?
 docs [read-only] project?
+email_marketing_options [read-only] project?
+email_marketing_settings_get [read-only] project?
+email_marketing_settings_set [destructive] project? default_consent_wording? double_opt_in? postal_address? privacy_policy_url? signup_opt_out_wording? soft_opt_in? soft_opt_in_declaration?
 email_preview [read-only] project? content_text? subject? wrapper_text?
 email_shell_show [read-only] project?
 email_shell_update [destructive] project? html_text? reset?

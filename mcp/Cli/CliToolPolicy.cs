@@ -7,7 +7,7 @@ public enum CliToolScope { Local, Internal, Hosted }
 public static class CliToolPolicy
 {
     private static readonly string[] ExcludedEverywhere =
-        ["cli", "signup", "login", "logout", "config", "migrate", "pay apple", "pay setup"];
+        ["cli", "signup", "login", "logout", "config", "migrate", "pay apple", "pay setup", "contacts subscribe"];
 
     private static readonly string[] AccountGroups = ["accounts", "projects", "plans"];
 
@@ -77,6 +77,7 @@ public static class CliToolPolicy
             "users invite email",
             "users invite first_name",
             "users invite last_name",
+            "contacts create email",
             "projects create name",
             "menus create name",
             "menus reorder menu_ids",
@@ -122,7 +123,7 @@ public static class CliToolPolicy
 
     private static readonly string[] ReadOnlyRemotely = ["workflows export"];
 
-    private static readonly string[] ReadOnlyCommands = ["plans"];
+    private static readonly string[] ReadOnlyCommands = ["plans", "contacts export", "email-marketing options"];
 
     private static readonly HashSet<string> AdditiveVerbs =
     [
@@ -144,6 +145,7 @@ public static class CliToolPolicy
         "upload",
         "seed",
         "invite",
+        "subscribe",
         "trigger",
         "execute"
     ];
@@ -151,7 +153,7 @@ public static class CliToolPolicy
     // Import adds records; export only writes a local file and refuses to overwrite one without --force, so neither destroys project data.
     private static readonly string[] AdditiveCommands = ["data import", "data export"];
 
-    private static readonly HashSet<string> OpenWorldVerbs = ["execute", "trigger", "invite"];
+    private static readonly HashSet<string> OpenWorldVerbs = ["execute", "trigger", "invite", "subscribe"];
 
     public static bool IsRemote(CliToolScope scope) => scope != CliToolScope.Local;
 

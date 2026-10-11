@@ -44,6 +44,8 @@ The official command-line interface for [Anythink](https://anythink.cloud) — t
   - [users](#users)
   - [files](#files)
   - [email](#email)
+  - [contacts](#contacts)
+  - [email-marketing](#email-marketing)
   - [roles](#roles)
   - [api-keys](#api-keys)
   - [menus](#menus)
@@ -638,6 +640,66 @@ anythink email shell show > shell.html
 anythink email shell update --html ./shell.html
 anythink email shell update --reset
 ```
+
+---
+
+### contacts
+
+Marketing contacts and the record of when they agreed to hear from you. Each command needs a permission on your role: `anythink_contacts:read`, `:create`, `:update` or `:erase`. The API enforces them for whoever is signed in, so a missing permission shows up as a 403.
+
+```
+anythink contacts list                     List contacts (filter by status, source, user or search)
+anythink contacts get <id>                 Show a contact and its consent history
+anythink contacts create <email>           Add a contact, optionally recording their consent
+anythink contacts update <id>              Change a contact's name or source
+anythink contacts unsubscribe <id>         Unsubscribe a contact from marketing emails
+anythink contacts erase <id>               Permanently erase a contact's personal details
+anythink contacts export <id>              Print everything held about a contact as JSON
+anythink contacts import <file.csv>        Import contacts from a CSV, 1,000 at a time
+anythink contacts subscribe <email>        Test the public signup form with your own address (not offered as an MCP tool)
+```
+
+**Options — `contacts list`**
+
+| Flag                | Description                                                                  |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `--status <status>` | `not_subscribed`, `pending`, `subscribed`, `unsubscribed`, `bounced` or `complained` |
+| `--is-user <bool>`  | Only contacts who are, or aren't, users of the project                       |
+| `--source <source>` | Where the contact came from                                                  |
+| `--search <text>`   | Search by email or name                                                      |
+| `--page`, `--limit` | Paging (defaults: page 1, 25 per page)                                       |
+| `--json`            | Output JSON                                                                  |
+
+**Options — `contacts create`**
+
+| Flag                         | Description                                                                   |
+| ---------------------------- | ----------------------------------------------------------------------------- |
+| `--first-name`, `--last-name`, `--source` | Optional details                                                 |
+| `--consent`                  | Record that they agreed to marketing emails (uses the project's default wording unless `--wording` is given) |
+| `--wording <text>`           | The exact wording they agreed to (needs `--consent`)                          |
+| `--consent-source <source>`  | Where the consent was given (needs `--consent`)                               |
+
+`contacts subscribe` records consent as if the person filled in the signup form, with source `cli` unless you pass `--source`; use it only for testing with your own address.
+
+`contacts erase` asks you to type the contact's id before it does anything; pass `--yes` to skip that in scripts.
+
+**`contacts import`**
+
+The CSV needs a header row with `email` and `status`; `first_name`, `last_name`, `source`, `consented_at`, `wording` and `ip_address` are optional and other columns are ignored. Accepted statuses are `subscribed`, `unsubscribed`, `bounced` and `complained`; any other status makes the row invalid. An import can never resubscribe someone who has unsubscribed, bounced or complained. `consented_at` takes an ISO 8601 date or a plain `YYYY-MM-DD HH:mm` (UTC when there's no offset); day/month and month/day forms are ambiguous and rejected. Every row is checked first and nothing is sent while any row has a problem, unless you pass `--skip-invalid`. `--dry-run` checks the file and sends nothing. Problems are reported by row number only (row 1 is the header), never by email address, and the summary reports the API's counts of created, updated, suppressed and invalid rows. Needs `anythink_contacts:create` only. If the API rejects a batch, its error message is shown (never your rows).
+
+---
+
+### email-marketing
+
+How the project collects and records consent for marketing emails.
+
+```
+anythink email-marketing settings get     Show the settings (needs anythink_contacts:read)
+anythink email-marketing settings set     Change settings; anything left out stays as it is (needs anythink_contacts:update)
+anythink email-marketing options          Show what the public signup form is told (no sign-in needed)
+```
+
+`settings set` takes `--double-opt-in <bool>`, `--soft-opt-in <bool>`, `--postal-address`, `--default-consent-wording`, `--privacy-policy-url` and `--signup-opt-out-wording`. Turning the soft opt-in on also needs `--soft-opt-in-declaration`. Only the settings you pass are sent. `--privacy-policy-url` must be an https link. `settings get` also shows who declared the soft opt-in and when.
 
 ---
 
