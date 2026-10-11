@@ -689,11 +689,6 @@ public class IntegrationsOAuthConnectCommand : BaseCommand<IntegrationOAuthConne
 
             var redirectUri = $"http://localhost:{settings.Port}/callback";
 
-            // Generate a state token to verify the callback came from our flow.
-            var expectedState = Convert.ToHexString(Guid.NewGuid().ToByteArray()).ToLowerInvariant();
-
-            // Get the authorization URL from the API. The server returns the provider's auth URL
-            // with our redirect_uri; we'll append our state on top.
             OAuthUrlResponse urlResponse;
             try
             {
@@ -705,7 +700,7 @@ public class IntegrationsOAuthConnectCommand : BaseCommand<IntegrationOAuthConne
                 return 1;
             }
 
-            var authUrl = AppendStateParam(urlResponse.Url, expectedState);
+            var (authUrl, expectedState) = PrepareAuthUrl(urlResponse.Url);
 
             // Bind the local listener before opening the browser, so the callback is guaranteed to land.
             HttpListener? listener;
@@ -794,7 +789,7 @@ public class IntegrationsOAuthConnectCommand : BaseCommand<IntegrationOAuthConne
                             Name: name,
                             AuthCode: code,
                             RedirectUri: redirectUri,
-                            State: state,
+                            State: state ?? expectedState,
                             IsUserConnection: settings.UserConnection
                         ));
                     });
@@ -825,6 +820,21 @@ public class IntegrationsOAuthConnectCommand : BaseCommand<IntegrationOAuthConne
             return 1;
         }
     }
+
+    // The server binds its state to this sign-in and checks it when the code comes back, so keep it.
+    internal static (string Url, string State) PrepareAuthUrl(string serverUrl)
+    {
+        var state = ReadStateParam(serverUrl);
+        if (!string.IsNullOrEmpty(state)) return (serverUrl, state);
+
+        state = Convert.ToHexString(Guid.NewGuid().ToByteArray()).ToLowerInvariant();
+        return (AppendStateParam(serverUrl, state), state);
+    }
+
+    internal static string? ReadStateParam(string url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var uri)
+            ? System.Web.HttpUtility.ParseQueryString(uri.Query)["state"]
+            : null;
 
     private static string AppendStateParam(string url, string state)
     {
