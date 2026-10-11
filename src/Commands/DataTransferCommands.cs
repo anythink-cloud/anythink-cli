@@ -41,6 +41,7 @@ public class DataExportSettings : CommandSettings
     public bool NoFormulaGuard { get; set; }
 }
 
+[CommandGuide("Writes every matching record to a file on the machine running the CLI, or to standard output when the file is -, fetching page by page. Uses the same filter syntax as `data_list`; one-to-many fields are left out unless named in the field list. It won't overwrite an existing file unless forced. For one page of records, use `data_list`.")]
 public class DataExportCommand : BaseCommand<DataExportSettings>
 {
     internal Func<AnythinkCli.Client.AnythinkClient>? ClientFactory { get; set; }
@@ -112,6 +113,7 @@ public class DataImportSettings : CommandSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("Reads a file on the machine running the CLI and creates one new record per row, checking values against the entity's field types; rows with unknown columns are rejected unless told to ignore them. System columns such as id are ignored, so it never updates existing records. For a single record, use `data_create`.")]
 public class DataImportCommand : BaseCommand<DataImportSettings>
 {
     internal Func<AnythinkCli.Client.AnythinkClient>? ClientFactory { get; set; }

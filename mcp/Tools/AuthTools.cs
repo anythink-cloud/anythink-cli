@@ -18,7 +18,7 @@ public class AuthTools
     private readonly McpClientFactory _factory;
     public AuthTools(McpClientFactory factory) => _factory = factory;
 
-    [McpServerTool(Name = "signup"),
+    [McpServerTool(Name = "signup", Title = "Sign up for Anythink", Destructive = false, OpenWorld = true),
      Description(
         "Register a brand-new Anythink platform account with email and password. " +
         "Use this only when the user has no account yet; if they already have one, use 'login' instead. " +
@@ -42,7 +42,7 @@ public class AuthTools
         return "Account created. If a confirmation email was sent, the user must click the link in it before 'login' works — then call 'login' to sign in.";
     }
 
-    [McpServerTool(Name = "login"),
+    [McpServerTool(Name = "login", Title = "Sign in", Destructive = false),
      Description(
         "Log in to the Anythink platform with email and password. " +
         "Returns a session token used for account and project management. " +
@@ -67,7 +67,7 @@ public class AuthTools
         return "Logged in successfully. Use 'accounts_list' and 'projects_use' to connect to a project.";
     }
 
-    [McpServerTool(Name = "login_google"),
+    [McpServerTool(Name = "login_google", Title = "Sign in with Google", Destructive = false, OpenWorld = true),
      Description(
         "Sign in to the Anythink platform with Google. Opens the user's browser to Google's consent "
         + "screen and waits for them to approve, then stores the session token. The browser step must "
@@ -101,7 +101,7 @@ public class AuthTools
             + "then 'projects_list' / 'projects_use' to connect to a project.";
     }
 
-    [McpServerTool(Name = "login_direct"),
+    [McpServerTool(Name = "login_direct", Title = "Sign in to a project directly", Destructive = false),
      Description(
         "Store credentials directly for a project (bypasses billing login). " +
         "Use this when you already have an org ID and API key or JWT token.")]
@@ -132,7 +132,7 @@ public class AuthTools
         return Task.FromResult($"Profile '{profileName}' saved and set as active.");
     }
 
-    [McpServerTool(Name = "logout"),
+    [McpServerTool(Name = "logout", Title = "Sign out", Destructive = false),
      Description(
         "Remove the saved credentials for a project profile from local CLI config. " +
         "Use this to disconnect from a project or clear a stale token; it deletes only the " +

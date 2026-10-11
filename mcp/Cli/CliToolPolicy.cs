@@ -23,7 +23,7 @@ public static class CliToolPolicy
         ["accounts create"] = "Create a billing account: the organisation that owns projects and pays for them. Check accounts_list first, as most people need only one.",
         ["plans"] = "List the plans a project can be created on, with each plan's id, price and limits. Use a plan's id as plan_id in projects_create.",
         ["projects create"] = "Create a new project in a billing account. A paid plan is billed to the account, which needs a payment method. The project takes about a minute to set up, then appears in projects_list.",
-        ["projects delete"] = "Permanently delete a project and all its data. This can't be undone, so confirm with the user first."
+        ["projects delete"] = "Permanently delete a project and all its data. This can't be undone."
     };
 
     private static readonly Dictionary<string, (string Name, string Description, bool Required)> AccountParameters = new()
@@ -111,7 +111,6 @@ public static class CliToolPolicy
         "events",
         "codes",
         "redemptions",
-        "user-code",
         "mine",
         "data",
         "preview",
@@ -149,7 +148,7 @@ public static class CliToolPolicy
     ];
 
     // Import adds records; export only writes a local file and refuses to overwrite one without --force, so neither destroys project data.
-    private static readonly string[] AdditiveCommands = ["data import", "data export"];
+    private static readonly string[] AdditiveCommands = ["data import", "data export", "pay offers user-code"];
 
     private static readonly HashSet<string> OpenWorldVerbs = ["execute", "trigger", "invite"];
 
@@ -165,10 +164,20 @@ public static class CliToolPolicy
         && (!Matches(command.Key, AccountGroups) || (scope == CliToolScope.Hosted && IsAccountCommand(command)))
         && (!IsRemote(scope) || !Matches(command.Key, ExcludedRemotely));
 
-    public static string Description(CliCommand command, CliToolScope scope) =>
-        scope == CliToolScope.Hosted && AccountDescriptions.TryGetValue(command.Key, out var description)
+    public static string Description(CliCommand command, CliToolScope scope)
+    {
+        var summary = scope == CliToolScope.Hosted && AccountDescriptions.TryGetValue(command.Key, out var description)
             ? description
             : command.Description;
+        var parts = new List<string> { Sentence(summary) };
+        if (command.Guide.Length > 0)
+            parts.Add(command.Guide);
+        if (command.Parameters.Any(p => p.Token == "--json"))
+            parts.Add("Returns JSON.");
+        if (IsDestructive(command, scope))
+            parts.Add("It changes or deletes existing data, so check with the user before running it.");
+        return string.Join(' ', parts.Where(part => part.Length > 0));
+    }
 
     public static IReadOnlyList<CliParameter> Parameters(CliCommand command, CliToolScope scope) =>
         command.Parameters
@@ -177,7 +186,35 @@ public static class CliToolPolicy
             .Select(p => scope == CliToolScope.Hosted && AccountParameters.TryGetValue($"{command.Key} {p.Name}", out var adapted)
                 ? p with { Name = adapted.Name, Description = adapted.Description, Required = adapted.Required }
                 : p)
+            .Select(p => WithIdSource(command, p, scope))
             .ToList();
+
+    private static readonly Lazy<HashSet<string>>[] ToolNames =
+        Enum.GetValues<CliToolScope>()
+            .Select(scope => new Lazy<HashSet<string>>(() =>
+                CliCommandModel.All.Where(c => Includes(c, scope)).Select(c => c.ToolName).ToHashSet()))
+            .ToArray();
+
+    private static CliParameter WithIdSource(CliCommand command, CliParameter parameter, CliToolScope scope)
+    {
+        if (parameter.Description.Contains("_list", StringComparison.Ordinal))
+            return parameter;
+
+        var source = IdSource(command, parameter.Name, ToolNames[(int)scope].Value);
+        return source is null ? parameter : parameter with { Description = $"{Sentence(parameter.Description)} Find it with {source}.".Trim() };
+    }
+
+    private static string? IdSource(CliCommand command, string name, HashSet<string> tools)
+    {
+        var stem = name.EndsWith("_id", StringComparison.Ordinal) ? name[..^3] : null;
+        string[] candidates = name == "id"
+            ? [string.Join('_', command.Path.SkipLast(1)).Replace('-', '_') + "_list"]
+            : stem is null ? [] : [$"{stem}s_list", $"{stem}_list", $"{command.Path[0].Replace('-', '_')}_{stem}s_list"];
+        return candidates.FirstOrDefault(candidate => candidate != command.ToolName && tools.Contains(candidate));
+    }
+
+    private static string Sentence(string text) =>
+        text.Length == 0 || text.EndsWith('.') || text.EndsWith('?') ? text : text + ".";
 
     public static IReadOnlyList<string> AutomaticArgs(CliCommand command) =>
         command.Parameters

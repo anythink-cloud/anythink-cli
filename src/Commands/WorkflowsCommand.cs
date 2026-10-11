@@ -17,6 +17,7 @@ public class WorkflowListSettings : CommandSettings
     public bool Json { get; set; }
 }
 
+[CommandGuide("Each entry gives the workflow's id, name, description, enabled flag, step count and its triggers (Manual, Timed, Event or Api) with their config, but not the steps. Use `workflows_get` to see a workflow's steps and how they link.")]
 public class WorkflowsListCommand : BaseCommand<WorkflowListSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, WorkflowListSettings settings)
@@ -87,6 +88,7 @@ public class WorkflowGetSettings : WorkflowIdSettings
     public bool Json { get; set; }
 }
 
+[CommandGuide("Includes each trigger with its last and next run, and every step with its id, key, action, parameters, start-step flag and on_success/on_failure step ids. Use those step ids with `workflows_step_update`, `workflows_step_link` and `workflows_step_delete`; for a copy without ids, use `workflows_export`.")]
 public class WorkflowsGetCommand : BaseCommand<WorkflowGetSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, WorkflowGetSettings settings)
@@ -158,6 +160,7 @@ public class WorkflowsGetCommand : BaseCommand<WorkflowGetSettings>
 
 // ── workflows jobs ────────────────────────────────────────────────────────────
 
+[CommandGuide("Shows the 10 most recent runs, each with its status (Completed, Failed or Running), start time and error, plus every step's status, error and log. Use it after `workflows_trigger`, or when an event or schedule should have fired, to see whether a run worked and which step failed.")]
 public class WorkflowsJobsCommand : BaseCommand<WorkflowIdSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, WorkflowIdSettings settings)
@@ -237,6 +240,7 @@ public class WorkflowStepGetSettings : CommandSettings
     public int StepId { get; set; }
 }
 
+[CommandGuide("Shows one step's key, action, enabled and start-step flags, on_success/on_failure step ids and its full parameters. Read it before `workflows_step_update`, because params passed there replace the step's parameters as a whole.")]
 public class WorkflowsStepGetCommand : BaseCommand<WorkflowStepGetSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, WorkflowStepGetSettings settings)
@@ -357,6 +361,7 @@ public class WorkflowStepUpdateSettings : CommandSettings
     public bool? Enabled { get; set; }
 }
 
+[CommandGuide("Changes a step's name, params or enabled flag and keeps its action, start flag and links; it can enable a step but not disable one. Params replace the step's parameters as a whole, so read them with `workflows_step_get` first; to change which step runs next, use `workflows_step_link`.")]
 public class WorkflowsStepUpdateCommand : BaseCommand<WorkflowStepUpdateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, WorkflowStepUpdateSettings settings)
@@ -461,6 +466,7 @@ public class WorkflowStepAddSettings : CommandSettings
     public bool Enabled { get; set; } = true;
 }
 
+[CommandGuide("Params are the action's settings as JSON, e.g. {\"script\":\"return {}\"} for RunScript or {\"entity\":\"orders\",\"data\":{...}} for CreateData. The new step is unlinked: set start on the workflow's first step and chain the rest with `workflows_step_link`. For FileHandler or Integration steps, `workflows_file_handler_add` and `workflows_integration_add` build the params for you.")]
 public class WorkflowsStepAddCommand : BaseCommand<WorkflowStepAddSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, WorkflowStepAddSettings settings)
@@ -591,6 +597,7 @@ public class WorkflowCreateSettings : CommandSettings
     public string? FilterFile { get; set; }
 }
 
+[CommandGuide("Creates the workflow with one trigger and no steps: Manual needs entity, Timed needs cron, Event needs entity plus an event (EntityCreated by default) and an optional filter, and Api needs api_route. It stays disabled unless enabled is set; add steps with `workflows_step_add`, then turn it on with `workflows_enable`.")]
 public class WorkflowsCreateCommand : BaseCommand<WorkflowCreateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, WorkflowCreateSettings settings)
@@ -740,6 +747,7 @@ public class WorkflowUpdateSettings : CommandSettings
     public string? Description { get; set; }
 }
 
+[CommandGuide("Only the name and description change; the triggers, steps, group and enabled state are sent back unchanged, and no tool here edits a trigger. It refuses to run while an existing trigger is incomplete (e.g. a Timed trigger with no cron), which must be fixed in the dashboard first. To change a step, use `workflows_step_update`.")]
 public class WorkflowsUpdateCommand : BaseCommand<WorkflowUpdateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, WorkflowUpdateSettings settings)
@@ -811,6 +819,7 @@ public class WorkflowsUpdateCommand : BaseCommand<WorkflowUpdateSettings>
 
 // ── workflows enable / disable ────────────────────────────────────────────────
 
+[CommandGuide("An enabled workflow runs on its own from its triggers: Timed on its cron schedule, Event when the matching event happens, Api when its route is called. Use `workflows_disable` to pause it without losing its steps.")]
 public class WorkflowsEnableCommand : BaseCommand<WorkflowIdSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, WorkflowIdSettings settings)
@@ -837,6 +846,7 @@ public class WorkflowsEnableCommand : BaseCommand<WorkflowIdSettings>
     }
 }
 
+[CommandGuide("Stops the workflow running from its triggers but keeps its triggers, steps and job history, so `workflows_enable` turns it back on. Prefer this to `workflows_delete` when a workflow should only stop for a while.")]
 public class WorkflowsDisableCommand : BaseCommand<WorkflowIdSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, WorkflowIdSettings settings)
@@ -884,6 +894,7 @@ public class WorkflowTriggerSettings : CommandSettings
     public int? EntityId { get; set; }
 }
 
+[CommandGuide("Starts a run now and returns without the run's result; check the outcome with `workflows_jobs`. A Manual-trigger workflow needs entity (and entity_id for a specific record), and payload is a JSON object the steps read as $anythink.trigger.data.")]
 public class WorkflowsTriggerCommand : BaseCommand<WorkflowTriggerSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, WorkflowTriggerSettings settings)
@@ -941,6 +952,7 @@ public class WorkflowDeleteSettings : CommandSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("Removes the workflow with its triggers and steps, so it stops running and can't be restored. To stop it for a while use `workflows_disable`; to keep a copy first, use `workflows_export`.")]
 public class WorkflowsDeleteCommand : BaseCommand<WorkflowDeleteSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, WorkflowDeleteSettings settings)
@@ -992,6 +1004,7 @@ public class WorkflowsSeedSettings : CommandSettings
     public bool? Enabled { get; set; }
 }
 
+[CommandGuide("Reads a JSON file on this machine in the `workflows_export` format (name, trigger or triggers, and steps with key, action, parameters and on_success/on_failure by step key), fills {{KEY}} placeholders from var, then creates the workflow, adds its steps and links them. It always creates a new workflow, so running it twice makes two copies.")]
 public class WorkflowsSeedCommand : BaseCommand<WorkflowsSeedSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, WorkflowsSeedSettings settings)
@@ -1206,6 +1219,7 @@ public class WorkflowsExportSettings : CommandSettings
     public string? Output { get; set; }
 }
 
+[CommandGuide("Gives the workflow's definition as JSON with no ids: its triggers, and its steps with their parameters, linked by step key through on_success/on_failure. Use it to back up or copy a workflow; for the ids the step tools need, use `workflows_get`.")]
 public class WorkflowsExportCommand : BaseCommand<WorkflowsExportSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, WorkflowsExportSettings settings)
@@ -1265,6 +1279,7 @@ public class WorkflowStepLinkSettings : CommandSettings
     public int? OnFailureStepId { get; set; }
 }
 
+[CommandGuide("Sets which step runs next when this one succeeds (on_success) or fails (on_failure), by step id from `workflows_get`; a link you leave out keeps its current value. Links can be changed but not cleared here, and the step's name, action and params stay as they are.")]
 public class WorkflowsStepLinkCommand : BaseCommand<WorkflowStepLinkSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, WorkflowStepLinkSettings settings)
@@ -1343,6 +1358,7 @@ public class WorkflowStepDeleteSettings : CommandSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("The API refuses to delete a step that other steps still point to through on_success or on_failure, so re-point those with `workflows_step_link` first. Deleting the start step leaves the workflow with no entry point until a new step is added with start.")]
 public class WorkflowsStepDeleteCommand : BaseCommand<WorkflowStepDeleteSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, WorkflowStepDeleteSettings settings)
@@ -1514,6 +1530,7 @@ public class WorkflowFileHandlerAddSettings : CommandSettings
     public int? OnFailureStepId { get; set; }
 }
 
+[CommandGuide("The step attaches a file to a record's file field: fetch_and_link downloads source_url, link_existing attaches existing_file_id, and detach unlinks it; entity, record_id (usually {{ $anythink.trigger.id }}) and field are always needed. Unlike `workflows_step_add` it can set on_success/on_failure in the same call, and the step is created disabled unless enabled is set.")]
 public class WorkflowsFileHandlerAddCommand : BaseCommand<WorkflowFileHandlerAddSettings>
 {
     static readonly HashSet<string> ValidOperations = new(StringComparer.Ordinal)
@@ -1709,6 +1726,7 @@ public class WorkflowIntegrationAddSettings : CommandSettings
     public int? OnFailureStepId { get; set; }
 }
 
+[CommandGuide("The step runs one provider operation, such as claude generate-text, with inputs given as key=value pairs that accept {{ $anythink... }} templates; find provider and operation keys with `integrations_get`. credential_source chooses the credentials (system, current_user, connection with connection_id, or entity_field), and the step is created disabled unless enabled is set.")]
 public class WorkflowsIntegrationAddCommand : BaseCommand<WorkflowIntegrationAddSettings>
 {
     static readonly HashSet<string> ValidSources = new(StringComparer.Ordinal)
@@ -1826,6 +1844,7 @@ public class WorkflowsIntegrationAddCommand : BaseCommand<WorkflowIntegrationAdd
 
 // ── workflows file-handler-example ────────────────────────────────────────────
 
+[CommandGuide("The sample uses {{ $anythink... }} templates for the source URL, record id and folder, and changes nothing in the project. Adapt it as params for `workflows_step_add` or `workflows_step_update`; to add a FileHandler step directly, `workflows_file_handler_add` is simpler.")]
 public class WorkflowsFileHandlerExampleCommand : BaseCommand<EmptySettings>
 {
     public override Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
