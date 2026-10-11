@@ -312,7 +312,9 @@ public class ImportPlanTests : IDisposable
         plan.Items.Where(i => i.Kind == PlanKind.Entity).ToDictionary(i => i.TargetName!, i => i.Action)
             .Should().Equal(new Dictionary<string, PlanAction>
             {
-                ["articles"] = PlanAction.Skip, ["pages"] = PlanAction.Create, ["tags"] = PlanAction.Create
+                ["articles"] = PlanAction.Skip,
+                ["pages"] = PlanAction.Create,
+                ["tags"] = PlanAction.Create
             });
         Plan(new ImportSchema([new("articles", [Field("title"), Field("body")])], [], [], []), WithArticles())
             .Items.Single(i => i.Kind == PlanKind.Entity).Action.Should().Be(PlanAction.Merge);
