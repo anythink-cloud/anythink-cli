@@ -455,6 +455,10 @@ public static class CliApp
                 .WithDescription("Create a new role")
                 .WithExample("roles", "create", "editor", "--description", "Can edit content");
 
+            roles.AddCommand<RolesUpdateCommand>("update")
+                .WithDescription("Update a role's details or API access")
+                .WithExample("roles", "update", "3", "--api-access");
+
             roles.AddCommand<RolesDeleteCommand>("delete")
                 .WithDescription("Delete a role by ID")
                 .WithExample("roles", "delete", "5", "--yes");

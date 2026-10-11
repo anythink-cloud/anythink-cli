@@ -90,6 +90,8 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
     private const string ScopeFiles = "Files";
     private const string ScopeData = "Data (Entity Records)";
 
+    internal Func<string, AnythinkClient>? ClientForProfile { get; set; }
+
     public override async Task<int> ExecuteAsync(CommandContext context, MigrateSettings settings)
     {
         // ── Resolve profiles ──────────────────────────────────────────────────
@@ -117,8 +119,8 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         AnythinkClient srcClient, dstClient;
         try
         {
-            srcClient = GetClientForProfile(fromKey);
-            dstClient = GetClientForProfile(toKey);
+            srcClient = ClientForProfile?.Invoke(fromKey) ?? GetClientForProfile(fromKey);
+            dstClient = ClientForProfile?.Invoke(toKey) ?? GetClientForProfile(toKey);
         }
         catch (CliException ex)
         {
@@ -536,7 +538,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                             await dstClient.UpdateRoleWithPermissionsAsync(targetRoleId,
                                 new UpdateRolePermissionsRequest(
                                     role.Name, role.Description, role.IsActive,
-                                    true, [.. targetPermIds]));
+                                    true, [.. targetPermIds], role.FrontendUrl));
                         }
                         catch (AnythinkException ex)
                         {
