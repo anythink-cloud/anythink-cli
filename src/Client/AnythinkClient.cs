@@ -77,6 +77,16 @@ public class AnythinkClient : HttpApiClient
         });
     }
 
+    private async Task<T?> PostAnonymousAsync<T>(string url, object body)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(body, JsonOpts), Encoding.UTF8, "application/json");
+        var response = await _anonymousHttp.PostAsync(Target(url), content, ClientContext.Cancellation);
+        var raw = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+            throw new AnythinkException(raw, (int)response.StatusCode);
+        return string.IsNullOrWhiteSpace(raw) ? default : JsonSerializer.Deserialize<T>(raw, JsonOpts);
+    }
+
     // ── Raw fetch (for CLI `fetch` command) ────────────────────────────────────
 
     public async Task<string> FetchRawAsync(string url, string method = "GET", string? body = null)
@@ -126,6 +136,59 @@ public class AnythinkClient : HttpApiClient
 
     public Task DeleteEntityAsync(string name)
         => DeleteAsync(_org + $"/entities/{Seg(name)}");
+
+    // ── Contacts ──────────────────────────────────────────────────────────────
+
+    public async Task<PaginatedResult<Contact>> GetContactsAsync(
+        string? status = null, bool? isUser = null, string? source = null, string? search = null, int page = 1, int pageSize = 25)
+    {
+        var query = new List<string> { $"page={page}", $"page_size={pageSize}" };
+        if (!string.IsNullOrEmpty(status)) query.Add($"status={Seg(status)}");
+        if (isUser is { } u) query.Add($"is_user={(u ? "true" : "false")}");
+        if (!string.IsNullOrEmpty(source)) query.Add($"source={Seg(source)}");
+        if (!string.IsNullOrEmpty(search)) query.Add($"search={Seg(search)}");
+        return (await GetAsync<PaginatedResult<Contact>>(_org + "/contacts?" + string.Join('&', query)))
+               ?? new PaginatedResult<Contact>([], 0, null, false, page, pageSize);
+    }
+
+    public async Task<Contact> GetContactAsync(string id)
+        => (await GetAsync<Contact>(_org + $"/contacts/{Seg(id)}"))
+           ?? throw new AnythinkException("Contact not found.", 404);
+
+    public Task<Contact> CreateContactAsync(CreateContactRequest req)
+        => PostAsync<Contact>(_org + "/contacts", req);
+
+    public Task<Contact> UpdateContactAsync(string id, UpdateContactRequest req)
+        => PatchAsync<Contact>(_org + $"/contacts/{Seg(id)}", req);
+
+    public Task<Contact> UnsubscribeContactAsync(string id)
+        => PostAsync<Contact>(_org + $"/contacts/{Seg(id)}/unsubscribe");
+
+    public Task EraseContactAsync(string id)
+        => PostVoidAsync(_org + $"/contacts/{Seg(id)}/erase");
+
+    public async Task<JsonNode> ExportContactAsync(string id)
+        => (await GetAsync<JsonNode>(_org + $"/contacts/{Seg(id)}/export"))
+           ?? throw new AnythinkException("Contact not found.", 404);
+
+    public Task<ImportContactsResult> ImportContactsAsync(IReadOnlyList<ImportContactRow> rows)
+        => PostAsync<ImportContactsResult>(_org + "/contacts/import", new ImportContactsRequest([.. rows]));
+
+    public Task<SubscribeResult?> SubscribeAsync(SubscribeRequest req)
+        => PostAnonymousAsync<SubscribeResult>(_org + "/contacts/subscribe", req);
+
+    // ── Email marketing ───────────────────────────────────────────────────────
+
+    public async Task<EmailMarketingSettings> GetEmailMarketingSettingsAsync()
+        => (await GetAsync<EmailMarketingSettings>(_org + "/email-marketing/settings"))
+           ?? throw new AnythinkException("Email marketing settings not found.", 404);
+
+    public Task<EmailMarketingSettings?> UpdateEmailMarketingSettingsAsync(UpdateEmailMarketingSettingsRequest req)
+        => PutAsync<EmailMarketingSettings>(_org + "/email-marketing/settings", req);
+
+    public async Task<EmailMarketingOptions> GetEmailMarketingOptionsAsync()
+        => (await GetAnonymousAsync<EmailMarketingOptions>(_org + "/email-marketing/options"))
+           ?? throw new AnythinkException("Email marketing options not found.", 404);
 
     // ── Email Templates ───────────────────────────────────────────────────────
 

@@ -963,3 +963,122 @@ public record EmailShell(
 public record UpdateEmailShellRequest(
     [property: JsonPropertyName("html")] string? Html
 );
+
+// ── Contacts and email marketing ─────────────────────────────────────────────
+
+public record ContactConsentEvent(
+    [property: JsonPropertyName("id")] string? Id,
+    [property: JsonPropertyName("action")] string? Action,
+    [property: JsonPropertyName("basis")] string? Basis,
+    [property: JsonPropertyName("source")] string? Source,
+    [property: JsonPropertyName("wording")] string? Wording,
+    [property: JsonPropertyName("ip_address")] string? IpAddress,
+    [property: JsonPropertyName("campaign_id")] string? CampaignId,
+    [property: JsonPropertyName("actor_user_id")] int? ActorUserId,
+    [property: JsonPropertyName("occurred_at")] DateTime? OccurredAt,
+    [property: JsonPropertyName("created_at")] DateTime? CreatedAt
+);
+
+public record Contact(
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("email")] string Email,
+    [property: JsonPropertyName("first_name")] string? FirstName,
+    [property: JsonPropertyName("last_name")] string? LastName,
+    [property: JsonPropertyName("user_id")] int? UserId,
+    [property: JsonPropertyName("is_user")] bool IsUser,
+    [property: JsonPropertyName("email_marketing_status")] string? EmailMarketingStatus,
+    [property: JsonPropertyName("consent_basis")] string? ConsentBasis,
+    [property: JsonPropertyName("status_changed_at")] DateTime? StatusChangedAt,
+    [property: JsonPropertyName("source")] string? Source,
+    [property: JsonPropertyName("created_at")] DateTime? CreatedAt,
+    [property: JsonPropertyName("updated_at")] DateTime? UpdatedAt,
+    [property: JsonPropertyName("consent_events")] List<ContactConsentEvent>? ConsentEvents = null
+);
+
+public record ContactConsentRequest(
+    [property: JsonPropertyName("wording")] string? Wording,
+    [property: JsonPropertyName("source")] string? Source
+);
+
+public record CreateContactRequest(
+    [property: JsonPropertyName("email")] string Email,
+    [property: JsonPropertyName("first_name")] string? FirstName = null,
+    [property: JsonPropertyName("last_name")] string? LastName = null,
+    [property: JsonPropertyName("source")] string? Source = null,
+    [property: JsonPropertyName("consent")] ContactConsentRequest? Consent = null
+);
+
+public record UpdateContactRequest(
+    [property: JsonPropertyName("first_name")] string? FirstName = null,
+    [property: JsonPropertyName("last_name")] string? LastName = null,
+    [property: JsonPropertyName("source")] string? Source = null
+);
+
+public record ImportContactRow(
+    [property: JsonPropertyName("email")] string Email,
+    [property: JsonPropertyName("status")] string Status,
+    [property: JsonPropertyName("first_name")] string? FirstName = null,
+    [property: JsonPropertyName("last_name")] string? LastName = null,
+    [property: JsonPropertyName("source")] string? Source = null,
+    [property: JsonPropertyName("consented_at")] string? ConsentedAt = null,
+    [property: JsonPropertyName("wording")] string? Wording = null,
+    [property: JsonPropertyName("ip_address")] string? IpAddress = null
+);
+
+public record ImportContactsRequest(
+    [property: JsonPropertyName("rows")] List<ImportContactRow> Rows
+);
+
+public record ImportContactsResult(
+    [property: JsonPropertyName("created")] int Created,
+    [property: JsonPropertyName("updated")] int Updated,
+    [property: JsonPropertyName("suppressed")] int Suppressed,
+    [property: JsonPropertyName("invalid")] int Invalid
+);
+
+public record SubscribeRequest(
+    [property: JsonPropertyName("email")] string Email,
+    [property: JsonPropertyName("first_name")] string? FirstName = null,
+    [property: JsonPropertyName("last_name")] string? LastName = null,
+    [property: JsonPropertyName("source")] string? Source = null,
+    [property: JsonPropertyName("wording")] string? Wording = null
+);
+
+public record EmailMarketingSettings(
+    [property: JsonPropertyName("double_opt_in")] bool DoubleOptIn,
+    [property: JsonPropertyName("soft_opt_in")] bool SoftOptIn,
+    [property: JsonPropertyName("postal_address")] string? PostalAddress,
+    [property: JsonPropertyName("default_consent_wording")] string? DefaultConsentWording,
+    [property: JsonPropertyName("privacy_policy_url")] string? PrivacyPolicyUrl,
+    [property: JsonPropertyName("signup_opt_out_wording")] string? SignupOptOutWording
+);
+
+public record UpdateEmailMarketingSettingsRequest(
+    [property: JsonPropertyName("double_opt_in")] bool DoubleOptIn,
+    [property: JsonPropertyName("soft_opt_in")] bool SoftOptIn,
+    [property: JsonPropertyName("postal_address")] string? PostalAddress,
+    [property: JsonPropertyName("default_consent_wording")] string? DefaultConsentWording,
+    [property: JsonPropertyName("privacy_policy_url")] string? PrivacyPolicyUrl,
+    [property: JsonPropertyName("signup_opt_out_wording")] string? SignupOptOutWording,
+    [property: JsonPropertyName("soft_opt_in_declaration")] bool? SoftOptInDeclaration = null
+);
+
+public record EmailMarketingNewsletterOptions(
+    [property: JsonPropertyName("consent_wording")] string? ConsentWording,
+    [property: JsonPropertyName("privacy_policy_url")] string? PrivacyPolicyUrl
+);
+
+public record EmailMarketingSignupOptions(
+    [property: JsonPropertyName("marketing_opt_out_offered")] bool MarketingOptOutOffered,
+    [property: JsonPropertyName("opt_out_wording")] string? OptOutWording
+);
+
+public record EmailMarketingOptions(
+    [property: JsonPropertyName("double_opt_in")] bool DoubleOptIn,
+    [property: JsonPropertyName("newsletter")] EmailMarketingNewsletterOptions? Newsletter,
+    [property: JsonPropertyName("signup")] EmailMarketingSignupOptions? Signup
+);
+
+public record SubscribeResult(
+    [property: JsonPropertyName("status")] string? Status
+);

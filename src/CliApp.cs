@@ -196,6 +196,75 @@ public static class CliApp
             });
         });
 
+        // ── Contacts ──────────────────────────────────────────────────────────────
+
+        config.AddBranch("contacts", contacts =>
+        {
+            contacts.SetDescription("Manage the project's marketing contacts and their consent");
+
+            contacts.AddCommand<ContactsListCommand>("list")
+                .WithDescription("List contacts, filtered by marketing status, source or search. Needs the anythink_contacts:read permission on your role")
+                .WithExample("contacts", "list", "--status", "subscribed")
+                .WithExample("contacts", "list", "--search", "alice", "--json");
+
+            contacts.AddCommand<ContactsGetCommand>("get")
+                .WithDescription("Show a contact and its consent history. Needs the anythink_contacts:read permission on your role")
+                .WithExample("contacts", "get", "<id>");
+
+            contacts.AddCommand<ContactsCreateCommand>("create")
+                .WithDescription("Add a contact; pass --consent if they agreed to marketing emails. Needs the anythink_contacts:create permission on your role")
+                .WithExample("contacts", "create", "alice@example.com", "--first-name", "Alice")
+                .WithExample("contacts", "create", "alice@example.com", "--consent", "--wording", "I'd like the newsletter");
+
+            contacts.AddCommand<ContactsUpdateCommand>("update")
+                .WithDescription("Change a contact's name or source (marketing status can't be set here). Needs the anythink_contacts:update permission on your role")
+                .WithExample("contacts", "update", "<id>", "--last-name", "Smith");
+
+            contacts.AddCommand<ContactsUnsubscribeCommand>("unsubscribe")
+                .WithDescription("Unsubscribe a contact from marketing emails. Needs the anythink_contacts:update permission on your role")
+                .WithExample("contacts", "unsubscribe", "<id>");
+
+            contacts.AddCommand<ContactsEraseCommand>("erase")
+                .WithDescription("Permanently erase a contact's personal details (asks you to type the id unless --yes). Needs the anythink_contacts:erase permission on your role")
+                .WithExample("contacts", "erase", "<id>")
+                .WithExample("contacts", "erase", "<id>", "--yes");
+
+            contacts.AddCommand<ContactsExportCommand>("export")
+                .WithDescription("Print everything held about a contact, with their consent history, as JSON. Needs the anythink_contacts:read permission on your role")
+                .WithExample("contacts", "export", "<id>");
+
+            contacts.AddCommand<ContactsImportCommand>("import")
+                .WithDescription("Import contacts from a CSV with email and status columns, in batches of 1,000. Needs the anythink_contacts:create and anythink_contacts:update permissions on your role")
+                .WithExample("contacts", "import", "./mailing-list.csv", "--dry-run")
+                .WithExample("contacts", "import", "./mailing-list.csv");
+
+            contacts.AddCommand<ContactsSubscribeCommand>("subscribe")
+                .WithDescription("Try the public signup form: submits an email as a visitor would, with no sign-in")
+                .WithExample("contacts", "subscribe", "alice@example.com", "--source", "website");
+        });
+
+        config.AddBranch("email-marketing", marketing =>
+        {
+            marketing.SetDescription("Manage how the project collects consent for marketing emails");
+
+            marketing.AddBranch("settings", settings =>
+            {
+                settings.SetDescription("View and change the email marketing settings");
+
+                settings.AddCommand<EmailMarketingSettingsGetCommand>("get")
+                    .WithDescription("Show the email marketing settings. Needs the anythink_contacts:read permission on your role");
+
+                settings.AddCommand<EmailMarketingSettingsSetCommand>("set")
+                    .WithDescription("Change email marketing settings; anything you leave out stays as it is. Needs the anythink_contacts:update permission on your role")
+                    .WithExample("email-marketing", "settings", "set", "--double-opt-in", "true")
+                    .WithExample("email-marketing", "settings", "set", "--soft-opt-in", "true", "--soft-opt-in-declaration");
+            });
+
+            marketing.AddCommand<EmailMarketingOptionsCommand>("options")
+                .WithDescription("Show what the public signup form is told (consent wording, privacy link, double opt-in). Public: needs no sign-in or permission")
+                .WithExample("email-marketing", "options");
+        });
+
         // ── Fields ────────────────────────────────────────────────────────────────
 
         config.AddBranch("fields", fields =>

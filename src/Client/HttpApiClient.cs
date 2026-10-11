@@ -100,6 +100,13 @@ public abstract class HttpApiClient
                ?? throw Failure("Empty response.", (int)r.StatusCode);
     }
 
+    protected async Task<T> PatchAsync<T>(string url, object body)
+    {
+        var r = await Http.SendAsync(new HttpRequestMessage(HttpMethod.Patch, Target(url)) { Content = Serialize(body) }, ClientContext.Cancellation);
+        return await DeserializeAsync<T>(r)
+               ?? throw Failure("Empty response.", (int)r.StatusCode);
+    }
+
     protected async Task PostVoidAsync(string url, object? body = null)
     {
         var r = await Http.PostAsync(Target(url), Serialize(body ?? new { }), ClientContext.Cancellation);
