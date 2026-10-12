@@ -135,7 +135,7 @@ public class McpStdioConformanceTests : IAsyncLifetime
         toolNames.Should().Contain(new[]
         {
             "config_show", "config_use", "config_remove",
-            "login", "login_direct", "login_google", "signup", "logout",
+            "login", "login_direct", "login_google", "login_microsoft", "signup", "logout",
             "accounts_list", "accounts_use", "accounts_create",
             "projects_list", "projects_use", "projects_create", "projects_delete",
             "cli",

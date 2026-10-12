@@ -12,7 +12,8 @@ public static class CliToolPolicy
     private static readonly string[] AccountGroups = ["accounts", "projects", "plans"];
 
     internal static readonly string[] AccountCommands =
-        ["accounts list", "accounts create", "plans", "projects create", "projects delete"];
+        ["accounts list", "accounts create", "accounts directories list", "accounts directories remove",
+            "plans", "projects create", "projects delete"];
 
     private const string AccountIdDescription =
         "Billing account id from accounts_list. Optional when you have exactly one account.";
@@ -23,7 +24,9 @@ public static class CliToolPolicy
         ["accounts create"] = "Create a billing account: the organisation that owns projects and pays for them. Check accounts_list first, as most people need only one.",
         ["plans"] = "List the plans a project can be created on, with each plan's id, price and limits. Use a plan's id as plan_id in projects_create.",
         ["projects create"] = "Create a new project in a billing account. A paid plan is billed to the account, which needs a payment method. The project takes about a minute to set up, then appears in projects_list.",
-        ["projects delete"] = "Permanently delete a project and all its data. This can't be undone."
+        ["projects delete"] = "Permanently delete a project and all its data. This can't be undone.",
+        ["accounts directories list"] = "List the Microsoft Entra ID directories connected to a billing account, with the access level new people get.",
+        ["accounts directories remove"] = "Disconnect a Microsoft Entra ID directory from a billing account, so nobody from it can sign in with Microsoft."
     };
 
     private static readonly Dictionary<string, (string Name, string Description, bool Required)> AccountParameters = new()
@@ -36,6 +39,9 @@ public static class CliToolPolicy
         ["projects delete id"] = ("id", "Full id of the project to delete, from projects_list.", true),
         ["projects delete account"] = ("account_id", AccountIdDescription, false),
         ["accounts create name"] = ("name", "Organisation name for the account.", true),
+        ["accounts directories list account"] = ("account_id", AccountIdDescription, false),
+        ["accounts directories remove tenant_id"] = ("tenant_id", "Tenant id of the directory to disconnect, from accounts_directories_list.", true),
+        ["accounts directories remove account"] = ("account_id", AccountIdDescription, false),
         ["accounts create email"] = ("email", "Billing email address for invoices.", true),
         ["accounts create currency"] = ("currency", $"Currency code: gbp, usd or eur. Defaults to {AccountsCreateCommand.DefaultCurrency}.", false)
     };

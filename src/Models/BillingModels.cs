@@ -31,6 +31,22 @@ public record BillingAccount(
     [property: JsonPropertyName("next_invoice_date")] DateTime? NextInvoiceDate
 );
 
+public record EntraDirectory(
+    [property: JsonPropertyName("tenant_id")] Guid TenantId,
+    [property: JsonPropertyName("default_access_level")] int DefaultAccessLevel, // 0=Viewer 1=Admin 2=Owner
+    [property: JsonPropertyName("created_at")] DateTime CreatedAt
+);
+
+public record StartMicrosoftAdminConsentRequest(
+    [property: JsonPropertyName("account_id")] Guid AccountId,
+    [property: JsonPropertyName("default_access_level")] int DefaultAccessLevel,
+    [property: JsonPropertyName("redirect_uri")] string RedirectUri
+);
+
+public record MicrosoftAdminConsentResponse(
+    [property: JsonPropertyName("consent_url")] string ConsentUrl
+);
+
 public record CreateBillingAccountRequest(
     [property: JsonPropertyName("organization_name")] string OrganizationName,
     [property: JsonPropertyName("billing_email")] string BillingEmail,
