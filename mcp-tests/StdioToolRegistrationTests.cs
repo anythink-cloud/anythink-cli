@@ -12,6 +12,7 @@ public class StdioToolRegistrationTests
         "signup",
         "login",
         "login_google",
+        "login_microsoft",
         "login_direct",
         "logout",
         "config_show",

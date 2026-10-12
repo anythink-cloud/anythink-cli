@@ -131,6 +131,23 @@ public class BillingClient : HttpApiClient
     public Task<BillingAccount> CreateAccountAsync(CreateBillingAccountRequest req)
         => PostAsync<BillingAccount>(_billing + "/v1/accounts", req);
 
+    // ── Microsoft directories (Entra ID sign-in) ──────────────────────────────
+
+    public async Task<List<EntraDirectory>> GetEntraDirectoriesAsync(Guid accountId)
+        => (await GetAsync<List<EntraDirectory>>(_billing + $"/v1/accounts/{accountId}/entra-directories")) ?? [];
+
+    public async Task<string> StartMicrosoftAdminConsentAsync(Guid accountId, int defaultAccessLevel, string redirectUri)
+    {
+        if (_auth is null)
+            throw new CliException("Connect a Microsoft directory from the account's Team page in My Anythink, or with the Anythink CLI.");
+        var response = await PostAsync<MicrosoftAdminConsentResponse>(_auth + "/auth/v1/microsoft/admin-consent",
+            new StartMicrosoftAdminConsentRequest(accountId, defaultAccessLevel, redirectUri));
+        return response.ConsentUrl;
+    }
+
+    public Task RemoveEntraDirectoryAsync(Guid accountId, Guid tenantId)
+        => DeleteAsync(_billing + $"/v1/accounts/{accountId}/entra-directories/{tenantId}");
+
     // ── Projects (Shared Tenants) ──────────────────────────────────────────────
 
     public async Task<List<SharedTenant>> GetProjectsAsync(Guid accountId)

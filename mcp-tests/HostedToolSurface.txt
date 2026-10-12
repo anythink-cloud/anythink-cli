@@ -1,4 +1,6 @@
 accounts_create [write] currency? email name
+accounts_directories_list [read-only] account_id?
+accounts_directories_remove [destructive] tenant_id account_id?
 accounts_list [read-only]
 api [read-only] project? base_url?
 api_keys_list [read-only] project?

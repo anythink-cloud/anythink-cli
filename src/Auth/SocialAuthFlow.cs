@@ -7,30 +7,34 @@ using AnythinkCli.Models;
 namespace AnythinkCli.Auth;
 
 /// <summary>
-/// Browser → loopback → JWT exchange for Google sign-in, shared by the CLI
-/// ('login --google') and the MCP ('login_google' tool). Returns the platform
-/// token; it does not save config or select an account — callers do that.
+/// Browser → loopback → JWT exchange for platform sign-in with a social provider
+/// ("google", "microsoft"), shared by the CLI ('login --google' / '--microsoft') and the MCP
+/// ('login_google' / 'login_microsoft'). Returns the platform token; it does not save config
+/// or select an account — callers do that.
 /// </summary>
-public static class GoogleAuthFlow
+public static class SocialAuthFlow
 {
     // Must match the http://localhost:<port>/callback redirect URIs registered
-    // on the Google OAuth client. Multiple candidates so a busy port doesn't block.
+    // on each provider's OAuth client. Multiple candidates so a busy port doesn't block.
     public static readonly int[] CallbackPorts = [8976, 8977, 8978];
 
     private static readonly byte[] SuccessPage = LoadSuccessPage();
 
-    /// <param name="onAuthUrl">Invoked with the Google authorization URL (e.g. to print it as a fallback).</param>
-    public static async Task<LoginResponse> RunAsync(PlatformConfig eff, Action<string>? onAuthUrl = null)
+    public static string DisplayName(string provider) => provider == "microsoft" ? "Microsoft" : "Google";
+
+    /// <param name="onAuthUrl">Invoked with the provider's authorization URL (e.g. to print it as a fallback).</param>
+    public static async Task<LoginResponse> RunAsync(PlatformConfig eff, string provider, Action<string>? onAuthUrl = null)
     {
+        var name = DisplayName(provider);
         var (listener, port) = BindLoopbackListener();
         if (listener is null)
             throw new InvalidOperationException(
-                $"Could not start the Google sign-in listener — ports {string.Join(", ", CallbackPorts)} are all in use.");
+                $"Could not start the {name} sign-in listener — ports {string.Join(", ", CallbackPorts)} are all in use.");
 
         try
         {
             var callbackUrl = $"http://localhost:{port}/callback";
-            var baseUrl = $"{eff.MyAnythinkUrl.TrimEnd('/')}/org/{eff.MyAnythinkOrgId}/auth/v1/google";
+            var baseUrl = $"{eff.MyAnythinkUrl.TrimEnd('/')}/org/{eff.MyAnythinkOrgId}/auth/v1/{provider}";
 
             string authUrl;
             using (var http = new HttpClient())
@@ -52,7 +56,7 @@ public static class GoogleAuthFlow
             while (true)
             {
                 try { ctx = await listener.GetContextAsync().WaitAsync(cts.Token); }
-                catch (OperationCanceledException) { throw new TimeoutException("Timed out waiting for Google sign-in."); }
+                catch (OperationCanceledException) { throw new TimeoutException($"Timed out waiting for {name} sign-in."); }
                 if (string.Equals(ctx.Request.Url?.AbsolutePath, "/callback", StringComparison.Ordinal)) break;
                 ctx.Response.StatusCode = 404;
                 ctx.Response.Close();
@@ -74,7 +78,7 @@ public static class GoogleAuthFlow
             catch { /* browser tab already closed — ignore */ }
 
             if (string.IsNullOrEmpty(code))
-                throw new InvalidOperationException($"Google sign-in failed: {error ?? "unknown error"}");
+                throw new InvalidOperationException($"{name} sign-in failed: {error ?? "unknown error"}");
 
             using (var http = new HttpClient())
             {
@@ -110,7 +114,7 @@ public static class GoogleAuthFlow
         return (null, 0);
     }
 
-    private static void OpenBrowser(string url)
+    public static void OpenBrowser(string url)
     {
         try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
         catch { /* user can open manually from the URL passed to onAuthUrl */ }
@@ -118,7 +122,7 @@ public static class GoogleAuthFlow
 
     private static byte[] LoadSuccessPage()
     {
-        var asm = typeof(GoogleAuthFlow).Assembly;
+        var asm = typeof(SocialAuthFlow).Assembly;
         var name = Array.Find(asm.GetManifestResourceNames(), n => n.EndsWith("google-success.html"))!;
         using var stream = asm.GetManifestResourceStream(name)!;
         using var ms = new MemoryStream();
