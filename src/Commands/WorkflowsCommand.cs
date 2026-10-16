@@ -450,7 +450,7 @@ public class WorkflowStepAddSettings : CommandSettings
     public string? Name { get; set; }
 
     [CommandOption("--action <ACTION>")]
-    [Description("Action type: ReadData, CreateData, UpdateData, UpsertData, DeleteData, CallAnApi, RunScript, Condition, SendAnEmail, SendACommand, SendPushNotification, FileHandler, Integration (for Integration, prefer 'integration-add')")]
+    [Description("Action type: ReadData, CreateData, UpdateData, UpsertData, DeleteData, CallAnApi, RunScript, Condition, SendAnEmail, SendACommand, SendPushNotification, AdjustBalance, FileHandler, Integration (for Integration, prefer 'integration-add')")]
     public string Action { get; set; } = "RunScript";
 
     [CommandOption("--params <JSON>")]
