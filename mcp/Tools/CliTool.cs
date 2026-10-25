@@ -217,7 +217,7 @@ public class CliTool
             if (json) return Serialize(workflows);
             return FormatTable("Workflows", workflows.Select(w => new
             {
-                w.Id, w.Name, w.Description, w.Enabled, w.Trigger
+                w.Id, w.Name, w.Description, w.Enabled, Triggers = AnythinkCli.Commands.WorkflowTriggers.Summarise(w.Triggers)
             }));
         }
         if (args[0] == "get" && args.Count > 1)
@@ -229,40 +229,26 @@ public class CliTool
         if (args[0] == "create" && args.Count > 1)
         {
             var name = args[1];
-            // Normalize trigger casing — API expects PascalCase
-            var rawTrigger = GetFlag(args, "--trigger") ?? "Manual";
-            var trigger = rawTrigger.ToLowerInvariant() switch
-            {
-                "manual" => "Manual",
-                "timed" => "Timed",
-                "event" => "Event",
-                "api" => "Api",
-                _ => rawTrigger
-            };
             var description = GetFlag(args, "--description");
-            var cron = GetFlag(args, "--cron");
-            var eventType = GetFlag(args, "--event");
-            var eventEntity = GetFlag(args, "--entity") ?? GetFlag(args, "--event-entity");
-            var apiRoute = GetFlag(args, "--api-route");
             var enabled = args.Contains("--enabled");
+            var triggers = AnythinkCli.Commands.WorkflowTriggers.FromSettings(ReadTriggerFlags(args))
+                ?? throw new AnythinkCli.Commands.WorkflowInputException(
+                    "Specify a trigger with --trigger <TYPE> (Manual, Timed, Event or Api) or --triggers <JSON>.");
 
-            object options = trigger switch
-            {
-                "Timed" => new { cron_expression = cron ?? "0 9 * * *", event_entity = eventEntity ?? "" },
-                "Event" => (object)new EventWorkflowOptions(eventType ?? "EntityCreated", eventEntity ?? ""),
-                "Api" => new { api_route = apiRoute ?? "", event_entity = eventEntity ?? "" },
-                _ => new { event_entity = eventEntity ?? "", manual_entities = eventEntity != null ? new[] { eventEntity } : Array.Empty<string>() }
-            };
-
-            var wf = await client.CreateWorkflowAsync(new CreateWorkflowRequest(
-                name, description, trigger, enabled, options, trigger == "Api" ? apiRoute : null));
+            var wf = await client.CreateWorkflowAsync(new CreateUpdateWorkflowRequest(name, description, enabled, triggers));
             return Serialize(wf);
         }
         if (args[0] == "update" && args.Count > 1 && (await ResolveWorkflowId(client, args[1])) is { } updateId)
         {
             var name = GetFlag(args, "--name");
             var description = GetFlag(args, "--description");
-            var wf = await client.UpdateWorkflowAsync(updateId, new UpdateWorkflowRequest(name, description));
+            var triggers = AnythinkCli.Commands.WorkflowTriggers.FromSettings(ReadTriggerFlags(args));
+            if (name is null && description is null && triggers is null)
+                return "Usage: workflows update <id> [--name ...] [--description ...] [--trigger <TYPE> ... | --triggers <JSON>]";
+
+            var current = await client.GetWorkflowAsync(updateId);
+            var wf = await client.UpdateWorkflowAsync(updateId,
+                AnythinkCli.Commands.WorkflowsUpdateCommand.BuildRequest(current, name, description, triggers));
             return Serialize(wf);
         }
         if (args[0] == "delete" && args.Count > 1 && (await ResolveWorkflowId(client, args[1])) is { } deleteId)
@@ -272,11 +258,12 @@ public class CliTool
         }
         if (args[0] == "trigger" && args.Count > 1 && (await ResolveWorkflowId(client, args[1])) is { } triggerId)
         {
-            var payloadStr = GetFlag(args, "--payload");
-            object? payload = null;
-            if (payloadStr != null)
-                payload = new { data = JsonNode.Parse(payloadStr) };
-            await client.TriggerWorkflowAsync(triggerId, payload);
+            var entityId = GetFlag(args, "--entity-id");
+            var request = AnythinkCli.Commands.WorkflowTriggers.BuildRunRequest(
+                GetFlag(args, "--payload"),
+                GetFlag(args, "--entity"),
+                int.TryParse(entityId, out var parsedEntityId) ? parsedEntityId : null);
+            await client.TriggerWorkflowAsync(triggerId, request);
             return $"Workflow {triggerId} triggered.";
         }
         if (args[0] == "enable" && args.Count > 1 && (await ResolveWorkflowId(client, args[1])) is { } enableId)
@@ -511,6 +498,24 @@ public class CliTool
         var items = rows.ToList();
         if (items.Count == 0) return $"{title}: (none)";
         return $"{title} ({items.Count}):\n{Serialize(items)}";
+    }
+
+    private static AnythinkCli.Commands.WorkflowTriggerFlagSettings ReadTriggerFlags(List<string> args)
+    {
+        var entities = new List<string>();
+        while ((GetFlag(args, "--entity") ?? GetFlag(args, "--event-entity")) is { } entity)
+            entities.Add(entity);
+
+        return new AnythinkCli.Commands.WorkflowTriggerFlagSettings
+        {
+            Trigger = GetFlag(args, "--trigger"),
+            Event = GetFlag(args, "--event"),
+            Entities = entities.ToArray(),
+            Cron = GetFlag(args, "--cron"),
+            ApiRoute = GetFlag(args, "--api-route"),
+            Filter = GetFlag(args, "--filter"),
+            Triggers = GetFlag(args, "--triggers"),
+        };
     }
 
     private static string? GetFlag(List<string> args, string flag)

@@ -105,30 +105,61 @@ public record Workflow(
     [property: JsonPropertyName("id")] int Id,
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("description")] string? Description,
-    [property: JsonPropertyName("trigger")] string Trigger,
     [property: JsonPropertyName("enabled")] bool Enabled,
     [property: JsonPropertyName("steps")] List<WorkflowStep>? Steps,
-    [property: JsonPropertyName("options")] System.Text.Json.JsonElement? Options = null,
+    [property: JsonPropertyName("triggers")] List<WorkflowTrigger>? Triggers = null,
+    [property: JsonPropertyName("group")] string? Group = null,
+    [property: JsonPropertyName("editor_state")] string? EditorState = null,
     [property: JsonPropertyName("jobs")] List<WorkflowJob>? Jobs = null
+);
+
+public record WorkflowTrigger(
+    [property: JsonPropertyName("id")] int Id,
+    [property: JsonPropertyName("type")] string? Type,
+    [property: JsonPropertyName("enabled")] bool Enabled,
+    [property: JsonPropertyName("config")] WorkflowTriggerConfig? Config = null
+);
+
+public record WorkflowTriggerConfig(
+    [property: JsonPropertyName("event")] string? Event = null,
+    [property: JsonPropertyName("event_entity")] string? EventEntity = null,
+    [property: JsonPropertyName("manual_entities")] List<string>? ManualEntities = null,
+    [property: JsonPropertyName("cron_expression")] string? CronExpression = null,
+    [property: JsonPropertyName("api_route")] string? ApiRoute = null,
+    [property: JsonPropertyName("filter")] System.Text.Json.JsonElement? Filter = null,
+    [property: JsonPropertyName("last_run_at")] string? LastRunAt = null,
+    [property: JsonPropertyName("next_run_at")] string? NextRunAt = null
+)
+{
+    // Keeps config keys this CLI doesn't know about yet, so export → seed stays lossless.
+    [JsonExtensionData] public Dictionary<string, System.Text.Json.JsonElement>? Extra { get; init; }
+}
+
+public record WorkflowTriggerRequest(
+    [property: JsonPropertyName("type")] string Type,
+    [property: JsonPropertyName("enabled")] bool Enabled,
+    [property: JsonPropertyName("config")] WorkflowTriggerConfig Config
 );
 
 public record WorkflowJob(
     [property: JsonPropertyName("id")] int Id,
     [property: JsonPropertyName("status")] string? Status,
-    [property: JsonPropertyName("started_at")] string? StartedAt,
-    [property: JsonPropertyName("completed_at")] string? CompletedAt,
+    [property: JsonPropertyName("created_at")] string? CreatedAt,
+    [property: JsonPropertyName("updated_at")] string? UpdatedAt,
     [property: JsonPropertyName("error_message")] string? ErrorMessage,
+    [property: JsonPropertyName("current_executing_step_key")] string? CurrentExecutingStepKey = null,
     [property: JsonPropertyName("payload")] System.Text.Json.JsonElement? Payload = null,
-    [property: JsonPropertyName("job_steps")] List<WorkflowJobStep>? JobSteps = null
+    [property: JsonPropertyName("steps")] List<WorkflowJobStep>? Steps = null
 );
 
 public record WorkflowJobStep(
     [property: JsonPropertyName("id")] int Id,
-    [property: JsonPropertyName("step_key")] string? StepKey,
-    [property: JsonPropertyName("status")] string? Status,
+    [property: JsonPropertyName("workflow_step_id")] int? WorkflowStepId,
+    [property: JsonPropertyName("success")] bool Success,
     [property: JsonPropertyName("error_message")] string? ErrorMessage,
     [property: JsonPropertyName("log")] string? Log,
-    [property: JsonPropertyName("output")] System.Text.Json.JsonElement? Output = null
+    [property: JsonPropertyName("created_at")] string? CreatedAt = null,
+    [property: JsonPropertyName("workflow_step")] WorkflowStep? WorkflowStep = null
 );
 
 public record WorkflowStep(
@@ -144,13 +175,19 @@ public record WorkflowStep(
     [property: JsonPropertyName("parameters")] System.Text.Json.JsonElement? Parameters = null
 );
 
-public record CreateWorkflowRequest(
+public record CreateUpdateWorkflowRequest(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("description")] string? Description,
-    [property: JsonPropertyName("trigger")] string Trigger,
     [property: JsonPropertyName("enabled")] bool Enabled,
-    [property: JsonPropertyName("options")] object Options,
-    [property: JsonPropertyName("api_route")] string? ApiRoute = null
+    [property: JsonPropertyName("triggers")] List<WorkflowTriggerRequest> Triggers,
+    [property: JsonPropertyName("group")] string? Group = null,
+    [property: JsonPropertyName("editor_state")] string? EditorState = null
+);
+
+public record TriggerWorkflowRequest(
+    [property: JsonPropertyName("entity_name")] string? EntityName = null,
+    [property: JsonPropertyName("entity_id")] int? EntityId = null,
+    [property: JsonPropertyName("data")] string? Data = null
 );
 
 public record CreateWorkflowStepRequest(
@@ -163,23 +200,11 @@ public record CreateWorkflowStepRequest(
     [property: JsonPropertyName("parameters")] System.Text.Json.JsonElement? Parameters = null
 );
 
-public record UpdateWorkflowRequest(
-    [property: JsonPropertyName("name")] string? Name = null,
-    [property: JsonPropertyName("description")] string? Description = null
-);
-
 public record UpdateWorkflowStepLinksRequest(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("action")] string Action,
     [property: JsonPropertyName("on_success_step_id")] int? OnSuccessStepId,
     [property: JsonPropertyName("on_failure_step_id")] int? OnFailureStepId
-);
-
-// Used internally to avoid C# 'event' keyword conflict in anonymous types
-public record EventWorkflowOptions(
-    [property: JsonPropertyName("event")] string Event,
-    [property: JsonPropertyName("event_entity")] string EventEntity,
-    [property: JsonPropertyName("filter")] System.Text.Json.JsonElement? Filter = null
 );
 
 // ── API Keys ─────────────────────────────────────────────────────────────────

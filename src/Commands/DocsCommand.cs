@@ -153,13 +153,22 @@ public class DocsCommand : Command<DocsSettings>
 
         C("workflows create NAME",
           "Create a workflow",
-          ["--trigger TYPE", "--cron EXPRESSION"],
-          ["anythink workflows create daily-sync --trigger Timed --cron \"0 6 * * *\""],
-          "Trigger types: Api Timed EntityCreated EntityUpdated EntityDeleted"),
+          ["--trigger TYPE", "--event EVENT", "--entity NAME", "--cron EXPRESSION", "--api-route ROUTE",
+           "--filter JSON", "--triggers JSON"],
+          ["anythink workflows create daily-sync --trigger Timed --cron \"0 6 * * *\"",
+           "anythink workflows create on-order --trigger Event --event EntityCreated --entity orders"],
+          "Trigger types: Manual Timed Event Api. Use --triggers for more than one trigger."),
+
+        C("workflows update ID",
+          "Update a workflow's name, description or triggers (trigger flags replace all triggers)",
+          ["--name NAME", "--description TEXT", "--trigger TYPE", "--triggers JSON"],
+          ["anythink workflows update 76 --trigger Timed --cron \"0 7 * * 1-5\""]),
 
         C("workflows enable ID",  "Enable a workflow",  null, ["anythink workflows enable 76"]),
         C("workflows disable ID", "Disable a workflow", null, ["anythink workflows disable 76"]),
-        C("workflows trigger ID", "Manually run a workflow", null, ["anythink workflows trigger 76"]),
+        C("workflows trigger ID", "Manually run a workflow",
+          ["--entity NAME", "--entity-id ID", "--payload JSON"],
+          ["anythink workflows trigger 76 --entity blog_posts --entity-id 12"]),
         C("workflows delete ID",  "Delete a workflow",  ["--yes"], ["anythink workflows delete 76 --yes"]),
 
         C("data list ENTITY",
@@ -267,17 +276,20 @@ public class DocsCommand : Command<DocsSettings>
         |---------|-------------|
         | `anythink workflows list` | List all workflows |
         | `anythink workflows get ID` | Get workflow + steps |
-        | `anythink workflows create NAME --trigger TYPE [--cron EXPR]` | Create workflow |
+        | `anythink workflows create NAME --trigger TYPE [--event EVENT] [--entity NAME] [--cron EXPR] [--api-route ROUTE] [--filter JSON]` | Create workflow with one trigger |
+        | `anythink workflows create NAME --triggers JSON` | Create workflow with several triggers |
+        | `anythink workflows update ID [--name NAME] [--trigger TYPE ... \| --triggers JSON]` | Update (trigger flags replace all triggers) |
         | `anythink workflows enable ID` | Enable |
         | `anythink workflows disable ID` | Disable |
-        | `anythink workflows trigger ID` | Manually run |
+        | `anythink workflows trigger ID [--entity NAME] [--entity-id ID] [--payload JSON]` | Manually run |
         | `anythink workflows delete ID [--yes]` | Delete |
 
-        **Trigger types:** `Api` `Timed` `EntityCreated` `EntityUpdated` `EntityDeleted`
+        **Trigger types:** `Manual` (needs `--entity`) `Timed` (needs `--cron`) `Event` (needs `--event`, plus `--entity` for entity events) `Api` (needs `--api-route`)
 
         ```sh
         anythink workflows create daily-sync --trigger Timed --cron "0 6 * * *"
-        anythink workflows trigger 76
+        anythink workflows update 76 --trigger Event --event EntityUpdated --entity blog_posts
+        anythink workflows trigger 76 --entity blog_posts --entity-id 12
         ```
 
         ## Data CRUD

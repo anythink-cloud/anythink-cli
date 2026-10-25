@@ -408,9 +408,9 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                         Workflow? created = null;
                         try
                         {
-                            created = await dstClient.CreateWorkflowAsync(new CreateWorkflowRequest(
-                                wf.Name, wf.Description, wf.Trigger, false,
-                                wf.Options.HasValue ? (object)wf.Options.Value : new { }));
+                            created = await dstClient.CreateWorkflowAsync(new CreateUpdateWorkflowRequest(
+                                wf.Name, wf.Description, false,
+                                WorkflowTriggers.Copy(wf.Triggers, keepRunState: false), wf.Group));
                         }
                         catch (AnythinkException ex)
                         {

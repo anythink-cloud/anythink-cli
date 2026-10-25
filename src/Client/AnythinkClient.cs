@@ -129,17 +129,18 @@ public class AnythinkClient : HttpApiClient
         => (await GetAsync<Workflow>(_org + $"/workflows/{id}"))
            ?? throw new AnythinkException($"Workflow {id} not found.", 404);
 
-    public Task<Workflow> CreateWorkflowAsync(CreateWorkflowRequest req)
+    public Task<Workflow> CreateWorkflowAsync(CreateUpdateWorkflowRequest req)
         => PostAsync<Workflow>(_org + "/workflows", req);
 
-    public async Task<Workflow> UpdateWorkflowAsync(int id, UpdateWorkflowRequest req)
+    public async Task<Workflow> UpdateWorkflowAsync(int id, CreateUpdateWorkflowRequest req)
         => (await PutAsync<Workflow>(_org + $"/workflows/{id}", req))!;
 
-    public Task EnableWorkflowAsync(int id)  => PostAsync<JsonObject>(_org + $"/workflows/{id}/enable");
-    public Task DisableWorkflowAsync(int id) => PostAsync<JsonObject>(_org + $"/workflows/{id}/disable");
+    // enable, disable and trigger answer 204 No Content.
+    public Task EnableWorkflowAsync(int id)  => PostVoidAsync(_org + $"/workflows/{id}/enable");
+    public Task DisableWorkflowAsync(int id) => PostVoidAsync(_org + $"/workflows/{id}/disable");
 
-    public Task TriggerWorkflowAsync(int id, object? payload = null)
-        => PostAsync<JsonObject>(_org + $"/workflows/{id}/trigger", payload ?? new { });
+    public Task TriggerWorkflowAsync(int id, TriggerWorkflowRequest? request = null)
+        => PostVoidAsync(_org + $"/workflows/{id}/trigger", request ?? new TriggerWorkflowRequest());
 
     public Task DeleteWorkflowAsync(int id) => DeleteAsync(_org + $"/workflows/{id}");
 

@@ -121,24 +121,43 @@ public class ModelSerializationTests
     // ── Workflow ──────────────────────────────────────────────────────────────
 
     [Fact]
-    public void Workflow_Deserializes_Correctly()
+    public void Workflow_Deserializes_TriggersArray()
     {
         const string json = """
             {
                 "id": 76,
                 "name": "HN Research Pull",
                 "description": "Pulls from HN Algolia",
-                "trigger": "Timed",
-                "enabled": true
+                "group": "Research",
+                "enabled": true,
+                "editor_state": "{\"nodePositions\":{}}",
+                "triggers": [
+                    {
+                        "id": 4, "workflow_id": 76, "type": "Event", "enabled": false,
+                        "config_json": "{}",
+                        "config": {
+                            "event": "EntityUpdated", "event_entity": "posts", "manual_entities": null,
+                            "cron_expression": null, "last_run_at": null, "next_run_at": null, "api_route": null,
+                            "filter": { "field": "status", "op": "changed_to", "value": "published" }
+                        }
+                    }
+                ]
             }
             """;
 
         var wf = JsonSerializer.Deserialize<Workflow>(json, Opts)!;
 
         wf.Id.Should().Be(76);
-        wf.Trigger.Should().Be("Timed");
         wf.Enabled.Should().BeTrue();
+        wf.Group.Should().Be("Research");
+        wf.EditorState.Should().Contain("nodePositions");
         wf.Steps.Should().BeNull();
+        var trigger = wf.Triggers.Should().ContainSingle().Subject;
+        trigger.Type.Should().Be("Event");
+        trigger.Enabled.Should().BeFalse();
+        trigger.Config!.Event.Should().Be("EntityUpdated");
+        trigger.Config.EventEntity.Should().Be("posts");
+        trigger.Config.Filter!.Value.GetProperty("op").GetString().Should().Be("changed_to");
     }
 
     // ── PaginatedResult ───────────────────────────────────────────────────────
@@ -205,22 +224,37 @@ public class ModelSerializationTests
     // ── WorkflowJob / WorkflowJobStep ────────────────────────────────────────
 
     [Fact]
-    public void WorkflowJob_Deserializes_WithSteps()
+    public void WorkflowJob_Deserializes_CurrentApiShape()
     {
         const string json = """
             {
                 "id": 5,
-                "status": "Completed",
-                "started_at": "2026-03-20T10:00:00Z",
-                "completed_at": "2026-03-20T10:01:00Z",
-                "error_message": null,
-                "job_steps": [
+                "workflow_id": 31,
+                "status": "Failed",
+                "payload": "{\"id\":1}",
+                "current_executing_step_key": "send_email",
+                "created_at": "2026-03-20T10:00:00Z",
+                "updated_at": "2026-03-20T10:01:00Z",
+                "error_message": "Step send_email failed",
+                "steps": [
                     {
                         "id": 11,
-                        "step_key": "fetch_data",
-                        "status": "Completed",
+                        "workflow_job_id": 5,
+                        "workflow_step_id": 8,
+                        "success": true,
+                        "log": "Fetched 42 rows",
+                        "data_json": "{}",
                         "error_message": null,
-                        "log": "Fetched 42 rows"
+                        "workflow_step": { "id": 8, "key": "fetch_data", "name": "Fetch", "action": "ReadData" }
+                    },
+                    {
+                        "id": 12,
+                        "workflow_job_id": 5,
+                        "workflow_step_id": 9,
+                        "success": false,
+                        "log": null,
+                        "error_message": "SMTP timeout",
+                        "workflow_step": { "id": 9, "key": "send_email", "name": "Send", "action": "SendAnEmail" }
                     }
                 ]
             }
@@ -229,57 +263,54 @@ public class ModelSerializationTests
         var job = JsonSerializer.Deserialize<WorkflowJob>(json, Opts)!;
 
         job.Id.Should().Be(5);
-        job.Status.Should().Be("Completed");
-        job.StartedAt.Should().Be("2026-03-20T10:00:00Z");
-        job.ErrorMessage.Should().BeNull();
-        job.JobSteps.Should().HaveCount(1);
-        job.JobSteps![0].StepKey.Should().Be("fetch_data");
-        job.JobSteps[0].Log.Should().Be("Fetched 42 rows");
+        job.Status.Should().Be("Failed");
+        job.CreatedAt.Should().Be("2026-03-20T10:00:00Z");
+        job.CurrentExecutingStepKey.Should().Be("send_email");
+        job.Steps.Should().HaveCount(2);
+        job.Steps![0].Success.Should().BeTrue();
+        job.Steps[0].WorkflowStep!.Key.Should().Be("fetch_data");
+        job.Steps[0].Log.Should().Be("Fetched 42 rows");
+        job.Steps[1].Success.Should().BeFalse();
+        job.Steps[1].ErrorMessage.Should().Be("SMTP timeout");
     }
 
-    [Fact]
-    public void WorkflowJobStep_Deserializes_WithError()
-    {
-        const string json = """
-            {
-                "id": 22,
-                "step_key": "send_email",
-                "status": "Failed",
-                "error_message": "SMTP timeout",
-                "log": null
-            }
-            """;
-
-        var step = JsonSerializer.Deserialize<WorkflowJobStep>(json, Opts)!;
-
-        step.Id.Should().Be(22);
-        step.Status.Should().Be("Failed");
-        step.ErrorMessage.Should().Be("SMTP timeout");
-        step.Log.Should().BeNull();
-    }
-
-    // ── UpdateWorkflowRequest ────────────────────────────────────────────────
+    // ── CreateUpdateWorkflowRequest ──────────────────────────────────────────
 
     [Fact]
-    public void UpdateWorkflowRequest_Serializes_WithSnakeCaseNames()
+    public void CreateUpdateWorkflowRequest_Serializes_TriggersArray_WithSnakeCaseNames()
     {
-        var req  = new UpdateWorkflowRequest(Name: "New Name", Description: "Updated desc");
-        var json = JsonSerializer.Serialize(req, Opts);
-        var doc  = JsonDocument.Parse(json).RootElement;
+        var filter = JsonDocument.Parse("""{"field":"status","op":"eq","value":"live"}""").RootElement;
+        var req = new CreateUpdateWorkflowRequest("New Name", "Updated desc", false,
+            [new WorkflowTriggerRequest("Event", true,
+                new WorkflowTriggerConfig(Event: "EntityCreated", EventEntity: "posts", Filter: filter))],
+            Group: "Ops", EditorState: "{}");
+        var doc = JsonDocument.Parse(JsonSerializer.Serialize(req, Opts)).RootElement;
 
         doc.GetProperty("name").GetString().Should().Be("New Name");
         doc.GetProperty("description").GetString().Should().Be("Updated desc");
+        doc.GetProperty("enabled").GetBoolean().Should().BeFalse();
+        doc.GetProperty("group").GetString().Should().Be("Ops");
+        doc.GetProperty("editor_state").GetString().Should().Be("{}");
+        doc.TryGetProperty("trigger", out _).Should().BeFalse("the legacy single-trigger field is deprecated");
+        doc.TryGetProperty("options", out _).Should().BeFalse("the legacy single-trigger field is deprecated");
+
+        var config = doc.GetProperty("triggers")[0].GetProperty("config");
+        config.GetProperty("event").GetString().Should().Be("EntityCreated");
+        config.GetProperty("event_entity").GetString().Should().Be("posts");
+        config.GetProperty("filter").GetProperty("value").GetString().Should().Be("live");
+        config.TryGetProperty("cron_expression", out _).Should().BeFalse();
     }
 
     [Fact]
-    public void UpdateWorkflowRequest_OmitsNulls()
+    public void WorkflowTriggerConfig_KeepsUnknownKeys_ThroughARoundTrip()
     {
-        var req  = new UpdateWorkflowRequest(Name: "Only Name");
-        var json = JsonSerializer.Serialize(req, Opts);
-        var doc  = JsonDocument.Parse(json).RootElement;
+        const string json = """{"cron_expression":"0 9 * * *","timezone":"Europe/London"}""";
 
-        doc.GetProperty("name").GetString().Should().Be("Only Name");
-        doc.TryGetProperty("description", out _).Should().BeFalse();
+        var config = JsonSerializer.Deserialize<WorkflowTriggerConfig>(json, Opts)!;
+        var doc = JsonDocument.Parse(JsonSerializer.Serialize(config, Opts)).RootElement;
+
+        doc.GetProperty("cron_expression").GetString().Should().Be("0 9 * * *");
+        doc.GetProperty("timezone").GetString().Should().Be("Europe/London");
     }
 
     // ── GoogleOAuthSettings ───────────────────────────────────────────────────

@@ -104,7 +104,7 @@ public class AnythinkClientTests
         var handler = new MockHttpMessageHandler();
         handler.When($"{OrgPath}/workflows")
                .Respond("application/json",
-                   """[{"id":76,"name":"HN Research Pull","trigger":"Timed","enabled":true,"description":null}]""");
+                   """[{"id":76,"name":"HN Research Pull","enabled":true,"description":null,"triggers":[{"id":1,"type":"Timed","enabled":true,"config":{"cron_expression":"0 6 * * *"}}]}]""");
 
         var workflows = await BuildClient(handler).GetWorkflowsAsync();
 

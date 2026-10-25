@@ -129,62 +129,86 @@ public class AnythinkClientExtendedTests
         var handler = new MockHttpMessageHandler();
         handler.When($"{OrgPath}/workflows/76")
                .Respond("application/json",
-                   """{"id":76,"name":"HN Research Pull","trigger":"Timed","enabled":true,"description":"Pulls HN stories"}""");
+                   """{"id":76,"name":"HN Research Pull","enabled":true,"description":"Pulls HN stories","triggers":[{"id":3,"workflow_id":76,"type":"Timed","enabled":true,"config_json":"{}","config":{"cron_expression":"0 6 * * *"}}]}""");
 
         var wf = await BuildClient(handler).GetWorkflowAsync(76);
 
         wf.Id.Should().Be(76);
         wf.Name.Should().Be("HN Research Pull");
-        wf.Trigger.Should().Be("Timed");
+        wf.Triggers.Should().ContainSingle();
+        wf.Triggers![0].Type.Should().Be("Timed");
+        wf.Triggers[0].Config!.CronExpression.Should().Be("0 6 * * *");
     }
 
     [Fact]
-    public async Task CreateWorkflowAsync_ReturnsCreatedWorkflow()
+    public async Task CreateWorkflowAsync_SendsTriggersArray_NotLegacyTriggerAndOptions()
     {
         var handler = new MockHttpMessageHandler();
-        handler.When(HttpMethod.Post, $"{OrgPath}/workflows")
-               .Respond("application/json",
-                   """{"id":101,"name":"daily-sync","trigger":"Timed","enabled":true,"description":null}""");
+        handler.Expect(HttpMethod.Post, $"{OrgPath}/workflows")
+               .WithContent("""{"name":"daily-sync","enabled":true,"triggers":[{"type":"Timed","enabled":true,"config":{"cron_expression":"0 6 * * *"}}]}""")
+               .Respond(HttpStatusCode.Created, "application/json",
+                   """{"id":101,"name":"daily-sync","enabled":true,"description":null,"triggers":[]}""");
 
-        var req = new CreateWorkflowRequest("daily-sync", null, "Timed", true,
-            new { cron = "0 6 * * *" });
+        var req = new CreateUpdateWorkflowRequest("daily-sync", null, true,
+            [new WorkflowTriggerRequest("Timed", true, new WorkflowTriggerConfig(CronExpression: "0 6 * * *"))]);
         var wf = await BuildClient(handler).CreateWorkflowAsync(req);
 
+        handler.VerifyNoOutstandingExpectation();
         wf.Id.Should().Be(101);
         wf.Enabled.Should().BeTrue();
     }
 
+    // enable, disable and trigger answer 204 No Content — an empty body must not be treated as an error.
     [Fact]
-    public async Task EnableWorkflowAsync_Success_DoesNotThrow()
+    public async Task EnableWorkflowAsync_NoContent_DoesNotThrow()
     {
         var handler = new MockHttpMessageHandler();
         handler.When(HttpMethod.Post, $"{OrgPath}/workflows/76/enable")
-               .Respond("application/json", "{}");
+               .Respond(HttpStatusCode.NoContent);
 
         var act = async () => await BuildClient(handler).EnableWorkflowAsync(76);
         await act.Should().NotThrowAsync();
     }
 
     [Fact]
-    public async Task DisableWorkflowAsync_Success_DoesNotThrow()
+    public async Task DisableWorkflowAsync_NoContent_DoesNotThrow()
     {
         var handler = new MockHttpMessageHandler();
         handler.When(HttpMethod.Post, $"{OrgPath}/workflows/76/disable")
-               .Respond("application/json", "{}");
+               .Respond(HttpStatusCode.NoContent);
 
         var act = async () => await BuildClient(handler).DisableWorkflowAsync(76);
         await act.Should().NotThrowAsync();
     }
 
     [Fact]
-    public async Task TriggerWorkflowAsync_Success_DoesNotThrow()
+    public async Task TriggerWorkflowAsync_NoContent_DoesNotThrow()
     {
         var handler = new MockHttpMessageHandler();
         handler.When(HttpMethod.Post, $"{OrgPath}/workflows/76/trigger")
-               .Respond("application/json", "{}");
+               .Respond(HttpStatusCode.NoContent);
 
         var act = async () => await BuildClient(handler).TriggerWorkflowAsync(76);
         await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task TriggerWorkflowAsync_SendsSnakeCaseEntityFields_AndDataAsJsonString()
+    {
+        string? body = null;
+        var handler = new MockHttpMessageHandler();
+        handler.Expect(HttpMethod.Post, $"{OrgPath}/workflows/76/trigger")
+               .With(req => { body = req.Content!.ReadAsStringAsync().Result; return true; })
+               .Respond(HttpStatusCode.NoContent);
+
+        await BuildClient(handler).TriggerWorkflowAsync(76, new TriggerWorkflowRequest("blog_posts", 7, """{"title":"Hi"}"""));
+
+        handler.VerifyNoOutstandingExpectation();
+        var sent = JsonNode.Parse(body!)!.AsObject();
+        sent.Select(p => p.Key).Should().BeEquivalentTo("entity_name", "entity_id", "data");
+        sent["entity_name"]!.GetValue<string>().Should().Be("blog_posts");
+        sent["entity_id"]!.GetValue<int>().Should().Be(7);
+        sent["data"]!.GetValue<string>().Should().Be("""{"title":"Hi"}""");
     }
 
     [Fact]
@@ -252,9 +276,9 @@ public class AnythinkClientExtendedTests
         var handler = new MockHttpMessageHandler();
         handler.When(HttpMethod.Put, $"{OrgPath}/workflows/31")
                .Respond("application/json",
-                   """{"id":31,"name":"Renamed Workflow","trigger":"Timed","enabled":true,"description":"Updated"}""");
+                   """{"id":31,"name":"Renamed Workflow","enabled":true,"description":"Updated","triggers":[]}""");
 
-        var req = new UpdateWorkflowRequest(Name: "Renamed Workflow", Description: "Updated");
+        var req = new CreateUpdateWorkflowRequest("Renamed Workflow", "Updated", true, []);
         var wf  = await BuildClient(handler).UpdateWorkflowAsync(31, req);
 
         wf.Id.Should().Be(31);
@@ -269,13 +293,14 @@ public class AnythinkClientExtendedTests
         var handler = new MockHttpMessageHandler();
         handler.When($"{OrgPath}/workflows/31/jobs?page=1&pageSize=10")
                .Respond("application/json",
-                   """{"items":[{"id":5,"status":"Completed","started_at":"2026-03-20T10:00:00Z"}],"total_items":1,"total_pages":1,"has_next_page":false,"page":1,"page_size":10}""");
+                   """{"items":[{"id":5,"status":"Success","created_at":"2026-03-20T10:00:00Z","steps":[{"id":9,"workflow_step_id":8,"success":true,"workflow_step":{"id":8,"key":"fetch"}}]}],"total_items":1,"total_pages":1,"has_next_page":false,"page":1,"page_size":10}""");
 
         var result = await BuildClient(handler).GetWorkflowJobsAsync(31);
 
         result.Items.Should().HaveCount(1);
         result.Items[0].Id.Should().Be(5);
-        result.Items[0].Status.Should().Be("Completed");
+        result.Items[0].Status.Should().Be("Success");
+        result.Items[0].Steps![0].WorkflowStep!.Key.Should().Be("fetch");
     }
 
     [Fact]
@@ -284,12 +309,13 @@ public class AnythinkClientExtendedTests
         var handler = new MockHttpMessageHandler();
         handler.When($"{OrgPath}/workflows/31/jobs/5")
                .Respond("application/json",
-                   """{"id":5,"status":"Completed","started_at":"2026-03-20T10:00:00Z","completed_at":"2026-03-20T10:01:00Z"}""");
+                   """{"id":5,"status":"Success","created_at":"2026-03-20T10:00:00Z","updated_at":"2026-03-20T10:01:00Z"}""");
 
         var job = await BuildClient(handler).GetWorkflowJobAsync(31, 5);
 
         job.Id.Should().Be(5);
-        job.Status.Should().Be("Completed");
+        job.Status.Should().Be("Success");
+        job.CreatedAt.Should().Be("2026-03-20T10:00:00Z");
     }
 
     [Fact]

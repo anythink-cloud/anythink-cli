@@ -232,11 +232,16 @@ app.Configure(config =>
 
         wf.AddCommand<WorkflowsCreateCommand>("create")
             .WithDescription("Create a new workflow")
-            .WithExample("workflows", "create", "daily-sync", "--trigger", "Timed", "--cron", "0 6 * * *");
+            .WithExample("workflows", "create", "daily-sync", "--trigger", "Timed", "--cron", "0 6 * * *")
+            .WithExample("workflows", "create", "on-publish", "--trigger", "Event", "--event", "EntityUpdated",
+                "--entity", "blog_posts", "--filter", "{\"field\":\"status\",\"op\":\"changed_to\",\"value\":\"published\"}")
+            .WithExample("workflows", "create", "resend-invite", "--trigger", "Manual", "--entity", "users");
 
         wf.AddCommand<WorkflowsUpdateCommand>("update")
-            .WithDescription("Update a workflow's name or description")
-            .WithExample("workflows", "update", "31", "--name", "Generate Mental Edge Report");
+            .WithDescription("Update a workflow's name, description or triggers")
+            .WithExample("workflows", "update", "31", "--name", "Generate Mental Edge Report")
+            .WithExample("workflows", "update", "31", "--trigger", "Timed", "--cron", "0 7 * * 1-5")
+            .WithExample("workflows", "update", "31", "--triggers-file", "triggers.json");
 
         wf.AddCommand<WorkflowsEnableCommand>("enable")
             .WithDescription("Enable a workflow");
@@ -246,7 +251,9 @@ app.Configure(config =>
 
         wf.AddCommand<WorkflowsTriggerCommand>("trigger")
             .WithDescription("Manually trigger a workflow")
-            .WithExample("workflows", "trigger", "76");
+            .WithExample("workflows", "trigger", "76")
+            .WithExample("workflows", "trigger", "76", "--entity", "blog_posts", "--entity-id", "12",
+                "--payload", "{\"title\":\"Hello\"}");
 
         wf.AddCommand<WorkflowsDeleteCommand>("delete")
             .WithDescription("Delete a workflow");

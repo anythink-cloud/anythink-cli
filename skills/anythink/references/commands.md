@@ -49,7 +49,7 @@ Permissions are `{entity}:{action}` — see `references/access-control.md`.
 ## Automation & integrations
 | Command | Purpose |
 | --- | --- |
-| `workflows list` / `get <id>` / `create <name> [--trigger Event\|Timed\|Manual\|Api --cron ...]` / `enable\|disable\|trigger <id>` / `delete <id>` | Workflow engine |
+| `workflows list` / `get <id>` / `jobs <id>` / `create <name> --trigger Event\|Timed\|Manual\|Api [--event ... --entity ... --cron ... --api-route ... --filter ...]` or `--triggers '<json>'` / `update <id> [--name ...] [trigger flags replace all triggers]` / `trigger <id> [--entity ... --entity-id ... --payload '<json>']` / `enable\|disable <id>` / `delete <id>` / `export <id>` / `seed <file>` | Workflow engine |
 | `integrations list` / `get <provider>` / `connect <provider> [--name ...]` / `execute <provider> <operation> --input "k=v"` | Connect & call providers (Claude, OpenAI, Slack, Google, GitHub…) |
 | `integrations oauth status\|configure\|connect <provider>` · `integrations connections list` · `test\|enable\|disable\|disconnect <connection-id>` | OAuth provider connections |
 | `secrets ...` | Encrypted secrets for workflows/integrations |

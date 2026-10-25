@@ -393,27 +393,48 @@ Manage automation workflows. Workflows can be triggered on a cron schedule, when
 
 ```
 anythink workflows list                List all workflows
-anythink workflows get <id>            Get workflow details and steps
+anythink workflows get <id>            Get workflow details, triggers and steps
+anythink workflows jobs <id>           Show recent runs and each step's outcome
 anythink workflows create <name>       Create a new workflow
+anythink workflows update <id>         Update a workflow's name, description or triggers
 anythink workflows enable <id>         Enable a workflow
 anythink workflows disable <id>        Disable a workflow
 anythink workflows trigger <id>        Manually trigger a workflow
 anythink workflows delete <id>         Delete a workflow
+anythink workflows export <id>         Export a workflow to JSON
+anythink workflows seed <file>         Create a workflow from an exported JSON file
 ```
 
-**Options — `workflows create`**
+A workflow can have several triggers. `create` and `update` take either one trigger described with flags, or a full `--triggers` JSON array in the same shape `workflows export` writes. On `update`, passing any trigger flag replaces all existing triggers; leave them out to keep the triggers as they are.
 
-| Flag               | Description                                                       |
-| ------------------ | ----------------------------------------------------------------- |
-| `--trigger <type>` | Trigger type: `Timed`, `EntityCreated`, `EntityUpdated`, `Manual` |
-| `--cron <expr>`    | Cron expression (for `Timed` trigger, e.g. `0 6 * * *`)           |
-| `--entity <name>`  | Entity name (for `EntityCreated` / `EntityUpdated` triggers)      |
+**Options — `workflows create` / `workflows update`**
+
+| Flag                     | Description                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------ |
+| `--trigger <type>`       | Trigger type: `Manual`, `Timed`, `Event` or `Api`                                    |
+| `--event <event>`        | Event for an `Event` trigger, e.g. `EntityCreated`, `EntityUpdated`, `UserRegistered` |
+| `--entity <name>`        | Entity for an `Event` trigger, or an entity a `Manual` trigger runs against (repeatable) |
+| `--cron <expr>`          | Cron expression for a `Timed` trigger, e.g. `0 6 * * *`                              |
+| `--api-route <route>`    | Route for an `Api` trigger                                                           |
+| `--filter <json>`        | Filter expression for an `Event` trigger (also `--filter-file <path>`)               |
+| `--triggers <json>`      | JSON array of `{type, enabled, config}` triggers (also `--triggers-file <path>`)     |
+
+**Options — `workflows trigger`**
+
+| Flag               | Description                                                             |
+| ------------------ | ----------------------------------------------------------------------- |
+| `--entity <name>`  | Entity the run is for (required for workflows with a `Manual` trigger)  |
+| `--entity-id <id>` | Record ID the run is for (`$anythink.trigger.id`)                        |
+| `--payload <json>` | JSON object passed to the workflow as `$anythink.trigger.data`          |
 
 **Examples**
 
 ```bash
 anythink workflows create daily-sync --trigger Timed --cron "0 6 * * *"
-anythink workflows trigger 76
+anythink workflows create on-publish --trigger Event --event EntityUpdated --entity blog_posts \
+  --filter '{"field":"status","op":"changed_to","value":"published"}'
+anythink workflows update 76 --triggers '[{"type":"Timed","config":{"cron_expression":"0 6 * * *"}},{"type":"Manual","config":{"manual_entities":["blog_posts"]}}]'
+anythink workflows trigger 76 --entity blog_posts --entity-id 12 --payload '{"title":"Hello"}'
 anythink workflows disable 83
 ```
 

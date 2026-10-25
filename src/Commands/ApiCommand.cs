@@ -79,14 +79,18 @@ public class ApiListCommand : BaseCommand<ApiListSettings>
             AnsiConsole.Write(dynTable);
 
             // Workflow API routes
-            var apiWorkflows = workflows.Where(w => w.Trigger == "Api" && !string.IsNullOrEmpty(w.Trigger)).ToList();
-            if (apiWorkflows.Count > 0)
+            var apiRoutes = workflows
+                .SelectMany(w => (w.Triggers ?? [])
+                    .Where(t => t.Type == "Api" && !string.IsNullOrEmpty(t.Config?.ApiRoute))
+                    .Select(t => (w.Name, Route: t.Config!.ApiRoute!)))
+                .ToList();
+            if (apiRoutes.Count > 0)
             {
                 AnsiConsole.WriteLine();
                 Renderer.Header("Workflow API Routes");
                 var wfTable = Renderer.BuildTable("Method", "Path", "Workflow");
-                foreach (var w in apiWorkflows)
-                    Renderer.AddRow(wfTable, "POST", $"{base_}/workflows/api/[route]", w.Name);
+                foreach (var (name, route) in apiRoutes)
+                    Renderer.AddRow(wfTable, "POST", $"{base_}/workflows/api/{route}", name);
                 AnsiConsole.Write(wfTable);
             }
 
