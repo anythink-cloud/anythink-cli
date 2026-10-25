@@ -410,7 +410,7 @@ public static class DirectusFlowMapping
     private static readonly System.Text.RegularExpressions.Regex UrlUserInfo =
         new(@"^([A-Za-z][A-Za-z0-9+.\-]*://)[^/?#@\s]*@", System.Text.RegularExpressions.RegexOptions.Compiled);
 
-    private static (string Url, bool Redacted) RedactUrl(string url)
+    internal static (string Url, bool Redacted) RedactUrl(string url)
     {
         var redacted = false;
         var stripped = UrlUserInfo.Replace(url, "$1");
@@ -431,7 +431,7 @@ public static class DirectusFlowMapping
         return (stripped[..(q + 1)] + string.Join("&", parts), redacted);
     }
 
-    private static (string Body, bool Redacted) RedactJsonBody(string body)
+    internal static (string Body, bool Redacted) RedactJsonBody(string body)
     {
         System.Text.Json.Nodes.JsonNode? root;
         try { root = System.Text.Json.Nodes.JsonNode.Parse(body); }
@@ -464,7 +464,7 @@ public static class DirectusFlowMapping
     private static bool ContainsMustache(string? s) =>
         s is not null && s.Contains("{{");
 
-    private static string SanitizeRoute(string name)
+    internal static string SanitizeRoute(string name)
     {
         var slug = new System.Text.StringBuilder();
         foreach (var ch in name.ToLowerInvariant())

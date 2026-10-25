@@ -132,7 +132,8 @@ public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
         return url;
     }
 
-    internal static string ResolveToken(string? option, string? envValue, bool interactive, Func<string> prompt)
+    internal static string ResolveToken(string? option, string? envValue, bool interactive, Func<string> prompt,
+        string platform = "Directus", string envVar = TokenEnvVar)
     {
         if (!string.IsNullOrWhiteSpace(option)) return option;
         if (!string.IsNullOrWhiteSpace(envValue)) return envValue;
@@ -141,7 +142,7 @@ public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
             var typed = prompt();
             if (!string.IsNullOrWhiteSpace(typed)) return typed;
         }
-        throw new CliException($"A Directus token is required. Set the [bold #F97316]{TokenEnvVar}[/] environment variable (preferred) or pass --token.");
+        throw new CliException($"A {Markup.Escape(platform)} token is required. Set the [bold #F97316]{Markup.Escape(envVar)}[/] environment variable (preferred) or pass --token.");
     }
 
     internal static void RequireConfirmationMode(bool dryRun, bool yes, bool interactive)

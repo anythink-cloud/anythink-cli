@@ -40,7 +40,7 @@ public static class CliToolPolicy
         ["accounts create currency"] = ("currency", $"Currency code: gbp, usd or eur. Defaults to {AccountsCreateCommand.DefaultCurrency}.", false)
     };
 
-    // import directus makes the server fetch a caller-supplied URL with a token (SSRF) and may read DIRECTUS_TOKEN from the host environment;
+    // import directus and import n8n make the server fetch a caller-supplied URL with a token (SSRF) and may read DIRECTUS_TOKEN or N8N_API_KEY from the host environment;
     // data import and export read and write a file path on the machine running the command, which a remote server can't share with the caller.
     private static readonly string[] ExcludedRemotely =
         ["files upload",
@@ -51,6 +51,7 @@ public static class CliToolPolicy
             "fetch",
             "api-keys create",
             "import directus",
+            "import n8n",
             "pay subscriptions delete",
             "pay subscriptions force-expire",
             "pay subscriptions relink",
@@ -70,7 +71,7 @@ public static class CliToolPolicy
     ];
 
     // A plan file is written to a path the caller picks, so no tool may offer it; the tool prints the plan through its automatic --json instead.
-    internal static readonly string[] HiddenEverywhere = ["import directus --plan", "import directus --force"];
+    internal static readonly string[] HiddenEverywhere = ["import directus --plan", "import directus --force", "import n8n --plan", "import n8n --force"];
 
     private static readonly string[] FreeTextArguments =
         [

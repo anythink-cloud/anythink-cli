@@ -425,7 +425,7 @@ public class ImportRunner
                 Name: flow.Name,
                 Description: null,
                 Enabled: false,
-                Triggers: flow.Triggers));
+                Triggers: flow.Triggers.Select(t => t with { Enabled = false }).ToList()));
             result.WorkflowsCreated++;
         }
         catch (Exception ex)

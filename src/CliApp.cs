@@ -119,7 +119,7 @@ public static class CliApp
 
         config.AddBranch("import", import =>
         {
-            import.SetDescription("Import schema and data from another platform into the active Anythink project");
+            import.SetDescription("Import schema, data and workflows from another platform into the active Anythink project");
 
             import.AddCommand<ImportDirectusCommand>("directus")
                 .WithDescription("Import collections, fields, flows, and data from a Directus instance. Writes into the active project: run with --dry-run first and add --yes only once the user has approved the plan")
@@ -127,6 +127,11 @@ public static class CliApp
                 .WithExample("import", "directus", "--url", "https://cms.myapp.com", "--token", "<token>", "--plan", "import-plan.json")
                 .WithExample("import", "directus", "--url", "https://cms.myapp.com", "--token", "<token>", "--include-flows")
                 .WithExample("import", "directus", "--url", "https://cms.myapp.com", "--token", "<token>", "--include-data");
+
+            import.AddCommand<ImportN8nCommand>("n8n")
+                .WithDescription("Import workflows from an n8n instance as disabled Anythink workflows. Credentials are never imported. Writes into the active project: run with --dry-run first and add --yes only once the user has approved the plan")
+                .WithExample("import", "n8n", "--url", "https://n8n.myapp.com", "--token", "<api-key>", "--dry-run")
+                .WithExample("import", "n8n", "--url", "https://n8n.myapp.com", "--token", "<api-key>", "--plan", "import-plan.json");
         });
 
         // ── Entities ──────────────────────────────────────────────────────────────
