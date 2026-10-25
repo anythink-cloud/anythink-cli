@@ -10,15 +10,21 @@ public record BillingPlan(
     [property: JsonPropertyName("monthly_price_cents")] decimal MonthlyPriceCents,
     [property: JsonPropertyName("annual_price_cents")] decimal AnnualPriceCents,
     [property: JsonPropertyName("currency")] string Currency,
-    [property: JsonPropertyName("storage_quota_gb")] int StorageQuotaGb,
-    [property: JsonPropertyName("file_quota_gb")] int FileQuotaGb,
+    [property: JsonPropertyName("storage_quota_gb")] decimal StorageQuotaGb,
+    [property: JsonPropertyName("file_quota_gb")] decimal FileQuotaGb,
     [property: JsonPropertyName("user_quota")] int UserQuota,
     [property: JsonPropertyName("custom_domain_enabled")] bool CustomDomainEnabled,
     [property: JsonPropertyName("backups_enabled")] bool BackupsEnabled,
     [property: JsonPropertyName("priority_support")] bool PrioritySupport,
     [property: JsonPropertyName("is_active")] bool IsActive,
     [property: JsonPropertyName("display_order")] int DisplayOrder
-);
+)
+{
+    public string PickerLabel =>
+        $"{Name} — {(MonthlyPriceCents == 0 ? "Free" : $"{Currency.ToUpper()} {MonthlyPriceCents / 100m:0.00}/mo")} | {FormatGb(StorageQuotaGb)} | {UserQuota} users";
+
+    public static string FormatGb(decimal gb) => $"{gb:0.##}GB";
+}
 
 public record BillingAccount(
     [property: JsonPropertyName("account_id")] Guid Id,
