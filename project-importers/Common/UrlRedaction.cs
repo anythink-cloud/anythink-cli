@@ -1,4 +1,4 @@
-namespace AnythinkCli.Importers;
+namespace Anythink.ProjectImporters;
 
 public static class UrlRedaction
 {

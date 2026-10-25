@@ -1,10 +1,11 @@
+using AnythinkCli.Importers;
 using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using AnythinkCli.Client;
 using AnythinkCli.Commands;
-using AnythinkCli.Importers;
+using Anythink.ProjectImporters;
 using FluentAssertions;
 
 namespace AnythinkCli.Tests;
@@ -57,7 +58,7 @@ public class ImportRunnerTests
         new StubHttpHandler().On($"{Org}/entities", $"[{EntityJson}]");
 
     private static async Task<ImportResult> Run(IPlatformImporter importer, StubHttpHandler target, ImportOptions options) =>
-        await new ImportRunner(importer, Client(target), options).RunAsync();
+        await new ImportRunner(importer, Client(target), options, new SpectreImportReporter()).RunAsync();
 
     private static JsonObject Rec(object id) => new() { ["id"] = JsonSerializer.SerializeToNode(id), ["title"] = "x" };
 

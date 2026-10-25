@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AnythinkMcp", "mcp\Anythink
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AnythinkMcp.Tests", "mcp-tests\AnythinkMcp.Tests.csproj", "{62A814DE-A4F6-4E80-B947-1DAFCD6F8A44}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Anythink.ProjectImporters", "project-importers\Anythink.ProjectImporters.csproj", "{4EFF13F2-EAA3-4891-BEB1-E8EADF10651E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -30,5 +32,9 @@ Global
 		{62A814DE-A4F6-4E80-B947-1DAFCD6F8A44}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{62A814DE-A4F6-4E80-B947-1DAFCD6F8A44}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{62A814DE-A4F6-4E80-B947-1DAFCD6F8A44}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4EFF13F2-EAA3-4891-BEB1-E8EADF10651E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4EFF13F2-EAA3-4891-BEB1-E8EADF10651E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4EFF13F2-EAA3-4891-BEB1-E8EADF10651E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4EFF13F2-EAA3-4891-BEB1-E8EADF10651E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

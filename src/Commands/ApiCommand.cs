@@ -1,3 +1,4 @@
+using Anythink.ProjectImporters.Models;
 using AnythinkCli.Models;
 using AnythinkCli.Output;
 using Spectre.Console;
@@ -144,8 +145,8 @@ public class ApiListCommand : BaseCommand<ApiListSettings>
 
     internal static object BuildEndpointList(
         string base_, string orgId,
-        List<Models.Entity> entities,
-        List<Models.Workflow> workflows)
+        List<Entity> entities,
+        List<Workflow> workflows)
     {
         var staticRoutes = StaticRoutes(base_)
             .Select(r => new { method = r.Method, path = r.Path, description = r.Desc, type = "platform" });

@@ -2,7 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
-namespace AnythinkCli.Importers.Directus;
+namespace Anythink.ProjectImporters.Directus;
 
 public static class DirectusTemplateAdapter
 {

@@ -1,9 +1,11 @@
+using Anythink.ProjectImporters.Models;
+using AnythinkCli.Importers;
 using System.Net;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using AnythinkCli.Client;
-using AnythinkCli.Importers;
-using AnythinkCli.Importers.Engine;
+using Anythink.ProjectImporters;
+using Anythink.ProjectImporters.Engine;
 using AnythinkCli.Models;
 using FluentAssertions;
 using RichardSzalay.MockHttp;
@@ -69,7 +71,7 @@ public class ImportPlanTests : IDisposable
     private static readonly PlanOptions FullPlanScope = new(true, true, true, true);
 
     private static ImportRunner Runner(ImportSchema schema, StubHttpHandler target, ImportOptions options) =>
-        new(new FakeImporter(schema), Client(target), options);
+        new(new FakeImporter(schema), Client(target), options, new SpectreImportReporter());
 
     private static PlanContext Context(string url = "https://cms.example.com") => new(
         new PlanSource("Directus", UrlRedaction.Redact(url), ["schema"]),
@@ -96,6 +98,42 @@ public class ImportPlanTests : IDisposable
         plan.Items.Should().NotBeEmpty();
     }
 
+    private static StubHttpHandler ApplyTarget() => MixedTarget()
+        .On(HttpMethod.Post, $"{Org}/entities", PagesJson)
+        .On(HttpMethod.Post, $"{Org}/entities/articles/fields", """{"id":2,"name":"body","database_type":"text","display_type":"input"}""")
+        .On(HttpMethod.Post, $"{Org}/entities/pages/fields", """{"id":3,"name":"slug","database_type":"text","display_type":"input"}""")
+        .On(HttpMethod.Post, $"{Org}/roles", """{"id":8,"name":"Writer","is_active":true}""")
+        .On(HttpMethod.Post, $"{Org}/permissions", """{"id":31,"name":"articles:update","is_active":true}""")
+        .On(HttpMethod.Put, $"{Org}/roles/8", """{"id":8,"name":"Writer","is_active":true}""")
+        .On(HttpMethod.Post, $"{Org}/workflows", """{"id":40,"name":"Fresh","trigger":"Manual","enabled":false}""")
+        .On(HttpMethod.Post, $"{Org}/workflows/40/steps", """{"id":1,"key":"k","name":"n","action":"RunScript","enabled":true,"is_start_step":true}""");
+
+    // ── Rule: the runner needs no console, so a server can run it without a reporter ──
+
+    [Fact]
+    public async Task Runner_WithoutAReporter_AppliesTheSameChangesAsWithTheConsoleReporter()
+    {
+        var schema = MixedSchema();
+
+        var withConsole = await Runner(schema, ApplyTarget(), FullScope).RunAsync();
+        var silentTarget = ApplyTarget();
+        var silent = await new ImportRunner(new FakeImporter(schema), Client(silentTarget), FullScope).RunAsync();
+
+        silent.Should().BeEquivalentTo(withConsole);
+        silentTarget.Writes.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task Runner_WithoutAReporter_StillPlansADryRun()
+    {
+        var schema = MixedSchema();
+
+        var text = await new ImportRunner(new FakeImporter(schema), Client(MixedTarget()), FullScope with { DryRun = true }).RunAsync();
+        var json = await new ImportRunner(new FakeImporter(schema), Client(MixedTarget()), FullScope with { DryRun = true, PlanAsJson = true }).RunAsync();
+
+        json.Should().BeEquivalentTo(text);
+    }
+
     // ── Rule: a plan decides exactly what the runner then does for the same project ──
 
     [Fact]
@@ -104,15 +142,7 @@ public class ImportPlanTests : IDisposable
         var schema = MixedSchema();
         var plan = await PlanFor(schema, MixedTarget());
 
-        var applyTarget = MixedTarget()
-            .On(HttpMethod.Post, $"{Org}/entities", PagesJson)
-            .On(HttpMethod.Post, $"{Org}/entities/articles/fields", """{"id":2,"name":"body","database_type":"text","display_type":"input"}""")
-            .On(HttpMethod.Post, $"{Org}/entities/pages/fields", """{"id":3,"name":"slug","database_type":"text","display_type":"input"}""")
-            .On(HttpMethod.Post, $"{Org}/roles", """{"id":8,"name":"Writer","is_active":true}""")
-            .On(HttpMethod.Post, $"{Org}/permissions", """{"id":31,"name":"articles:update","is_active":true}""")
-            .On(HttpMethod.Put, $"{Org}/roles/8", """{"id":8,"name":"Writer","is_active":true}""")
-            .On(HttpMethod.Post, $"{Org}/workflows", """{"id":40,"name":"Fresh","trigger":"Manual","enabled":false}""")
-            .On(HttpMethod.Post, $"{Org}/workflows/40/steps", """{"id":1,"key":"k","name":"n","action":"RunScript","enabled":true,"is_start_step":true}""");
+        var applyTarget = ApplyTarget();
         var result = await Runner(schema, applyTarget, FullScope).RunAsync();
 
         int Count(string kind, PlanAction action) => plan.Items.Count(i => i.Kind == kind && i.Action == action);
@@ -213,7 +243,7 @@ public class ImportPlanTests : IDisposable
 
         var act = () => PlanFile.Write(path, plan, force: false);
 
-        act.Should().Throw<CliException>().WithMessage("*--force*");
+        act.Should().Throw<ImportException>().WithMessage("*--force*");
         File.ReadAllText(path).Should().Be("keep me");
 
         PlanFile.Write(path, plan, force: true);
@@ -348,11 +378,11 @@ public class ImportPlanTests : IDisposable
         var settings = new Commands.ImportDirectusSettings { Url = "https://cms.example.com", Plan = path };
 
         var act = () => Commands.ImportDirectusCommand.Preflight(settings);
-        act.Should().Throw<CliException>().WithMessage("*--force*");
+        act.Should().Throw<ImportException>().WithMessage("*--force*");
 
         var target = MixedTarget();
         var run = () => Runner(MixedSchema(), target, FullScope with { DryRun = true, PlanPath = path }).RunAsync();
-        await run.Should().ThrowAsync<CliException>();
+        await run.Should().ThrowAsync<ImportException>();
         target.Requests.Should().BeEmpty();
         File.ReadAllText(path).Should().Be("keep me");
     }
@@ -376,7 +406,7 @@ public class ImportPlanTests : IDisposable
 
         var act = () => PlanFile.Write(link, Plan(MixedSchema()), force: true);
 
-        act.Should().Throw<CliException>().WithMessage("*symbolic link*");
+        act.Should().Throw<ImportException>().WithMessage("*symbolic link*");
         File.ReadAllText(real).Should().Be("precious");
     }
 
@@ -387,7 +417,7 @@ public class ImportPlanTests : IDisposable
 
         var act = () => PlanFile.Write(path, Plan(MixedSchema()), force: false);
 
-        act.Should().Throw<CliException>();
+        act.Should().Throw<ImportException>();
         Directory.GetFileSystemEntries(_dir).Should().BeEmpty();
     }
 
@@ -417,7 +447,7 @@ public class ImportPlanTests : IDisposable
 
         var act = () => PlanFor(MixedSchema(), target);
 
-        (await act.Should().ThrowAsync<CliException>()).WithMessage("Couldn't read the project's workflows to plan the import:*");
+        (await act.Should().ThrowAsync<ImportException>()).WithMessage("Couldn't read the project's workflows to plan the import:*");
     }
 
     // ── Rule: two source items with one name still get distinct plan keys ──
