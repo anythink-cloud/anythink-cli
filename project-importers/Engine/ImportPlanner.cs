@@ -1,12 +1,19 @@
 using System.Text.Json.Nodes;
-using AnythinkCli.Models;
+using Anythink.ProjectImporters.Models;
 
-namespace AnythinkCli.Importers.Engine;
+namespace Anythink.ProjectImporters.Engine;
 
 public static class ImportPlanner
 {
     // Legacy mode: reproduces what ImportRunner decides today, so a plan and an apply never disagree.
     private const string AdminRole = "Admin User";
+
+    public static string EntityAction(PlanItem entity) => entity.Action switch
+    {
+        PlanAction.Create => "create",
+        PlanAction.Merge => $"merge (+{entity.Spec?["new_fields"]?.GetValue<int>() ?? 0} fields)",
+        _ => "skip (up to date)"
+    };
 
     public static ImportPlan Build(ImportSchema schema, TargetSnapshot target, PlanOptions options, PlanContext context)
     {

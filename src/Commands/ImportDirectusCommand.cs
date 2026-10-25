@@ -1,7 +1,8 @@
-using AnythinkCli.Client;
 using AnythinkCli.Importers;
-using AnythinkCli.Importers.Directus;
-using AnythinkCli.Importers.Engine;
+using AnythinkCli.Client;
+using Anythink.ProjectImporters;
+using Anythink.ProjectImporters.Directus;
+using Anythink.ProjectImporters.Engine;
 using Spectre.Console.Cli;
 using Spectre.Console;
 using System.ComponentModel;
@@ -94,7 +95,8 @@ public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
                     RequireConfirmation: !planOnly && !settings.Yes,
                     PlanPath: settings.Plan,
                     ForcePlanFile: settings.Force,
-                    PlanAsJson: settings.Json && planOnly));
+                    PlanAsJson: settings.Json && planOnly),
+                new SpectreImportReporter());
 
             return ExitCodeFor(await runner.RunAsync());
         }

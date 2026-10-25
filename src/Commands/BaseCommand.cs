@@ -1,3 +1,4 @@
+using Anythink.ProjectImporters;
 using AnythinkCli.Client;
 using AnythinkCli.Config;
 using CliProfile = AnythinkCli.Config.Profile;

@@ -1,11 +1,8 @@
-using AnythinkCli.Client;
-using AnythinkCli.Importers.Engine;
-using AnythinkCli.Models;
-using AnythinkCli.Output;
-using Spectre.Console;
+using Anythink.ProjectImporters.Engine;
+using Anythink.ProjectImporters.Models;
 using System.Text.Json.Nodes;
 
-namespace AnythinkCli.Importers;
+namespace Anythink.ProjectImporters;
 
 public record ImportOptions(
     bool DryRun,
@@ -47,56 +44,45 @@ public class ImportRunner
     private const long MaxFileBytes = 100L * 1024 * 1024;
 
     private readonly IPlatformImporter _source;
-    private readonly AnythinkClient _target;
+    private readonly IImportTarget _target;
     private readonly ImportOptions _options;
+    private readonly IImportReporter _reporter;
 
-    public ImportRunner(IPlatformImporter source, AnythinkClient target, ImportOptions options)
+    public ImportRunner(IPlatformImporter source, IImportTarget target, ImportOptions options, IImportReporter? reporter = null)
     {
         _source = source;
         _target = target;
         _options = options;
+        _reporter = reporter ?? SilentImportReporter.Instance;
     }
 
     public async Task<ImportResult> RunAsync()
     {
         var quiet = _options.PlanAsJson;
         if (!quiet)
-        {
-            AnsiConsole.MarkupLine($"[dim]{Markup.Escape(_source.PlatformName)}:[/]  {Markup.Escape(_source.ConnectionSummary)}");
-            AnsiConsole.MarkupLine($"[dim]Anythink:[/]  org {Markup.Escape(_target.OrgId)}");
-            AnsiConsole.WriteLine();
-        }
+            _reporter.Connected(_source.PlatformName, _source.ConnectionSummary, _target.OrgId);
 
         ImportSchema schema = null!;
         if (quiet)
             schema = await _source.FetchSchemaAsync(_options.IncludeFlows, _options.IncludeFiles, _options.IncludeRoles);
         else
-            await AnsiConsole.Status().Spinner(Spinner.Known.Dots)
-                .StartAsync(Renderer.Status($"Fetching {_source.PlatformName} schema..."), async _ =>
-                    schema = await _source.FetchSchemaAsync(
-                        _options.IncludeFlows, _options.IncludeFiles, _options.IncludeRoles));
+            schema = await _reporter.WorkingAsync($"Fetching {_source.PlatformName} schema...", () =>
+                _source.FetchSchemaAsync(_options.IncludeFlows, _options.IncludeFiles, _options.IncludeRoles));
 
         if (!quiet)
-        {
-            AnsiConsole.MarkupLine($"Found [bold]{schema.Collections.Count}[/] collection(s) to import.");
-            if (_options.IncludeFlows)
-                AnsiConsole.MarkupLine($"Found [bold]{schema.Flows.Count}[/] flow(s) to import.");
-            if (_options.IncludeFiles)
-                AnsiConsole.MarkupLine($"Found [bold]{schema.Files.Count}[/] file(s) to import.");
-            if (_options.IncludeRoles)
-                AnsiConsole.MarkupLine($"Found [bold]{schema.Roles.Count}[/] role(s) to import.");
-            AnsiConsole.WriteLine();
-        }
+            _reporter.SchemaFound(
+                schema.Collections.Count,
+                _options.IncludeFlows ? schema.Flows.Count : null,
+                _options.IncludeFiles ? schema.Files.Count : null,
+                _options.IncludeRoles ? schema.Roles.Count : null);
 
         if (_options.DryRun)
             return await RunPlanOnlyAsync(schema);
 
         // Snapshot existing target state up-front. We refresh per-entity field
         // lists below as we add to them.
-        List<Entity> existingEntities = [];
-        await AnsiConsole.Status().Spinner(Spinner.Known.Dots)
-            .StartAsync("Fetching existing Anythink entities...", async _ =>
-                existingEntities = await _target.GetEntitiesAsync());
+        var existingEntities = await _reporter.WorkingAsync(
+            "Fetching existing Anythink entities...", () => _target.GetEntitiesAsync());
 
         var entitiesByName = existingEntities
             .ToDictionary(e => e.Name, StringComparer.OrdinalIgnoreCase);
@@ -104,9 +90,9 @@ public class ImportRunner
         PrintPlan(schema, entitiesByName);
 
         if (_options.RequireConfirmation &&
-            !AnsiConsole.Confirm("Apply this import to the project?", defaultValue: false))
+            !_reporter.Confirm("Apply this import to the project?"))
         {
-            Renderer.Info("Cancelled — nothing was changed.");
+            _reporter.Cancelled();
             return new ImportResult(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, [], null);
         }
 
@@ -125,8 +111,7 @@ public class ImportRunner
         // ── Apply flows ───────────────────────────────────────────────────────
         if (_options.IncludeFlows && schema.Flows.Count > 0)
         {
-            AnsiConsole.WriteLine();
-            Renderer.Header("Importing flows");
+            _reporter.Section("Importing flows");
             Dictionary<string, Workflow>? existingByName = null;
             try
             {
@@ -148,29 +133,27 @@ public class ImportRunner
         var fileIdMap = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
         if (_options.IncludeFiles && schema.Files.Count > 0)
         {
-            AnsiConsole.WriteLine();
-            Renderer.Header("Importing files");
+            _reporter.Section("Importing files");
             await ApplyFilesAsync(schema.Files, fileIdMap, result);
         }
 
         // ── Apply data records ────────────────────────────────────────────────
         if (_options.IncludeData)
         {
-            AnsiConsole.WriteLine();
-            Renderer.Header("Importing data");
+            _reporter.Section("Importing data");
             await ApplyDataAsync(schema, fileIdMap, failedEntities, result);
         }
 
         // ── Apply roles ───────────────────────────────────────────────────────
         if (_options.IncludeRoles && schema.Roles.Count > 0)
         {
-            AnsiConsole.WriteLine();
-            Renderer.Header("Importing roles");
+            _reporter.Section("Importing roles");
             await ApplyRolesAsync(schema.Roles, result);
         }
 
-        PrintSummary(result);
-        return result.Build();
+        var built = result.Build();
+        _reporter.Complete(built, _options, result.StepsNeedingReview.Select(r => new ReviewStep(r.Where, r.Action, r.Note)).ToList());
+        return built;
     }
 
     // ── Role application ──────────────────────────────────────────────────────
@@ -214,7 +197,7 @@ public class ImportRunner
             catch (Exception ex)
             {
                 result.Errors.Add($"role '{role.Name}': {ex.Message}");
-                Renderer.Error($"create role failed — {role.Name}: {ex.Message}");
+                _reporter.Error($"create role failed — {role.Name}: {ex.Message}");
                 continue;
             }
 
@@ -252,7 +235,7 @@ public class ImportRunner
                 continue;
             }
 
-            Renderer.Success($"[bold]{Markup.Escape(role.Name)}[/] created — {permIds.Count} permission(s)");
+            _reporter.RoleCreated(role.Name, permIds.Count);
         }
     }
 
@@ -313,10 +296,7 @@ public class ImportRunner
             }
         }
 
-        Renderer.Success(
-            $"Files — [green]{result.FilesUploaded} uploaded[/]" +
-            (result.FilesSkipped > 0 ? $", [dim]{result.FilesSkipped} already present[/]" : "") +
-            (result.FilesFailed > 0 ? $", [yellow]{result.FilesFailed} failed[/]" : ""));
+        _reporter.FilesImported(result.FilesUploaded, result.FilesSkipped, result.FilesFailed);
     }
 
     private string BuildSourceMetadata(string sourceFileId) =>
@@ -365,7 +345,7 @@ public class ImportRunner
             catch (Exception ex)
             {
                 result.Errors.Add($"Create entity '{col.Name}': {ex.Message}");
-                Renderer.Error($"create entity failed — {col.Name}: {ex.Message}");
+                _reporter.Error($"create entity failed — {col.Name}: {ex.Message}");
                 return false;
             }
         }
@@ -413,15 +393,7 @@ public class ImportRunner
             }
         }
 
-        var verb = isNewEntity ? "created" : "merged";
-        var summary = (skipped, failed) switch
-        {
-            (0, 0) => $"{created} field(s)",
-            (var s, 0) => $"{created} new, [dim]{s} already present[/]",
-            (0, var f) => $"{created} field(s), [yellow]{f} failed[/]",
-            (var s, var f) => $"{created} new, [dim]{s} already present[/], [yellow]{f} failed[/]"
-        };
-        Renderer.Success($"[bold]{Markup.Escape(col.Name)}[/] {verb} — {summary}");
+        _reporter.CollectionApplied(col.Name, isNewEntity, created, skipped, failed);
         return true;
     }
 
@@ -459,7 +431,7 @@ public class ImportRunner
         catch (Exception ex)
         {
             result.Errors.Add($"Workflow '{flow.Name}': {ex.Message}");
-            Renderer.Error($"create workflow failed — {flow.Name}: {ex.Message}");
+            _reporter.Error($"create workflow failed — {flow.Name}: {ex.Message}");
             return;
         }
 
@@ -537,9 +509,8 @@ public class ImportRunner
         if (failed > 0) pieces.Add($"{failed} failed");
         if (reviewSteps > 0) pieces.Add($"{reviewSteps} need review");
         var summary = pieces.Count == 0 ? "no changes" : string.Join(", ", pieces);
-        var tone = failed > 0 || reviewSteps > 0 ? "yellow" : "default";
         var triggerLabel = string.Join("/", flow.Triggers.Select(t => t.Type));
-        Renderer.Success($"[bold]{Markup.Escape(flow.Name)}[/] ({Markup.Escape(triggerLabel)}) created — [{tone}]{Markup.Escape(summary)}[/]");
+        _reporter.FlowCreated(flow.Name, triggerLabel, summary, failed > 0 || reviewSteps > 0);
     }
 
     // ── Data application ──────────────────────────────────────────────────────
@@ -578,7 +549,7 @@ public class ImportRunner
         {
             if (failedEntities.Contains(col.Name))
             {
-                Renderer.Warn($"skip {Markup.Escape(col.Name)} data — its entity could not be created");
+                _reporter.Warn($"skip {col.Name} data — its entity could not be created");
                 continue;
             }
             if (col.DataUnsupportedReason is not null)
@@ -638,7 +609,7 @@ public class ImportRunner
 
         if (existingCount > 0)
         {
-            Renderer.Info($"[dim]skip[/]  {Markup.Escape(col.Name)} — target already has {existingCount} record(s)");
+            _reporter.Skipped(col.Name, $"target already has {existingCount} record(s)");
             result.Warnings.Add($"{col.Name}: data not imported because the project already has {existingCount} record(s); references to it from other collections were dropped.");
             return;
         }
@@ -751,10 +722,7 @@ public class ImportRunner
         if (missingId > 0)
             result.Errors.Add($"{col.Name}: {missingId} record(s) not imported because they have no integer 'id'.");
 
-        var msg = failed == 0
-            ? $"{created} record(s)"
-            : $"{created} record(s), [yellow]{failed} failed[/]";
-        Renderer.Success($"[bold]{Markup.Escape(col.Name)}[/] — {msg}");
+        _reporter.RecordsImported(col.Name, created, failed);
     }
 
     private Task<int> CountTargetRecordsAsync(string entityName) =>
@@ -811,26 +779,16 @@ public class ImportRunner
     {
         if (_options.PlanPath is { } path) PlanFile.EnsureWritable(path, _options.ForcePlanFile);
 
-        ImportPlan plan = null!;
-        if (_options.PlanAsJson)
-            plan = await BuildPlanAsync(schema);
-        else
-            await AnsiConsole.Status().Spinner(Spinner.Known.Dots)
-                .StartAsync("Reading the project...", async _ => plan = await BuildPlanAsync(schema));
+        var plan = _options.PlanAsJson
+            ? await BuildPlanAsync(schema)
+            : await _reporter.WorkingAsync("Reading the project...", () => BuildPlanAsync(schema));
 
         if (_options.PlanPath is { } file) PlanFile.Write(file, plan, _options.ForcePlanFile);
 
         if (_options.PlanAsJson)
-            AnsiConsole.Profile.Out.Writer.WriteLine(PlanJson.Serialise(plan));
+            _reporter.PlanJson(PlanJson.Serialise(plan));
         else
-        {
-            PlanDiffRenderer.Render(plan);
-            AnsiConsole.WriteLine();
-            if (_options.PlanPath is { } saved)
-                Renderer.Info($"Plan saved to {Markup.Escape(saved)}. Nothing in the project was changed.");
-            else
-                Renderer.Info("Re-run without [bold]--dry-run[/] to apply.");
-        }
+            _reporter.DryRunPlan(plan, _options.PlanPath);
 
         var unsupportedData = plan.Items
             .Where(i => i is { Kind: PlanKind.RecordBatch, Action: PlanAction.Report })
@@ -841,91 +799,20 @@ public class ImportRunner
 
     private void PrintPlan(ImportSchema schema, Dictionary<string, Entity> entitiesByName)
     {
-        Renderer.Header("Import plan");
-
         var entitiesOnly = TargetSnapshot.Empty with { Entities = entitiesByName.Values.ToList() };
         var plan = ImportPlanner.Build(schema, entitiesOnly, new PlanOptions(false, false, false, false), NewPlanContext());
         var entityItems = plan.Items.Where(i => i.Kind == PlanKind.Entity).GroupBy(i => i.Key).ToDictionary(g => g.Key, g => g.First());
 
-        var table = Renderer.BuildTable("Collection", "Fields", "Action");
-        foreach (var col in schema.Collections)
-            Renderer.AddRow(table, col.Name, col.Fields.Count.ToString(), PlanDiffRenderer.EntityAction(entityItems[$"entity:{col.Name}"]));
-        AnsiConsole.Write(table);
+        var rows = schema.Collections
+            .Select(col => new CollectionPlanRow(col.Name, col.Fields.Count, ImportPlanner.EntityAction(entityItems[$"entity:{col.Name}"])))
+            .ToList();
 
-        if (_options.IncludeFlows) Renderer.Info($"{schema.Flows.Count} flow(s) would be created (disabled); existing workflows are left untouched.");
-        if (_options.IncludeFiles) Renderer.Info($"{schema.Files.Count} file(s) would be uploaded.");
-        if (_options.IncludeData) Renderer.Info("Records would be imported into collections that are currently empty.");
-        if (_options.IncludeRoles) Renderer.Info($"{schema.Roles.Count} role(s) would be created; existing roles are left untouched.");
-    }
-
-    private void PrintSummary(ResultAccumulator r)
-    {
-        AnsiConsole.WriteLine();
-        Renderer.Header("Import complete");
-        AnsiConsole.MarkupLine($"  Entities created : [green]{r.EntitiesCreated}[/]");
-        AnsiConsole.MarkupLine($"  Entities skipped : [dim]{r.EntitiesSkipped}[/]");
-        AnsiConsole.MarkupLine($"  Fields created   : [green]{r.FieldsCreated}[/]");
-        if (r.FieldsSkipped > 0)
-            AnsiConsole.MarkupLine($"  Fields skipped   : [dim]{r.FieldsSkipped}[/]");
-        if (r.FieldsFailed > 0)
-            AnsiConsole.MarkupLine($"  Fields failed    : [red]{r.FieldsFailed}[/]");
-        if (_options.IncludeFlows)
-        {
-            AnsiConsole.MarkupLine($"  Workflows created: [green]{r.WorkflowsCreated}[/]");
-            AnsiConsole.MarkupLine($"  Workflows skipped: [dim]{r.WorkflowsSkipped}[/]");
-            AnsiConsole.MarkupLine($"  Steps created    : [green]{r.WorkflowStepsCreated}[/]");
-            if (r.WorkflowStepsFailed > 0)
-                AnsiConsole.MarkupLine($"  Steps failed     : [red]{r.WorkflowStepsFailed}[/]");
-        }
-        if (_options.IncludeData)
-        {
-            AnsiConsole.MarkupLine($"  Records created  : [green]{r.RecordsCreated}[/]");
-            if (r.RecordsFailed > 0)
-                AnsiConsole.MarkupLine($"  Records failed   : [red]{r.RecordsFailed}[/]");
-        }
-        if (_options.IncludeFiles)
-        {
-            AnsiConsole.MarkupLine($"  Files uploaded   : [green]{r.FilesUploaded}[/]");
-            if (r.FilesSkipped > 0)
-                AnsiConsole.MarkupLine($"  Files skipped    : [dim]{r.FilesSkipped}[/]");
-            if (r.FilesFailed > 0)
-                AnsiConsole.MarkupLine($"  Files failed     : [red]{r.FilesFailed}[/]");
-        }
-        if (_options.IncludeRoles)
-        {
-            AnsiConsole.MarkupLine($"  Roles created    : [green]{r.RolesCreated}[/]");
-            if (r.RolesSkipped > 0)
-                AnsiConsole.MarkupLine($"  Roles skipped    : [dim]{r.RolesSkipped}[/]");
-            AnsiConsole.MarkupLine($"  Perms attached   : [green]{r.PermissionsAttached}[/]");
-        }
-
-        if (r.Warnings.Count > 0)
-        {
-            AnsiConsole.WriteLine();
-            Renderer.Warn($"{r.Warnings.Count} warning(s):");
-            foreach (var w in r.Warnings)
-                AnsiConsole.MarkupLine($"  [yellow]·[/] {Markup.Escape(w)}");
-        }
-
-        if (r.Errors.Count > 0)
-        {
-            AnsiConsole.WriteLine();
-            Renderer.Warn($"{r.Errors.Count} error(s):");
-            foreach (var e in r.Errors)
-                AnsiConsole.MarkupLine($"  [red]·[/] {Markup.Escape(e)}");
-        }
-
-        if (r.StepsNeedingReview.Count > 0)
-        {
-            AnsiConsole.WriteLine();
-            Renderer.Warn($"{r.StepsNeedingReview.Count} workflow step(s) need manual review:");
-            foreach (var (where, action, note) in r.StepsNeedingReview)
-            {
-                AnsiConsole.MarkupLine($"  [yellow]·[/] [bold]{Markup.Escape(where)}[/] → [#F97316]{Markup.Escape(action)}[/]");
-                if (!string.IsNullOrEmpty(note))
-                    AnsiConsole.MarkupLine($"     [dim]{Markup.Escape(note)}[/]");
-            }
-        }
+        var notes = new List<string>();
+        if (_options.IncludeFlows) notes.Add($"{schema.Flows.Count} flow(s) would be created (disabled); existing workflows are left untouched.");
+        if (_options.IncludeFiles) notes.Add($"{schema.Files.Count} file(s) would be uploaded.");
+        if (_options.IncludeData) notes.Add("Records would be imported into collections that are currently empty.");
+        if (_options.IncludeRoles) notes.Add($"{schema.Roles.Count} role(s) would be created; existing roles are left untouched.");
+        _reporter.CollectionPlan(rows, notes);
     }
 
     private sealed class ResultAccumulator

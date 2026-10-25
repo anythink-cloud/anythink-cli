@@ -1,3 +1,5 @@
+using Anythink.ProjectImporters;
+using Anythink.ProjectImporters.Models;
 using System.Net;
 using AnythinkCli.Client;
 using AnythinkCli.Commands;

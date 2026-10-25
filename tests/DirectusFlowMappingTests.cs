@@ -1,5 +1,6 @@
+using Anythink.ProjectImporters.Models;
 using AnythinkCli.Models;
-using AnythinkCli.Importers.Directus;
+using Anythink.ProjectImporters.Directus;
 using FluentAssertions;
 using System.Text.Json;
 

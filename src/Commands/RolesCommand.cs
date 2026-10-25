@@ -1,3 +1,4 @@
+using Anythink.ProjectImporters.Models;
 using AnythinkCli.Models;
 using AnythinkCli.Output;
 using Spectre.Console;
@@ -244,7 +245,7 @@ public class RolesPermissionsAddCommand : BaseCommand<RolePermissionsAddSettings
             int? entityId = await TryResolveEntityIdAsync(client, settings.Entity);
 
             var role = await client.GetRoleAsync(settings.RoleId)
-                ?? throw new AnythinkCli.Client.AnythinkException($"Role {settings.RoleId} not found.", 404);
+                ?? throw new Anythink.ProjectImporters.AnythinkException($"Role {settings.RoleId} not found.", 404);
 
             var permIds = (role.Permissions ?? []).Select(p => p.Id).ToList();
 
@@ -303,7 +304,7 @@ public class RolesPermissionsAddCommand : BaseCommand<RolePermissionsAddSettings
             var entity = await client.GetEntityAsync(entityName);
             return entity.Id;
         }
-        catch (AnythinkCli.Client.AnythinkException ex) when (ex.StatusCode == 404)
+        catch (Anythink.ProjectImporters.AnythinkException ex) when (ex.StatusCode == 404)
         {
             return null;
         }
@@ -350,7 +351,7 @@ public class RolesPermissionsRemoveCommand : BaseCommand<RolePermissionsRemoveSe
             int? entityId = await RolesPermissionsAddCommand.TryResolveEntityIdAsync(client, settings.Entity);
 
             var role = await client.GetRoleAsync(settings.RoleId)
-                ?? throw new AnythinkCli.Client.AnythinkException($"Role {settings.RoleId} not found.", 404);
+                ?? throw new Anythink.ProjectImporters.AnythinkException($"Role {settings.RoleId} not found.", 404);
 
             var permIds = (role.Permissions ?? []).Select(p => p.Id).ToList();
 

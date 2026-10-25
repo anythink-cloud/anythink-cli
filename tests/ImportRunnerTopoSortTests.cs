@@ -1,4 +1,4 @@
-using AnythinkCli.Importers;
+using Anythink.ProjectImporters;
 using FluentAssertions;
 
 namespace AnythinkCli.Tests;
