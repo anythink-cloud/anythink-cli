@@ -146,6 +146,7 @@ public static class CliToolPolicy
         "upload",
         "seed",
         "invite",
+        "resend-invite",
         "trigger",
         "execute"
     ];
