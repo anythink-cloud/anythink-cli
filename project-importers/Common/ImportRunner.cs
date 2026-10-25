@@ -142,6 +142,7 @@ public class ImportRunner
         {
             _reporter.Section("Importing data");
             await ApplyDataAsync(schema, fileIdMap, failedEntities, result);
+            result.Warnings.AddRange(_source.LateWarnings);
         }
 
         // ── Apply roles ───────────────────────────────────────────────────────
@@ -700,13 +701,13 @@ public class ImportRunner
                     if (createdNode?["id"] is JsonValue idVal && idVal.TryGetValue<long>(out var dstId))
                         idMap[col.Name][srcId] = dstId;
                     else
-                        result.Errors.Add($"{col.Name}#{srcId}: created but the response had no id, so references to it cannot be remapped.");
+                        result.Errors.Add($"{col.Name}#{_source.RecordLabel(record, srcId)}: created but the response had no id, so references to it cannot be remapped.");
                     created++;
                     result.RecordsCreated++;
                 }
                 catch (Exception ex)
                 {
-                    result.Errors.Add($"{col.Name}#{srcId}: {ex.Message}");
+                    result.Errors.Add($"{col.Name}#{_source.RecordLabel(record, srcId)}: {ex.Message}");
                     failed++;
                     result.RecordsFailed++;
                 }
@@ -717,7 +718,7 @@ public class ImportRunner
         }
 
         foreach (var (field, count) in droppedRefs)
-            result.Warnings.Add($"{col.Name}.{field}: {count} reference(s) dropped because the referenced row or file was not imported.");
+            result.Warnings.Add($"{col.Name}.{field}: {count} reference(s) dropped because the referenced row or file was not imported yet (references within a collection are resolved in arrival order).");
 
         if (missingId > 0)
             result.Errors.Add($"{col.Name}: {missingId} record(s) not imported because they have no integer 'id'.");

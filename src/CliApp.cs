@@ -17,6 +17,7 @@ public static class CliApp
         config.AddExample("projects use my-app");
         config.AddExample("migrate --from project-staging --to project-prod");
         config.AddExample("import directus --url https://cms.example.com --token <token> --dry-run");
+        config.AddExample("import firebase --key service-account.json --dry-run");
         config.AddExample("entities list");
         config.AddExample("fields add products price --type float --required");
         config.AddExample("workflows trigger 76");
@@ -127,6 +128,12 @@ public static class CliApp
                 .WithExample("import", "directus", "--url", "https://cms.myapp.com", "--token", "<token>", "--plan", "import-plan.json")
                 .WithExample("import", "directus", "--url", "https://cms.myapp.com", "--token", "<token>", "--include-flows")
                 .WithExample("import", "directus", "--url", "https://cms.myapp.com", "--token", "<token>", "--include-data");
+
+            import.AddCommand<ImportFirebaseCommand>("firebase")
+                .WithDescription("Import Firestore collections, documents and Cloud Storage files from a Firebase project using a service account key. Reads Firebase only. Writes into the active project: run with --dry-run first and add --yes only once the user has approved the plan")
+                .WithExample("import", "firebase", "--key", "service-account.json", "--dry-run")
+                .WithExample("import", "firebase", "--key", "service-account.json", "--plan", "import-plan.json")
+                .WithExample("import", "firebase", "--key", "service-account.json", "--include-data", "--include-files");
         });
 
         // ── Entities ──────────────────────────────────────────────────────────────

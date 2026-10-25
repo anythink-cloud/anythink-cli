@@ -82,7 +82,7 @@ public class ImportDirectusCommandTests
     [Fact]
     public void Real_Import_Without_Yes_Is_Refused_When_Not_Interactive()
     {
-        var act = () => ImportDirectusCommand.RequireConfirmationMode(dryRun: false, yes: false, interactive: false);
+        var act = () => ImportCommandSupport.RequireConfirmationMode(dryRun: false, yes: false, interactive: false);
 
         act.Should().Throw<CliException>().WithMessage("*--yes*");
     }
@@ -93,7 +93,7 @@ public class ImportDirectusCommandTests
     [InlineData(false, false, true)]
     public void Dry_Run_Yes_Or_An_Interactive_Session_Are_Allowed(bool dryRun, bool yes, bool interactive)
     {
-        var act = () => ImportDirectusCommand.RequireConfirmationMode(dryRun, yes, interactive);
+        var act = () => ImportCommandSupport.RequireConfirmationMode(dryRun, yes, interactive);
 
         act.Should().NotThrow();
     }

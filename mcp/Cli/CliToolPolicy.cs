@@ -41,6 +41,7 @@ public static class CliToolPolicy
     };
 
     // import directus makes the server fetch a caller-supplied URL with a token (SSRF) and may read DIRECTUS_TOKEN from the host environment;
+    // import firebase reads a service account key file from the machine running the command, which a remote server can't share with the caller (and a key must never travel through a tool call);
     // data import and export read and write a file path on the machine running the command, which a remote server can't share with the caller.
     private static readonly string[] ExcludedRemotely =
         ["files upload",
@@ -51,6 +52,7 @@ public static class CliToolPolicy
             "fetch",
             "api-keys create",
             "import directus",
+            "import firebase",
             "pay subscriptions delete",
             "pay subscriptions force-expire",
             "pay subscriptions relink",
@@ -70,7 +72,7 @@ public static class CliToolPolicy
     ];
 
     // A plan file is written to a path the caller picks, so no tool may offer it; the tool prints the plan through its automatic --json instead.
-    internal static readonly string[] HiddenEverywhere = ["import directus --plan", "import directus --force"];
+    internal static readonly string[] HiddenEverywhere = ["import directus --plan", "import directus --force", "import firebase --plan", "import firebase --force"];
 
     private static readonly string[] FreeTextArguments =
         [

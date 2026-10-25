@@ -36,4 +36,14 @@ public class ImportDirectusToolTests
         args.Should().NotContain(a => a.StartsWith("--plan") || a.StartsWith("--force"));
         args.Should().Contain("--dry-run").And.Contain("--json");
     }
+
+    [Theory]
+    [InlineData(CliToolScope.Local)]
+    public void ImportFirebase_Parameters_Exclude_Plan_And_Force_And_Take_A_Key_File_Path(CliToolScope scope)
+    {
+        var parameters = CliToolPolicy.Parameters(CliCommandModel.All.Single(c => c.Key == "import firebase"), scope).Select(p => p.Name).ToList();
+
+        parameters.Should().NotContain(["plan", "force"]);
+        parameters.Should().Contain(["key", "dry_run"]);
+    }
 }

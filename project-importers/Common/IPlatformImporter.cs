@@ -35,4 +35,10 @@ public interface IPlatformImporter
     /// Null when the source doesn't require auth for file reads.
     /// </summary>
     string? SourceAuthToken { get; }
+
+    /// <summary>How a failed record is named in errors; defaults to its numeric id.</summary>
+    string RecordLabel(System.Text.Json.Nodes.JsonObject record, long sourceId) => sourceId.ToString();
+
+    /// <summary>Warnings only known after records were read; the runner adds them once data is imported.</summary>
+    IReadOnlyList<string> LateWarnings => [];
 }

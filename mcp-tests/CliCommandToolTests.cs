@@ -115,6 +115,22 @@ public partial class CliCommandToolTests
         Find("import_directus", remote).Should().BeNull();
     }
 
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public void ImportFirebase_ReadsAKeyFileFromTheLocalMachine_SoIsLocalOnly(CliToolScope remote)
+    {
+        Find("import_firebase", CliToolScope.Local).Should().NotBeNull();
+        Find("import_firebase", remote).Should().BeNull();
+    }
+
+    [Fact]
+    public void ImportingFromFirebase_IsDestructive()
+    {
+        var annotations = Find("import_firebase", CliToolScope.Local)!.ProtocolTool.Annotations!;
+        annotations.DestructiveHint.Should().BeTrue();
+        annotations.ReadOnlyHint.Should().NotBe(true);
+    }
+
     [Fact]
     public void ImportingFromDirectus_IsDestructive()
     {

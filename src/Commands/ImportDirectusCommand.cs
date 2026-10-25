@@ -77,8 +77,8 @@ public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
         {
             var url = Preflight(settings);
             var planOnly = settings.DryRun || settings.Plan is not null;
-            var interactive = IsInteractive();
-            RequireConfirmationMode(planOnly, settings.Yes, interactive);
+            var interactive = ImportCommandSupport.IsInteractive();
+            ImportCommandSupport.RequireConfirmationMode(planOnly, settings.Yes, interactive);
             var token = ResolveToken(settings.Token, Environment.GetEnvironmentVariable(TokenEnvVar), interactive,
                 () => AnsiConsole.Prompt(new TextPrompt<string>("Directus token:").Secret()));
 
@@ -98,7 +98,7 @@ public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
                     PlanAsJson: settings.Json && planOnly),
                 new SpectreImportReporter());
 
-            return ExitCodeFor(await runner.RunAsync());
+            return ImportCommandSupport.ExitCodeFor(await runner.RunAsync());
         }
         catch (Exception ex)
         {
@@ -115,10 +115,6 @@ public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
         if (settings.Plan is not null) PlanFile.EnsureWritable(settings.Plan, settings.Force);
         return url;
     }
-
-    internal static int ExitCodeFor(ImportResult result) => result.Errors.Count > 0 ? 1 : 0;
-
-    internal static bool IsInteractive() => !Console.IsInputRedirected && AnsiConsole.Profile.Capabilities.Interactive;
 
     internal static string ValidateUrl(string? url, bool allowInsecure)
     {
@@ -142,11 +138,5 @@ public class ImportDirectusCommand : BaseCommand<ImportDirectusSettings>
             if (!string.IsNullOrWhiteSpace(typed)) return typed;
         }
         throw new CliException($"A Directus token is required. Set the [bold #F97316]{TokenEnvVar}[/] environment variable (preferred) or pass --token.");
-    }
-
-    internal static void RequireConfirmationMode(bool dryRun, bool yes, bool interactive)
-    {
-        if (!dryRun && !yes && !interactive)
-            throw new CliException("Refusing to modify the project without confirmation while not running interactively. Re-run with [bold #F97316]--yes[/] to apply, or [bold #F97316]--dry-run[/] to preview.");
     }
 }
