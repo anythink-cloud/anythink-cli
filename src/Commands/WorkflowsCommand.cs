@@ -526,7 +526,7 @@ static class WorkflowStepParameterNormalizer
         bool changed = false;
 
         // Normalize "entity" → "entity_name" for all data actions
-        if (dict.ContainsKey("entity") && !dict.ContainsKey("entity_name"))
+        if (action != "ReadData" && dict.ContainsKey("entity") && !dict.ContainsKey("entity_name"))
         {
             dict["entity_name"] = dict["entity"];
             dict.Remove("entity");
