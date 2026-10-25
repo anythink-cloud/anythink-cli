@@ -319,9 +319,23 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                             }
                             catch (AnythinkException ex)
                             {
-                                errors.Add($"Entity '{entity.Name}': {ex.Message}");
-                                entityTask.Increment(1);
-                                continue;
+                                // The entity may have been created server-side even
+                                // though the response errored (empty/benign error).
+                                // Verify before giving up — otherwise we skip ALL of
+                                // its fields, leaving a field-less entity behind.
+                                Entity? recovered = null;
+                                try { recovered = await dstClient.GetEntityAsync(entity.Name); }
+                                catch { /* genuinely absent */ }
+                                if (recovered is null)
+                                {
+                                    errors.Add($"Entity '{entity.Name}': {ex.Message}");
+                                    entityTask.Increment(1);
+                                    continue;
+                                }
+                                dstEntityNames.Add(entity.Name);
+                                if (recovered.Id.HasValue)
+                                    dstNameToId[entity.Name] = recovered.Id.Value;
+                                entitiesCreated.Value++;
                             }
                         }
                         else

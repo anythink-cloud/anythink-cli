@@ -388,4 +388,32 @@ public class ModelSerializationTests
         file.FileSize.Should().Be(204800);
         file.IsPublic.Should().BeTrue();
     }
+
+    // ── Settings are replaced wholesale server-side, so unknown keys must survive ──
+
+    [Fact]
+    public void TenantSettings_UnmodelledKeys_SurviveReadModifyWrite()
+    {
+        var json = """{"allow_registrations":false,"allowed_application_urls":[],"enable_group_rls":true,"future_flag":{"x":1}}""";
+        var ts = JsonSerializer.Deserialize<TenantSettingsDto>(json)!;
+
+        var round = JsonSerializer.Serialize(ts with { AllowRegistrations = true });
+
+        using var doc = JsonDocument.Parse(round);
+        doc.RootElement.GetProperty("allow_registrations").GetBoolean().Should().BeTrue();
+        doc.RootElement.GetProperty("enable_group_rls").GetBoolean().Should().BeTrue();
+        doc.RootElement.GetProperty("future_flag").GetProperty("x").GetInt32().Should().Be(1);
+    }
+
+    [Fact]
+    public void ThemeSettings_UnmodelledKeys_SurviveReadModifyWrite()
+    {
+        var ts = JsonSerializer.Deserialize<ThemeSettingsDto>("""{"primary_color":"orange","radius":"large"}""")!;
+
+        var round = JsonSerializer.Serialize(ts with { PrimaryColor = "blue" });
+
+        using var doc = JsonDocument.Parse(round);
+        doc.RootElement.GetProperty("primary_color").GetString().Should().Be("blue");
+        doc.RootElement.GetProperty("radius").GetString().Should().Be("large");
+    }
 }
