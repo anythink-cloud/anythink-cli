@@ -403,7 +403,8 @@ public record RoleResponse(
 public record CreateRoleRequest(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("description")] string? Description = null,
-    [property: JsonPropertyName("is_active")] bool IsActive = true
+    [property: JsonPropertyName("is_active")] bool IsActive = true,
+    [property: JsonPropertyName("anyapi_access")] bool AnyApiAccess = true
 );
 
 public record CreatePermissionRequest(

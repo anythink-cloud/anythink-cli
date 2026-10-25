@@ -522,6 +522,7 @@ anythink users list                    List all users
 anythink users me                      Show the currently authenticated user
 anythink users get <id>                Get a user by ID
 anythink users invite <email> <first> <last>   Create a user and send an invitation email
+anythink users resend-invite <id>      Send an existing user a fresh invitation (replaces earlier links)
 anythink users delete <id>             Delete a user
 ```
 
@@ -647,7 +648,8 @@ Manage roles in the active project. Roles control what authenticated users can a
 
 ```
 anythink roles list                    List all roles
-anythink roles create <name>           Create a new role
+anythink roles create <name>           Create a new role (API access on by default)
+anythink roles update <id>             Change a role's name, description or API access
 anythink roles delete <id>             Delete a role
 ```
 
@@ -656,6 +658,9 @@ anythink roles delete <id>             Delete a role
 | Flag                   | Description                            |
 | ---------------------- | -------------------------------------- |
 | `--description <text>` | Human-readable description of the role |
+| `--api-access <bool>`  | Let the role's users reach data through the API (default `true`; entity permissions only apply when on) |
+
+`roles update <id>` takes `--name`, `--description` and `--api-access`; only what you pass changes.
 
 **Examples**
 
