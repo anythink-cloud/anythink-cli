@@ -142,6 +142,10 @@ public class DataGetSettings : CommandSettings
     [CommandArgument(1, "<ID>")]
     [Description("Record ID")]
     public int Id { get; set; }
+
+    [CommandOption("--json")]
+    [Description("Print only the record as JSON, for scripts")]
+    public bool Json { get; set; }
 }
 
 public class DataGetCommand : BaseCommand<DataGetSettings>
@@ -151,14 +155,14 @@ public class DataGetCommand : BaseCommand<DataGetSettings>
         try
         {
             var client = GetClient();
-            JsonObject? item = null;
+            var item = await JsonOutput.WithStatusAsync(settings.Json, $"Fetching {settings.Entity}/{settings.Id}...",
+                () => client.GetItemAsync(settings.Entity, settings.Id));
 
-            await AnsiConsole.Status()
-                .Spinner(Spinner.Known.Dots)
-                .StartAsync(Renderer.Status($"Fetching {settings.Entity}/{settings.Id}..."), async _ =>
-                {
-                    item = await client.GetItemAsync(settings.Entity, settings.Id);
-                });
+            if (settings.Json)
+            {
+                JsonOutput.Write(item);
+                return 0;
+            }
 
             Renderer.Header($"{settings.Entity} / {settings.Id}");
             Renderer.PrintJsonObject(item);
@@ -214,6 +218,10 @@ public class DataCreateSettings : CommandSettings
     [CommandOption("--data <JSON>")]
     [Description("JSON object with field values, e.g. '{\"name\":\"Alice\",\"age\":30}'")]
     public string? Data { get; set; }
+
+    [CommandOption("--json")]
+    [Description("Print only the record as JSON, for scripts")]
+    public bool Json { get; set; }
 }
 
 public class DataCreateCommand : BaseCommand<DataCreateSettings>
@@ -232,14 +240,14 @@ public class DataCreateCommand : BaseCommand<DataCreateSettings>
         {
             var client = GetClient();
             await JsonbFieldHelper.StringifyJsonbFields(client, settings.Entity, data);
-            JsonObject? created = null;
+            var created = await JsonOutput.WithStatusAsync(settings.Json, $"Creating {settings.Entity} record...",
+                () => client.CreateItemAsync(settings.Entity, data));
 
-            await AnsiConsole.Status()
-                .Spinner(Spinner.Known.Dots)
-                .StartAsync(Renderer.Status($"Creating {settings.Entity} record..."), async _ =>
-                {
-                    created = await client.CreateItemAsync(settings.Entity, data);
-                });
+            if (settings.Json)
+            {
+                JsonOutput.Write(created);
+                return 0;
+            }
 
             var id = created?["id"]?.ToString() ?? "?";
             Renderer.Success($"Record created in [#F97316]{Markup.Escape(settings.Entity)}[/] (id: {Markup.Escape($"{id}")}).");
@@ -269,6 +277,10 @@ public class DataUpdateSettings : CommandSettings
     [CommandOption("--data <JSON>")]
     [Description("JSON object with fields to update")]
     public string? Data { get; set; }
+
+    [CommandOption("--json")]
+    [Description("Print only the record as JSON, for scripts")]
+    public bool Json { get; set; }
 }
 
 public class DataUpdateCommand : BaseCommand<DataUpdateSettings>
@@ -287,14 +299,14 @@ public class DataUpdateCommand : BaseCommand<DataUpdateSettings>
         {
             var client = GetClient();
             await JsonbFieldHelper.StringifyJsonbFields(client, settings.Entity, data);
-            JsonObject? updated = null;
+            var updated = await JsonOutput.WithStatusAsync(settings.Json, $"Updating {settings.Entity}/{settings.Id}...",
+                () => client.UpdateItemAsync(settings.Entity, settings.Id, data));
 
-            await AnsiConsole.Status()
-                .Spinner(Spinner.Known.Dots)
-                .StartAsync(Renderer.Status($"Updating {settings.Entity}/{settings.Id}..."), async _ =>
-                {
-                    updated = await client.UpdateItemAsync(settings.Entity, settings.Id, data);
-                });
+            if (settings.Json)
+            {
+                JsonOutput.Write(updated);
+                return 0;
+            }
 
             Renderer.Success($"Record [#F97316]{Markup.Escape(settings.Entity)}/{Markup.Escape(settings.Id.ToString())}[/] updated.");
             if (updated is not null) Renderer.PrintJsonObject(updated);
@@ -323,6 +335,10 @@ public class DataDeleteSettings : CommandSettings
     [CommandOption("-y|--yes")]
     [Description("Skip confirmation")]
     public bool Yes { get; set; }
+
+    [CommandOption("--json")]
+    [Description("Print only a JSON confirmation, for scripts")]
+    public bool Json { get; set; }
 }
 
 public class DataDeleteCommand : BaseCommand<DataDeleteSettings>
@@ -341,12 +357,17 @@ public class DataDeleteCommand : BaseCommand<DataDeleteSettings>
         {
             var client = GetClient();
 
-            await AnsiConsole.Status()
-                .Spinner(Spinner.Known.Dots)
-                .StartAsync("Deleting record...", async _ =>
-                {
-                    await client.DeleteItemAsync(settings.Entity, settings.Id);
-                });
+            await JsonOutput.WithStatusAsync(settings.Json, "Deleting record...", async () =>
+            {
+                await client.DeleteItemAsync(settings.Entity, settings.Id);
+                return true;
+            });
+
+            if (settings.Json)
+            {
+                JsonOutput.Write(new JsonObject { ["entity"] = settings.Entity, ["id"] = settings.Id, ["deleted"] = true });
+                return 0;
+            }
 
             Renderer.Success($"Record [#F97316]{Markup.Escape(settings.Entity)}/{Markup.Escape(settings.Id.ToString())}[/] deleted.");
             return 0;

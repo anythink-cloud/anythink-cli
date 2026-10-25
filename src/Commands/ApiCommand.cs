@@ -43,7 +43,7 @@ public class ApiListCommand : BaseCommand<ApiListSettings>
             {
                 var endpoints = BuildEndpointList(base_, orgId, entities, workflows);
                 var json = System.Text.Json.JsonSerializer.Serialize(endpoints, Renderer.PrettyJson);
-                Renderer.PrintJson(json);
+                JsonOutput.Write(json);
                 return 0;
             }
 

@@ -37,6 +37,8 @@ if (File.Exists(dotEnvPath))
     args = [.. argList];
 }
 
+AnythinkCli.Output.JsonOutput.SendConsoleToStderrFor(args);
+
 var app = new CommandApp();
 
 app.Configure(CliApp.Configure);

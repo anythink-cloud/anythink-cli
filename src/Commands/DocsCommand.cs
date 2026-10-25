@@ -171,20 +171,20 @@ public class DocsCommand : Command<DocsSettings>
               "anythink data list blog_posts --filter 'title=C:launch&published_at=NNULL:'"]),
 
         C("data get ENTITY ID", "Get a record by ID",
-          null, ["anythink data get blog_posts 42"]),
+          ["--json"], ["anythink data get blog_posts 42", "anythink data get blog_posts 42 --json"]),
 
         C("data create ENTITY",
           "Create a record",
-          ["--data JSON"],
+          ["--data JSON", "--json"],
           ["anythink data create blog_posts --data '{\"title\":\"Hello\",\"status\":\"draft\"}'"]),
 
         C("data update ENTITY ID",
           "Update a record",
-          ["--data JSON"],
+          ["--data JSON", "--json"],
           ["anythink data update blog_posts 42 --data '{\"status\":\"published\"}'"]),
 
         C("data delete ENTITY ID", "Delete a record",
-          ["--yes"], ["anythink data delete blog_posts 42 --yes"]),
+          ["--yes", "--json"], ["anythink data delete blog_posts 42 --yes"]),
 
         C("data export ENTITY FILE",
           "Export records to CSV, JSON or JSONL (streamed page by page; refuses to overwrite without --force)",
@@ -533,10 +533,10 @@ public class DocsCommand : Command<DocsSettings>
         | Command | Description |
         |---------|-------------|
         | `anythink data list ENTITY [--page N] [--limit N] [--filter FILTER] [--json]` | List records |
-        | `anythink data get ENTITY ID` | Get record |
-        | `anythink data create ENTITY --data JSON` | Create record |
-        | `anythink data update ENTITY ID --data JSON` | Update record |
-        | `anythink data delete ENTITY ID [--yes]` | Delete record |
+        | `anythink data get ENTITY ID [--json]` | Get record |
+        | `anythink data create ENTITY --data JSON [--json]` | Create record |
+        | `anythink data update ENTITY ID --data JSON [--json]` | Update record |
+        | `anythink data delete ENTITY ID [--yes] [--json]` | Delete record |
 
         ```sh
         anythink data list blog_posts --filter '{"status":"draft"}' --json

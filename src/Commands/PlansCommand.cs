@@ -33,7 +33,7 @@ public class PlansListCommand : BasePlatformCommand<PlansListSettings>
 
             if (settings.Json)
             {
-                Renderer.PrintJson(JsonSerializer.Serialize(plans, Renderer.PrettyJson));
+                JsonOutput.Write(JsonSerializer.Serialize(plans, Renderer.PrettyJson));
                 return 0;
             }
 

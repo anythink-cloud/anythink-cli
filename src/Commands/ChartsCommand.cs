@@ -19,15 +19,6 @@ internal static class ChartsOutput
 {
     private static readonly System.Text.Json.JsonSerializerOptions Compact = new(JsonOutput.PrettyRelaxed) { WriteIndented = false };
 
-    public static async Task<T> WithStatusAsync<T>(bool json, string text, Func<Task<T>> work)
-    {
-        if (json) return await work();
-        return await AnsiConsole.Status().Spinner(Spinner.Known.Dots).StartAsync(Renderer.Status(text), async _ => await work());
-    }
-
-    public static void Print(JsonNode? node) =>
-        Console.WriteLine(node is null ? "null" : node.ToJsonString(JsonOutput.PrettyRelaxed));
-
     public static int Refuse(string what, IReadOnlyList<string> problems)
     {
         Renderer.Error(problems.Count == 1 ? $"{what}: {problems[0]}" : $"{what}:\n  - {string.Join("\n  - ", problems)}");
@@ -212,14 +203,14 @@ public class ChartsListCommand : BaseCommand<ChartsListSettings>
         try
         {
             var client = GetClient();
-            var charts = await ChartsOutput.WithStatusAsync(settings.Json, "Fetching charts...",
+            var charts = await JsonOutput.WithStatusAsync(settings.Json, "Fetching charts...",
                 () => client.GetChartsAsync(settings.Entity));
 
             var summaries = charts.OfType<JsonObject>().Select(ChartView.Summary).ToList();
 
             if (settings.Json)
             {
-                ChartsOutput.Print(new JsonArray(summaries.Select(s => (JsonNode)s).ToArray()));
+                JsonOutput.Write(new JsonArray(summaries.Select(s => (JsonNode)s).ToArray()));
                 return 0;
             }
 
@@ -264,13 +255,13 @@ public class ChartsGetCommand : BaseCommand<ChartIdSettings>
         try
         {
             var client = GetClient();
-            var chart = await ChartsOutput.WithStatusAsync(settings.Json, $"Fetching chart {settings.Id}...",
+            var chart = await JsonOutput.WithStatusAsync(settings.Json, $"Fetching chart {settings.Id}...",
                 () => client.GetChartAsync(settings.Id));
             var detail = ChartView.Detail(chart);
 
             if (settings.Json)
             {
-                ChartsOutput.Print(detail);
+                JsonOutput.Write(detail);
                 return 0;
             }
 
@@ -306,12 +297,12 @@ public class ChartsCreateCommand : BaseCommand<ChartCreateSettings>
 
             var client = GetClient();
             var name = settings.Name.Trim();
-            var created = await ChartsOutput.WithStatusAsync(settings.Json, $"Creating chart '{name}'...",
+            var created = await JsonOutput.WithStatusAsync(settings.Json, $"Creating chart '{name}'...",
                 () => client.CreateChartAsync(build.Body!));
 
             if (settings.Json)
             {
-                ChartsOutput.Print(ChartView.Detail(created));
+                JsonOutput.Write(ChartView.Detail(created));
                 return 0;
             }
 
@@ -351,18 +342,18 @@ public class ChartsUpdateCommand : BaseCommand<ChartUpdateSettings>
                 return ChartsOutput.Refuse("Nothing to update", ["Pass at least one setting to change, such as --name, --type, --entity or --config."]);
 
             var client = GetClient();
-            var existing = await ChartsOutput.WithStatusAsync(settings.Json, $"Fetching chart {settings.Id}...",
+            var existing = await JsonOutput.WithStatusAsync(settings.Json, $"Fetching chart {settings.Id}...",
                 () => client.GetChartAsync(settings.Id));
 
             var build = ChartSpec.Build(input, existing, create: false);
             if (!build.Ok) return ChartsOutput.Refuse($"Chart {settings.Id} can't be updated", build.Problems);
 
-            var updated = await ChartsOutput.WithStatusAsync(settings.Json, $"Updating chart {settings.Id}...",
+            var updated = await JsonOutput.WithStatusAsync(settings.Json, $"Updating chart {settings.Id}...",
                 () => client.UpdateChartAsync(settings.Id, build.Body!));
 
             if (settings.Json)
             {
-                ChartsOutput.Print(ChartView.Detail(updated));
+                JsonOutput.Write(ChartView.Detail(updated));
                 return 0;
             }
 
@@ -401,14 +392,14 @@ public class ChartsDeleteCommand : BaseCommand<ChartDeleteSettings>
         try
         {
             var client = GetClient();
-            await ChartsOutput.WithStatusAsync(settings.Json, $"Deleting chart {settings.Id}...", async () =>
+            await JsonOutput.WithStatusAsync(settings.Json, $"Deleting chart {settings.Id}...", async () =>
             {
                 await client.DeleteChartAsync(settings.Id);
                 return true;
             });
 
             if (settings.Json)
-                ChartsOutput.Print(new JsonObject { ["id"] = settings.Id, ["deleted"] = true });
+                JsonOutput.Write(new JsonObject { ["id"] = settings.Id, ["deleted"] = true });
             else
                 Renderer.Success($"Chart [#F97316]{settings.Id}[/] deleted. Remove it from any dashboard with: anythink dashboards remove-widget <dashboard-id> <widget-id>");
             return 0;
@@ -443,7 +434,7 @@ public class ChartsPreviewCommand : BaseCommand<ChartPreviewSettings>
             if (!build.Ok) return ChartsOutput.Refuse("The chart can't be previewed", build.Problems);
 
             var client = GetClient();
-            var payload = await ChartsOutput.WithStatusAsync(settings.Json, "Previewing chart...",
+            var payload = await JsonOutput.WithStatusAsync(settings.Json, "Previewing chart...",
                 () => client.PreviewChartAsync(build.Body!));
 
             if (ChartView.PayloadError(payload) is { } error)
@@ -455,7 +446,7 @@ public class ChartsPreviewCommand : BaseCommand<ChartPreviewSettings>
             var compact = ChartView.Payload(payload, settings.Rows ?? ChartView.DefaultRows);
             if (settings.Json)
             {
-                ChartsOutput.Print(compact);
+                JsonOutput.Write(compact);
                 return 0;
             }
 
@@ -480,12 +471,12 @@ public class ChartsPlatformMetricsCommand : BaseCommand<JsonSettings>
         try
         {
             var client = GetClient();
-            var metrics = await ChartsOutput.WithStatusAsync(settings.Json, "Fetching platform metrics...",
+            var metrics = await JsonOutput.WithStatusAsync(settings.Json, "Fetching platform metrics...",
                 () => client.GetPlatformMetricsAsync());
 
             if (settings.Json)
             {
-                ChartsOutput.Print(metrics);
+                JsonOutput.Write(metrics);
                 return 0;
             }
 

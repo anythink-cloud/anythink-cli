@@ -66,13 +66,13 @@ public class DashboardsListCommand : BaseCommand<JsonSettings>
         try
         {
             var client = GetClient();
-            var dashboards = await ChartsOutput.WithStatusAsync(settings.Json, "Fetching dashboards...",
+            var dashboards = await JsonOutput.WithStatusAsync(settings.Json, "Fetching dashboards...",
                 () => client.GetDashboardsAsync());
             var summaries = dashboards.OfType<JsonObject>().Select(DashboardView.Summary).ToList();
 
             if (settings.Json)
             {
-                ChartsOutput.Print(new JsonArray(summaries.Select(s => (JsonNode)s).ToArray()));
+                JsonOutput.Write(new JsonArray(summaries.Select(s => (JsonNode)s).ToArray()));
                 return 0;
             }
 
@@ -115,11 +115,11 @@ public class DashboardsGetCommand : BaseCommand<DashboardIdSettings>
         try
         {
             var client = GetClient();
-            var dashboard = await ChartsOutput.WithStatusAsync(settings.Json, $"Fetching dashboard {settings.Id}...",
+            var dashboard = await JsonOutput.WithStatusAsync(settings.Json, $"Fetching dashboard {settings.Id}...",
                 () => client.GetDashboardAsync(settings.Id));
             var detail = DashboardView.Detail(dashboard);
 
-            if (settings.Json) ChartsOutput.Print(detail);
+            if (settings.Json) JsonOutput.Write(detail);
             else DashboardsOutput.Render(detail);
             return 0;
         }
@@ -138,11 +138,11 @@ public class DashboardsMineCommand : BaseCommand<JsonSettings>
         try
         {
             var client = GetClient();
-            var dashboard = await ChartsOutput.WithStatusAsync(settings.Json, "Fetching your dashboard...",
+            var dashboard = await JsonOutput.WithStatusAsync(settings.Json, "Fetching your dashboard...",
                 () => client.GetMyDashboardAsync());
             var detail = DashboardView.Detail(dashboard);
 
-            if (settings.Json) ChartsOutput.Print(detail);
+            if (settings.Json) JsonOutput.Write(detail);
             else DashboardsOutput.Render(detail);
             return 0;
         }
@@ -216,13 +216,13 @@ public class DashboardsCreateCommand : BaseCommand<DashboardCreateSettings>
             if (!build.Ok) return ChartsOutput.Refuse("The dashboard can't be created", build.Problems);
 
             var name = settings.Name.Trim();
-            var created = await ChartsOutput.WithStatusAsync(settings.Json, $"Creating dashboard '{name}'...",
+            var created = await JsonOutput.WithStatusAsync(settings.Json, $"Creating dashboard '{name}'...",
                 () => client.CreateDashboardAsync(build.Body!));
 
             var detail = DashboardView.Detail(created);
             if (settings.Json)
             {
-                ChartsOutput.Print(detail);
+                JsonOutput.Write(detail);
                 return 0;
             }
 
@@ -274,10 +274,10 @@ public class DashboardsUpdateCommand : BaseCommand<DashboardUpdateSettings>
             if (!build.Ok) return ChartsOutput.Refuse($"Dashboard {settings.Id} can't be updated", build.Problems);
 
             var client = GetClient();
-            var updated = await ChartsOutput.WithStatusAsync(settings.Json, $"Updating dashboard {settings.Id}...",
+            var updated = await JsonOutput.WithStatusAsync(settings.Json, $"Updating dashboard {settings.Id}...",
                 () => client.UpdateDashboardAsync(settings.Id, build.Body!));
 
-            if (settings.Json) ChartsOutput.Print(DashboardView.Detail(updated));
+            if (settings.Json) JsonOutput.Write(DashboardView.Detail(updated));
             else Renderer.Success($"Dashboard [#F97316]{Markup.Escape(DashboardsOutput.Text(updated["name"]))}[/] (id: {settings.Id}) updated.");
             return 0;
         }
@@ -313,13 +313,13 @@ public class DashboardsDeleteCommand : BaseCommand<DashboardDeleteSettings>
         try
         {
             var client = GetClient();
-            await ChartsOutput.WithStatusAsync(settings.Json, $"Deleting dashboard {settings.Id}...", async () =>
+            await JsonOutput.WithStatusAsync(settings.Json, $"Deleting dashboard {settings.Id}...", async () =>
             {
                 await client.DeleteDashboardAsync(settings.Id);
                 return true;
             });
 
-            if (settings.Json) ChartsOutput.Print(new JsonObject { ["id"] = settings.Id, ["deleted"] = true });
+            if (settings.Json) JsonOutput.Write(new JsonObject { ["id"] = settings.Id, ["deleted"] = true });
             else Renderer.Success($"Dashboard [#F97316]{settings.Id}[/] deleted.");
             return 0;
         }
@@ -354,7 +354,7 @@ public class DashboardsDataCommand : BaseCommand<DashboardDataSettings>
                 return ChartsOutput.Refuse("The data can't be fetched", ["--rows must be at least 1."]);
 
             var client = GetClient();
-            var (dashboard, data) = await ChartsOutput.WithStatusAsync(settings.Json, $"Fetching data for dashboard {settings.Id}...", async () =>
+            var (dashboard, data) = await JsonOutput.WithStatusAsync(settings.Json, $"Fetching data for dashboard {settings.Id}...", async () =>
             {
                 var d = await client.GetDashboardAsync(settings.Id);
                 return (d, await client.GetDashboardDataAsync(settings.Id, settings.Widget));
@@ -377,7 +377,7 @@ public class DashboardsDataCommand : BaseCommand<DashboardDataSettings>
 
             if (settings.Json)
             {
-                ChartsOutput.Print(results);
+                JsonOutput.Write(results);
                 return 0;
             }
 
@@ -412,10 +412,10 @@ public class DashboardsSetHomeCommand : BaseCommand<DashboardIdSettings>
         try
         {
             var client = GetClient();
-            var dashboard = await ChartsOutput.WithStatusAsync(settings.Json, $"Setting dashboard {settings.Id} as your home...",
+            var dashboard = await JsonOutput.WithStatusAsync(settings.Json, $"Setting dashboard {settings.Id} as your home...",
                 () => client.SetHomeDashboardAsync(settings.Id));
 
-            if (settings.Json) ChartsOutput.Print(DashboardView.Detail(dashboard));
+            if (settings.Json) JsonOutput.Write(DashboardView.Detail(dashboard));
             else Renderer.Success($"Dashboard [#F97316]{Markup.Escape(DashboardsOutput.Text(dashboard["name"]))}[/] (id: {settings.Id}) is now your home dashboard.");
             return 0;
         }
@@ -442,10 +442,10 @@ public class DashboardsPromoteToDefaultCommand : BaseCommand<DashboardDeleteSett
         try
         {
             var client = GetClient();
-            var dashboard = await ChartsOutput.WithStatusAsync(settings.Json, $"Promoting dashboard {settings.Id}...",
+            var dashboard = await JsonOutput.WithStatusAsync(settings.Json, $"Promoting dashboard {settings.Id}...",
                 () => client.PromoteDashboardToDefaultAsync(settings.Id));
 
-            if (settings.Json) ChartsOutput.Print(DashboardView.Detail(dashboard));
+            if (settings.Json) JsonOutput.Write(DashboardView.Detail(dashboard));
             else Renderer.Success($"The project's default dashboard now matches [#F97316]{Markup.Escape(DashboardsOutput.Text(dashboard["name"]))}[/] (id: {Markup.Escape(DashboardsOutput.Text(dashboard["id"]))}).");
             return 0;
         }
@@ -503,7 +503,7 @@ public class DashboardsWidgetPreviewCommand : BaseCommand<DashboardWidgetPreview
             if (problems.Count > 0) return ChartsOutput.Refuse("The widget can't be previewed", problems);
 
             var client = GetClient();
-            var payload = await ChartsOutput.WithStatusAsync(settings.Json, "Previewing widget...",
+            var payload = await JsonOutput.WithStatusAsync(settings.Json, "Previewing widget...",
                 () => client.PreviewWidgetAsync(type!, configJson));
 
             if (ChartView.PayloadError(payload) is { } error)
@@ -513,7 +513,7 @@ public class DashboardsWidgetPreviewCommand : BaseCommand<DashboardWidgetPreview
             }
 
             var compact = ChartView.Payload(payload, settings.Rows ?? DashboardsOutput.DefaultRows);
-            if (settings.Json) ChartsOutput.Print(compact);
+            if (settings.Json) JsonOutput.Write(compact);
             else
             {
                 Renderer.Header($"Preview: {type} widget");
@@ -584,7 +584,7 @@ public class DashboardsAddChartCommand : BaseCommand<DashboardAddChartSettings>
             foreach (var widget in widgets) request.Add(DashboardsOutput.WidgetRequest(widget));
             request.Add(new JsonObject { ["type"] = "chart", ["title"] = title, ["config_json"] = DashboardSpec.ChartConfig(settings.ChartId), ["sort_order"] = next });
 
-            var updated = await ChartsOutput.WithStatusAsync(settings.Json, $"Adding '{title}' to dashboard {settings.DashboardId}...",
+            var updated = await JsonOutput.WithStatusAsync(settings.Json, $"Adding '{title}' to dashboard {settings.DashboardId}...",
                 () => client.UpdateDashboardAsync(settings.DashboardId, new JsonObject { ["widgets"] = request }));
 
             if (place.Any)
@@ -598,7 +598,7 @@ public class DashboardsAddChartCommand : BaseCommand<DashboardAddChartSettings>
                 updated = await client.UpdateDashboardAsync(settings.DashboardId, new JsonObject { ["layout_json"] = layout.ToJsonString() });
             }
 
-            if (settings.Json) ChartsOutput.Print(DashboardView.Detail(updated));
+            if (settings.Json) JsonOutput.Write(DashboardView.Detail(updated));
             else Renderer.Success($"Chart [#F97316]{Markup.Escape(title)}[/] added to dashboard {settings.DashboardId}.");
             return 0;
         }
@@ -650,10 +650,10 @@ public class DashboardsRemoveWidgetCommand : BaseCommand<DashboardRemoveWidgetSe
             if (DashboardLayout.Remove(layout, settings.WidgetId)) body["layout_json"] = layout.ToJsonString();
 
             var title = DashboardsOutput.Text(target["title"]);
-            var updated = await ChartsOutput.WithStatusAsync(settings.Json, $"Removing '{title}' from dashboard {settings.DashboardId}...",
+            var updated = await JsonOutput.WithStatusAsync(settings.Json, $"Removing '{title}' from dashboard {settings.DashboardId}...",
                 () => client.UpdateDashboardAsync(settings.DashboardId, body));
 
-            if (settings.Json) ChartsOutput.Print(DashboardView.Detail(updated));
+            if (settings.Json) JsonOutput.Write(DashboardView.Detail(updated));
             else Renderer.Success($"Widget [#F97316]{Markup.Escape(title)}[/] removed from dashboard {settings.DashboardId}.");
             return 0;
         }

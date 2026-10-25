@@ -28,7 +28,7 @@ internal static class CommandRunner
     public static AnythinkClient ClientFor(MockHttpMessageHandler mock) =>
         new("99999", "https://api.example.com", new HttpClient(mock));
 
-    public static async Task<(int Code, string Output)> RunAsync(MockHttpMessageHandler mock, Func<Task<int>> command)
+    public static async Task<(int Code, string Output)> RunAsync(MockHttpMessageHandler mock, Func<Task<int>> command, int width = 240)
     {
         var writer = new StringWriter();
         var originalOut = Console.Out;
@@ -40,7 +40,7 @@ internal static class CommandRunner
             Interactive = InteractionSupport.No,
             Out = new AnsiConsoleOutput(writer),
         });
-        console.Profile.Width = 240;
+        console.Profile.Width = width;
 
         Console.SetOut(writer);
         AnsiConsole.Console = console;

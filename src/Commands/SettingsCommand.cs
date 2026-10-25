@@ -295,7 +295,7 @@ public class SettingsGetCommand : BaseCommand<SettingsGetSettings>
             if (opts.Json)
             {
                 var node = System.Text.Json.JsonSerializer.SerializeToNode(tenant, Renderer.PrettyJson);
-                Renderer.PrintJson(SettingsHelpers.MaskSecrets(node)!.ToJsonString(Renderer.PrettyJson));
+                JsonOutput.Write(SettingsHelpers.MaskSecrets(node)!.ToJsonString(Renderer.PrettyJson));
                 return 0;
             }
 

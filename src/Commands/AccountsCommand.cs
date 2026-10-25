@@ -64,7 +64,7 @@ public class AccountsListCommand : BasePlatformCommand<AccountsListSettings>
 
             if (settings.Json || ClientContext.Remote)
             {
-                Renderer.PrintJson(JsonSerializer.Serialize(accounts.Select(a => new
+                JsonOutput.Write(JsonSerializer.Serialize(accounts.Select(a => new
                 {
                     account_id = a.Id,
                     name = a.OrganizationName,
@@ -175,7 +175,7 @@ public class AccountsCreateCommand : BasePlatformCommand<AccountsCreateSettings>
                 if (!ClientContext.Remote)
                     SetActive(account!);
 
-                Renderer.PrintJsonObject(new JsonObject
+                JsonOutput.Write(new JsonObject
                 {
                     ["account_id"] = account!.Id.ToString(),
                     ["name"] = account.OrganizationName,

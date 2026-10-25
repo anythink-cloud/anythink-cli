@@ -210,7 +210,7 @@ public class ProjectsCreateCommand : BasePlatformCommand<ProjectsCreateSettings>
     {
         var settingUp = project.Status is 0 or 1;
         var oneProject = ClientContext.Remote && ClientContext.SingleProjectConnection;
-        Renderer.PrintJsonObject(new JsonObject
+        JsonOutput.Write(new JsonObject
         {
             ["project_id"] = project.Id.ToString(),
             ["name"] = project.Name,
