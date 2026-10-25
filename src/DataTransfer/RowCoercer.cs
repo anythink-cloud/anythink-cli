@@ -11,7 +11,7 @@ namespace AnythinkCli.DataTransfer;
 internal sealed partial class RowCoercer
 {
     private static readonly HashSet<string> SystemColumns =
-        new(["id", "created_at", "updated_at", "tenant_id", "locked"], StringComparer.Ordinal);
+        new(Anythink.ProjectImporters.ReservedFieldNames.Names, StringComparer.Ordinal);
     private static readonly string[] IdTypes = ["many-to-many", "file", "user"];
 
     private readonly Dictionary<string, string> _types;

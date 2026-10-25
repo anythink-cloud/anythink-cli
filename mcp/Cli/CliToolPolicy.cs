@@ -41,6 +41,7 @@ public static class CliToolPolicy
     };
 
     // import directus makes the server fetch a caller-supplied URL with a token (SSRF) and may read DIRECTUS_TOKEN from the host environment;
+    // import supabase reads its connection string and service key from the environment of the machine running the command (they must never travel through a tool call), which a remote server can't share with the caller;
     // data import and export read and write a file path on the machine running the command, which a remote server can't share with the caller.
     private static readonly string[] ExcludedRemotely =
         ["files upload",
@@ -51,6 +52,7 @@ public static class CliToolPolicy
             "fetch",
             "api-keys create",
             "import directus",
+            "import supabase",
             "pay subscriptions delete",
             "pay subscriptions force-expire",
             "pay subscriptions relink",
@@ -69,8 +71,8 @@ public static class CliToolPolicy
         "email shell update --html",
     ];
 
-    // A plan file is written to a path the caller picks, so no tool may offer it; the tool prints the plan through its automatic --json instead.
-    internal static readonly string[] HiddenEverywhere = ["import directus --plan", "import directus --force"];
+    // A plan file is written to a path the caller picks, so no tool may offer it; the tool prints the plan through its automatic --json instead. The Supabase secrets are only read from the environment.
+    internal static readonly string[] HiddenEverywhere = ["import directus --plan", "import directus --force", "import supabase --plan", "import supabase --force", "import supabase --db", "import supabase --service-key"];
 
     private static readonly string[] FreeTextArguments =
         [

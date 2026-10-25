@@ -24,7 +24,8 @@ public interface IImportTarget
     Task<List<FileResponse>> GetAllFilesAsync();
     Task UpdateFileMetadataAsync(int id, UpdateFileMetadataRequest req);
     Task<FileResponse> UploadFileFromUrlAsync(
-        string sourceUrl, string fileName, bool isPublic = false, string? sourceToken = null, long? maxBytes = null);
+        string sourceUrl, string fileName, bool isPublic = false, string? sourceToken = null, long? maxBytes = null,
+        IReadOnlyDictionary<string, string>? sourceHeaders = null, bool followRedirects = true);
 
     Task<List<RoleResponse>> GetRolesAsync();
     Task<RoleResponse> CreateRoleAsync(CreateRoleRequest req);

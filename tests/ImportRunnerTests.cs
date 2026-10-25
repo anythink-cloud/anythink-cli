@@ -205,7 +205,7 @@ public class ImportRunnerTests
             new ImportOptions(DryRun: false, IncludeFlows: true));
 
         result.Errors.Should().ContainSingle(e => e.Contains("linking"));
-        ImportDirectusCommand.ExitCodeFor(result).Should().Be(1);
+        ImportCommandSupport.ExitCodeFor(result).Should().Be(1);
     }
 
     [Fact]
@@ -220,7 +220,7 @@ public class ImportRunnerTests
             new ImportOptions(DryRun: false, IncludeFlows: true));
 
         result.Errors.Should().ContainSingle(e => e.Contains("missing") && e.Contains("not created"));
-        ImportDirectusCommand.ExitCodeFor(result).Should().Be(1);
+        ImportCommandSupport.ExitCodeFor(result).Should().Be(1);
     }
 
     [Fact]
@@ -233,7 +233,7 @@ public class ImportRunnerTests
 
         result.RecordsFailed.Should().Be(1);
         result.Errors.Should().ContainSingle(e => e.Contains("articles") && e.Contains("integer 'id'"));
-        ImportDirectusCommand.ExitCodeFor(result).Should().Be(1);
+        ImportCommandSupport.ExitCodeFor(result).Should().Be(1);
     }
 
     [Fact]
@@ -247,7 +247,7 @@ public class ImportRunnerTests
         importer.RecordFetches.Should().Be(0);
         target.Matching(HttpMethod.Post, "/items").Should().BeEmpty();
         result.Errors.Should().ContainSingle(e => e.Contains("could not check"));
-        ImportDirectusCommand.ExitCodeFor(result).Should().Be(1);
+        ImportCommandSupport.ExitCodeFor(result).Should().Be(1);
     }
 
     [Fact]
@@ -260,7 +260,7 @@ public class ImportRunnerTests
 
         importer.RecordFetches.Should().Be(0);
         result.Errors.Should().ContainSingle(e => e.Contains("articles") && e.Contains("uuid"));
-        ImportDirectusCommand.ExitCodeFor(result).Should().Be(1);
+        ImportCommandSupport.ExitCodeFor(result).Should().Be(1);
     }
 
     [Fact]
@@ -287,7 +287,7 @@ public class ImportRunnerTests
             new ImportOptions(DryRun: false, IncludeFlows: false));
 
         result.Errors.Should().Contain("collection 'X' skipped");
-        ImportDirectusCommand.ExitCodeFor(result).Should().Be(1);
+        ImportCommandSupport.ExitCodeFor(result).Should().Be(1);
     }
 
     [Fact]
@@ -302,7 +302,7 @@ public class ImportRunnerTests
 
         importer.DownloadedIds.Should().BeEmpty();
         result.Errors.Should().ContainSingle(e => e.Contains("could not list existing"));
-        ImportDirectusCommand.ExitCodeFor(result).Should().Be(1);
+        ImportCommandSupport.ExitCodeFor(result).Should().Be(1);
     }
 
     // ── Rule: source-supplied text is never parsed as console markup ──
@@ -396,7 +396,7 @@ public class ImportRunnerTests
     [Fact]
     public void Clean_Run_Exits_Zero()
     {
-        ImportDirectusCommand.ExitCodeFor(new ImportResult(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, [])).Should().Be(0);
+        ImportCommandSupport.ExitCodeFor(new ImportResult(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, [])).Should().Be(0);
     }
 
     // ── Rule: files are matched by source identity, never by file name ──

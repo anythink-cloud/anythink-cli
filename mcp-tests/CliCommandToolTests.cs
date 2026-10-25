@@ -115,6 +115,22 @@ public partial class CliCommandToolTests
         Find("import_directus", remote).Should().BeNull();
     }
 
+    [Theory]
+    [MemberData(nameof(RemoteScopes))]
+    public void ImportSupabase_ReadsItsSecretsFromTheLocalEnvironment_SoIsLocalOnly(CliToolScope remote)
+    {
+        Find("import_supabase", CliToolScope.Local).Should().NotBeNull();
+        Find("import_supabase", remote).Should().BeNull();
+    }
+
+    [Fact]
+    public void ImportingFromSupabase_IsDestructive()
+    {
+        var annotations = Find("import_supabase", CliToolScope.Local)!.ProtocolTool.Annotations!;
+        annotations.DestructiveHint.Should().BeTrue();
+        annotations.ReadOnlyHint.Should().NotBe(true);
+    }
+
     [Fact]
     public void ImportingFromDirectus_IsDestructive()
     {

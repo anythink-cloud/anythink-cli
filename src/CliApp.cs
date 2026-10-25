@@ -17,6 +17,7 @@ public static class CliApp
         config.AddExample("projects use my-app");
         config.AddExample("migrate --from project-staging --to project-prod");
         config.AddExample("import directus --url https://cms.example.com --token <token> --dry-run");
+        config.AddExample("import supabase --dry-run");
         config.AddExample("entities list");
         config.AddExample("fields add products price --type float --required");
         config.AddExample("workflows trigger 76");
@@ -127,6 +128,13 @@ public static class CliApp
                 .WithExample("import", "directus", "--url", "https://cms.myapp.com", "--token", "<token>", "--plan", "import-plan.json")
                 .WithExample("import", "directus", "--url", "https://cms.myapp.com", "--token", "<token>", "--include-flows")
                 .WithExample("import", "directus", "--url", "https://cms.myapp.com", "--token", "<token>", "--include-data");
+
+            import.AddCommand<ImportSupabaseCommand>("supabase")
+                .WithDescription("Import tables, rows and Storage files from a Supabase project using its Postgres connection string (SUPABASE_DB_URL). Reads Supabase only, in read-only sessions. Writes into the active project: run with --dry-run first and add --yes only once the user has approved the plan")
+                .WithExample("import", "supabase", "--dry-run")
+                .WithExample("import", "supabase", "--plan", "import-plan.json")
+                .WithExample("import", "supabase", "--schemas", "public,app", "--include-data")
+                .WithExample("import", "supabase", "--url", "https://abcd.supabase.co", "--include-files");
         });
 
         // ── Entities ──────────────────────────────────────────────────────────────

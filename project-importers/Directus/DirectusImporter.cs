@@ -11,8 +11,7 @@ public class DirectusImporter : IPlatformImporter
 
     // Field names Anythink reserves on every entity — never try to import these.
     private static readonly HashSet<string> ReservedTargetFieldNames =
-        new(StringComparer.OrdinalIgnoreCase)
-        { "id", "tenant_id", "locked", "created_at", "updated_at" };
+        new(ReservedFieldNames.Names, StringComparer.OrdinalIgnoreCase);
 
     // Directus built-in field names that Anythink provides automatically
     // and which would never be useful to copy across.

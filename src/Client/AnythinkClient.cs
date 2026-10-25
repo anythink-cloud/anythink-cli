@@ -323,13 +323,9 @@ public class AnythinkClient : HttpApiClient, IImportTarget
 
     public async Task<FileResponse> UploadFileFromUrlAsync(
         string sourceUrl, string fileName, bool isPublic = false, string? sourceToken = null,
-        long? maxBytes = null)
+        long? maxBytes = null, IReadOnlyDictionary<string, string>? sourceHeaders = null, bool followRedirects = true)
     {
-        using var downloader = new HttpClient();
-        if (!string.IsNullOrEmpty(sourceToken))
-            downloader.DefaultRequestHeaders.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", sourceToken);
-
+        using var downloader = NewDownloader(sourceToken, sourceHeaders, DownloadHandler(followRedirects));
         var bytes = await DownloadCappedAsync(downloader, sourceUrl, fileName, maxBytes);
 
         using var form = new MultipartFormDataContent();
@@ -346,10 +342,24 @@ public class AnythinkClient : HttpApiClient, IImportTarget
         return JsonSerializer.Deserialize<FileResponse>(json, JsonOpts)!;
     }
 
+    internal static HttpClientHandler DownloadHandler(bool followRedirects) => new() { AllowAutoRedirect = followRedirects };
+
+    internal static HttpClient NewDownloader(string? token, IReadOnlyDictionary<string, string>? headers, HttpMessageHandler handler)
+    {
+        var downloader = new HttpClient(handler);
+        if (!string.IsNullOrEmpty(token))
+            downloader.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        foreach (var (name, value) in headers ?? new Dictionary<string, string>())
+            downloader.DefaultRequestHeaders.Add(name, value);
+        return downloader;
+    }
+
     internal static async Task<byte[]> DownloadCappedAsync(
         HttpClient http, string url, string fileName, long? maxBytes)
     {
         using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+        if ((int)response.StatusCode is >= 300 and < 400)
+            throw new AnythinkException($"Source file '{fileName}' redirected to {response.Headers.Location?.Host ?? "another location"}, which is not followed.", (int)response.StatusCode);
         response.EnsureSuccessStatusCode();
 
         if (maxBytes is null)
