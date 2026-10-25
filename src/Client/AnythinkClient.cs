@@ -189,8 +189,8 @@ public class AnythinkClient : HttpApiClient
     public async Task<Workflow> UpdateWorkflowAsync(int id, UpdateWorkflowRequest req)
         => (await PutAsync<Workflow>(_org + $"/workflows/{id}", req))!;
 
-    public Task EnableWorkflowAsync(int id) => PostAsync<JsonObject>(_org + $"/workflows/{id}/enable");
-    public Task DisableWorkflowAsync(int id) => PostAsync<JsonObject>(_org + $"/workflows/{id}/disable");
+    public Task EnableWorkflowAsync(int id) => PostVoidAsync(_org + $"/workflows/{id}/enable");
+    public Task DisableWorkflowAsync(int id) => PostVoidAsync(_org + $"/workflows/{id}/disable");
 
     public Task TriggerWorkflowAsync(int id, object? payload = null)
         => PostVoidAsync(_org + $"/workflows/{id}/trigger", payload ?? new { });
@@ -267,7 +267,7 @@ public class AnythinkClient : HttpApiClient
         => DeleteAsync(_org + $"/users/{userId}");
 
     public Task SendInvitationAsync(int userId)
-        => PostAsync<object>(_org + $"/users/{userId}/send-invitation-email", new { });
+        => PostVoidAsync(_org + $"/users/{userId}/send-invitation-email");
 
     // ── Files ─────────────────────────────────────────────────────────────────
 
