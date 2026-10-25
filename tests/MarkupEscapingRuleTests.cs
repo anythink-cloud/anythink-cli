@@ -9,7 +9,7 @@ namespace AnythinkCli.Tests;
 public class MarkupEscapingRuleTests
 {
     // #67 is rewriting these two files and removes this exclusion when it rebases.
-    private static readonly string[] SkippedUntilPr67 = ["ProjectsCommand.cs", "AccountsCommand.cs"];
+    private static readonly string[] SkippedUntilPr67 = Array.Empty<string>();
 
     // Spectre.Console members that take their text literally, or escape interpolated values themselves.
     private static readonly HashSet<string> PlainTextMembers = ["Write", "WriteLine", "Escape", "Remove", "Parse", "TryParse", "Text"];
