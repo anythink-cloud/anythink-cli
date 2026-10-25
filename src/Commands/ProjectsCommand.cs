@@ -259,7 +259,7 @@ public class ProjectsCreateCommand : BasePlatformCommand<ProjectsCreateSettings>
         {
             var price = p.MonthlyPriceCents == 0 ? "Free"
                 : $"{p.Currency.ToUpper()} {p.MonthlyPriceCents / 100m:0.00}/mo";
-            return $"{p.Name} — {price} | {p.StorageQuotaGb}GB | {p.UserQuota} users";
+            return $"{p.Name} — {price} | {BillingPlan.FormatGb(p.StorageQuotaGb)} | {p.UserQuota} users";
         }).ToList();
 
         var selected = AnsiConsole.Prompt(
