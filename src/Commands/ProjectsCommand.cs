@@ -255,12 +255,7 @@ public class ProjectsCreateCommand : BasePlatformCommand<ProjectsCreateSettings>
             return Guid.Empty;
         }
 
-        var choices = plans.Select(p =>
-        {
-            var price = p.MonthlyPriceCents == 0 ? "Free"
-                : $"{p.Currency.ToUpper()} {p.MonthlyPriceCents / 100m:0.00}/mo";
-            return $"{p.Name} — {price} | {BillingPlan.FormatGb(p.StorageQuotaGb)} | {p.UserQuota} users";
-        }).ToList();
+        var choices = plans.Select(p => p.PickerLabel).ToList();
 
         var selected = AnsiConsole.Prompt(
             Renderer.Prompt<string>()

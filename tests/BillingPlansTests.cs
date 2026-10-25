@@ -37,4 +37,16 @@ public class BillingPlansTests
     [InlineData(10.0, "10GB")]
     public void FormatGb_DropsTrailingZeros(double gb, string expected)
         => BillingPlan.FormatGb((decimal)gb).Should().Be(expected);
+
+    [Fact]
+    public async Task PlanPicker_FractionalStorage_ShowsHalfAGigabyte()
+    {
+        var handler = new MockHttpMessageHandler();
+        handler.When(HttpMethod.Get, $"{BillingUrl}/v1/plans").Respond("application/json", PlansJson);
+        var http = new HttpClient(handler);
+
+        var plans = await new BillingClient(BillingUrl, http, http).GetPlansAsync();
+
+        plans[0].PickerLabel.Should().Be("Free — Free | 0.5GB | 3 users");
+    }
 }
