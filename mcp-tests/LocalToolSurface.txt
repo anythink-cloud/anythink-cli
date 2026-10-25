@@ -46,7 +46,7 @@ fields_add [write] entity name default? description? display? indexed? label? mu
 fields_delete [destructive] entity field_name
 fields_get [read-only] entity field_name
 fields_list [read-only] entity
-fields_update [destructive] entity field_name default? description? display? indexed? label? multiple? no_indexed? no_multiple? no_public? no_required? no_searchable? options? public? required? searchable?
+fields_update [destructive] entity field_name default? description? display? indexed? label? multiple? name_field? no_indexed? no_multiple? no_name_field? no_public? no_required? no_searchable? options? public? required? searchable?
 files_delete [destructive] id
 files_get [read-only] id
 files_list [read-only] limit? page?

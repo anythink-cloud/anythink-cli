@@ -42,12 +42,18 @@ public record Field(
     [property: JsonPropertyName("default_value")] string? DefaultValue,
     [property: JsonPropertyName("locked")] bool Locked,
     [property: JsonPropertyName("relationship")] System.Text.Json.JsonElement? Relationship = null,
-    [property: JsonPropertyName("options")] FieldOptionsRequest? Options = null
+    [property: JsonPropertyName("options")] FieldOptionsRequest? Options = null,
+    [property: JsonPropertyName("description")] string? Description = null,
+    [property: JsonPropertyName("sort_order")] decimal SortOrder = -1,
+    [property: JsonPropertyName("width")] int Width = 100
 );
 
 public record FieldOptionsRequest(
     [property: JsonPropertyName("select")] SelectFieldOptions? Select = null
-);
+)
+{
+    [JsonExtensionData] public Dictionary<string, System.Text.Json.JsonElement>? Other { get; init; }
+}
 
 public record SelectFieldOptions(
     [property: JsonPropertyName("options")] List<SelectOption>? Options = null,
@@ -100,7 +106,12 @@ public record UpdateFieldRequest(
     [property: JsonPropertyName("is_searchable")] bool IsSearchable = false,
     [property: JsonPropertyName("publicly_searchable")] bool PubliclySearchable = false,
     [property: JsonPropertyName("is_indexed")] bool IsIndexed = false,
-    [property: JsonPropertyName("options")] FieldOptionsRequest? Options = null
+    [property: JsonPropertyName("options")] FieldOptionsRequest? Options = null,
+    [property: JsonPropertyName("is_name_field")] bool IsNameField = false,
+    [property: JsonPropertyName("is_unique")] bool IsUnique = false,
+    [property: JsonPropertyName("is_immutable")] bool IsImmutable = false,
+    [property: JsonPropertyName("sort_order")] decimal SortOrder = -1,
+    [property: JsonPropertyName("width")] int Width = 100
 );
 
 public record Workflow(

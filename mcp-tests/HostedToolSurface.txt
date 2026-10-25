@@ -44,7 +44,7 @@ fields_add [write] project? entity name default? description? display? indexed? 
 fields_delete [destructive] project? entity field_name
 fields_get [read-only] project? entity field_name
 fields_list [read-only] project? entity
-fields_update [destructive] project? entity field_name default? description? display? indexed? label? multiple? no_indexed? no_multiple? no_public? no_required? no_searchable? options? public? required? searchable?
+fields_update [destructive] project? entity field_name default? description? display? indexed? label? multiple? name_field? no_indexed? no_multiple? no_name_field? no_public? no_required? no_searchable? options? public? required? searchable?
 files_delete [destructive] project? id
 files_get [read-only] project? id
 files_list [read-only] project? limit? page?

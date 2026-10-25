@@ -411,6 +411,14 @@ public class FieldUpdateSettings : CommandSettings
     [Description("Remove database index")]
     public bool NoIndexed { get; set; }
 
+    [CommandOption("--name-field")]
+    [Description("Use this field as the entity's name field")]
+    public bool? IsNameField { get; set; }
+
+    [CommandOption("--no-name-field")]
+    [Description("Stop using this field as the entity's name field")]
+    public bool NoNameField { get; set; }
+
     [CommandOption("--options <OPTIONS>")]
     [Description("Comma-separated option list for select display, e.g. \"Running,Cycling,Rugby\". Use label=value to split, e.g. \"Running=running,Cycling=cycling\"")]
     public string? Options { get; set; }
@@ -424,7 +432,7 @@ public class FieldUpdateSettings : CommandSettings
     public bool NoMultiple { get; set; }
 }
 
-[CommandGuide("Changes a field's label, description, display type, default value, select options and its required, searchable, public-search and indexed flags. Settings you don't pass keep their value, except the description, which is cleared unless passed again. It cannot rename a field or change its database type, and locked fields are refused.")]
+[CommandGuide("Changes a field's label, description, display type, default value, select options and its required, name-field, searchable, public-search and indexed flags. Settings you don't pass keep their value. It cannot rename a field or change its database type, and locked fields are refused.")]
 public class FieldsUpdateCommand : BaseCommand<FieldUpdateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, FieldUpdateSettings settings)
@@ -445,7 +453,7 @@ public class FieldsUpdateCommand : BaseCommand<FieldUpdateSettings>
                     if (field.Locked)
                         throw new Exception($"Field '{settings.FieldName}' is locked and cannot be updated.");
 
-                    FieldOptionsRequest? fieldOptions = null;
+                    var fieldOptions = field.Options;
                     var optionsTouched = !string.IsNullOrWhiteSpace(settings.Options)
                         || settings.Multiple.HasValue
                         || settings.NoMultiple;
@@ -458,20 +466,27 @@ public class FieldsUpdateCommand : BaseCommand<FieldUpdateSettings>
                         var multiple = settings.NoMultiple
                             ? false
                             : (settings.Multiple ?? existing?.Multiple ?? false);
-                        fieldOptions = new FieldOptionsRequest(
-                            new SelectFieldOptions(parsed, multiple));
+                        fieldOptions = (field.Options ?? new FieldOptionsRequest()) with
+                        {
+                            Select = new SelectFieldOptions(parsed, multiple)
+                        };
                     }
 
                     var req = new UpdateFieldRequest(
                         DisplayType: settings.DisplayType ?? field.DisplayType,
                         Label: settings.Label ?? field.Label,
-                        Description: settings.Description ?? null,
+                        Description: settings.Description ?? field.Description,
                         DefaultValue: settings.DefaultValue ?? field.DefaultValue,
                         IsRequired: settings.NoRequired ? false : (settings.IsRequired ?? field.IsRequired),
                         IsSearchable: settings.NoSearchable ? false : (settings.IsSearchable ?? field.IsSearchable),
                         PubliclySearchable: settings.NoPublic ? false : (settings.PubliclySearchable ?? field.PubliclySearchable),
                         IsIndexed: settings.NoIndexed ? false : (settings.IsIndexed ?? field.IsIndexed),
-                        Options: fieldOptions
+                        Options: fieldOptions,
+                        IsNameField: settings.NoNameField ? false : (settings.IsNameField ?? field.IsNameField),
+                        IsUnique: field.IsUnique,
+                        IsImmutable: field.IsImmutable,
+                        SortOrder: field.SortOrder,
+                        Width: field.Width
                     );
 
                     updated = await client.UpdateFieldAsync(settings.Entity, field.Id, req);
@@ -483,6 +498,7 @@ public class FieldsUpdateCommand : BaseCommand<FieldUpdateSettings>
             Renderer.AddRow(table, "Label", updated.Label ?? "");
             Renderer.AddRow(table, "Display", updated.DisplayType);
             Renderer.AddRow(table, "Required", updated.IsRequired ? "yes" : "no");
+            Renderer.AddRow(table, "Name field", updated.IsNameField ? "yes" : "no");
             Renderer.AddRow(table, "Searchable", updated.IsSearchable ? "yes" : "no");
             Renderer.AddRow(table, "Public", updated.PubliclySearchable ? "yes" : "no");
             Renderer.AddRow(table, "Indexed", updated.IsIndexed ? "yes" : "no");
