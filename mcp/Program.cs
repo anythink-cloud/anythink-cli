@@ -9,7 +9,7 @@ using AnythinkMcp;
 //     anythink-mcp
 //     anythink-mcp --profile my-project
 //
-//   http:  Runs the internal REST API used by the AI sidebar. Callers pass
+//   http:  Runs the internal REST API used by internal services. Callers pass
 //     Authorization, X-Org-Id and X-Instance-Url headers on every request.
 //     anythink-mcp --http
 //     anythink-mcp --http --port 5300
@@ -17,7 +17,7 @@ using AnythinkMcp;
 //
 //   hosted:  Speaks MCP over Streamable HTTP, OAuth-protected, for Claude and
 //     other remote connectors. The internal REST API keeps running alongside it
-//     on its own port, for the AI sidebar.
+//     on its own port, for internal services.
 //     anythink-mcp --hosted
 //     Configuration is via environment variables — see mcp/README.md.
 
@@ -59,45 +59,39 @@ static async Task RunStdioServer(string? profile)
 
 static async Task RunHostedServer(string? profile, int port, int internalPort)
 {
-    var publicUrl = Environment.GetEnvironmentVariable("MCP_PUBLIC_URL")
-        ?? throw new InvalidOperationException(
-            "MCP_PUBLIC_URL must be set in --hosted mode, e.g. https://mcp.anythink.dev/mcp");
-    var issuer = Environment.GetEnvironmentVariable("MCP_AUTH_ISSUER")
-        ?? throw new InvalidOperationException("MCP_AUTH_ISSUER must be set in --hosted mode.");
-    var audience = Environment.GetEnvironmentVariable("MCP_AUTH_AUDIENCE") ?? publicUrl;
+    var options = HostedConfig.FromEnvironment(Environment.GetEnvironmentVariable);
+    var internalOptions = InternalApi.ForHosted(Environment.GetEnvironmentVariable);
 
-    var options = new HostedMode.Options { PublicUrl = publicUrl, Issuer = issuer, Audience = audience };
     var publicApp = HostedMode.BuildPublicApp(
         WebApplication.CreateBuilder(), options, new McpClientFactory(profile));
 
-    var internalApp = BuildRestApp(profile, ResolveCorsOrigins());
+    var internalApp = BuildRestApp(profile, ResolveCorsOrigins(), internalOptions);
 
     var logger = publicApp.Services.GetRequiredService<ILogger<Program>>();
     logger.LogInformation(
-        "Hosted MCP server on port {Port}, resource {Resource}, issuer {Issuer}", port, publicUrl, issuer);
+        "Hosted MCP server on port {Port}, resource {Resource}, issuer {Issuer}", port, options.PublicUrl, options.Issuer);
     logger.LogInformation(
-        "Internal REST server (AI sidebar) on port {InternalPort}", internalPort);
+        "Internal REST server on {Bind}:{InternalPort}", internalOptions.Bind, internalPort);
 
     await Task.WhenAll(
         publicApp.RunAsync($"http://0.0.0.0:{port}"),
-        internalApp.RunAsync($"http://0.0.0.0:{internalPort}"));
+        internalApp.RunAsync($"http://{internalOptions.Bind}:{internalPort}"));
 }
 
-// ── HTTP mode (internal REST API for the AI sidebar) ─────────────────────────
+// ── HTTP mode (internal REST API) ─────────────────────────
 
 static async Task RunHttpServer(string? profile, int port)
 {
-    var app = BuildRestApp(profile, ResolveCorsOrigins());
+    var app = BuildRestApp(profile, ResolveCorsOrigins(), InternalApi.ForHttp(Environment.GetEnvironmentVariable));
     await app.RunAsync($"http://0.0.0.0:{port}");
 }
 
-static WebApplication BuildRestApp(string? profile, string[] corsOrigins)
+static WebApplication BuildRestApp(string? profile, string[] corsOrigins, InternalApiOptions internalOptions)
 {
     var builder = WebApplication.CreateBuilder();
     builder.Logging.AddConsole();
 
-    // Limit request body size to prevent DoS
-    builder.WebHost.ConfigureKestrel(opts => opts.Limits.MaxRequestBodySize = 1_048_576); // 1 MB
+    builder.WebHost.ConfigureKestrel(opts => opts.Limits.MaxRequestBodySize = HostedMode.MaxRequestBodyBytes);
 
     builder.Services.AddSingleton(new McpClientFactory(profile));
     builder.Services
@@ -123,10 +117,10 @@ static WebApplication BuildRestApp(string? profile, string[] corsOrigins)
     // Health check (unauthenticated — standard for K8s probes)
     app.MapGet("/health", () => new { status = "healthy", timestamp = DateTime.UtcNow });
 
-    // List available tools — no auth required (tool definitions are not sensitive,
-    // and the sidebar needs to cache them without tenant context)
-    app.MapGet("/tools", () =>
+    // Tool definitions need no tenant context, only the internal token when one is configured
+    app.MapGet("/tools", (HttpContext context) =>
     {
+        if (InternalApi.CheckToken(context, internalOptions) is { } denied) return denied;
         var tools = McpToolRegistry.GetToolDefinitions();
         return Results.Json(tools);
     });
@@ -134,8 +128,10 @@ static WebApplication BuildRestApp(string? profile, string[] corsOrigins)
     // Execute a tool (requires auth + tenant context)
     app.MapPost("/tools/call", async (HttpContext context) =>
     {
+        if (InternalApi.CheckToken(context, internalOptions) is { } denied) return denied;
         if (!ExtractAuth(context, out var token, out var orgId, out var instanceUrl, out var error))
             return error!;
+        if (InternalApi.CheckInstanceUrl(instanceUrl!, internalOptions) is { } badInstance) return badInstance;
 
         // Parse request body
         JsonElement body;

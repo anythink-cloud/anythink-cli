@@ -1,20 +1,14 @@
 using AnythinkCli.Client;
 using AnythinkCli.Config;
+using System.Net.Http.Headers;
 
 namespace AnythinkMcp;
 
-/// <summary>
-/// Resolves credentials into an authenticated <see cref="AnythinkClient"/>.
-///
-/// In stdio mode: uses CLI config files and saved profiles (same as the CLI).
-/// In HTTP mode: uses per-request credentials passed via <see cref="SetRequestCredentials"/>.
-/// </summary>
 public class McpClientFactory
 {
     private readonly string? _profileName;
     private readonly HttpMessageHandler? _httpHandler;
 
-    // Per-request credentials for HTTP mode — AsyncLocal flows correctly across async/await
     private static readonly AsyncLocal<(string OrgId, string BaseUrl, string Token)?> _requestCredentials = new();
 
     public string? ProfileName => _profileName;
@@ -24,22 +18,16 @@ public class McpClientFactory
         _profileName = profileName;
     }
 
-    /// <summary>
-    /// Sets per-request credentials for HTTP mode. Must be called before tool execution.
-    /// Thread-static so concurrent requests don't interfere.
-    /// </summary>
     public static void SetRequestCredentials(string orgId, string baseUrl, string token)
     {
         _requestCredentials.Value = (orgId, baseUrl, token);
     }
 
-    /// <summary>Clears per-request credentials after the request completes.</summary>
     public static void ClearRequestCredentials()
     {
         _requestCredentials.Value = null;
     }
 
-    /// <summary>Returns true if running in HTTP mode with per-request credentials.</summary>
     public static bool IsHttpMode => _requestCredentials.Value.HasValue;
 
     /// <summary>Test-only constructor — injects a mock HTTP handler for all clients.</summary>
@@ -49,9 +37,6 @@ public class McpClientFactory
         _httpHandler = httpHandler;
     }
 
-    /// <summary>
-    /// Returns an authenticated BillingClient using the saved platform config.
-    /// </summary>
     public BillingClient GetBillingClient()
     {
         var platform = ConfigService.ResolvePlatform();
@@ -61,34 +46,26 @@ public class McpClientFactory
         return CreateBillingClient(platform);
     }
 
-    /// <summary>
-    /// Returns a BillingClient that does not require an auth token (for signup/login).
-    /// </summary>
     public BillingClient GetUnauthenticatedBillingClient()
     {
         var platform = ConfigService.ResolvePlatform();
         return CreateBillingClient(platform);
     }
 
-    /// <summary>
-    /// Returns an authenticated client for hosted mode, built from this request's resolved
-    /// <see cref="HostedCredentials"/> — the token's own tid/instance_url claims, never headers.
-    /// </summary>
     public AnythinkClient GetClient(HostedCredentials credentials)
     {
         if (string.IsNullOrEmpty(credentials.OrgId) || string.IsNullOrEmpty(credentials.InstanceUrl)
             || string.IsNullOrEmpty(credentials.Token))
             throw new InvalidOperationException("Hosted request has no resolved Anythink credentials.");
 
-        return _httpHandler is not null
-            ? new AnythinkClient(credentials.OrgId, credentials.InstanceUrl, new HttpClient(_httpHandler))
-            : new AnythinkClient(credentials.OrgId, credentials.InstanceUrl, credentials.Token);
+        if (_httpHandler is null)
+            return new AnythinkClient(credentials.OrgId, credentials.InstanceUrl, credentials.Token);
+
+        var http = new HttpClient(_httpHandler);
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", credentials.Token);
+        return new AnythinkClient(credentials.OrgId, credentials.InstanceUrl, http);
     }
 
-    /// <summary>
-    /// Returns an authenticated client. In HTTP mode, uses per-request credentials.
-    /// In stdio mode, uses CLI config files and refreshes expired tokens.
-    /// </summary>
     public AnythinkClient GetClient()
     {
         // HTTP mode: use per-request credentials (no config files)
@@ -136,9 +113,6 @@ public class McpClientFactory
             ? new BillingClient(platform, new HttpClient(_httpHandler))
             : new BillingClient(platform);
 
-    /// <summary>
-    /// Creates an AnythinkClient for a given profile. Uses mock HTTP handler in tests.
-    /// </summary>
     public AnythinkClient CreateAnythinkClient(Profile profile)
         => _httpHandler is not null
             ? new AnythinkClient(profile.OrgId, profile.InstanceApiUrl, new HttpClient(_httpHandler))
