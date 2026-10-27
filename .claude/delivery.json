@@ -9,6 +9,7 @@
     "key_prefix": "CLI",
     "mcp_server": "anythink",
     "statuses": {
+      "backlog": "Backlog",
       "ready": "Ready",
       "in_progress": "In Progress",
       "in_review": "In Review",
@@ -18,10 +19,11 @@
     },
     "commands": {
       "_comment": "Optional shell fallbacks if the Anythink MCP server is not connected. Placeholders: {id} {agent} {status} {hours} {points} {confidence} {body_file} {title} {type} {parent} {pr_url}",
-      "list_ready": "\"${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/ways-of-working}/scripts/board.sh\" available",
+      "list_available": "\"${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/ways-of-working}/scripts/board.sh\" available",
       "get": "\"${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/ways-of-working}/scripts/board.sh\" get {id}",
       "estimate": "",
       "claim": "\"${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/ways-of-working}/scripts/board.sh\" claim {id}",
+      "release": "\"${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/ways-of-working}/scripts/board.sh\" release {id}",
       "comment": "",
       "transition": "",
       "log_time": "",
