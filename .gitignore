@@ -26,7 +26,8 @@ TestResults*/
 
 # IDE config
 .idea/
-.claude/
+.claude/*
+!.claude/delivery.json
 
 # publish.sh is replaced by .github/workflows/release.yml
 publish.sh
@@ -44,3 +45,6 @@ mcp_stderr.txt
 BACKLOG.md
 MIGRATIONS-PLAN.md
 CLAUDE.md
+
+# Delivery loop working files
+.delivery/
