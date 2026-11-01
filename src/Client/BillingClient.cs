@@ -113,7 +113,7 @@ public class BillingClient : HttpApiClient
     private string AuthUrl => _auth ?? throw new InvalidOperationException("This billing client has no platform sign-in.");
 
     public Task RegisterAsync(RegisterRequest req)
-        => PostAsync<object>(AuthUrl + "/auth/v1/register", req);
+        => PostVoidAsync(AuthUrl + "/auth/v1/register", req);
 
     public Task<LoginResponse> LoginAsync(string email, string password)
         => PostAsync<LoginResponse>(AuthUrl + "/auth/v1/token", new LoginRequest(email, password));
