@@ -128,7 +128,7 @@ public class DocsCommand : Command<DocsSettings>
           ["anythink entities create orders --rls"]),
 
         C("entities update NAME", "Update entity settings",
-          ["--rls", "--public"], ["anythink entities update products --public"]),
+          ["--rls", "--public", "--team-reads (team members read each other's records)"], ["anythink entities update products --public"]),
 
         C("entities delete NAME", "Delete entity and all data",
           ["--yes"], ["anythink entities delete temp_data --yes"]),
@@ -497,7 +497,7 @@ public class DocsCommand : Command<DocsSettings>
         | `anythink entities list` | List all entities (tables) |
         | `anythink entities get NAME` | Get entity schema + fields |
         | `anythink entities create NAME [--rls] [--public]` | Create entity |
-        | `anythink entities update NAME [--rls] [--public]` | Update entity settings |
+        | `anythink entities update NAME [--rls] [--public] [--team-reads BOOL]` | Update entity settings |
         | `anythink entities delete NAME [--yes]` | Delete entity + all data |
         | `anythink fields list ENTITY` | List fields |
         | `anythink fields add ENTITY FIELD --type TYPE` | Add field |

@@ -677,6 +677,7 @@ public partial class CliCommandToolTests
     [InlineData("entities_update", """{"name":"posts","public":false}""", "--public=false")]
     [InlineData("entities_update", """{"name":"posts","rls":false}""", "--rls=false")]
     [InlineData("entities_update", """{"name":"posts","lock_records":false}""", "--lock-records=false")]
+    [InlineData("entities_update", """{"name":"posts","team_reads":true}""", "--team-reads=true")]
     [InlineData("fields_update", """{"entity":"posts","field_name":"title","required":false}""", "--required=false")]
     [InlineData("workflows_step_update", """{"workflow_id":1,"step_id":2,"enabled":false}""", "--enabled=false")]
     public void ABooleanThatCanBeSetEitherWay_IsPassedWithItsValue(string tool, string json, string expected)
@@ -730,6 +731,45 @@ public partial class CliCommandToolTests
         result.ExitCode.Should().Be(0, result.Output);
         foreach (var name in new[] { "is_public", "enable_rls", "lock_new_records" })
             sent.GetProperty(name).GetBoolean().Should().Be(name != property, name);
+    }
+
+    [Fact]
+    public async Task EntitiesUpdate_WithoutTeamReads_SendsNoAllowGroupScope()
+    {
+        JsonElement sent = default;
+        var mock = new MockHttpMessageHandler();
+        mock.When(HttpMethod.Get, $"{ApiUrl}/org/42/entities/posts").Respond("application/json",
+            """{"name":"posts","table_name":"posts","enable_rls":true,"is_public":true,"lock_new_records":true,"allow_group_scope":true,"fields":[]}""");
+        mock.When(HttpMethod.Put, $"{ApiUrl}/org/42/entities/posts").Respond(async req =>
+        {
+            sent = JsonDocument.Parse(await req.Content!.ReadAsStringAsync()).RootElement.Clone();
+            return new HttpResponseMessage { Content = new StringContent("""{"name":"posts","table_name":"posts","fields":[]}""") };
+        });
+
+        var result = await Tool("entities_update").RunAsync(Args(new { name = "posts", rls = false }), Client(mock));
+
+        result.ExitCode.Should().Be(0, result.Output);
+        sent.TryGetProperty("allow_group_scope", out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task EntitiesUpdate_WithTeamReads_SendsAllowGroupScope()
+    {
+        JsonElement sent = default;
+        var mock = new MockHttpMessageHandler();
+        mock.When(HttpMethod.Get, $"{ApiUrl}/org/42/entities/posts").Respond("application/json",
+            """{"name":"posts","table_name":"posts","enable_rls":true,"is_public":true,"lock_new_records":true,"fields":[]}""");
+        mock.When(HttpMethod.Put, $"{ApiUrl}/org/42/entities/posts").Respond(async req =>
+        {
+            sent = JsonDocument.Parse(await req.Content!.ReadAsStringAsync()).RootElement.Clone();
+            return new HttpResponseMessage { Content = new StringContent("""{"name":"posts","table_name":"posts","fields":[]}""") };
+        });
+
+        var result = await Tool("entities_update").RunAsync(Args(new { name = "posts", team_reads = true }), Client(mock));
+
+        result.ExitCode.Should().Be(0, result.Output);
+        sent.GetProperty("allow_group_scope").GetBoolean().Should().BeTrue();
+        sent.GetProperty("enable_rls").GetBoolean().Should().BeTrue();
     }
 
     [Fact]
