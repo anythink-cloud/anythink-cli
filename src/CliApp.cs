@@ -496,7 +496,7 @@ public static class CliApp
                 .WithExample("groups", "invite", "12", "sam@example.com", "4");
             groups.AddCommand<GroupsCodeCommand>("code").WithDescription("Create a join code for a group (replaces its previous code)")
                 .WithExample("groups", "code", "12", "4");
-            groups.AddCommand<GroupsJoinCommand>("join").WithDescription("Join a group with a code").WithExample("groups", "join", "K7QX2MPA");
+            groups.AddCommand<GroupsJoinCommand>("join").WithDescription("Join a group with a code").WithExample("groups", "join", "K7QX2MPA4N");
             groups.AddCommand<GroupsAcceptCommand>("accept").WithDescription("Accept an emailed group invite by its token")
                 .WithExample("groups", "accept", "9F2C...");
             groups.AddCommand<GroupsPreviewCommand>("preview").WithDescription("Show what an emailed group invite is for, by its token")

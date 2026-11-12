@@ -17,7 +17,7 @@ public class GroupsTests
         """{"id":31,"group_id":12,"group_name":"Under 16s","kind":"invite","status":"pending","role_id":4,"role":"Athlete","email":"sam@example.com","expires_at":"2026-11-19T10:00:00Z"}""";
 
     private const string Code =
-        """{"id":32,"group_id":12,"group_name":"Under 16s","kind":"code","status":"pending","role_id":4,"role":"Athlete","code":"K7QX2MPA"}""";
+        """{"id":32,"group_id":12,"group_name":"Under 16s","kind":"code","status":"pending","role_id":4,"role":"Athlete","code":"K7QX2MPA4N"}""";
 
     private const string Request =
         """{"id":33,"group_id":12,"group_name":"Under 16s","kind":"request","status":"pending","role_id":4,"role":"Athlete","user":{"id":42,"first_name":"Sam","last_name":"Lee","email":"sam@example.com"}}""";
@@ -53,7 +53,7 @@ public class GroupsTests
 
         code.Should().Be(0);
         sent.Single().Should().Be("""{"kind":"code","role_id":4}""");
-        output.Should().Contain("K7QX2MPA");
+        output.Should().Contain("K7QX2MPA4N");
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class GroupsTests
 
         (await Run(mock, () => new GroupsInviteCommand().ExecuteAsync(null!, new GroupInviteSettings { GroupId = 12, Email = "sam@example.com", RoleId = 4, Json = true })))
             .Output.Should().Contain("\"kind\": \"invite\"");
-        (await Run(mock, () => new GroupsJoinCommand().ExecuteAsync(null!, new GroupJoinSettings { Code = "K7QX2MPA", Json = true })))
+        (await Run(mock, () => new GroupsJoinCommand().ExecuteAsync(null!, new GroupJoinSettings { Code = "K7QX2MPA4N", Json = true })))
             .Output.Should().Contain("\"status\": \"joined\"");
         (await Run(mock, () => new GroupsCreateCommand().ExecuteAsync(null!, new GroupCreateSettings { Name = "Under 16s", Json = true })))
             .Output.Should().Contain("\"id\": 12");
@@ -103,10 +103,10 @@ public class GroupsTests
         var mock = new MockHttpMessageHandler(BackendDefinitionBehavior.Always);
         mock.ReplyWith(HttpMethod.Post, $"{Org}/groups/join", $$"""{"status":"requested","request":{{Request}}}""", sent);
 
-        var (code, output) = await Run(mock, () => new GroupsJoinCommand().ExecuteAsync(null!, new GroupJoinSettings { Code = "K7QX2MPA" }));
+        var (code, output) = await Run(mock, () => new GroupsJoinCommand().ExecuteAsync(null!, new GroupJoinSettings { Code = "K7QX2MPA4N" }));
 
         code.Should().Be(0);
-        sent.Single().Should().Be("""{"code":"K7QX2MPA"}""");
+        sent.Single().Should().Be("""{"code":"K7QX2MPA4N"}""");
         output.Should().Contain("Request sent").And.Contain("request");
     }
 
@@ -116,7 +116,7 @@ public class GroupsTests
         var mock = new MockHttpMessageHandler(BackendDefinitionBehavior.Always);
         mock.ReplyWith(HttpMethod.Post, $"{Org}/groups/join", $$"""{"status":"joined","member":{{Member}}}""");
 
-        var (code, output) = await Run(mock, () => new GroupsJoinCommand().ExecuteAsync(null!, new GroupJoinSettings { Code = "K7QX2MPA" }));
+        var (code, output) = await Run(mock, () => new GroupsJoinCommand().ExecuteAsync(null!, new GroupJoinSettings { Code = "K7QX2MPA4N" }));
 
         code.Should().Be(0);
         output.Should().Contain("Joined the group").And.Contain("Athlete (4)");
@@ -180,7 +180,7 @@ public class GroupsTests
             new GroupInvitesListSettings { GroupId = 12, Status = "pending" }));
 
         code.Should().Be(0);
-        output.Should().Contain("sam@example.com").And.Contain("K7QX2MPA").And.Contain("Sam Lee");
+        output.Should().Contain("sam@example.com").And.Contain("K7QX2MPA4N").And.Contain("Sam Lee");
         mock.VerifyNoOutstandingExpectation();
     }
 
