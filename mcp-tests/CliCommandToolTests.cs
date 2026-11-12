@@ -795,9 +795,12 @@ public partial class CliCommandToolTests
         (await EntitiesUpdateSends(new { name = "posts", team_field = "team_group_id" }))
             .GetProperty("group_scope_field").GetString().Should().Be("team_group_id");
 
-    [Fact]
-    public async Task EntitiesUpdate_WithTeamFieldNone_ClearsIt() =>
-        (await EntitiesUpdateSends(new { name = "posts", team_field = "none" }))
+    [Theory]
+    [InlineData("none")]
+    [InlineData("None")]
+    [InlineData("NONE")]
+    public async Task EntitiesUpdate_WithTeamFieldNone_ClearsIt_InAnyCase(string none) =>
+        (await EntitiesUpdateSends(new { name = "posts", team_field = none }))
             .GetProperty("group_scope_field").GetString().Should().BeEmpty();
 
     [Fact]

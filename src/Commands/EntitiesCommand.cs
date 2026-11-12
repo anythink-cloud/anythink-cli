@@ -233,7 +233,7 @@ public class EntitiesUpdateCommand : BaseCommand<EntityUpdateSettings>
                 settings.IsPublic ?? current.IsPublic,
                 settings.LockNewRecords ?? current.LockNewRecords,
                 settings.AllowGroupScope,
-                settings.GroupScopeField == "none" ? "" : settings.GroupScopeField
+                string.Equals(settings.GroupScopeField, "none", StringComparison.OrdinalIgnoreCase) ? "" : settings.GroupScopeField
             );
 
             Entity? updated = null;
