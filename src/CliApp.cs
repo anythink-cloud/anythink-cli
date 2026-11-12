@@ -478,6 +478,63 @@ public static class CliApp
             });
         });
 
+        // ── Groups (teams) ────────────────────────────────────────────────────────
+
+        config.AddBranch("groups", groups =>
+        {
+            groups.SetDescription("Manage groups (teams): members, email invites, join codes and join requests");
+
+            groups.AddCommand<GroupsListCommand>("list").WithDescription("List all groups in the project");
+            groups.AddCommand<GroupsGetCommand>("get").WithDescription("Get a group by ID").WithExample("groups", "get", "12");
+            groups.AddCommand<GroupsMineCommand>("mine").WithDescription("List the groups you belong to and your role in each");
+            groups.AddCommand<GroupsCreateCommand>("create").WithDescription("Create a group")
+                .WithExample("groups", "create", "Under 16s", "--description", "Saturday squad");
+            groups.AddCommand<GroupsUpdateCommand>("update").WithDescription("Rename a group or change its description")
+                .WithExample("groups", "update", "12", "--name", "Under 17s");
+            groups.AddCommand<GroupsDeleteCommand>("delete").WithDescription("Delete a group").WithExample("groups", "delete", "12", "--yes");
+            groups.AddCommand<GroupsInviteCommand>("invite").WithDescription("Email someone an invite to join a group")
+                .WithExample("groups", "invite", "12", "sam@example.com", "--role-id", "4");
+            groups.AddCommand<GroupsCodeCommand>("code").WithDescription("Create a join code for a group (replaces its previous code)")
+                .WithExample("groups", "code", "12", "--role-id", "4");
+            groups.AddCommand<GroupsJoinCommand>("join").WithDescription("Join a group with a code").WithExample("groups", "join", "K7QX2MPA");
+            groups.AddCommand<GroupsAcceptCommand>("accept").WithDescription("Accept an emailed group invite by its token")
+                .WithExample("groups", "accept", "9F2C...");
+
+            groups.AddBranch("members", members =>
+            {
+                members.SetDescription("Manage a group's members");
+
+                members.AddCommand<GroupsMembersListCommand>("list").WithDescription("List a group's members").WithExample("groups", "members", "list", "12");
+                members.AddCommand<GroupsMembersAddCommand>("add").WithDescription("Add a project user to a group at once (project-wide access only)")
+                    .WithExample("groups", "members", "add", "12", "42", "--role-id", "4");
+                members.AddCommand<GroupsMembersUpdateCommand>("update").WithDescription("Change a member's role in the group")
+                    .WithExample("groups", "members", "update", "12", "7", "--role-id", "5");
+                members.AddCommand<GroupsMembersRemoveCommand>("remove").WithDescription("Remove someone from a group")
+                    .WithExample("groups", "members", "remove", "12", "7", "--yes");
+            });
+
+            groups.AddBranch("invites", invites =>
+            {
+                invites.SetDescription("Group invites, join codes and join requests");
+
+                invites.AddCommand<GroupsInvitesListCommand>("list").WithDescription("List a group's invites, code and requests")
+                    .WithExample("groups", "invites", "list", "12", "--status", "pending");
+                invites.AddCommand<GroupsInvitesRevokeCommand>("revoke").WithDescription("Cancel an open invite, code or request")
+                    .WithExample("groups", "invites", "revoke", "12", "31", "--yes");
+                invites.AddCommand<GroupsInvitesApproveCommand>("approve").WithDescription("Approve a join request")
+                    .WithExample("groups", "invites", "approve", "12", "31");
+                invites.AddCommand<GroupsInvitesDeclineCommand>("decline").WithDescription("Decline a join request")
+                    .WithExample("groups", "invites", "decline", "12", "31");
+                invites.AddCommand<GroupsInvitesMineCommand>("mine").WithDescription("List your open invites and join requests");
+                invites.AddCommand<GroupsInvitesAcceptCommand>("accept").WithDescription("Accept one of your invites without its token")
+                    .WithExample("groups", "invites", "accept", "31");
+                invites.AddCommand<GroupsInvitesRejectCommand>("reject").WithDescription("Decline one of your invites")
+                    .WithExample("groups", "invites", "reject", "31");
+                invites.AddCommand<GroupsInvitesWithdrawCommand>("withdraw").WithDescription("Withdraw your join request")
+                    .WithExample("groups", "invites", "withdraw", "31");
+            });
+        });
+
         // ── Menus ─────────────────────────────────────────────────────────────────
 
         config.AddBranch("menus", menus =>

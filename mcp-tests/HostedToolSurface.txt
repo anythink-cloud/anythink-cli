@@ -48,6 +48,28 @@ fields_update [destructive] project? entity field_name default? description? dis
 files_delete [destructive] project? id
 files_get [read-only] project? id
 files_list [read-only] project? limit? page?
+groups_accept [write] project? token
+groups_code [destructive] project? group_id role_id?
+groups_create [write] project? name description?
+groups_delete [destructive] project? group_id
+groups_get [read-only] project? group_id
+groups_invite [write, open-world] project? group_id email role_id?
+groups_invites_accept [write] project? invite_id
+groups_invites_approve [write] project? group_id invite_id role_id?
+groups_invites_decline [destructive] project? group_id invite_id
+groups_invites_list [read-only] project? group_id status?
+groups_invites_mine [read-only] project?
+groups_invites_reject [destructive] project? invite_id
+groups_invites_revoke [destructive] project? group_id invite_id
+groups_invites_withdraw [destructive] project? invite_id
+groups_join [write] project? code
+groups_list [read-only] project?
+groups_members_add [write] project? group_id user_id role_id?
+groups_members_list [read-only] project? group_id
+groups_members_remove [destructive] project? group_id member_id
+groups_members_update [destructive] project? group_id member_id role_id?
+groups_mine [read-only] project?
+groups_update [destructive] project? group_id description? name?
 integrations_connect [write] project? provider api_key? name? user_connection?
 integrations_connections_list [read-only] project? provider?
 integrations_disable [write] project? connection_id
