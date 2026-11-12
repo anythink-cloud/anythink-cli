@@ -256,7 +256,7 @@ public class SettingsTests
     {
         var (client, captured) = BuildClient();
 
-        await SettingsHelpers.SetAsync(client, "group_codes_require_approval", "false");
+        await SettingsHelpers.SetAsync(client, "group_codes_require_approval", "false", yes: true);
         captured.PutBody!["tenant_settings"]!["group_codes_require_approval"]!.GetValue<bool>().Should().BeFalse();
 
         await SettingsHelpers.SetAsync(client, "enable_group_rls", "true");
@@ -342,6 +342,7 @@ public class SettingsTests
     [Theory]
     [InlineData("allow_registrations", "true")]
     [InlineData("require_email_confirmation", "false")]
+    [InlineData("group_codes_require_approval", "false")]
     public async Task SetRiskyKey_NonInteractiveWithoutYes_Refuses(string key, string value)
     {
         var (client, captured) = BuildClient();
@@ -355,6 +356,7 @@ public class SettingsTests
     [Theory]
     [InlineData("allow_registrations", "true")]
     [InlineData("require_email_confirmation", "false")]
+    [InlineData("group_codes_require_approval", "false")]
     public async Task SetRiskyKey_InteractiveDecline_SavesNothing(string key, string value)
     {
         var (client, captured) = BuildClient();

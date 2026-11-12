@@ -83,7 +83,13 @@ internal static class SettingsHelpers
                 ts = ts with { DefaultRoleId = roleId };
                 break;
             case "enable_group_rls": ts = ts with { EnableGroupRls = ParseBool(value, key) }; break;
-            case "group_codes_require_approval": ts = ts with { GroupCodesRequireApproval = ParseBool(value, key) }; break;
+            case "group_codes_require_approval":
+                var approval = ParseBool(value, key);
+                if (!approval &&
+                    !Authorise("Turning off join code approval lets anyone with a team's code join it at once and see what is shared with the team.", false, yes, confirm))
+                    return SaveResult.Cancelled;
+                ts = ts with { GroupCodesRequireApproval = approval };
+                break;
             case "payment_success_url": ts = ts with { PaymentSuccessUrl = value }; break;
             case "payment_cancel_url": ts = ts with { PaymentCancelUrl = value }; break;
             case "ai_mode": ts = ts with { AiMode = value }; break;
