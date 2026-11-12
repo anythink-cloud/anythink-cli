@@ -250,6 +250,20 @@ public class SettingsTests
         captured.PutBody!["tenant_settings"]!["app_engagement_trial_days"]!.GetValue<int>().Should().Be(14);
     }
 
+    // Rule: join code approval is a project setting; leaving it unset keeps the API's default (approval required).
+    [Fact]
+    public async Task Set_GroupCodesRequireApproval_SendsTheBoolean_AndIsOmittedWhenUnset()
+    {
+        var (client, captured) = BuildClient();
+
+        await SettingsHelpers.SetAsync(client, "group_codes_require_approval", "false");
+        captured.PutBody!["tenant_settings"]!["group_codes_require_approval"]!.GetValue<bool>().Should().BeFalse();
+
+        await SettingsHelpers.SetAsync(client, "enable_group_rls", "true");
+        (await client.GetTenantAsync())!.TenantSettings!.GroupCodesRequireApproval.Should().BeNull();
+        captured.PutBody!["tenant_settings"]!.AsObject().ContainsKey("group_codes_require_approval").Should().BeFalse();
+    }
+
     [Fact]
     public async Task Set_UnknownKey_ReturnsFalse_AndSavesNothing()
     {

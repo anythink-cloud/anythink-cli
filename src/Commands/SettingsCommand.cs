@@ -83,6 +83,7 @@ internal static class SettingsHelpers
                 ts = ts with { DefaultRoleId = roleId };
                 break;
             case "enable_group_rls": ts = ts with { EnableGroupRls = ParseBool(value, key) }; break;
+            case "group_codes_require_approval": ts = ts with { GroupCodesRequireApproval = ParseBool(value, key) }; break;
             case "payment_success_url": ts = ts with { PaymentSuccessUrl = value }; break;
             case "payment_cancel_url": ts = ts with { PaymentCancelUrl = value }; break;
             case "ai_mode": ts = ts with { AiMode = value }; break;
@@ -314,6 +315,7 @@ public class SettingsGetCommand : BaseCommand<SettingsGetSettings>
             Renderer.KeyValue("allow_registrations", (ts?.AllowRegistrations ?? false).ToString().ToLowerInvariant());
             Renderer.KeyValue("default_role_id", ts?.DefaultRoleId?.ToString() ?? "—");
             Renderer.KeyValue("enable_group_rls", (ts?.EnableGroupRls ?? false).ToString().ToLowerInvariant());
+            Renderer.KeyValue("group_codes_require_approval", (ts?.GroupCodesRequireApproval ?? true).ToString().ToLowerInvariant());
             Renderer.KeyValue("ai_mode", ts?.AiMode ?? "—");
             Renderer.KeyValue("ai_default_model", ts?.AiDefaultModel ?? "—");
             Renderer.KeyValue("ai_byok_provider", ts?.AiByokProvider ?? "—");

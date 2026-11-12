@@ -874,6 +874,94 @@ public record ReorderMenuItemRequest(
     [property: JsonPropertyName("parent_id")] int? ParentId
 );
 
+// ── Groups (teams) ───────────────────────────────────────────────────────────
+
+public record GroupResponse(
+    [property: JsonPropertyName("id")] int Id,
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("description")] string? Description = null,
+    [property: JsonPropertyName("owner_user_id")] int? OwnerUserId = null,
+    [property: JsonPropertyName("is_system")] bool IsSystem = false
+);
+
+public record SaveGroupRequest(
+    [property: JsonPropertyName("name")] string? Name,
+    [property: JsonPropertyName("description")] string? Description = null
+);
+
+public record GroupUserListing(
+    [property: JsonPropertyName("id")] int Id,
+    [property: JsonPropertyName("first_name")] string? FirstName,
+    [property: JsonPropertyName("last_name")] string? LastName,
+    [property: JsonPropertyName("email")] string? Email
+)
+{
+    public string Name => $"{FirstName} {LastName}".Trim();
+}
+
+public record GroupMemberResponse(
+    [property: JsonPropertyName("id")] int Id,
+    [property: JsonPropertyName("group_id")] int GroupId,
+    [property: JsonPropertyName("user_id")] int UserId,
+    [property: JsonPropertyName("role_id")] int RoleId,
+    [property: JsonPropertyName("role")] string Role,
+    [property: JsonPropertyName("can_read_group_data")] bool CanReadGroupData = false,
+    [property: JsonPropertyName("can_manage_group")] bool CanManageGroup = false,
+    [property: JsonPropertyName("user")] GroupUserListing? User = null
+);
+
+public record GroupMembershipResponse(
+    [property: JsonPropertyName("group_id")] int GroupId,
+    [property: JsonPropertyName("group_name")] string GroupName,
+    [property: JsonPropertyName("role_id")] int RoleId,
+    [property: JsonPropertyName("role")] string Role,
+    [property: JsonPropertyName("can_read_group_data")] bool CanReadGroupData = false,
+    [property: JsonPropertyName("can_manage_group")] bool CanManageGroup = false
+);
+
+public record AddGroupMemberRequest(
+    [property: JsonPropertyName("user_id")] int UserId,
+    [property: JsonPropertyName("role_id")] int RoleId
+);
+
+public record UpdateGroupMemberRequest(
+    [property: JsonPropertyName("role_id")] int RoleId
+);
+
+public record GroupInviteResponse(
+    [property: JsonPropertyName("id")] int Id,
+    [property: JsonPropertyName("group_id")] int GroupId,
+    [property: JsonPropertyName("group_name")] string GroupName,
+    [property: JsonPropertyName("kind")] string Kind,
+    [property: JsonPropertyName("status")] string Status,
+    [property: JsonPropertyName("role_id")] int RoleId,
+    [property: JsonPropertyName("role")] string Role,
+    [property: JsonPropertyName("email")] string? Email = null,
+    [property: JsonPropertyName("code")] string? Code = null,
+    [property: JsonPropertyName("user")] GroupUserListing? User = null,
+    [property: JsonPropertyName("expires_at")] DateTime? ExpiresAt = null
+);
+
+public record CreateGroupInviteRequest(
+    [property: JsonPropertyName("kind")] string Kind,
+    [property: JsonPropertyName("role_id")] int RoleId,
+    [property: JsonPropertyName("email")] string? Email = null
+);
+
+public record ApproveGroupJoinRequest(
+    [property: JsonPropertyName("role_id")] int? RoleId
+);
+
+public record JoinGroupRequest(
+    [property: JsonPropertyName("code")] string Code
+);
+
+public record JoinGroupResponse(
+    [property: JsonPropertyName("status")] string Status,
+    [property: JsonPropertyName("member")] GroupMemberResponse? Member = null,
+    [property: JsonPropertyName("request")] GroupInviteResponse? Request = null
+);
+
 // ── Organisation / Tenant Settings ───────────────────────────────────────────
 
 public record TenantSettingsDto(
@@ -887,7 +975,8 @@ public record TenantSettingsDto(
     [property: JsonPropertyName("ai_mode")] string? AiMode = null,
     [property: JsonPropertyName("ai_byok_provider")] string? AiByokProvider = null,
     [property: JsonPropertyName("ai_default_model")] string? AiDefaultModel = null,
-    [property: JsonPropertyName("enable_group_rls")] bool? EnableGroupRls = null
+    [property: JsonPropertyName("enable_group_rls")] bool? EnableGroupRls = null,
+    [property: JsonPropertyName("group_codes_require_approval")] bool? GroupCodesRequireApproval = null
 )
 {
     // Update replaces the whole object, so unmodelled fields must round-trip.
