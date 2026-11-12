@@ -24,7 +24,8 @@ public record Entity(
     [property: JsonPropertyName("lock_new_records")] bool LockNewRecords,
     [property: JsonPropertyName("fields")] List<Field>? Fields,
     [property: JsonPropertyName("id")] int? Id,
-    [property: JsonPropertyName("allow_group_scope")] bool AllowGroupScope = false
+    [property: JsonPropertyName("allow_group_scope")] bool AllowGroupScope = false,
+    [property: JsonPropertyName("group_scope_field")] string? GroupScopeField = null
 );
 
 public record Field(
@@ -73,7 +74,8 @@ public record UpdateEntityRequest(
     [property: JsonPropertyName("enable_rls")] bool EnableRls,
     [property: JsonPropertyName("is_public")] bool IsPublic,
     [property: JsonPropertyName("lock_new_records")] bool LockNewRecords,
-    [property: JsonPropertyName("allow_group_scope"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? AllowGroupScope = null
+    [property: JsonPropertyName("allow_group_scope"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? AllowGroupScope = null,
+    [property: JsonPropertyName("group_scope_field"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? GroupScopeField = null
 );
 
 public record CreateFieldRequest(
