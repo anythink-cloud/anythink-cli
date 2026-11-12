@@ -942,6 +942,15 @@ public record GroupInviteResponse(
     [property: JsonPropertyName("expires_at")] DateTime? ExpiresAt = null
 );
 
+public record GroupInvitePreviewResponse(
+    [property: JsonPropertyName("group_id")] int GroupId,
+    [property: JsonPropertyName("group_name")] string GroupName,
+    [property: JsonPropertyName("role")] string Role,
+    [property: JsonPropertyName("email")] string? Email = null,
+    [property: JsonPropertyName("invited_by")] string? InvitedBy = null,
+    [property: JsonPropertyName("expires_at")] DateTime? ExpiresAt = null
+);
+
 public record CreateGroupInviteRequest(
     [property: JsonPropertyName("kind")] string Kind,
     [property: JsonPropertyName("role_id")] int RoleId,

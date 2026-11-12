@@ -52,11 +52,11 @@ files_get [read-only] id
 files_list [read-only] limit? page?
 files_upload [write] path public?
 groups_accept [write] token
-groups_code [destructive] group_id role_id?
+groups_code [destructive] group_id role_id
 groups_create [write] name description?
 groups_delete [destructive] group_id
 groups_get [read-only] group_id
-groups_invite [write, open-world] group_id email role_id?
+groups_invite [write, open-world] group_id email role_id
 groups_invites_accept [write] invite_id
 groups_invites_approve [write] group_id invite_id role_id?
 groups_invites_decline [destructive] group_id invite_id
@@ -67,11 +67,12 @@ groups_invites_revoke [destructive] group_id invite_id
 groups_invites_withdraw [destructive] invite_id
 groups_join [write] code
 groups_list [read-only]
-groups_members_add [write] group_id user_id role_id?
+groups_members_add [write] group_id user_id role_id
 groups_members_list [read-only] group_id
 groups_members_remove [destructive] group_id member_id
-groups_members_update [destructive] group_id member_id role_id?
+groups_members_update [destructive] group_id member_id role_id
 groups_mine [read-only]
+groups_preview [read-only] token
 groups_update [destructive] group_id description? name?
 import_directus [destructive] allow_insecure? dry_run? include_data? include_files? include_flows? include_roles? to? token? url?
 integrations_connect [write] provider api_key? name? user_connection?

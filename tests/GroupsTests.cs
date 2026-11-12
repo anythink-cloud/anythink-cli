@@ -49,7 +49,7 @@ public class GroupsTests
         var mock = new MockHttpMessageHandler(BackendDefinitionBehavior.Always);
         mock.ReplyWith(HttpMethod.Post, $"{Org}/groups/12/invites", Code, sent);
 
-        var (code, output) = await Run(mock, () => new GroupsCodeCommand().ExecuteAsync(null!, new GroupRoleSettings { GroupId = 12, RoleId = 4 }));
+        var (code, output) = await Run(mock, () => new GroupsCodeCommand().ExecuteAsync(null!, new GroupCodeSettings { GroupId = 12, RoleId = 4 }));
 
         code.Should().Be(0);
         sent.Single().Should().Be("""{"kind":"code","role_id":4}""");
@@ -57,10 +57,43 @@ public class GroupsTests
     }
 
     [Fact]
-    public void RoleCommands_RefuseToRunWithoutARole()
+    public async Task WriteCommands_CanPrintJson()
     {
-        new GroupRoleSettings { GroupId = 12 }.Validate().Successful.Should().BeFalse();
-        new GroupRoleSettings { GroupId = 12, RoleId = 4 }.Validate().Successful.Should().BeTrue();
+        var mock = new MockHttpMessageHandler(BackendDefinitionBehavior.Always);
+        mock.ReplyWith(HttpMethod.Post, $"{Org}/groups/12/invites", Invite);
+        mock.ReplyWith(HttpMethod.Post, $"{Org}/groups/join", $$"""{"status":"joined","member":{{Member}}}""");
+        mock.ReplyWith(HttpMethod.Post, $"{Org}/groups", """{"id":12,"name":"Under 16s"}""");
+
+        (await Run(mock, () => new GroupsInviteCommand().ExecuteAsync(null!, new GroupInviteSettings { GroupId = 12, Email = "sam@example.com", RoleId = 4, Json = true })))
+            .Output.Should().Contain("\"kind\": \"invite\"");
+        (await Run(mock, () => new GroupsJoinCommand().ExecuteAsync(null!, new GroupJoinSettings { Code = "K7QX2MPA", Json = true })))
+            .Output.Should().Contain("\"status\": \"joined\"");
+        (await Run(mock, () => new GroupsCreateCommand().ExecuteAsync(null!, new GroupCreateSettings { Name = "Under 16s", Json = true })))
+            .Output.Should().Contain("\"id\": 12");
+    }
+
+    [Fact]
+    public async Task Preview_ShowsTheInvite_WithoutSigningIn_AndFailsForABadToken()
+    {
+        var mock = new MockHttpMessageHandler(BackendDefinitionBehavior.Always);
+        mock.ReplyWith(HttpMethod.Get, $"{Org}/group-invites/ABC123", """{"group_id":12,"group_name":"Under 16s","role":"Athlete","invited_by":"Coach Kim"}""");
+        mock.When(HttpMethod.Get, $"{Org}/group-invites/NOPE").Respond(HttpStatusCode.NotFound);
+
+        (await Run(mock, () => new GroupsPreviewCommand().ExecuteAsync(null!, new GroupAcceptSettings { Token = "ABC123" }))).Output.Should().Contain("Coach Kim");
+        (await Run(mock, () => new GroupsPreviewCommand().ExecuteAsync(null!, new GroupAcceptSettings { Token = "ABC123", Json = true }))).Output.Should().Contain("\"group_name\": \"Under 16s\"");
+        (await Run(mock, () => new GroupsPreviewCommand().ExecuteAsync(null!, new GroupAcceptSettings { Token = "NOPE" }))).Code.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task MembersUpdate_WhenTheApiReturnsNoMember_Fails()
+    {
+        var mock = new MockHttpMessageHandler(BackendDefinitionBehavior.Always);
+        mock.When(HttpMethod.Put, $"{Org}/groups/12/members/7").Respond(HttpStatusCode.NoContent);
+
+        var (code, output) = await Run(mock, () => new GroupsMembersUpdateCommand().ExecuteAsync(null!, new GroupMemberUpdateSettings { GroupId = 12, MemberId = 7, RoleId = 5 }));
+
+        code.Should().Be(1);
+        output.Should().Contain("Member 7 not found");
     }
 
     [Fact]

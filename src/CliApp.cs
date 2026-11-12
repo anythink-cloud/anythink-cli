@@ -493,12 +493,14 @@ public static class CliApp
                 .WithExample("groups", "update", "12", "--name", "Under 17s");
             groups.AddCommand<GroupsDeleteCommand>("delete").WithDescription("Delete a group").WithExample("groups", "delete", "12", "--yes");
             groups.AddCommand<GroupsInviteCommand>("invite").WithDescription("Email someone an invite to join a group")
-                .WithExample("groups", "invite", "12", "sam@example.com", "--role-id", "4");
+                .WithExample("groups", "invite", "12", "sam@example.com", "4");
             groups.AddCommand<GroupsCodeCommand>("code").WithDescription("Create a join code for a group (replaces its previous code)")
-                .WithExample("groups", "code", "12", "--role-id", "4");
+                .WithExample("groups", "code", "12", "4");
             groups.AddCommand<GroupsJoinCommand>("join").WithDescription("Join a group with a code").WithExample("groups", "join", "K7QX2MPA");
             groups.AddCommand<GroupsAcceptCommand>("accept").WithDescription("Accept an emailed group invite by its token")
                 .WithExample("groups", "accept", "9F2C...");
+            groups.AddCommand<GroupsPreviewCommand>("preview").WithDescription("Show what an emailed group invite is for, by its token")
+                .WithExample("groups", "preview", "9F2C...");
 
             groups.AddBranch("members", members =>
             {
@@ -506,9 +508,9 @@ public static class CliApp
 
                 members.AddCommand<GroupsMembersListCommand>("list").WithDescription("List a group's members").WithExample("groups", "members", "list", "12");
                 members.AddCommand<GroupsMembersAddCommand>("add").WithDescription("Add a project user to a group at once (project-wide access only)")
-                    .WithExample("groups", "members", "add", "12", "42", "--role-id", "4");
+                    .WithExample("groups", "members", "add", "12", "42", "4");
                 members.AddCommand<GroupsMembersUpdateCommand>("update").WithDescription("Change a member's role in the group")
-                    .WithExample("groups", "members", "update", "12", "7", "--role-id", "5");
+                    .WithExample("groups", "members", "update", "12", "7", "5");
                 members.AddCommand<GroupsMembersRemoveCommand>("remove").WithDescription("Remove someone from a group")
                     .WithExample("groups", "members", "remove", "12", "7", "--yes");
             });

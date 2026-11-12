@@ -49,8 +49,9 @@ public abstract class GroupsCommand<TSettings> : BaseCommand<TSettings> where TS
         return 0;
     }
 
-    protected static int Member(string message, GroupMemberResponse member)
+    protected static int Member(string message, GroupMemberResponse member, bool json = false)
     {
+        if (json) return Json(member);
         Renderer.Success(Markup.Escape(message));
         Renderer.KeyValue("Member ID", member.Id.ToString());
         Renderer.KeyValue("Group ID", member.GroupId.ToString());
@@ -70,8 +71,9 @@ public abstract class GroupsCommand<TSettings> : BaseCommand<TSettings> where TS
         return 0;
     }
 
-    protected static int Invite(string message, GroupInviteResponse invite)
+    protected static int Invite(string message, GroupInviteResponse invite, bool json = false)
     {
+        if (json) return Json(invite);
         Renderer.Success(Markup.Escape(message));
         Renderer.KeyValue("ID", invite.Id.ToString());
         Renderer.KeyValue("Group", $"{invite.GroupName} ({invite.GroupId})");
@@ -92,18 +94,15 @@ public class GroupIdSettings : JsonSettings
     public int GroupId { get; set; }
 }
 
-public class GroupRoleSettings : CommandSettings
+public class GroupCodeSettings : JsonSettings
 {
     [CommandArgument(0, "<GROUP_ID>")]
     [Description("Group (team) ID")]
     public int GroupId { get; set; }
 
-    [CommandOption("--role-id <ROLE_ID>")]
+    [CommandArgument(1, "<ROLE_ID>")]
     [Description("Role the person gets in the group")]
-    public int? RoleId { get; set; }
-
-    public override ValidationResult Validate() =>
-        RoleId is > 0 ? ValidationResult.Success() : ValidationResult.Error("Pass --role-id with the role to give in the group.");
+    public int RoleId { get; set; }
 }
 
 public class GroupConfirmSettings : CommandSettings
@@ -117,7 +116,7 @@ public class GroupConfirmSettings : CommandSettings
     public bool Yes { get; set; }
 }
 
-public class GroupInviteIdSettings : CommandSettings
+public class GroupInviteIdSettings : JsonSettings
 {
     [CommandArgument(0, "<GROUP_ID>")]
     [Description("Group (team) ID")]
@@ -128,7 +127,7 @@ public class GroupInviteIdSettings : CommandSettings
     public int InviteId { get; set; }
 }
 
-public class MyInviteSettings : CommandSettings
+public class MyInviteSettings : JsonSettings
 {
     [CommandArgument(0, "<INVITE_ID>")]
     [Description("ID of your invite or request")]
@@ -194,7 +193,7 @@ public class GroupsMineCommand : GroupsCommand<JsonSettings>
 
 // ── groups create / update / delete ──────────────────────────────────────────
 
-public class GroupCreateSettings : CommandSettings
+public class GroupCreateSettings : JsonSettings
 {
     [CommandArgument(0, "<NAME>")]
     [Description("Group (team) name, unique in the project")]
@@ -211,6 +210,7 @@ public class GroupsCreateCommand : GroupsCommand<GroupCreateSettings>
     protected override async Task<int> RunAsync(AnythinkClient client, GroupCreateSettings settings)
     {
         var group = await client.CreateGroupAsync(new SaveGroupRequest(settings.Name, settings.Description));
+        if (settings.Json) return Json(group);
         Renderer.Success($"Group [#F97316]{Markup.Escape(group.Name)}[/] created.");
         Renderer.KeyValue("ID", group.Id.ToString());
         return 0;
@@ -257,7 +257,7 @@ public class GroupsDeleteCommand : GroupsCommand<GroupConfirmSettings>
 
 // ── groups members ───────────────────────────────────────────────────────────
 
-[CommandGuide("Lists a team's members with member id, user id, name, email, role, and whether each can manage the team or read its data. Any member of the team can list it; others need project-wide anythink_groups:read. Use the member id with `groups_members_update` or `groups_members_remove`.")]
+[CommandGuide("Lists a team's members with member id, user id, name, email, role, and whether each can manage the team or read its data. Any member of the team can list it, but only managers, staff who read team data and project-wide readers see emails; others need project-wide anythink_groups:read. Use the member id with `groups_members_update` or `groups_members_remove`.")]
 public class GroupsMembersListCommand : GroupsCommand<GroupIdSettings>
 {
     protected override async Task<int> RunAsync(AnythinkClient client, GroupIdSettings settings)
@@ -267,34 +267,52 @@ public class GroupsMembersListCommand : GroupsCommand<GroupIdSettings>
     }
 }
 
-public class GroupMemberAddSettings : GroupRoleSettings
+public class GroupMemberAddSettings : JsonSettings
 {
+    [CommandArgument(0, "<GROUP_ID>")]
+    [Description("Group (team) ID")]
+    public int GroupId { get; set; }
+
     [CommandArgument(1, "<USER_ID>")]
     [Description("User to add")]
     public int UserId { get; set; }
+
+    [CommandArgument(2, "<ROLE_ID>")]
+    [Description("Role the person gets in the group")]
+    public int RoleId { get; set; }
 }
 
 [CommandGuide("Adds an existing project user to a team at once, without asking them. Only project-wide anythink_groups:update may do this, because a team role can read members' data; team managers bring people in with `groups_invite` or `groups_code` instead.")]
 public class GroupsMembersAddCommand : GroupsCommand<GroupMemberAddSettings>
 {
     protected override async Task<int> RunAsync(AnythinkClient client, GroupMemberAddSettings settings) =>
-        Member("Member added.", await client.AddGroupMemberAsync(settings.GroupId, new AddGroupMemberRequest(settings.UserId, settings.RoleId!.Value)));
+        Member("Member added.", await client.AddGroupMemberAsync(settings.GroupId, new AddGroupMemberRequest(settings.UserId, settings.RoleId)), settings.Json);
 }
 
-public class GroupMemberUpdateSettings : GroupRoleSettings
+public class GroupMemberUpdateSettings : JsonSettings
 {
+    [CommandArgument(0, "<GROUP_ID>")]
+    [Description("Group (team) ID")]
+    public int GroupId { get; set; }
+
     [CommandArgument(1, "<MEMBER_ID>")]
     [Description("Member ID from groups members list")]
     public int MemberId { get; set; }
+
+    [CommandArgument(2, "<ROLE_ID>")]
+    [Description("New role in the group")]
+    public int RoleId { get; set; }
 }
 
-[CommandGuide("Changes a member's role in the team, for example to make them a manager. Team managers can give any team role except a project administrator role; project-wide anythink_groups:update can give any role. Find the member id with `groups_members_list`.")]
+[CommandGuide("Changes a member's role in the team, for example to make them a manager. Team managers can give any team role except a project administrator role, and can't change a member who is in one; project-wide anythink_groups:update can do both. Find the member id with `groups_members_list`.")]
 public class GroupsMembersUpdateCommand : GroupsCommand<GroupMemberUpdateSettings>
 {
     protected override async Task<int> RunAsync(AnythinkClient client, GroupMemberUpdateSettings settings)
     {
-        var member = await client.UpdateGroupMemberAsync(settings.GroupId, settings.MemberId, new UpdateGroupMemberRequest(settings.RoleId!.Value));
-        return member is null ? 0 : Member("Role changed.", member);
+        var member = await client.UpdateGroupMemberAsync(settings.GroupId, settings.MemberId, new UpdateGroupMemberRequest(settings.RoleId));
+        if (member is not null) return Member("Role changed.", member, settings.Json);
+        Renderer.Error($"Member {settings.MemberId} not found in group {settings.GroupId}.");
+        return 1;
     }
 }
 
@@ -305,7 +323,7 @@ public class GroupMemberRemoveSettings : GroupConfirmSettings
     public int MemberId { get; set; }
 }
 
-[CommandGuide("Removes someone from a team, so they lose the team's shared records and their team role. Team managers can remove anyone and any member can remove themselves. Find the member id with `groups_members_list`.")]
+[CommandGuide("Removes someone from a team, so they lose the team's shared records and their team role. Team managers can remove anyone except a member in a project administrator role, and any member can remove themselves. Find the member id with `groups_members_list`.")]
 public class GroupsMembersRemoveCommand : GroupsCommand<GroupMemberRemoveSettings>
 {
     protected override async Task<int> RunAsync(AnythinkClient client, GroupMemberRemoveSettings settings)
@@ -319,11 +337,19 @@ public class GroupsMembersRemoveCommand : GroupsCommand<GroupMemberRemoveSetting
 
 // ── groups invite / code ─────────────────────────────────────────────────────
 
-public class GroupInviteSettings : GroupRoleSettings
+public class GroupInviteSettings : JsonSettings
 {
+    [CommandArgument(0, "<GROUP_ID>")]
+    [Description("Group (team) ID")]
+    public int GroupId { get; set; }
+
     [CommandArgument(1, "<EMAIL>")]
     [Description("Email address to invite")]
     public string Email { get; set; } = "";
+
+    [CommandArgument(2, "<ROLE_ID>")]
+    [Description("Role the person gets in the group")]
+    public int RoleId { get; set; }
 }
 
 [CommandGuide("Emails someone a link to join a team with the given role; it expires in 7 days and re-inviting the same address replaces the earlier link. They join when they accept it signed in, by the link or from `groups_invites_mine`. Needs a team role that can manage the team, or project-wide anythink_groups:update; a manager can't invite into a project administrator role.")]
@@ -331,15 +357,15 @@ public class GroupsInviteCommand : GroupsCommand<GroupInviteSettings>
 {
     protected override async Task<int> RunAsync(AnythinkClient client, GroupInviteSettings settings) =>
         Invite("Invite sent.", await client.CreateGroupInviteAsync(settings.GroupId,
-            new CreateGroupInviteRequest("invite", settings.RoleId!.Value, settings.Email)));
+            new CreateGroupInviteRequest("invite", settings.RoleId, settings.Email)), settings.Json);
 }
 
 [CommandGuide("Makes a short join code for a team with the given role and revokes the team's previous code. People enter it with `groups_join`; unless the project setting group_codes_require_approval is off, that makes a request a manager approves with `groups_invites_approve`. Needs a team role that can manage the team, or project-wide anythink_groups:update.")]
-public class GroupsCodeCommand : GroupsCommand<GroupRoleSettings>
+public class GroupsCodeCommand : GroupsCommand<GroupCodeSettings>
 {
-    protected override async Task<int> RunAsync(AnythinkClient client, GroupRoleSettings settings) =>
+    protected override async Task<int> RunAsync(AnythinkClient client, GroupCodeSettings settings) =>
         Invite("Join code created.", await client.CreateGroupInviteAsync(settings.GroupId,
-            new CreateGroupInviteRequest("code", settings.RoleId!.Value)));
+            new CreateGroupInviteRequest("code", settings.RoleId)), settings.Json);
 }
 
 // ── groups invites (managers) ────────────────────────────────────────────────
@@ -391,19 +417,19 @@ public class GroupRequestApproveSettings : GroupInviteIdSettings
 public class GroupsInvitesApproveCommand : GroupsCommand<GroupRequestApproveSettings>
 {
     protected override async Task<int> RunAsync(AnythinkClient client, GroupRequestApproveSettings settings) =>
-        Member("Request approved.", await client.ApproveGroupJoinRequestAsync(settings.GroupId, settings.InviteId, settings.RoleId));
+        Member("Request approved.", await client.ApproveGroupJoinRequestAsync(settings.GroupId, settings.InviteId, settings.RoleId), settings.Json);
 }
 
 [CommandGuide("Declines someone's request to join a team; they are not added and can ask again with a join code. Find pending requests with `groups_invites_list`.")]
 public class GroupsInvitesDeclineCommand : GroupsCommand<GroupInviteIdSettings>
 {
     protected override async Task<int> RunAsync(AnythinkClient client, GroupInviteIdSettings settings) =>
-        Invite("Request declined.", await client.DeclineGroupJoinRequestAsync(settings.GroupId, settings.InviteId));
+        Invite("Request declined.", await client.DeclineGroupJoinRequestAsync(settings.GroupId, settings.InviteId), settings.Json);
 }
 
 // ── groups join / accept and my invites ──────────────────────────────────────
 
-public class GroupJoinSettings : CommandSettings
+public class GroupJoinSettings : JsonSettings
 {
     [CommandArgument(0, "<CODE>")]
     [Description("Join code from a team manager")]
@@ -416,27 +442,51 @@ public class GroupsJoinCommand : GroupsCommand<GroupJoinSettings>
     protected override async Task<int> RunAsync(AnythinkClient client, GroupJoinSettings settings)
     {
         var joined = await client.JoinGroupAsync(settings.Code);
+        if (settings.Json) return Json(joined);
         return joined.Member is { } member
             ? Member("Joined the group.", member)
             : Invite("Request sent; a team manager will approve it.", joined.Request!);
     }
 }
 
-public class GroupAcceptSettings : CommandSettings
+public class GroupAcceptSettings : JsonSettings
 {
     [CommandArgument(0, "<TOKEN>")]
     [Description("Token from the invite email link (group_invite_token)")]
     public string Token { get; set; } = "";
 }
 
-[CommandGuide("Accepts an emailed team invite by the token in its link, adding you to the team with the invited role. If you are signed in with the invited email address, `groups_invites_accept` does the same without the token.")]
+[CommandGuide("Accepts an emailed team invite by the token in its link, adding you to the team with the invited role. If your account's email is confirmed and matches the invite, `groups_invites_accept` does the same without the token.")]
 public class GroupsAcceptCommand : GroupsCommand<GroupAcceptSettings>
 {
     protected override async Task<int> RunAsync(AnythinkClient client, GroupAcceptSettings settings) =>
-        Member("Invite accepted.", await client.AcceptGroupInviteTokenAsync(settings.Token));
+        Member("Invite accepted.", await client.AcceptGroupInviteTokenAsync(settings.Token), settings.Json);
 }
 
-[CommandGuide("Lists your open team invites (sent to your email address) and your pending join requests, with id, team, kind and role. Accept or reject an invite with `groups_invites_accept` or `groups_invites_reject`; withdraw a request with `groups_invites_withdraw`.")]
+[CommandGuide("Shows what an emailed team invite is for, by the token in its link, without signing in: the team, the role, who invited and when it expires. Accept it with `groups_accept`.")]
+public class GroupsPreviewCommand : GroupsCommand<GroupAcceptSettings>
+{
+    protected override async Task<int> RunAsync(AnythinkClient client, GroupAcceptSettings settings)
+    {
+        var preview = await client.PreviewGroupInviteAsync(settings.Token);
+        if (preview is null)
+        {
+            Renderer.Error("That invite is not valid or has expired.");
+            return 1;
+        }
+        if (settings.Json) return Json(preview);
+
+        Renderer.Header($"Invite to {preview.GroupName}");
+        Renderer.KeyValue("Group ID", preview.GroupId.ToString());
+        Renderer.KeyValue("Role", preview.Role);
+        Renderer.KeyValue("Email", preview.Email);
+        Renderer.KeyValue("Invited by", preview.InvitedBy);
+        Renderer.KeyValue("Expires", preview.ExpiresAt?.ToString("yyyy-MM-dd HH:mm"));
+        return 0;
+    }
+}
+
+[CommandGuide("Lists your open team invites (sent to your confirmed email address, in projects that confirm emails) and your pending join requests, with id, team, kind and role. Accept or reject an invite with `groups_invites_accept` or `groups_invites_reject`; withdraw a request with `groups_invites_withdraw`.")]
 public class GroupsInvitesMineCommand : GroupsCommand<JsonSettings>
 {
     protected override async Task<int> RunAsync(AnythinkClient client, JsonSettings settings)
@@ -446,18 +496,18 @@ public class GroupsInvitesMineCommand : GroupsCommand<JsonSettings>
     }
 }
 
-[CommandGuide("Accepts one of your open team invites without its emailed token, matched on the email address you are signed in with. Find the id with `groups_invites_mine`.")]
+[CommandGuide("Accepts one of your open team invites without its emailed token, matched on your confirmed email address (only in projects that confirm emails). Find the id with `groups_invites_mine`.")]
 public class GroupsInvitesAcceptCommand : GroupsCommand<MyInviteSettings>
 {
     protected override async Task<int> RunAsync(AnythinkClient client, MyInviteSettings settings) =>
-        Member("Invite accepted.", await client.AcceptMyGroupInviteAsync(settings.InviteId));
+        Member("Invite accepted.", await client.AcceptMyGroupInviteAsync(settings.InviteId), settings.Json);
 }
 
 [CommandGuide("Turns down one of your open team invites so it can't be used. Find the id with `groups_invites_mine`.")]
 public class GroupsInvitesRejectCommand : GroupsCommand<MyInviteSettings>
 {
     protected override async Task<int> RunAsync(AnythinkClient client, MyInviteSettings settings) =>
-        Invite("Invite declined.", await client.DeclineMyGroupInviteAsync(settings.InviteId));
+        Invite("Invite declined.", await client.DeclineMyGroupInviteAsync(settings.InviteId), settings.Json);
 }
 
 [CommandGuide("Withdraws your pending request to join a team, before a manager decides it. Find the id with `groups_invites_mine`.")]

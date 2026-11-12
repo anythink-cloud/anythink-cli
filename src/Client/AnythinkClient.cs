@@ -271,6 +271,9 @@ public class AnythinkClient : HttpApiClient
 
     // ── Groups (teams) ────────────────────────────────────────────────────────
 
+    public Task<GroupInvitePreviewResponse?> PreviewGroupInviteAsync(string token)
+        => GetAnonymousAsync<GroupInvitePreviewResponse>(_org + $"/group-invites/{Seg(token)}");
+
     public async Task<List<GroupResponse>> GetGroupsAsync()
         => (await GetAsync<List<GroupResponse>>(_org + "/groups")) ?? [];
 
