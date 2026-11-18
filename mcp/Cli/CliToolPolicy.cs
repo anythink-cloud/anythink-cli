@@ -78,6 +78,8 @@ public static class CliToolPolicy
             "workflows create name",
             "roles create name",
             "users invite email",
+            "groups create name",
+            "groups invite email",
             "users invite first_name",
             "users invite last_name",
             "projects create name",
@@ -147,7 +149,10 @@ public static class CliToolPolicy
         "seed",
         "invite",
         "trigger",
-        "execute"
+        "execute",
+        "join",
+        "accept",
+        "approve"
     ];
 
     // Import adds records; export only writes a local file and refuses to overwrite one without --force, so neither destroys project data.

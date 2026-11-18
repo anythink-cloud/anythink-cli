@@ -269,6 +269,75 @@ public class AnythinkClient : HttpApiClient
     public Task SendInvitationAsync(int userId)
         => PostAsync<object>(_org + $"/users/{userId}/send-invitation-email", new { });
 
+    // ── Groups (teams) ────────────────────────────────────────────────────────
+
+    public Task<GroupInvitePreviewResponse?> PreviewGroupInviteAsync(string token)
+        => GetAnonymousAsync<GroupInvitePreviewResponse>(_org + $"/group-invites/{Seg(token)}");
+
+    public async Task<List<GroupResponse>> GetGroupsAsync()
+        => (await GetAsync<List<GroupResponse>>(_org + "/groups")) ?? [];
+
+    public Task<GroupResponse?> GetGroupAsync(int groupId)
+        => GetAsync<GroupResponse>(_org + $"/groups/{groupId}");
+
+    public async Task<List<GroupMembershipResponse>> GetMyGroupsAsync()
+        => (await GetAsync<List<GroupMembershipResponse>>(_org + "/groups/mine")) ?? [];
+
+    public Task<GroupResponse> CreateGroupAsync(SaveGroupRequest req)
+        => PostAsync<GroupResponse>(_org + "/groups", req);
+
+    public Task<GroupResponse?> UpdateGroupAsync(int groupId, SaveGroupRequest req)
+        => PutAsync<GroupResponse>(_org + $"/groups/{groupId}", req);
+
+    public Task DeleteGroupAsync(int groupId)
+        => DeleteAsync(_org + $"/groups/{groupId}");
+
+    public async Task<List<GroupMemberResponse>> GetGroupMembersAsync(int groupId)
+        => (await GetAsync<List<GroupMemberResponse>>(_org + $"/groups/{groupId}/members")) ?? [];
+
+    public Task<GroupMemberResponse> AddGroupMemberAsync(int groupId, AddGroupMemberRequest req)
+        => PostAsync<GroupMemberResponse>(_org + $"/groups/{groupId}/members", req);
+
+    public Task<GroupMemberResponse?> UpdateGroupMemberAsync(int groupId, int memberId, UpdateGroupMemberRequest req)
+        => PutAsync<GroupMemberResponse>(_org + $"/groups/{groupId}/members/{memberId}", req);
+
+    public Task RemoveGroupMemberAsync(int groupId, int memberId)
+        => DeleteAsync(_org + $"/groups/{groupId}/members/{memberId}");
+
+    public Task<GroupInviteResponse> CreateGroupInviteAsync(int groupId, CreateGroupInviteRequest req)
+        => PostAsync<GroupInviteResponse>(_org + $"/groups/{groupId}/invites", req);
+
+    public async Task<List<GroupInviteResponse>> GetGroupInvitesAsync(int groupId, string? status = null)
+        => (await GetAsync<List<GroupInviteResponse>>(_org + $"/groups/{groupId}/invites"
+            + (status is null ? "" : $"?status={Uri.EscapeDataString(status)}"))) ?? [];
+
+    public Task<GroupInviteResponse?> RevokeGroupInviteAsync(int groupId, int inviteId)
+        => DeleteAsync<GroupInviteResponse>(_org + $"/groups/{groupId}/invites/{inviteId}");
+
+    public Task<GroupMemberResponse> ApproveGroupJoinRequestAsync(int groupId, int inviteId, int? roleId)
+        => PostAsync<GroupMemberResponse>(_org + $"/groups/{groupId}/invites/{inviteId}/approve", new ApproveGroupJoinRequest(roleId));
+
+    public Task<GroupInviteResponse> DeclineGroupJoinRequestAsync(int groupId, int inviteId)
+        => PostAsync<GroupInviteResponse>(_org + $"/groups/{groupId}/invites/{inviteId}/decline");
+
+    public Task<JoinGroupResponse> JoinGroupAsync(string code)
+        => PostAsync<JoinGroupResponse>(_org + "/groups/join", new JoinGroupRequest(code));
+
+    public async Task<List<GroupInviteResponse>> GetMyGroupInvitesAsync()
+        => (await GetAsync<List<GroupInviteResponse>>(_org + "/groups/invites/mine")) ?? [];
+
+    public Task<GroupMemberResponse> AcceptGroupInviteTokenAsync(string token)
+        => PostAsync<GroupMemberResponse>(_org + $"/group-invites/{Seg(token)}/accept");
+
+    public Task<GroupMemberResponse> AcceptMyGroupInviteAsync(int inviteId)
+        => PostAsync<GroupMemberResponse>(_org + $"/groups/invites/{inviteId}/accept");
+
+    public Task<GroupInviteResponse> DeclineMyGroupInviteAsync(int inviteId)
+        => PostAsync<GroupInviteResponse>(_org + $"/groups/invites/{inviteId}/decline");
+
+    public Task<GroupInviteResponse?> WithdrawMyGroupRequestAsync(int inviteId)
+        => DeleteAsync<GroupInviteResponse>(_org + $"/groups/invites/{inviteId}");
+
     // ── Files ─────────────────────────────────────────────────────────────────
 
     public async Task<List<FileResponse>> GetFilesAsync(int page = 1, int pageSize = 25)

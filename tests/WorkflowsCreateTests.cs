@@ -143,6 +143,21 @@ public class WorkflowsCreateTests
         output.Should().Contain("Unknown event 'EntityCreatd'").And.Contain("EntityUpdated").And.Contain("PaymentSucceeded");
     }
 
+    [Theory]
+    [InlineData("GroupInviteSent")]
+    [InlineData("GroupJoinRequested")]
+    [InlineData("GroupMemberJoined")]
+    public async Task Create_GroupEvents_AreAccepted(string groupEvent)
+    {
+        var sent = new List<string>();
+        var mock = Api(sent);
+
+        var (code, _) = await Create(mock, new WorkflowCreateSettings { Name = "w", Trigger = "Event", Event = groupEvent });
+
+        code.Should().Be(0);
+        SentBody(sent)["triggers"]![0]!["config"]!["event"]!.GetValue<string>().Should().Be(groupEvent);
+    }
+
     [Fact]
     public async Task Create_EventName_IsMatchedCaseInsensitivelyAndSentInTheCanonicalSpelling()
     {

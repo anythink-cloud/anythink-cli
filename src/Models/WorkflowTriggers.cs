@@ -28,6 +28,9 @@ public static class WorkflowTriggers
         "PaymentMethodCaptureFailed",
         "PaymentMethodRemoved",
         "PushActionTaken",
+        "GroupInviteSent",
+        "GroupJoinRequested",
+        "GroupMemberJoined",
     ];
 
     public static string? CanonicalType(string? type) =>
