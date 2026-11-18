@@ -1,3 +1,4 @@
+using AnythinkMcp.Ui;
 using AnythinkMcp.Cli;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
@@ -34,6 +35,7 @@ public static class HostedMode
         public IReadOnlyList<string> AllowedOrigins { get; init; } = [];
         public IReadOnlyList<string> AllowedHosts { get; init; } = [];
         public bool AllowLoopbackInstance { get; init; }
+        public McpUiOptions? Ui { get; init; }
         public int MaxConcurrentRequestsPerProject { get; init; } = DefaultMaxConcurrentRequestsPerProject;
     }
 

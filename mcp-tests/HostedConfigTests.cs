@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+using AnythinkMcp.Ui;
 using FluentAssertions;
 
 namespace AnythinkMcp.Tests;
@@ -136,5 +139,59 @@ public class HostedConfigTests
         var act = () => Load(env => env["MCP_BILLING_URL"] = value);
 
         act.Should().Throw<InvalidOperationException>().WithMessage("MCP_BILLING_URL*");
+    }
+
+    [Fact]
+    public void UiConfig_Unset_LeavesUiOff()
+    {
+        Load().Ui.Should().BeNull();
+    }
+
+    [Fact]
+    public void UiConfig_ParsesInstanceToDashboardPairs()
+    {
+        var ui = Load(env => env["MCP_UI_DASHBOARDS"] =
+            "https://api.uk01-lon.anythink.cloud=https://uk01-lon.anythink.cloud, https://api.my.anythink.dev=https://my-dev.anythink.dev").Ui!;
+
+        ui.Dashboards.Should().BeEquivalentTo(new Dictionary<string, string>
+        {
+            ["https://api.uk01-lon.anythink.cloud"] = "https://uk01-lon.anythink.cloud",
+            ["https://api.my.anythink.dev"] = "https://my-dev.anythink.dev",
+        });
+        ui.FrameDomains.Should().BeEquivalentTo("https://uk01-lon.anythink.cloud", "https://my-dev.anythink.dev");
+    }
+
+    [Theory]
+    [InlineData("http://x=https://y")]
+    [InlineData("https://api.x=https://y/path")]
+    [InlineData("https://api.x")]
+    [InlineData("https://api.x=https://*.y")]
+    public void UiConfig_RejectsNonHttpsOrPathOrMalformedPairs(string value)
+    {
+        var act = () => Load(env => env["MCP_UI_DASHBOARDS"] = value);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*MCP_UI_DASHBOARDS*");
+    }
+
+    [Fact]
+    public void UiConfig_MyAnythinkUrl_MustBeHttpsOrigin()
+    {
+        const string pair = "https://api.x=https://y";
+
+        Load(env => { env["MCP_UI_DASHBOARDS"] = pair; env["MCP_UI_MY_ANYTHINK_URL"] = "https://my.anythink.cloud"; })
+            .Ui!.MyAnythinkUrl.Should().Be("https://my.anythink.cloud");
+
+        var act = () => Load(env => { env["MCP_UI_DASHBOARDS"] = pair; env["MCP_UI_MY_ANYTHINK_URL"] = "https://my.anythink.cloud/x"; });
+        act.Should().Throw<InvalidOperationException>().WithMessage("*MCP_UI_MY_ANYTHINK_URL*");
+    }
+
+    [Fact]
+    public void SandboxDomain_IsSha256OfPublicUrl()
+    {
+        var expected = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("https://mcp.anythink.dev/mcp"))).ToLowerInvariant()[..32] + ".claudemcpcontent.com";
+
+        McpUiOptions.SandboxDomainFor("https://mcp.anythink.dev/mcp").Should().Be(expected);
+        McpUiOptions.SandboxDomainFor("https://example.com/mcp").Should().Be("c3d80a4ed901ee05b21755a88273b4a4.claudemcpcontent.com");
+        Load(env => env["MCP_UI_DASHBOARDS"] = "https://api.x=https://y").Ui!.SandboxDomain.Should().Be(expected);
     }
 }
