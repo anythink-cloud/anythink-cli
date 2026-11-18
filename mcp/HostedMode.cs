@@ -123,7 +123,8 @@ public static class HostedMode
             .AddMcpServer(server => server.ServerInfo = new() { Name = "anythink", Version = "1.0.0" })
             .WithTools<HostedTools>()
             .WithTools(hostedTools);
-        if (options.Ui is not null) mcpServer.WithResources([new McpUiResource(options.Ui)]);
+        if (options.Ui is not null)
+            mcpServer.WithResources([new McpUiResource(options.Ui)]).WithTools([new UiOpenTool(options.Ui)]);
         mcpServer
             .WithRequestFilters(filters => filters.AddListToolsFilter(next => async (request, cancellationToken) =>
             {

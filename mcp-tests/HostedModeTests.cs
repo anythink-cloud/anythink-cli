@@ -280,7 +280,7 @@ public class HostedModeTests : IAsyncLifetime
 
         var mapped = tools.Where(t => McpUiRoutes.ToolNames.Contains(t.Name)).ToList();
         mapped.Should().NotBeEmpty().And.OnlyContain(t => t.ProtocolTool.Meta!["ui"]!["resourceUri"]!.GetValue<string>() == "ui://anythink/view");
-        tools.Except(mapped).Should().NotBeEmpty().And.OnlyContain(t => t.ProtocolTool.Meta == null);
+        tools.Except(mapped).Where(t => t.Name != "ui_open").Should().NotBeEmpty().And.OnlyContain(t => t.ProtocolTool.Meta == null);
     }
 
     [Fact]

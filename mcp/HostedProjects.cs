@@ -6,6 +6,8 @@ namespace AnythinkMcp;
 
 public sealed class HostedProjectException(string message) : Exception(message);
 
+public sealed record HostedProject(Guid ProjectId, string OrgId, string InstanceUrl);
+
 public sealed class HostedProjects(
     HostedCredentials credentials, ITokenExchanger exchanger, McpClientFactory factory, HostedMode.Options options)
 {
@@ -14,13 +16,24 @@ public sealed class HostedProjects(
     public const string ParameterDescription =
         "Project id from 'projects_list'. Required when the connection covers all your projects.";
 
-    public async Task<AnythinkClient> ClientAsync(string? project, CancellationToken cancellationToken)
+    public async Task<AnythinkClient> ClientAsync(string? project, CancellationToken cancellationToken) =>
+        factory.GetClient((await CredentialsAsync(project, cancellationToken)).Credentials);
+
+    public async Task<HostedProject> ResolveAsync(string? project, CancellationToken cancellationToken)
+    {
+        var (resolved, projectId) = await CredentialsAsync(project, cancellationToken);
+        return projectId is { } id && resolved.OrgId is { } orgId && resolved.InstanceUrl is { } instanceUrl
+            ? new HostedProject(id, orgId, instanceUrl)
+            : throw new HostedProjectException("Couldn't work out which project this connection covers.");
+    }
+
+    private async Task<(HostedCredentials Credentials, Guid? ProjectId)> CredentialsAsync(string? project, CancellationToken cancellationToken)
     {
         if (!credentials.AllProjects)
         {
             if (!string.IsNullOrEmpty(project) && !SameProject(project, credentials.ProjectId))
                 throw new HostedProjectException("This connection covers one project only. Leave 'project' out.");
-            return factory.GetClient(credentials);
+            return (credentials, Guid.TryParse(credentials.ProjectId, out var own) ? own : null);
         }
 
         if (!Guid.TryParse(project, out var projectId))
@@ -55,7 +68,7 @@ public sealed class HostedProjects(
             || !HostedAuth.IsAllowedInstanceUrl(instanceUrl, options.AllowLoopbackInstance, options.AllowedInstanceHostSuffixes))
             throw new HostedProjectException("Couldn't get access to that project. Try again.");
 
-        return factory.GetClient(new HostedCredentials { OrgId = orgId, InstanceUrl = instanceUrl.TrimEnd('/'), Token = token });
+        return (new HostedCredentials { OrgId = orgId, InstanceUrl = instanceUrl.TrimEnd('/'), Token = token }, projectId);
     }
 
     private static bool SameProject(string requested, string? own) =>
