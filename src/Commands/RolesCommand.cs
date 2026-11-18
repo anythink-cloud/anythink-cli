@@ -8,7 +8,7 @@ namespace AnythinkCli.Commands;
 
 // ── roles list ────────────────────────────────────────────────────────────────
 
-[CommandGuide("Lists the project's roles with id, name, description and whether each is active. Access works through roles: each user holds one role, and a role grants actions (read, create, update, delete) per entity. Use `roles_permissions_list` to see what one role grants.")]
+[CommandGuide("Lists the project's roles with id, name, description, whether each is active and whether it has API access (without it, the role's entity permissions never apply and its users get 403 on data calls). Access works through roles: each user holds one role, and a role grants actions (read, create, update, delete) per entity. Use `roles_permissions_list` to see what one role grants.")]
 public class RolesListCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
@@ -33,14 +33,15 @@ public class RolesListCommand : BaseCommand<EmptySettings>
 
             Renderer.Header($"Roles ({roles.Count})");
 
-            var table = Renderer.BuildTable("ID", "Name", "Description", "Active");
+            var table = Renderer.BuildTable("ID", "Name", "Description", "Active", "API access");
             foreach (var r in roles.OrderBy(x => x.Id))
             {
                 Renderer.AddRow(table,
                     r.Id.ToString(),
                     r.Name,
                     r.Description,
-                    r.IsActive ? "yes" : "no"
+                    r.IsActive ? "yes" : "no",
+                    r.AnyApiAccess ? "yes" : "no"
                 );
             }
 
@@ -66,9 +67,13 @@ public class RoleCreateSettings : CommandSettings
     [CommandOption("--description <DESC>")]
     [Description("Optional description")]
     public string? Description { get; set; }
+
+    [CommandOption("--api-access <BOOL>")]
+    [Description("Let the role's users reach data through the API (true/false, default true). Entity permissions only apply when this is on")]
+    public bool ApiAccess { get; set; } = true;
 }
 
-[CommandGuide("Adds a role with no entity permissions yet, so its users can't reach any data until you grant actions with `roles_permissions_add`. Then give it to people by passing its id as role_id to `users_invite`. Role names must be unique in the project.")]
+[CommandGuide("Adds a role with API access on (set api_access false to turn it off) and no entity permissions yet, so its users can't reach any data until you grant actions with `roles_permissions_add`. Then give it to people by passing its id as role_id to `users_invite`. Role names must be unique in the project.")]
 public class RolesCreateCommand : BaseCommand<RoleCreateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, RoleCreateSettings settings)
@@ -84,13 +89,69 @@ public class RolesCreateCommand : BaseCommand<RoleCreateSettings>
                 {
                     role = await client.CreateRoleAsync(new CreateRoleRequest(
                         settings.Name,
-                        settings.Description
+                        settings.Description,
+                        AnyApiAccess: settings.ApiAccess
                     ));
                 });
 
             Renderer.Success($"Role [#F97316]{Markup.Escape(role!.Name)}[/] created.");
             Renderer.KeyValue("ID", role.Id.ToString());
             Renderer.KeyValue("Active", role.IsActive ? "yes" : "no");
+            Renderer.KeyValue("API access", role.AnyApiAccess ? "yes" : "no");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return 1;
+        }
+    }
+}
+
+// ── roles update ──────────────────────────────────────────────────────────────
+
+public class RoleUpdateSettings : CommandSettings
+{
+    [CommandArgument(0, "<ID>")]
+    [Description("Role ID")]
+    public int Id { get; set; }
+
+    [CommandOption("--name <NAME>")]
+    [Description("New role name")]
+    public string? Name { get; set; }
+
+    [CommandOption("--description <DESC>")]
+    [Description("New description")]
+    public string? Description { get; set; }
+
+    [CommandOption("--api-access <BOOL>")]
+    [Description("Let the role's users reach data through the API (true/false)")]
+    public bool? ApiAccess { get; set; }
+}
+
+[CommandGuide("Changes a role's name, description or API access, keeping its permissions and active state; only what you pass changes. Turn api_access on for a role whose users get 403 on data calls: without it the role's entity permissions never apply.")]
+public class RolesUpdateCommand : BaseCommand<RoleUpdateSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, RoleUpdateSettings settings)
+    {
+        try
+        {
+            var client = GetClient();
+            var role = await client.GetRoleAsync(settings.Id)
+                ?? throw new AnythinkCli.Client.AnythinkException($"Role {settings.Id} not found.", 404);
+
+            var apiAccess = settings.ApiAccess ?? role.AnyApiAccess;
+            await client.UpdateRoleWithPermissionsAsync(settings.Id,
+                new UpdateRolePermissionsRequest(
+                    settings.Name ?? role.Name,
+                    settings.Description ?? role.Description,
+                    role.IsActive,
+                    apiAccess,
+                    (role.Permissions ?? []).Select(p => p.Id).ToList()));
+
+            Renderer.Success($"Role [#F97316]{settings.Id}[/] updated.");
+            Renderer.KeyValue("Name", settings.Name ?? role.Name);
+            Renderer.KeyValue("API access", apiAccess ? "yes" : "no");
             return 0;
         }
         catch (Exception ex)
