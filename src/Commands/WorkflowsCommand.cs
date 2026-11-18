@@ -511,8 +511,9 @@ public class WorkflowsStepAddCommand : BaseCommand<WorkflowStepAddSettings>
 }
 
 /// Normalizes workflow step parameters to the format the platform expects.
-/// Users can pass the intuitive "entity"/"data" format; this converts to
-/// "entity_name"/"payload" (JSON string) for CreateData/UpdateData actions.
+/// Users can pass "entity" or "entity_name" to any data step; this converts it to the
+/// key the action reads ("entity" for ReadData, "entity_name" for the others), and
+/// "data" to "payload" (JSON string) for CreateData/UpdateData actions.
 static class WorkflowStepParameterNormalizer
 {
     public static System.Text.Json.JsonElement Normalize(string action, System.Text.Json.JsonElement parameters)
@@ -525,11 +526,12 @@ static class WorkflowStepParameterNormalizer
 
         bool changed = false;
 
-        // Normalize "entity" → "entity_name" for all data actions
-        if (dict.ContainsKey("entity") && !dict.ContainsKey("entity_name"))
+        var (from, to) = action == "ReadData" ? ("entity_name", "entity") : ("entity", "entity_name");
+        if (action is "ReadData" or "CreateData" or "UpdateData" or "UpsertData" or "DeleteData" or "FileHandler"
+            && dict.ContainsKey(from) && !dict.ContainsKey(to))
         {
-            dict["entity_name"] = dict["entity"];
-            dict.Remove("entity");
+            dict[to] = dict[from];
+            dict.Remove(from);
             changed = true;
         }
 
