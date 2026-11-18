@@ -66,6 +66,8 @@ Permissions are `{entity}:{action}` — see `references/access-control.md`.
 | `dashboards list` / `get <id>` / `mine` / `create <name> [--chart <id> ...]` / `update <id>` / `delete <id>` | Dashboards |
 | `dashboards add-chart <dashboard-id> <chart-id> [--width N --height N]` / `remove-widget <dashboard-id> <widget-id>` / `data <id>` / `set-home <id>` | Put charts on a dashboard, take them off, read their data |
 | `email templates list` / `show <type> [--rendered]` / `update <type> [--subject <text> --content <path> --content-text <html>]` | A project's transactional email templates |
+| `contacts list [--status --is-user --source --search --page --limit]` / `get <id>` / `create <email> [--consent --wording]` / `update <id>` / `unsubscribe <id>` / `erase <id> --yes` / `export <id>` / `import <file.csv>` | Marketing contacts and their consent. Needs `anythink_contacts:read\|create\|update\|erase` on the role |
+| `email-marketing settings get` / `settings set [--double-opt-in --soft-opt-in ...]` / `options` | How the project collects marketing consent; `options` is public |
 | `email preview [--subject <text> --content <path> --content-text <html> --wrapper <path> --wrapper-text <html>]` | Render an unsaved draft without saving it |
 | `email shell show` / `shell update (--html <path> \| --html-text <html> \| --reset)` | The HTML shell wrapped around every email |
 | `pay status` / `connect` / `payments` / `methods` | Payments (Stripe Connect) |
