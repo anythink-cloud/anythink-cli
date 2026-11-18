@@ -104,12 +104,13 @@ pay_trial_status [read-only] project?
 plans [read-only]
 projects_create [write] name account_id? description? plan_id region?
 projects_delete [destructive] id account_id?
-roles_create [write] project? name description?
+roles_create [write] project? name api_access? description?
 roles_delete [destructive] project? id
 roles_list [read-only] project?
 roles_permissions_add [write] project? role_id entity actions?
 roles_permissions_list [read-only] project? role_id
 roles_permissions_remove [destructive] project? role_id entity actions?
+roles_update [destructive] project? id api_access? description? name?
 search_audit [read-only] project? entity query? sample?
 search_purge [destructive] project? entity?
 search_query [read-only] project? text entities? facet? filter? highlight? limit? page? public? sort?
@@ -129,6 +130,7 @@ users_get [read-only] project? id
 users_invite [write, open-world] project? email first_name last_name role_id?
 users_list [read-only] project?
 users_me [read-only] project?
+users_resend_invite [write] project? id
 workflows_create [write] project? name api_route? cron? description? enabled? entity? event? filter? trigger?
 workflows_delete [destructive] project? id
 workflows_disable [write] project? id

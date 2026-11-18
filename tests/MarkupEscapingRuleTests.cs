@@ -1,3 +1,4 @@
+using RichardSzalay.MockHttp;
 using System.Text.RegularExpressions;
 using FluentAssertions;
 using Microsoft.CodeAnalysis;
@@ -8,9 +9,6 @@ namespace AnythinkCli.Tests;
 
 public class MarkupEscapingRuleTests
 {
-    // #67 is rewriting these two files and removes this exclusion when it rebases.
-    private static readonly string[] SkippedUntilPr67 = ["ProjectsCommand.cs", "AccountsCommand.cs"];
-
     // Spectre.Console members that take their text literally, or escape interpolated values themselves.
     private static readonly HashSet<string> PlainTextMembers = ["Write", "WriteLine", "Escape", "Remove", "Parse", "TryParse", "Text"];
 
@@ -364,7 +362,7 @@ public class MarkupEscapingRuleTests
     }
 
     private static bool IsScanned(SyntaxTree tree) =>
-        tree.FilePath.Length > 0 && !SkippedUntilPr67.Contains(Path.GetFileName(tree.FilePath));
+        tree.FilePath.Length > 0;
 
     private static CSharpCompilation CompileSource()
     {
@@ -393,5 +391,23 @@ public class MarkupEscapingRuleTests
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "AnythinkCli.sln")))
             dir = dir.Parent;
         return dir?.FullName ?? throw new InvalidOperationException("AnythinkCli.sln not found above the test output.");
+    }
+}
+
+[Collection("ConsoleOutput")]
+public class ErrorOutputTests
+{
+    [Fact]
+    public async Task ErrorOutput_WithSquareBrackets_DoesNotCrash()
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.When(HttpMethod.Get, $"{CommandRunner.Org}/entities")
+            .Respond(System.Net.HttpStatusCode.BadRequest, "text/plain", "[SomeAuthHandler] rejected the token");
+
+        var (code, output) = await CommandRunner.RunAsync(mock,
+            () => new AnythinkCli.Commands.EntitiesListCommand().ExecuteAsync(null!, new AnythinkCli.Commands.EmptySettings()));
+
+        code.Should().Be(1);
+        output.Should().Contain("[SomeAuthHandler] rejected the token");
     }
 }

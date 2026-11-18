@@ -77,6 +77,41 @@ public class WorkflowsSeedCommandTests : IDisposable
         code.Should().Be(0);
         JsonNode.Parse(sent.Single())!["group"]!.GetValue<string>().Should().Be("content");
     }
+
+    [Fact]
+    public async Task Seed_ReadDataStep_KeepsEntityKey()
+    {
+        var sent = new List<string>();
+        var mock = Api(sent);
+        mock.ReplyWith(HttpMethod.Post, $"{CommandRunner.Org}/workflows/9/steps", """{"id":1,"key":"read"}""", sent);
+        var seed = WriteSeed("""
+            {"name":"smoke","trigger":"Manual","options":{"manual_entities":["albums"]},"steps":[
+              {"key":"read","action":"ReadData","parameters":{"entity":"albums"}}]}
+            """);
+
+        var (code, _) = await Seed(mock, seed);
+
+        code.Should().Be(0);
+        var parameters = JsonNode.Parse(sent[1])!["parameters"]!;
+        parameters["entity"]!.GetValue<string>().Should().Be("albums");
+        parameters["entity_name"].Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("ReadData", """{"entity_name":"albums"}""", """{"entity":"albums"}""")]
+    [InlineData("CreateData", """{"entity":"albums"}""", """{"entity_name":"albums"}""")]
+    [InlineData("UpdateData", """{"entity":"albums"}""", """{"entity_name":"albums"}""")]
+    [InlineData("UpsertData", """{"entity":"albums"}""", """{"entity_name":"albums"}""")]
+    [InlineData("DeleteData", """{"entity":"albums"}""", """{"entity_name":"albums"}""")]
+    [InlineData("FileHandler", """{"entity":"albums"}""", """{"entity_name":"albums"}""")]
+    [InlineData("ReadData", """{"entity":"albums","entity_name":"x"}""", """{"entity":"albums","entity_name":"x"}""")]
+    [InlineData("RunScript", """{"entity":"albums"}""", """{"entity":"albums"}""")]
+    public void StepParameters_EntityKey_IsTheOneTheActionReads(string action, string given, string expected)
+    {
+        var result = WorkflowStepParameterNormalizer.Normalize(action, JsonDocument.Parse(given).RootElement);
+
+        result.GetRawText().Should().Be(expected);
+    }
 }
 
 public class WorkflowsMigrateRequestTests

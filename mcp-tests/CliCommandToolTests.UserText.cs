@@ -46,16 +46,14 @@ public partial class CliCommandToolTests
     {
         const string email = "ann[1]@example.com";
         var mock = new MockHttpMessageHandler();
-        var sent = RespondSlowly(mock, path => path.EndsWith("/send-invitation-email")
-            ? "{}"
-            : $$"""{"id":9,"first_name":"Ann","last_name":"Lee","email":"{{email}}","is_confirmed":false,"created_at":"2026-01-01T00:00:00Z"}""");
+        var sent = RespondSlowly(mock, path => $$"""{"id":9,"first_name":"Ann","last_name":"Lee","email":"{{email}}","is_confirmed":false,"created_at":"2026-01-01T00:00:00Z"}""");
 
         var result = await Tool("users_invite", scope).RunAsync(
             Args(new { email, first_name = "Ann", last_name = "Lee" }), Client(mock));
 
         result.ExitCode.Should().Be(0, result.Output);
         result.Output.Should().Contain(email);
-        sent.Select(s => s.Path).Should().Equal("/org/42/users", "/org/42/users/9/send-invitation-email");
+        sent.Select(s => s.Path).Should().Equal("/org/42/users");
     }
 
     [Fact]
