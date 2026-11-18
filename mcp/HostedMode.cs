@@ -114,6 +114,9 @@ public static class HostedMode
         });
 
         var hostedTools = CliCommandTool.All(CliToolScope.Hosted);
+        if (options.Ui is not null)
+            foreach (var tool in hostedTools.Where(tool => McpUiRoutes.TryGet(tool.ProtocolTool.Name, out _)))
+                tool.ProtocolTool.Meta = McpUiRoutes.ToolMeta();
         var accountTools = hostedTools.Where(tool => tool.NeedsAccountAccess).Select(tool => tool.ProtocolTool.Name).ToHashSet();
 
         builder.Services

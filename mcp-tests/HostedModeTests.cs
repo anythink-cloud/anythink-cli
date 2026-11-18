@@ -1,4 +1,5 @@
 using AnythinkMcp.Cli;
+using AnythinkMcp.Ui;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -36,15 +37,21 @@ public class HostedModeTests : IAsyncLifetime
 
     private static string ExchangedFor(string inbound) => "ex-" + inbound[^16..];
 
-    public Task InitializeAsync() => StartAppAsync(HostedMode.DefaultMaxConcurrentRequestsPerProject);
+    public Task InitializeAsync() => StartAppAsync(HostedMode.DefaultMaxConcurrentRequestsPerProject, null);
 
     private async Task RestartAppAsync(int maxConcurrentRequestsPerProject)
     {
         await DisposeAsync();
-        await StartAppAsync(maxConcurrentRequestsPerProject);
+        await StartAppAsync(maxConcurrentRequestsPerProject, null);
     }
 
-    private async Task StartAppAsync(int maxConcurrentRequestsPerProject)
+    private async Task RestartWithUiAsync(McpUiOptions ui)
+    {
+        await DisposeAsync();
+        await StartAppAsync(HostedMode.DefaultMaxConcurrentRequestsPerProject, ui);
+    }
+
+    private async Task StartAppAsync(int maxConcurrentRequestsPerProject, McpUiOptions? ui)
     {
         _rsa = RSA.Create(2048);
         _key = new RsaSecurityKey(_rsa) { KeyId = "test-key-1" };
@@ -73,6 +80,7 @@ public class HostedModeTests : IAsyncLifetime
             Exchange = new TokenExchangeOptions { ClientId = "mcp", ClientSecret = "s3cret", Audience = "anythink-oauth" },
             AllowedOrigins = [Origin],
             MaxConcurrentRequestsPerProject = maxConcurrentRequestsPerProject,
+            Ui = ui,
         };
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
@@ -259,6 +267,28 @@ public class HostedModeTests : IAsyncLifetime
             (annotations.ReadOnlyHint == true || annotations.DestructiveHint.HasValue).Should().BeTrue();
             tool.Name.Length.Should().BeLessOrEqualTo(64);
         }
+    }
+
+    private static readonly McpUiOptions UiOn = new(new Dictionary<string, string> { ["https://a.anythink.cloud"] = "https://dash.test" }, null, "x.claudemcpcontent.com");
+
+    [Fact]
+    public async Task ToolsList_WithUi_MappedToolsCarryResourceUri_OthersNone()
+    {
+        await RestartWithUiAsync(UiOn);
+        await using var mcpClient = await McpClient.CreateAsync(Transport(ValidToken()));
+        var tools = (await mcpClient.ListToolsAsync()).ToDictionary(t => t.Name);
+
+        tools["data_list"].ProtocolTool.Meta!["ui"]!["resourceUri"]!.GetValue<string>().Should().Be("ui://anythink/view");
+        tools["data_delete"].ProtocolTool.Meta.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ToolsList_WithoutUi_NoToolHasMeta()
+    {
+        await using var mcpClient = await McpClient.CreateAsync(Transport(ValidToken()));
+        var tools = await mcpClient.ListToolsAsync();
+
+        tools.Should().OnlyContain(t => t.ProtocolTool.Meta == null);
     }
 
     [Fact]
