@@ -77,6 +77,7 @@ function createView(bridge, doc) {
     const dims = context.containerDimensions || {};
     if ("height" in dims || context.displayMode === "fullscreen") {
       root.style.height = "";
+      reported = "";
       return;
     }
     const size = { width: doc.documentElement.clientWidth, height: Math.min(dims.maxHeight ?? INLINE_HEIGHT, INLINE_HEIGHT) };
@@ -109,6 +110,7 @@ function createView(bridge, doc) {
       const result = await bridge.request("ui/request-display-mode", { mode: "fullscreen" }).catch(() => ({ mode: context.displayMode }));
       context.displayMode = result.mode;
       showExpand();
+      fitHeight();
     });
     showExpand();
     show(
@@ -158,6 +160,7 @@ function createView(bridge, doc) {
         });
         context = init.hostContext || {};
         bridge.notify("ui/notifications/initialized");
+        fitHeight();
         const [args, toolResult] = await Promise.all([input, result]);
         const tool = context.toolInfo?.tool?.name ?? toolResult._meta?.["anythink/tool"];
         if (!tool) return showMessage(NO_VIEW);

@@ -153,13 +153,14 @@ test("bridge pairs responses by id and ignores unknown ids", async () => {
 
 test("initializes with the spec handshake and asks ui_open for the tool that ran", async () => {
   const { host } = await shownView();
-  const [init, initialized, call] = host.sent;
+  const [init, initialized, size, call] = host.sent;
   assert.strictEqual(init.method, "ui/initialize");
   assert.strictEqual(init.params.protocolVersion, "2026-01-26");
   assert.deepStrictEqual(init.params.appCapabilities, { availableDisplayModes: ["inline", "fullscreen"] });
   assert.ok(init.params.appInfo.name);
   assert.strictEqual(initialized.method, "ui/notifications/initialized");
   assert.strictEqual(initialized.id, undefined);
+  assert.strictEqual(size.method, "ui/notifications/size-changed");
   assert.deepStrictEqual(call.params, { name: "ui_open", arguments: { tool: "data_list", arguments: { entity: "orders", project: "p1" } } });
 });
 
@@ -326,4 +327,28 @@ test("a refused fullscreen request keeps Expand and rejects nothing", async () =
   const expand = all(doc.root).find(n => n.tag === "button" && text(n) === "Expand");
   await expand.click();
   assert.strictEqual(expand.hidden, false);
+});
+
+test("the loading skeleton gets the usable height before the link arrives", async () => {
+  const host = fakeHost({ context: { containerDimensions: { maxHeight: 600 } } });
+  const doc = fakeDocument();
+  createView(host.bridge, doc).start();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.strictEqual(host.methods().includes("tools/call"), false);
+  assert.strictEqual(doc.root.style.height, "600px");
+  assert.deepStrictEqual(sizeReports(host), [{ width: 400, height: 600 }]);
+});
+
+test("expand on a flexible-height host drops the inline height", async () => {
+  const { host, doc } = await shownView({ context: { containerDimensions: { maxHeight: 600 } } });
+  const expand = all(doc.root).find(n => n.tag === "button" && text(n) === "Expand");
+  assert.strictEqual(doc.root.style.height, "600px");
+
+  await expand.click();
+
+  assert.strictEqual(doc.root.style.height, "");
+  host.notify("ui/notifications/host-context-changed", { displayMode: "inline" });
+  assert.strictEqual(doc.root.style.height, "600px");
+  assert.deepStrictEqual(sizeReports(host).at(-1), { width: 400, height: 600 });
+  assert.strictEqual(sizeReports(host).length, 2);
 });
