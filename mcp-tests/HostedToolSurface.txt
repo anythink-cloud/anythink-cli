@@ -39,7 +39,7 @@ entities_create [write] project? name junction? lock_records? public? rls?
 entities_delete [destructive] project? name
 entities_get [read-only] project? name
 entities_list [read-only] project?
-entities_update [destructive] project? name lock_records? public? rls?
+entities_update [destructive] project? name lock_records? public? rls? team_reads?
 fields_add [write] project? entity name default? description? display? indexed? label? multiple? name_field? on_delete? options? public? required? searchable? target? type? unique?
 fields_delete [destructive] project? entity field_name
 fields_get [read-only] project? entity field_name
