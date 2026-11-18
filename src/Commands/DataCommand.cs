@@ -38,6 +38,7 @@ public class DataListSettings : CommandSettings
     public bool All { get; set; }
 }
 
+[CommandGuide("Returns one page of records (rows), 20 by default. Filter by field values with JSON such as {\"status\":\"draft\",\"price\":{\"gte\":10}} or pairs such as status=draft&price=GTE:10. Use `data_get` when you know the record id, or `search_query` to find records by text across entities.")]
 public class DataListCommand : BaseCommand<DataListSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, DataListSettings settings)
@@ -144,6 +145,7 @@ public class DataGetSettings : CommandSettings
     public int Id { get; set; }
 }
 
+[CommandGuide("Returns all of one record's field values by its numeric id. Use `data_list` with a filter when you don't know the id, `search_query` to find it by text, and `data_rls` to see which users can access it.")]
 public class DataGetCommand : BaseCommand<DataGetSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, DataGetSettings settings)
@@ -216,6 +218,7 @@ public class DataCreateSettings : CommandSettings
     public string? Data { get; set; }
 }
 
+[CommandGuide("Inserts one record from a JSON object of field names to values and returns the created record with its new id. Objects or arrays given for jsonb fields are sent as JSON strings automatically. Workflows with an EntityCreated trigger on this entity will run. To load many rows from a file, use `data_import`.")]
 public class DataCreateCommand : BaseCommand<DataCreateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, DataCreateSettings settings)
@@ -271,6 +274,7 @@ public class DataUpdateSettings : CommandSettings
     public string? Data { get; set; }
 }
 
+[CommandGuide("Changes only the fields named in the JSON object and returns the updated record; other fields keep their values. Objects or arrays given for jsonb fields are sent as JSON strings automatically. Workflows with an EntityUpdated trigger on this entity will run. To create a record instead, use `data_create`.")]
 public class DataUpdateCommand : BaseCommand<DataUpdateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, DataUpdateSettings settings)
@@ -325,6 +329,7 @@ public class DataDeleteSettings : CommandSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("Removes one record by its numeric id. Records in other entities that point to it through a relationship field follow that field's on-delete rule; with the default, CASCADE, they are deleted too. Workflows with an EntityDeleted trigger on this entity will run.")]
 public class DataDeleteCommand : BaseCommand<DataDeleteSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, DataDeleteSettings settings)
@@ -380,6 +385,7 @@ public class DataRlsSettings : CommandSettings
     public bool ReadOnly { get; set; }
 }
 
+[CommandGuide("Without a user id, returns the users who have row-level security (RLS) access to the record, with their names and whether access is read-only. With a user id, grants that user access to the record, full by default or read-only when asked. It cannot remove access, and only matters on entities with RLS turned on.")]
 public class DataRlsCommand : BaseCommand<DataRlsSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, DataRlsSettings settings)

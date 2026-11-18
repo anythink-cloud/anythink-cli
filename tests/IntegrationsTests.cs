@@ -294,3 +294,41 @@ public class IntegrationsTests
         client.DashboardUrl.Should().Be("https://staging.example.com");
     }
 }
+
+public class IntegrationsConnectStateTests
+{
+    [Fact]
+    public void ReadStateParam_ReturnsTheStateTheServerIssued()
+    {
+        var url = "https://www.strava.com/oauth/authorize?client_id=1&state=MTp0d2l0dGVyOmFiYw%3D%3D&scope=read";
+
+        AnythinkCli.Commands.IntegrationsOAuthConnectCommand.ReadStateParam(url).Should().Be("MTp0d2l0dGVyOmFiYw==");
+    }
+
+    [Fact]
+    public void ReadStateParam_NoState_ReturnsNull()
+    {
+        AnythinkCli.Commands.IntegrationsOAuthConnectCommand.ReadStateParam("https://provider.example.com/authorize?client_id=1")
+            .Should().BeNull();
+    }
+
+    [Fact]
+    public void PrepareAuthUrl_KeepsTheServerUrlAndItsState()
+    {
+        var url = "https://provider.example.com/authorize?client_id=1&state=c2VydmVy";
+
+        var (authUrl, state) = AnythinkCli.Commands.IntegrationsOAuthConnectCommand.PrepareAuthUrl(url);
+
+        authUrl.Should().Be(url);
+        state.Should().Be("c2VydmVy");
+    }
+
+    [Fact]
+    public void PrepareAuthUrl_OlderServerWithoutState_AddsOne()
+    {
+        var (authUrl, state) = AnythinkCli.Commands.IntegrationsOAuthConnectCommand.PrepareAuthUrl("https://provider.example.com/authorize?client_id=1");
+
+        state.Should().NotBeNullOrEmpty();
+        authUrl.Should().Be($"https://provider.example.com/authorize?client_id=1&state={state}");
+    }
+}

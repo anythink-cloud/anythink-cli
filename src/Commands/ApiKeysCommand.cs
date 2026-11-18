@@ -9,6 +9,7 @@ namespace AnythinkCli.Commands;
 
 // ── api-keys list ────────────────────────────────────────────────────────────
 
+[CommandGuide("Shows each key's id, name, number of permissions, expiry date and whether it is active, expired or revoked; key values are never returned. Use the id with `api_keys_revoke`.")]
 public class ApiKeysListCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
@@ -92,6 +93,7 @@ public class ApiKeyCreateSettings : CommandSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("Creates a project API key with the named permissions (names from `fetch` on /permissions) that expires after 1 to 365 days, 90 by default. Permissions you don't hold yourself are dropped with a warning. The raw key appears only in this output, or goes straight into a CLI profile with save_as, so store it at once.")]
 public class ApiKeysCreateCommand : BaseCommand<ApiKeyCreateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, ApiKeyCreateSettings settings)
@@ -249,6 +251,7 @@ public class ApiKeyRevokeSettings : CommandSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("Revokes the key immediately and for good, so any script, CI job or CLI profile using it starts failing to authenticate. Create a replacement with `api_keys_create` first if something still needs access.")]
 public class ApiKeysRevokeCommand : BaseCommand<ApiKeyRevokeSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, ApiKeyRevokeSettings settings)

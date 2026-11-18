@@ -132,6 +132,44 @@ public class WorkflowsReadCommandsTests
         output.Should().Contain("workflow_7").And.Contain("Event: EntityCreated on research_items");
     }
 
+    private static string WorkflowWithNoNameDescriptionOrTrigger()
+    {
+        var bare = WorkflowFixtures.Workflow(9, 1, "return 1;");
+        bare["name"] = null;
+        bare["description"] = null;
+        bare["trigger"] = null;
+        bare["triggers"] = null;
+        bare["steps"] = null;
+        return new JsonArray(WorkflowFixtures.Workflow(7, 1, "return 1;"), bare).ToJsonString();
+    }
+
+    [Fact]
+    public async Task WorkflowsList_NullNameDescriptionAndTrigger_ShowsADashInsteadOfCrashing()
+    {
+        var (code, output) = await CommandRunner.RunAsync(ReturningJson(WorkflowWithNoNameDescriptionOrTrigger()),
+            () => new WorkflowsListCommand().ExecuteAsync(null!, new WorkflowListSettings()));
+
+        code.Should().Be(0, output);
+        output.Should().NotContain("cannot be null");
+        output.Should().Contain("workflow_7");
+        output.Split('\n').Should().Contain(line => line.Contains(" 9 ") && line.Contains('—'));
+    }
+
+    [Fact]
+    public async Task WorkflowsListJson_NullFields_PrintsOnlyJsonAndNoTable()
+    {
+        var (code, output) = await CommandRunner.RunAsync(ReturningJson(WorkflowWithNoNameDescriptionOrTrigger()),
+            () => new WorkflowsListCommand().ExecuteAsync(null!, new WorkflowListSettings { Json = true }));
+
+        code.Should().Be(0, output);
+        output.Should().NotContain("Workflows (");
+        var bare = JsonNode.Parse(output)!.AsArray().Should().HaveCount(2).And.Subject.Last()!.AsObject();
+        bare["id"]!.GetValue<int>().Should().Be(9);
+        bare["name"].Should().BeNull();
+        bare["triggers"]!.AsArray().Should().BeEmpty();
+        bare["step_count"]!.GetValue<int>().Should().Be(0);
+    }
+
     // ── get ─────────────────────────────────────────────────────────────────
 
     [Fact]

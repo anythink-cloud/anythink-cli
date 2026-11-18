@@ -1,4 +1,5 @@
 using AnythinkCli.Client;
+using AnythinkCli.Importers.Engine;
 using AnythinkCli.Models;
 using AnythinkCli.Output;
 using Spectre.Console;
@@ -13,7 +14,10 @@ public record ImportOptions(
     bool IncludeFiles = false,
     bool IncludeRoles = false,
     int DataPageSize = 100,
-    bool RequireConfirmation = false
+    bool RequireConfirmation = false,
+    string? PlanPath = null,
+    bool ForcePlanFile = false,
+    bool PlanAsJson = false
 );
 
 public record ImportResult(
@@ -55,24 +59,37 @@ public class ImportRunner
 
     public async Task<ImportResult> RunAsync()
     {
-        AnsiConsole.MarkupLine($"[dim]{Markup.Escape(_source.PlatformName)}:[/]  {Markup.Escape(_source.ConnectionSummary)}");
-        AnsiConsole.MarkupLine($"[dim]Anythink:[/]  org {Markup.Escape(_target.OrgId)}");
-        AnsiConsole.WriteLine();
+        var quiet = _options.PlanAsJson;
+        if (!quiet)
+        {
+            AnsiConsole.MarkupLine($"[dim]{Markup.Escape(_source.PlatformName)}:[/]  {Markup.Escape(_source.ConnectionSummary)}");
+            AnsiConsole.MarkupLine($"[dim]Anythink:[/]  org {Markup.Escape(_target.OrgId)}");
+            AnsiConsole.WriteLine();
+        }
 
         ImportSchema schema = null!;
-        await AnsiConsole.Status().Spinner(Spinner.Known.Dots)
-            .StartAsync(Renderer.Status($"Fetching {_source.PlatformName} schema..."), async _ =>
-                schema = await _source.FetchSchemaAsync(
-                    _options.IncludeFlows, _options.IncludeFiles, _options.IncludeRoles));
+        if (quiet)
+            schema = await _source.FetchSchemaAsync(_options.IncludeFlows, _options.IncludeFiles, _options.IncludeRoles);
+        else
+            await AnsiConsole.Status().Spinner(Spinner.Known.Dots)
+                .StartAsync(Renderer.Status($"Fetching {_source.PlatformName} schema..."), async _ =>
+                    schema = await _source.FetchSchemaAsync(
+                        _options.IncludeFlows, _options.IncludeFiles, _options.IncludeRoles));
 
-        AnsiConsole.MarkupLine($"Found [bold]{schema.Collections.Count}[/] collection(s) to import.");
-        if (_options.IncludeFlows)
-            AnsiConsole.MarkupLine($"Found [bold]{schema.Flows.Count}[/] flow(s) to import.");
-        if (_options.IncludeFiles)
-            AnsiConsole.MarkupLine($"Found [bold]{schema.Files.Count}[/] file(s) to import.");
-        if (_options.IncludeRoles)
-            AnsiConsole.MarkupLine($"Found [bold]{schema.Roles.Count}[/] role(s) to import.");
-        AnsiConsole.WriteLine();
+        if (!quiet)
+        {
+            AnsiConsole.MarkupLine($"Found [bold]{schema.Collections.Count}[/] collection(s) to import.");
+            if (_options.IncludeFlows)
+                AnsiConsole.MarkupLine($"Found [bold]{schema.Flows.Count}[/] flow(s) to import.");
+            if (_options.IncludeFiles)
+                AnsiConsole.MarkupLine($"Found [bold]{schema.Files.Count}[/] file(s) to import.");
+            if (_options.IncludeRoles)
+                AnsiConsole.MarkupLine($"Found [bold]{schema.Roles.Count}[/] role(s) to import.");
+            AnsiConsole.WriteLine();
+        }
+
+        if (_options.DryRun)
+            return await RunPlanOnlyAsync(schema);
 
         // Snapshot existing target state up-front. We refresh per-entity field
         // lists below as we add to them.
@@ -85,10 +102,6 @@ public class ImportRunner
             .ToDictionary(e => e.Name, StringComparer.OrdinalIgnoreCase);
 
         PrintPlan(schema, entitiesByName);
-
-        if (_options.DryRun)
-            return new ImportResult(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                schema.Errors ?? [], schema.Warnings);
 
         if (_options.RequireConfirmation &&
             !AnsiConsole.Confirm("Apply this import to the project?", defaultValue: false))
@@ -744,11 +757,8 @@ public class ImportRunner
         Renderer.Success($"[bold]{Markup.Escape(col.Name)}[/] — {msg}");
     }
 
-    private async Task<int> CountTargetRecordsAsync(string entityName)
-    {
-        var first = await _target.ListItemsAsync(entityName, 1, 1);
-        return first.TotalCount ?? first.Items.Count;
-    }
+    private Task<int> CountTargetRecordsAsync(string entityName) =>
+        TargetSnapshotReader.CountRecordsAsync(_target, entityName);
 
     private static bool TryReadId(JsonObject record, out long id)
     {
@@ -776,42 +786,76 @@ public class ImportRunner
 
     // ── Output ────────────────────────────────────────────────────────────────
 
+    private PlanOptions PlanScope => new(_options.IncludeFlows, _options.IncludeData, _options.IncludeFiles, _options.IncludeRoles);
+
+    private PlanContext NewPlanContext()
+    {
+        var scope = new List<string> { "schema" };
+        if (_options.IncludeFlows) scope.Add("flows");
+        if (_options.IncludeFiles) scope.Add("files");
+        if (_options.IncludeRoles) scope.Add("roles");
+        if (_options.IncludeData) scope.Add("data");
+        return new PlanContext(
+            new PlanSource(_source.PlatformName, UrlRedaction.Redact(_source.ConnectionSummary), scope),
+            new PlanTarget(UrlRedaction.Redact(_target.BaseUrl), _target.OrgId),
+            Guid.NewGuid().ToString("N"), DateTimeOffset.UtcNow);
+    }
+
+    internal async Task<ImportPlan> BuildPlanAsync(ImportSchema schema)
+    {
+        var snapshot = await TargetSnapshotReader.ReadAsync(_target, PlanScope, _source.PlatformName, schema);
+        return ImportPlanner.Build(schema, snapshot, PlanScope, NewPlanContext());
+    }
+
+    private async Task<ImportResult> RunPlanOnlyAsync(ImportSchema schema)
+    {
+        if (_options.PlanPath is { } path) PlanFile.EnsureWritable(path, _options.ForcePlanFile);
+
+        ImportPlan plan = null!;
+        if (_options.PlanAsJson)
+            plan = await BuildPlanAsync(schema);
+        else
+            await AnsiConsole.Status().Spinner(Spinner.Known.Dots)
+                .StartAsync("Reading the project...", async _ => plan = await BuildPlanAsync(schema));
+
+        if (_options.PlanPath is { } file) PlanFile.Write(file, plan, _options.ForcePlanFile);
+
+        if (_options.PlanAsJson)
+            AnsiConsole.Profile.Out.Writer.WriteLine(PlanJson.Serialise(plan));
+        else
+        {
+            PlanDiffRenderer.Render(plan);
+            AnsiConsole.WriteLine();
+            if (_options.PlanPath is { } saved)
+                Renderer.Info($"Plan saved to {Markup.Escape(saved)}. Nothing in the project was changed.");
+            else
+                Renderer.Info("Re-run without [bold]--dry-run[/] to apply.");
+        }
+
+        var unsupportedData = plan.Items
+            .Where(i => i is { Kind: PlanKind.RecordBatch, Action: PlanAction.Report })
+            .Select(i => i.Reason);
+        return new ImportResult(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            [.. schema.Errors ?? [], .. unsupportedData], schema.Warnings);
+    }
+
     private void PrintPlan(ImportSchema schema, Dictionary<string, Entity> entitiesByName)
     {
-        Renderer.Header(_options.DryRun ? "Import plan (dry run)" : "Import plan");
+        Renderer.Header("Import plan");
+
+        var entitiesOnly = TargetSnapshot.Empty with { Entities = entitiesByName.Values.ToList() };
+        var plan = ImportPlanner.Build(schema, entitiesOnly, new PlanOptions(false, false, false, false), NewPlanContext());
+        var entityItems = plan.Items.Where(i => i.Kind == PlanKind.Entity).GroupBy(i => i.Key).ToDictionary(g => g.Key, g => g.First());
 
         var table = Renderer.BuildTable("Collection", "Fields", "Action");
         foreach (var col in schema.Collections)
-        {
-            string action;
-            if (entitiesByName.TryGetValue(col.Name, out var existing))
-            {
-                var existingFields = (existing.Fields ?? new List<Field>())
-                    .Select(f => f.Name)
-                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
-                var newFields = col.Fields.Count(f => !existingFields.Contains(f.Name));
-                action = newFields == 0 ? "skip (up to date)" : $"merge (+{newFields} fields)";
-            }
-            else
-            {
-                action = "create";
-            }
-            Renderer.AddRow(table, col.Name, col.Fields.Count.ToString(), action);
-        }
+            Renderer.AddRow(table, col.Name, col.Fields.Count.ToString(), PlanDiffRenderer.EntityAction(entityItems[$"entity:{col.Name}"]));
         AnsiConsole.Write(table);
 
         if (_options.IncludeFlows) Renderer.Info($"{schema.Flows.Count} flow(s) would be created (disabled); existing workflows are left untouched.");
         if (_options.IncludeFiles) Renderer.Info($"{schema.Files.Count} file(s) would be uploaded.");
         if (_options.IncludeData) Renderer.Info("Records would be imported into collections that are currently empty.");
         if (_options.IncludeRoles) Renderer.Info($"{schema.Roles.Count} role(s) would be created; existing roles are left untouched.");
-
-        if (_options.DryRun)
-        {
-            foreach (var w in schema.Warnings ?? []) Renderer.Warn(Markup.Escape(w));
-            foreach (var e in schema.Errors ?? []) Renderer.Error(e);
-            AnsiConsole.WriteLine();
-            Renderer.Info("Re-run without [bold]--dry-run[/] to apply.");
-        }
     }
 
     private void PrintSummary(ResultAccumulator r)

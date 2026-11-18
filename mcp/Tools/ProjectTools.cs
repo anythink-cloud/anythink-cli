@@ -17,7 +17,7 @@ public class ProjectTools
     private readonly McpClientFactory _factory;
     public ProjectTools(McpClientFactory factory) => _factory = factory;
 
-    [McpServerTool(Name = "projects_list"),
+    [McpServerTool(Name = "projects_list", Title = "List projects", ReadOnly = true),
      Description(
         "List the projects (provisioned backend instances) in a billing account. " +
         "Requires platform login and an active billing account (set one with 'accounts_use'). " +
@@ -53,7 +53,7 @@ public class ProjectTools
         }));
     }
 
-    [McpServerTool(Name = "projects_create"),
+    [McpServerTool(Name = "projects_create", Title = "Create a project", Destructive = false),
      Description(
         "Provision a new project — a dedicated, isolated Anythink backend instance with its own " +
         "database, API, auth, and storage. Requires platform login and an active billing account " +
@@ -81,7 +81,7 @@ public class ProjectTools
         });
     }
 
-    [McpServerTool(Name = "projects_use"),
+    [McpServerTool(Name = "projects_use", Title = "Switch the active project", Destructive = false),
      Description(
         "Connect to a project and save it as the active profile so the 'cli' tool's data, entities, " +
         "users, and other commands target it. Resolves the project, then either stores the API key you " +
@@ -149,7 +149,7 @@ public class ProjectTools
         });
     }
 
-    [McpServerTool(Name = "projects_delete"),
+    [McpServerTool(Name = "projects_delete", Title = "Delete a project", Destructive = true),
      Description(
         "Permanently delete a project and tear down its backend instance, including its database and " +
         "stored data. This is destructive and irreversible — always confirm with the user first, and " +

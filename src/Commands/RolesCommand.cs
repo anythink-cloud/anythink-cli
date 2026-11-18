@@ -8,6 +8,7 @@ namespace AnythinkCli.Commands;
 
 // ── roles list ────────────────────────────────────────────────────────────────
 
+[CommandGuide("Lists the project's roles with id, name, description and whether each is active. Access works through roles: each user holds one role, and a role grants actions (read, create, update, delete) per entity. Use `roles_permissions_list` to see what one role grants.")]
 public class RolesListCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
@@ -67,6 +68,7 @@ public class RoleCreateSettings : CommandSettings
     public string? Description { get; set; }
 }
 
+[CommandGuide("Adds a role with no entity permissions yet, so its users can't reach any data until you grant actions with `roles_permissions_add`. Then give it to people by passing its id as role_id to `users_invite`. Role names must be unique in the project.")]
 public class RolesCreateCommand : BaseCommand<RoleCreateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, RoleCreateSettings settings)
@@ -112,6 +114,7 @@ public class RoleDeleteSettings : CommandSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("Removes a role and the permissions it grants. The API refuses while any user still holds the role, and the built-in admin role can't be deleted, so check `users_list` for its holders first. To take away only some access, use `roles_permissions_remove` instead.")]
 public class RolesDeleteCommand : BaseCommand<RoleDeleteSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, RoleDeleteSettings settings)
@@ -159,6 +162,7 @@ public class RolePermissionsListSettings : CommandSettings
     public int RoleId { get; set; }
 }
 
+[CommandGuide("Shows, entity by entity, which actions (read, create, update, delete) a role grants. Use it before `roles_permissions_add` or `roles_permissions_remove`, or to explain why users with that role can or can't reach some data.")]
 public class RolesPermissionsListCommand : BaseCommand<RolePermissionsListSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, RolePermissionsListSettings settings)
@@ -228,6 +232,7 @@ public class RolePermissionsAddSettings : CommandSettings
     public string Actions { get; set; } = "read";
 }
 
+[CommandGuide("Grants a role one or more actions (read, create, update, delete; default read) on one entity, and every user holding the role gains them at once. Its other permissions are kept and actions it already has are skipped. An action with no matching permission for that entity is reported and skipped.")]
 public class RolesPermissionsAddCommand : BaseCommand<RolePermissionsAddSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, RolePermissionsAddSettings settings)
@@ -333,6 +338,7 @@ public class RolePermissionsRemoveSettings : CommandSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("Takes one or more actions (default read) on one entity away from a role; every user holding the role loses them at once, and its other permissions are kept. Actions the role doesn't have are ignored. Use `roles_permissions_list` first to see what it grants.")]
 public class RolesPermissionsRemoveCommand : BaseCommand<RolePermissionsRemoveSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, RolePermissionsRemoveSettings settings)

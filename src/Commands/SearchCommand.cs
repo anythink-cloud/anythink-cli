@@ -55,6 +55,7 @@ public class SearchQuerySettings : CommandSettings
     public bool Json { get; set; }
 }
 
+[CommandGuide("Searches the search index across all indexed entities or the ones listed, with optional filter (status=published AND category=news), sort, facets and highlighting; use * to browse. The public option searches as an anonymous visitor. To list one entity's records by exact field values, use `data_list`; if indexed records are missing, use `search_rehydrate`.")]
 public class SearchQueryCommand : BaseCommand<SearchQuerySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, SearchQuerySettings settings)
@@ -116,6 +117,7 @@ public class SearchSimilarSettings : CommandSettings
     public bool Json { get; set; }
 }
 
+[CommandGuide("Takes an entity and a record id and returns the records closest in meaning to it, 10 by default, using vector embeddings in the search index. The public option searches as an anonymous visitor and returns only publicly searchable fields. To find records matching words you supply, use `search_query`.")]
 public class SearchSimilarCommand : BaseCommand<SearchSimilarSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, SearchSimilarSettings settings)
@@ -170,6 +172,7 @@ public class SearchEntityOptionalSettings : CommandSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("Re-sends the entity's records, or every entity's, from the database to the search index, replacing existing entries; it runs in the background and can take a while on large entities. Use it when `search_query` misses records or after changing which fields are searchable. It changes no data; to clear the index instead, use `search_purge`.")]
 public class SearchRehydrateCommand : BaseCommand<SearchEntityOptionalSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, SearchEntityOptionalSettings settings)
@@ -211,6 +214,7 @@ public class SearchRehydrateCommand : BaseCommand<SearchEntityOptionalSettings>
 
 // ── search purge ─────────────────────────────────────────────────────────────
 
+[CommandGuide("Deletes the search index entries for the entity, or for every entity, so `search_query` and `search_similar` return nothing for them until `search_rehydrate` runs. The records in the database are not touched.")]
 public class SearchPurgeCommand : BaseCommand<SearchEntityOptionalSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, SearchEntityOptionalSettings settings)
@@ -271,6 +275,7 @@ public class SearchAuditSettings : CommandSettings
     public bool Json { get; set; }
 }
 
+[CommandGuide("Runs the same query (default *) through public and signed-in search for one entity, sampling 5 records by default, and reports any field public search returned that is not marked publicly searchable, plus marked fields that didn't appear. It ends with an error when a leak is found. Fix leaks with `fields_update`.")]
 public class SearchAuditCommand : BaseCommand<SearchAuditSettings>
 {
     // Fields the platform always injects into search results — not entity-defined,

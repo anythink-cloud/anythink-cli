@@ -11,7 +11,7 @@ public class CliTool
     private readonly McpClientFactory _factory;
     public CliTool(McpClientFactory factory) => _factory = factory;
 
-    [McpServerTool(Name = "cli"),
+    [McpServerTool(Name = "cli", Title = "Run an Anythink CLI command", Destructive = true, OpenWorld = true),
      Description(
         "Run any Anythink CLI command and return its output. " +
         "Prefer the dedicated tools; use this for anything they don't cover. " +

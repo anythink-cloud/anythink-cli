@@ -10,6 +10,7 @@ namespace AnythinkCli.Commands;
 
 // ── menus list ───────────────────────────────────────────────────────────────
 
+[CommandGuide("Shows every menu with its id, name and the role id it is shown to, plus its items' ids, names, icons and links. Only top-level items and their direct children are listed; use `menus_get` for one menu's full item tree, including which items are locked.")]
 public class MenusListCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
@@ -111,6 +112,7 @@ public class MenuAddItemSettings : CommandSettings
     public int ParentId { get; set; }
 }
 
+[CommandGuide("The item links to the entity's data page in the dashboard, is named after the entity in title case unless name is given, uses a Lucide icon (Database by default) and goes last at the top level or under parent. The entity must exist; to link to another path, add the item and then set href with `menus_update_item`.")]
 public class MenuAddItemCommand : BaseCommand<MenuAddItemSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, MenuAddItemSettings settings)
@@ -172,6 +174,7 @@ public class MenuGetSettings : CommandSettings
     public bool Json { get; set; }
 }
 
+[CommandGuide("Gives the menu's role id and its full item tree, with each item's id, name, icon, href, parent and whether it is a locked built-in item. Use it to find item ids for `menus_update_item`, `menus_remove_item` and `menus_reorder_items`.")]
 public class MenuGetCommand : BaseCommand<MenuGetSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, MenuGetSettings settings)
@@ -240,6 +243,7 @@ public class MenuCreateSettings : CommandSettings
     public int RoleId { get; set; }
 }
 
+[CommandGuide("The new menu is empty; add items with `menus_add_item`. A role is shown only its first menu, so a second menu for the same role may not appear; use `menus_reorder` to choose which comes first.")]
 public class MenuCreateCommand : BaseCommand<MenuCreateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, MenuCreateSettings settings)
@@ -287,6 +291,7 @@ public class MenuUpdateSettings : CommandSettings
     public int? RoleId { get; set; }
 }
 
+[CommandGuide("Changes the menu's name, the role it is shown to, or both; its items stay as they are. A role is shown only its first menu, so moving a menu to a role that already has one may hide it; use `menus_reorder` to choose which comes first.")]
 public class MenuUpdateCommand : BaseCommand<MenuUpdateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, MenuUpdateSettings settings)
@@ -344,6 +349,7 @@ public class MenuDeleteSettings : CommandSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("Removes the menu and every item in it, including locked built-in items, and can't be undone. If it was the role's only menu, that role is left with no dashboard menu; to drop single items, use `menus_remove_item` instead.")]
 public class MenuDeleteCommand : BaseCommand<MenuDeleteSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, MenuDeleteSettings settings)
@@ -423,6 +429,7 @@ public class MenuUpdateItemSettings : CommandSettings
     public int? ParentId { get; set; }
 }
 
+[CommandGuide("Changes only the fields you pass: name, Lucide icon, entity (links to that entity's page) or href (any path), and parent (0 for top level). A moved item goes last under its new parent, and locked built-in items can't be changed. To reorder items without moving them, use `menus_reorder_items`.")]
 public class MenuUpdateItemCommand : BaseCommand<MenuUpdateItemSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, MenuUpdateItemSettings settings)
@@ -539,6 +546,7 @@ public class MenuRemoveItemSettings : CommandSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("Deletes the item and its direct child items from the menu. It refuses locked built-in items, and items whose children are locked or have children of their own; move those out first with `menus_update_item`.")]
 public class MenuRemoveItemCommand : BaseCommand<MenuRemoveItemSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, MenuRemoveItemSettings settings)
@@ -619,6 +627,7 @@ public class MenuReorderItemsSettings : CommandSettings
     public string ItemIds { get; set; } = "";
 }
 
+[CommandGuide("The items must share one parent: the ones you name take the first places in that group in the order given, other siblings follow in their current order, and locked items keep their place. To move an item under a different parent, use `menus_update_item`.")]
 public class MenuReorderItemsCommand : BaseCommand<MenuReorderItemsSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, MenuReorderItemsSettings settings)
@@ -679,6 +688,7 @@ public class MenuReorderSettings : CommandSettings
     public string MenuIds { get; set; } = "";
 }
 
+[CommandGuide("Menus you name come first in that order and the rest follow in their current order. Order matters when a role has more than one menu, because the role is shown only its first; to change a menu's role, use `menus_update`.")]
 public class MenuReorderCommand : BaseCommand<MenuReorderSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, MenuReorderSettings settings)

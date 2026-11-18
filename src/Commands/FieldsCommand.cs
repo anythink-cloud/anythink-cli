@@ -15,6 +15,7 @@ public class FieldsEntitySettings : CommandSettings
     public string Entity { get; set; } = "";
 }
 
+[CommandGuide("Takes the entity name. Returns each field's id, name, label, database type, display type and its required, unique, indexed and locked flags. For one field's complete definition, including relationship target and select options, use `fields_get`; for the entity's own settings, use `entities_get`.")]
 public class FieldsListCommand : BaseCommand<FieldsEntitySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, FieldsEntitySettings settings)
@@ -79,6 +80,7 @@ public class FieldsGetSettings : CommandSettings
     public string FieldName { get; set; } = "";
 }
 
+[CommandGuide("Finds the field by name on the entity (not case-sensitive) and returns its full definition as a JSON object, including relationship settings, select options, default value and search flags. To see every field on an entity at once, use `fields_list`.")]
 public class FieldsGetCommand : BaseCommand<FieldsGetSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, FieldsGetSettings settings)
@@ -225,6 +227,7 @@ internal static class FieldHelpers
     }
 }
 
+[CommandGuide("Adds a column to an existing entity; always pass the database type. The display type defaults from it (varchar to input, boolean to checkbox, relationships to relationship). Relationship types need the target entity's name, and on-delete defaults to CASCADE; user and file fields link to users and files automatically. Returns the new field's id.")]
 public class FieldsAddCommand : BaseCommand<FieldAddSettings>
 {
     // Sensible default display type for each db type
@@ -421,6 +424,7 @@ public class FieldUpdateSettings : CommandSettings
     public bool NoMultiple { get; set; }
 }
 
+[CommandGuide("Changes a field's label, description, display type, default value, select options and its required, searchable, public-search and indexed flags. Settings you don't pass keep their value, except the description, which is cleared unless passed again. It cannot rename a field or change its database type, and locked fields are refused.")]
 public class FieldsUpdateCommand : BaseCommand<FieldUpdateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, FieldUpdateSettings settings)
@@ -511,6 +515,7 @@ public class FieldDeleteSettings : CommandSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("Takes the field's name, not its id, and drops that column from the entity, so the value it held is lost from every record. To remove the whole entity and its records, use `entities_delete`.")]
 public class FieldsDeleteCommand : BaseCommand<FieldDeleteSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, FieldDeleteSettings settings)

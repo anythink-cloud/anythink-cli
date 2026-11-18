@@ -42,6 +42,7 @@ internal static class EmailInput
 
 // ── email templates list ──────────────────────────────────────────────────────
 
+[CommandGuide("Shows each template's type (such as confirmation, invite or recovery), subject, and whether it is locked or active. These are the account emails Anythink sends for the project; pass a type to `email_templates_show` to read one or `email_templates_update` to change it.")]
 public class EmailTemplatesListCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
@@ -83,6 +84,7 @@ public class EmailTemplateShowSettings : CommandSettings
     public bool Rendered { get; set; }
 }
 
+[CommandGuide("By default returns the stored subject and content with their {{ placeholders }} intact, which is what to edit; with rendered it returns the full email HTML inside the project's shell, filled with sample data. Read it before `email_templates_update`.")]
 public class EmailTemplateShowCommand : BaseCommand<EmailTemplateShowSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmailTemplateShowSettings settings)
@@ -141,6 +143,7 @@ public class EmailTemplateUpdateSettings : CommandSettings
     public string? ContentText { get; set; }
 }
 
+[CommandGuide("Saves a new subject and/or body for one template type, keeping whichever you leave out; every email of that type the project sends from then on uses it. Pass the body inline in content_text. Check a draft first with `email_preview`, as the previous content isn't kept.")]
 public class EmailTemplateUpdateCommand : BaseCommand<EmailTemplateUpdateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmailTemplateUpdateSettings settings)
@@ -195,6 +198,7 @@ public class EmailPreviewRawSettings : CommandSettings
     public string? WrapperText { get; set; }
 }
 
+[CommandGuide("Renders a draft subject and body with sample data, inside a draft shell if given or the project's current one otherwise, and returns the HTML. Nothing is saved and no email is sent. Use it to check edits before `email_templates_update` or `email_shell_update`.")]
 public class EmailPreviewRawCommand : BaseCommand<EmailPreviewRawSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmailPreviewRawSettings settings)
@@ -221,6 +225,7 @@ public class EmailPreviewRawCommand : BaseCommand<EmailPreviewRawSettings>
 
 // ── email shell show / update ─────────────────────────────────────────────────
 
+[CommandGuide("Returns the HTML layout that wraps the body of every email the project sends, and says whether it is customised or the platform default. The {{Content}} placeholder marks where each template's body goes. Read it before `email_shell_update`.")]
 public class EmailShellShowCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
@@ -258,6 +263,7 @@ public class EmailShellUpdateSettings : CommandSettings
     public bool Reset { get; set; }
 }
 
+[CommandGuide("Replaces the HTML layout around every email the project sends, or with reset returns to the platform default. Keep the {{Content}} placeholder where the body goes; the server sanitises the HTML. Check a draft with `email_preview` first.")]
 public class EmailShellUpdateCommand : BaseCommand<EmailShellUpdateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmailShellUpdateSettings settings)

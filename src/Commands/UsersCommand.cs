@@ -8,6 +8,7 @@ namespace AnythinkCli.Commands;
 
 // ── users list ────────────────────────────────────────────────────────────────
 
+[CommandGuide("Shows each person who can sign in to this project with their id, name, email, role and whether they have confirmed their invitation. Use it to find a user's id, or to see who holds a role before changing it with `roles_permissions_add` or deleting it with `roles_delete`.")]
 public class UsersListCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
@@ -57,6 +58,7 @@ public class UsersListCommand : BaseCommand<EmptySettings>
 
 // ── users me ──────────────────────────────────────────────────────────────────
 
+[CommandGuide("Shows the user you are signed in as in this project: id, name, email, role, whether confirmed and when created. Your role decides what every other tool may do, so check it when a call is refused; use `users_get` to look up someone else.")]
 public class UsersMeCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
@@ -105,6 +107,7 @@ public class UserGetSettings : CommandSettings
     public int Id { get; set; }
 }
 
+[CommandGuide("Shows one user's name, email, role, whether they have confirmed their invitation and when they were created. Use it to check one person's role; use `users_list` to scan everyone, and `roles_permissions_list` to see what their role allows.")]
 public class UsersGetCommand : BaseCommand<UserGetSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, UserGetSettings settings)
@@ -165,6 +168,7 @@ public class UserInviteSettings : CommandSettings
     public int? RoleId { get; set; }
 }
 
+[CommandGuide("Adds the person to this project with the role given by role_id, then emails them an invitation to confirm their account. Always pass role_id from `roles_list`: the API rejects an invite without an existing role, and administrator roles can't be given this way. Check `users_list` first so nobody is invited twice.")]
 public class UsersInviteCommand : BaseCommand<UserInviteSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, UserInviteSettings settings)
@@ -213,6 +217,7 @@ public class UserDeleteSettings : CommandSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("Removes the user from this project, so they can no longer sign in to it or use their role's access. The role and its permissions stay in place for everyone else. Make sure you have the right person with `users_get` first.")]
 public class UsersDeleteCommand : BaseCommand<UserDeleteSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, UserDeleteSettings settings)

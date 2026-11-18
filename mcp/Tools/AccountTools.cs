@@ -16,7 +16,7 @@ public class AccountTools
     private readonly McpClientFactory _factory;
     public AccountTools(McpClientFactory factory) => _factory = factory;
 
-    [McpServerTool(Name = "accounts_list"),
+    [McpServerTool(Name = "accounts_list", Title = "List billing accounts", ReadOnly = true),
      Description(
         "List the billing accounts (organizations) the logged-in user belongs to. " +
         "Requires a prior platform login (use the 'login' tool first). " +
@@ -40,7 +40,7 @@ public class AccountTools
         }));
     }
 
-    [McpServerTool(Name = "accounts_create"),
+    [McpServerTool(Name = "accounts_create", Title = "Create a billing account", Destructive = false),
      Description(
         "Create a new billing account (organization) to hold projects and payment details. " +
         "Requires a prior platform login (use the 'login' tool first). " +
@@ -70,7 +70,7 @@ public class AccountTools
         });
     }
 
-    [McpServerTool(Name = "accounts_use"),
+    [McpServerTool(Name = "accounts_use", Title = "Switch the active billing account", Destructive = false),
      Description(
         "Set the active billing account that project commands operate on. " +
         "Call this after 'login' when you belong to more than one account, before using " +

@@ -59,6 +59,7 @@ internal static class DashboardsOutput
 
 // ── dashboards list ───────────────────────────────────────────────────────────
 
+[CommandGuide("Shows each dashboard's id, name, owner and whether it is your home, the project default or shared. A dashboard is a grid of widgets, most of them showing a saved chart; open one with `dashboards_get` to see its widgets, or `dashboards_mine` for the one you land on.")]
 public class DashboardsListCommand : BaseCommand<JsonSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, JsonSettings settings)
@@ -108,6 +109,7 @@ public class DashboardIdSettings : JsonSettings
     public int Id { get; set; }
 }
 
+[CommandGuide("Shows a dashboard's name, description, sharing settings, owner and each widget's id, type, title, the chart it shows and its grid position. Use it to find widget ids for `dashboards_remove_widget` and `dashboards_data`, and to see the current widgets before `dashboards_update`.")]
 public class DashboardsGetCommand : BaseCommand<DashboardIdSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, DashboardIdSettings settings)
@@ -131,6 +133,7 @@ public class DashboardsGetCommand : BaseCommand<DashboardIdSettings>
     }
 }
 
+[CommandGuide("Shows the same detail as `dashboards_get` for the dashboard you see first when you open the project. Use it when you don't have a dashboard id; change which dashboard you land on with `dashboards_set_home`.")]
 public class DashboardsMineCommand : BaseCommand<JsonSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, JsonSettings settings)
@@ -194,6 +197,7 @@ public class DashboardCreateSettings : JsonSettings
         Name, Description, Shared ? true : null, AllowSharedEdit ? true : null, Home ? true : null, Default ? true : null, Config);
 }
 
+[CommandGuide("Makes a new dashboard owned by you, visible only to you unless shared is set. Each chart id passed becomes a chart widget titled with the chart's name; add more later with `dashboards_add_chart`. Build the charts first with `charts_create`. Making it the project default needs an administrator.")]
 public class DashboardsCreateCommand : BaseCommand<DashboardCreateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, DashboardCreateSettings settings)
@@ -262,6 +266,7 @@ public class DashboardUpdateSettings : DashboardIdSettings
     public string? Config { get; set; }
 }
 
+[CommandGuide("Changes a dashboard's name, description or sharing, or replaces its whole widget list and layout through config; widgets missing from a new list are removed. To add or remove one chart, use `dashboards_add_chart` or `dashboards_remove_widget`, which keep everything else. Only the owner can change sharing.")]
 public class DashboardsUpdateCommand : BaseCommand<DashboardUpdateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, DashboardUpdateSettings settings)
@@ -298,6 +303,7 @@ public class DashboardDeleteSettings : DashboardIdSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("Removes the dashboard for everyone who can see it. To take one chart off a dashboard, use `dashboards_remove_widget`; to delete a chart itself, use `charts_delete`. If it was your home dashboard, `dashboards_mine` falls back to the project default.")]
 public class DashboardsDeleteCommand : BaseCommand<DashboardDeleteSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, DashboardDeleteSettings settings)
@@ -344,6 +350,7 @@ public class DashboardDataSettings : DashboardIdSettings
     public int? Rows { get; set; }
 }
 
+[CommandGuide("Runs a saved dashboard's widgets, or only the widget ids passed, and shows each one's id, title, type and current data, trimmed to rows per widget. Use it to read what a dashboard shows now; use `dashboards_widget_preview` to try a widget that isn't on a dashboard yet.")]
 public class DashboardsDataCommand : BaseCommand<DashboardDataSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, DashboardDataSettings settings)
@@ -405,6 +412,7 @@ public class DashboardsDataCommand : BaseCommand<DashboardDataSettings>
 
 // ── dashboards set-home / promote-to-default ──────────────────────────────────
 
+[CommandGuide("Changes only your own landing dashboard, replacing your previous home; other users are unaffected. Check the result with `dashboards_mine`. To change what new users start from, use `dashboards_promote_to_default`.")]
 public class DashboardsSetHomeCommand : BaseCommand<DashboardIdSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, DashboardIdSettings settings)
@@ -427,6 +435,7 @@ public class DashboardsSetHomeCommand : BaseCommand<DashboardIdSettings>
     }
 }
 
+[CommandGuide("Overwrites the project default dashboard with a copy of this one. The default is what new users start from and what anyone without a home dashboard lands on; the dashboard you copy from stays as it was. To change only your own landing dashboard, use `dashboards_set_home`.")]
 public class DashboardsPromoteToDefaultCommand : BaseCommand<DashboardDeleteSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, DashboardDeleteSettings settings)
@@ -478,6 +487,7 @@ public class DashboardWidgetPreviewSettings : JsonSettings
     public int? Rows { get; set; }
 }
 
+[CommandGuide("Works for a saved chart, given its id, and for list, materialised view, markdown and other widgets, given their config. Use it to see what a saved chart shows now, or to try a widget before adding it with `dashboards_add_chart` or `dashboards_update`; use `dashboards_data` for widgets already on a dashboard.")]
 public class DashboardsWidgetPreviewCommand : BaseCommand<DashboardWidgetPreviewSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, DashboardWidgetPreviewSettings settings)
@@ -562,6 +572,7 @@ public class DashboardAddChartSettings : JsonSettings
     public int? Height { get; set; }
 }
 
+[CommandGuide("This is how a saved chart gets onto a dashboard. The widget takes the chart's name as its title unless title is given, and goes after the existing widgets unless column, row, width or height place it on the 12-column grid. Create the chart first with `charts_create`; avoid `dashboards_update` for this, as it replaces every widget.")]
 public class DashboardsAddChartCommand : BaseCommand<DashboardAddChartSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, DashboardAddChartSettings settings)
@@ -623,6 +634,7 @@ public class DashboardRemoveWidgetSettings : JsonSettings
     public int WidgetId { get; set; }
 }
 
+[CommandGuide("Takes the widget off the dashboard and out of its layout; the chart it showed is kept and can be added back with `dashboards_add_chart`. Get widget ids from `dashboards_get`. Use `charts_delete` only to remove the chart from the project entirely.")]
 public class DashboardsRemoveWidgetCommand : BaseCommand<DashboardRemoveWidgetSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, DashboardRemoveWidgetSettings settings)

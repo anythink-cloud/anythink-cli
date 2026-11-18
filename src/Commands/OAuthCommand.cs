@@ -9,6 +9,7 @@ namespace AnythinkCli.Commands;
 
 // ── oauth google status ────────────────────────────────────────────────────
 
+[CommandGuide("Reports whether Google sign-in for the project's end users is enabled and whether a client ID and secret are saved, without showing them. This covers user sign-in only; Google as an integration is handled by `integrations_oauth_status` and `integrations_oauth_configure`.")]
 public class OAuthGoogleStatusCommand : AsyncCommand
 {
     public override async Task<int> ExecuteAsync(CommandContext ctx)
@@ -48,6 +49,7 @@ public class OAuthGoogleStatusCommand : AsyncCommand
 
 // ── oauth google configure ─────────────────────────────────────────────────
 
+[CommandGuide("Saves the Google Cloud OAuth client ID and secret that let the project's end users sign in with Google, and switches that sign-in on or off. It only works interactively, prompting for each value (blank keeps the current one), then prints the callback URL to add to the Google OAuth client.")]
 public class OAuthGoogleConfigureCommand : AsyncCommand
 {
     public override async Task<int> ExecuteAsync(CommandContext ctx)

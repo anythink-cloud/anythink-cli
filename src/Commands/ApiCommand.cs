@@ -21,6 +21,7 @@ public class ApiListSettings : CommandSettings
     public string? BaseUrl { get; set; }
 }
 
+[CommandGuide("Lists full URLs for a fixed set of core routes (auth, API keys, entities, fields, workflows), the five CRUD routes of every entity in the project plus public routes for public entities, and the route of each API-triggered workflow. Use it to give app developers endpoint URLs; to call one, use `fetch`.")]
 public class ApiListCommand : BaseCommand<ApiListSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, ApiListSettings settings)

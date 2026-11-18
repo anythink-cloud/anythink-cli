@@ -8,6 +8,7 @@ namespace AnythinkCli.Commands;
 
 // ── secrets list ──────────────────────────────────────────────────────────────
 
+[CommandGuide("Shows each secret's key, the users it is assigned to, and when it was created and updated; values are never returned. Use it to check a key exists before referencing it in a workflow as {{ $anythink.secrets.KEY }}, or before `secrets_update` or `secrets_delete`.")]
 public class SecretsListCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
@@ -73,6 +74,7 @@ public class SecretCreateSettings : CommandSettings
     public string? Value { get; set; }
 }
 
+[CommandGuide("Stores the value encrypted in the project under the key, for workflows to reference as {{ $anythink.secrets.KEY }}; it can never be read back. Pass it in value, as the hidden prompt can't be answered by a tool. To change an existing secret use `secrets_update`.")]
 public class SecretsCreateCommand : BaseCommand<SecretCreateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, SecretCreateSettings settings)
@@ -125,6 +127,7 @@ public class SecretKeySettings : CommandSettings
     public string? Value { get; set; }
 }
 
+[CommandGuide("Overwrites the stored value of an existing key, for example to rotate a credential; the old value is lost and workflows referencing the key use the new one from their next run. Pass the new value in value. Use `secrets_create` for a key that doesn't exist yet.")]
 public class SecretsUpdateCommand : BaseCommand<SecretKeySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, SecretKeySettings settings)
@@ -177,6 +180,7 @@ public class SecretDeleteSettings : CommandSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("Removes the key and its encrypted value for good; workflows that reference it as {{ $anythink.secrets.KEY }} fail until it is created again. To change a value, use `secrets_update` instead.")]
 public class SecretsDeleteCommand : BaseCommand<SecretDeleteSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, SecretDeleteSettings settings)

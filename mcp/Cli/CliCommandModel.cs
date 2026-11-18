@@ -1,3 +1,5 @@
+using AnythinkCli.Commands;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
@@ -9,7 +11,8 @@ public sealed record CliParameter(
     string Name, string Token, CliParameterKind Kind, int Position, bool Required, string ClrType, string Description,
     bool ExplicitBoolean = false);
 
-public sealed record CliCommand(IReadOnlyList<string> Path, string Description, IReadOnlyList<CliParameter> Parameters)
+public sealed record CliCommand(
+    IReadOnlyList<string> Path, string Description, IReadOnlyList<CliParameter> Parameters, string Guide = "")
 {
     public string Key => string.Join(' ', Path);
 
@@ -52,7 +55,8 @@ public static partial class CliCommandModel
             yield return new CliCommand(
                 commandPath,
                 Text(element.Element("Description")),
-                element.Element("Parameters")?.Elements().Select(ParseParameter).ToList() ?? []);
+                element.Element("Parameters")?.Elements().Select(ParseParameter).ToList() ?? [],
+                Guide((string?)element.Attribute("ClrType")));
         }
     }
 
@@ -87,6 +91,11 @@ public static partial class CliCommandModel
             PropertyName(optionName), (optionName.Length == 1 ? "-" : "--") + optionName, kind, 0, required, clrType, description,
             explicitBoolean);
     }
+
+    private static string Guide(string? commandType) =>
+        commandType is null
+            ? ""
+            : typeof(AnythinkCli.CliApp).Assembly.GetType(commandType)?.GetCustomAttribute<CommandGuideAttribute>()?.Text ?? "";
 
     private static string PropertyName(string name) => name.ToLowerInvariant().Replace('-', '_');
 

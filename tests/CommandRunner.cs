@@ -33,11 +33,13 @@ internal static class CommandRunner
         var writer = new StringWriter();
         var originalOut = Console.Out;
         var originalConsole = AnsiConsole.Console;
+        // Spectre re-enables ANSI under GITHUB_ACTIONS, which puts escape codes in the captured output
         var console = AnsiConsole.Create(new AnsiConsoleSettings
         {
             Ansi = AnsiSupport.No,
             ColorSystem = ColorSystemSupport.NoColors,
             Interactive = InteractionSupport.No,
+            Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false },
             Out = new AnsiConsoleOutput(writer),
         });
         console.Profile.Width = 240;

@@ -19,6 +19,7 @@ public class FilesListSettings : CommandSettings
     public int Limit { get; set; } = 25;
 }
 
+[CommandGuide("Returns one page of the project's uploaded files, 25 by default, with each file's id, original name, type, size, whether it is public and when it was uploaded. Use `files_get` for one file's details, including its stored name.")]
 public class FilesListCommand : BaseCommand<FilesListSettings>
 {
     private static string FormatSize(long bytes)
@@ -85,6 +86,7 @@ public class FileGetSettings : CommandSettings
     public int Id { get; set; }
 }
 
+[CommandGuide("Returns one file's original and stored names, type, size, whether it is public and when it was uploaded. It gives metadata only, not the file's contents or a download link. To browse all files, use `files_list`.")]
 public class FilesGetCommand : BaseCommand<FileGetSettings>
 {
     private static string FormatSize(long bytes)
@@ -147,6 +149,7 @@ public class FileUploadSettings : CommandSettings
     public bool IsPublic { get; set; }
 }
 
+[CommandGuide("Uploads a file from a path on the machine running the CLI to the project's file storage and returns its new id and stored name. Files are private by default; a public file can be fetched without signing in. Use the returned id as the value of a file field with `data_create` or `data_update`.")]
 public class FilesUploadCommand : BaseCommand<FileUploadSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, FileUploadSettings settings)
@@ -196,6 +199,7 @@ public class FileDeleteSettings : CommandSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("Removes the file from the project's storage by its id. Records that reference it through a file field follow that field's on-delete rule; with the default, CASCADE, they are deleted too. To see what is stored first, use `files_get`.")]
 public class FilesDeleteCommand : BaseCommand<FileDeleteSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, FileDeleteSettings settings)

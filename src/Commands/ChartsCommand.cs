@@ -205,6 +205,7 @@ public class ChartsListSettings : JsonSettings
     public string? Entity { get; set; }
 }
 
+[CommandGuide("Shows each saved chart's id, name, type, data source, the entity or metric it plots and when it last changed; pass entity to see only one entity's charts. A chart is saved on its own and appears on a dashboard only once added with `dashboards_add_chart`.")]
 public class ChartsListCommand : BaseCommand<ChartsListSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, ChartsListSettings settings)
@@ -257,6 +258,7 @@ public class ChartIdSettings : JsonSettings
     public int Id { get; set; }
 }
 
+[CommandGuide("Shows every setting of one saved chart: type, data source, entity or metric, grouping, measure and aggregation, filters, time window, target and comparison. Read it before `charts_update`; to see the data it draws, use `dashboards_widget_preview` with type chart and its id.")]
 public class ChartsGetCommand : BaseCommand<ChartIdSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, ChartIdSettings settings)
@@ -295,6 +297,7 @@ public class ChartCreateSettings : ChartConfigSettings
     public string Name { get; set; } = "";
 }
 
+[CommandGuide("Saves a chart that plots an entity's records, a platform usage metric (see `charts_platform_metrics`) or a plan quota. Settings are checked first and the call is refused with the problems listed. The new chart isn't shown anywhere until you put it on a dashboard with `dashboards_add_chart` or `dashboards_create`.")]
 public class ChartsCreateCommand : BaseCommand<ChartCreateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, ChartCreateSettings settings)
@@ -340,6 +343,7 @@ public class ChartUpdateSettings : ChartConfigSettings
     public string? Name { get; set; }
 }
 
+[CommandGuide("Saves new settings on an existing chart; a filter replaces all of its existing filters. Dashboard widgets point at the chart rather than copying it, so every dashboard showing it draws the new version. Use `charts_get` first to see its current settings.")]
 public class ChartsUpdateCommand : BaseCommand<ChartUpdateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, ChartUpdateSettings settings)
@@ -386,6 +390,7 @@ public class ChartDeleteSettings : ChartIdSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("Permanently removes a saved chart from the project. To take a chart off one dashboard but keep it, use `dashboards_remove_widget` instead. After deleting, find the widgets that showed it with `dashboards_get` and clear them with `dashboards_remove_widget`.")]
 public class ChartsDeleteCommand : BaseCommand<ChartDeleteSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, ChartDeleteSettings settings)
@@ -430,6 +435,7 @@ public class ChartPreviewSettings : ChartConfigSettings
     public int? Rows { get; set; }
 }
 
+[CommandGuide("Runs a chart configuration against the project's current data and shows the points, totals or rows it would plot, trimmed to rows. Use it to settle entity, grouping, measure and filters before `charts_create` or `charts_update`; for a chart already saved, use `dashboards_widget_preview`.")]
 public class ChartsPreviewCommand : BaseCommand<ChartPreviewSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, ChartPreviewSettings settings)
@@ -473,6 +479,7 @@ public class ChartsPreviewCommand : BaseCommand<ChartPreviewSettings>
 
 // ── charts platform-metrics ───────────────────────────────────────────────────
 
+[CommandGuide("Shows each project usage metric a chart with source platform can plot: its id, label, shape, supported chart types and breakdowns. Pass a metric's id as platform_metric to `charts_preview` or `charts_create`, and one of its breakdowns as stack_by.")]
 public class ChartsPlatformMetricsCommand : BaseCommand<JsonSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, JsonSettings settings)

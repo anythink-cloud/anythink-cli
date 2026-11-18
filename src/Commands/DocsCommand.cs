@@ -13,6 +13,7 @@ public class DocsSettings : CommandSettings
     public bool Json { get; set; }
 }
 
+[CommandGuide("Prints a hand-written reference of CLI commands, options and examples without calling the API or needing a project. It omits some groups, such as integrations, secrets, API keys and settings, so treat the tool list as the authority on what exists.")]
 public class DocsCommand : Command<DocsSettings>
 {
     public override int Execute(CommandContext context, DocsSettings settings)

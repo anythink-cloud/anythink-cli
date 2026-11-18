@@ -49,7 +49,7 @@ public class WorkflowTriggersTests
     [Fact]
     public void Summary_NoTriggerAtAll_IsADash()
     {
-        WorkflowTriggers.Summary(Parse("""{"id":1,"name":"w","enabled":true}""")).Should().Be("-");
+        WorkflowTriggers.Summary(Parse("""{"id":1,"name":"w","enabled":true}""")).Should().Be("—");
     }
 
     // ── API routes ──────────────────────────────────────────────────────────

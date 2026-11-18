@@ -50,7 +50,7 @@ public static class WorkflowTriggers
     public static string Summary(Workflow wf)
     {
         var triggers = Effective(wf);
-        return triggers.Count == 0 ? "-" : string.Join("; ", triggers.Select(Summary));
+        return triggers.Count == 0 ? "—" : string.Join("; ", triggers.Select(Summary));
     }
 
     public static string Summary(WorkflowTrigger trigger)

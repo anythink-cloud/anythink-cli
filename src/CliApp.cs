@@ -124,6 +124,7 @@ public static class CliApp
             import.AddCommand<ImportDirectusCommand>("directus")
                 .WithDescription("Import collections, fields, flows, and data from a Directus instance. Writes into the active project: run with --dry-run first and add --yes only once the user has approved the plan")
                 .WithExample("import", "directus", "--url", "https://cms.myapp.com", "--token", "<token>", "--dry-run")
+                .WithExample("import", "directus", "--url", "https://cms.myapp.com", "--token", "<token>", "--plan", "import-plan.json")
                 .WithExample("import", "directus", "--url", "https://cms.myapp.com", "--token", "<token>", "--include-flows")
                 .WithExample("import", "directus", "--url", "https://cms.myapp.com", "--token", "<token>", "--include-data");
         });
