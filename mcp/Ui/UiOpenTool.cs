@@ -46,8 +46,8 @@ public sealed class UiOpenTool(McpUiOptions options) : McpServerTool
         UiRoute? route = null;
         if (path is null && (tool is null || !McpUiRoutes.TryGet(tool, out route)))
             return Fail("There's no view for this tool.");
-        if (path is not null && !SafePath(path))
-            return Fail("That page isn't available.");
+        if (path is not null && !(SafePath(path) && SafePath(Uri.UnescapeDataString(path))))
+            return Fail("That path isn't a valid dashboard path.");
 
         try
         {
@@ -94,19 +94,19 @@ public sealed class UiOpenTool(McpUiOptions options) : McpServerTool
         {
             using var projects = JsonDocument.Parse(await services.GetRequiredService<HostedProjects>().ListAsync(cancellationToken));
             var account = projects.RootElement.EnumerateArray()
-                .Where(p => Guid.TryParse(p.GetProperty("project_id").GetString(), out var id) && id == projectId)
-                .Select(p => Guid.Parse(p.GetProperty("account_id").GetString()!))
-                .FirstOrDefault();
+                .Where(p => p.TryGetProperty("project_id", out var id) && Guid.TryParse(id.GetString(), out var parsed) && parsed == projectId)
+                .Select(p => p.TryGetProperty("account_id", out var id) && Guid.TryParse(id.GetString(), out var parsed) ? parsed : Guid.Empty)
+                .FirstOrDefault(id => id != Guid.Empty);
             return account == Guid.Empty ? null : (await accounts.Client().GetTransferTokenAsync(account, projectId)).TransferToken;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
         {
             return null;
         }
     }
 
     private static bool SafePath(string path) =>
-        path.Length <= MaxPathLength && path.StartsWith('/') && !path.StartsWith("//", StringComparison.Ordinal)
+        path.Length <= MaxPathLength && path.StartsWith('/') && !path.Contains("//")
         && !path.Contains("..") && !path.Any(c => c is ':' or '\\' || char.IsControl(c));
 
     private static CallToolResult Link(string url, string origin, string target, bool signedIn) => new()

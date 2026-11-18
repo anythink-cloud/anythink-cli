@@ -215,13 +215,16 @@ public class UiOpenToolTests : IAsyncLifetime
     }
 
     [Theory]
-    [InlineData("//evil.com")]
-    [InlineData("/x/../y")]
-    [InlineData("https://x")]
-    [InlineData("/a\\b")]
-    [InlineData("/org/42/a:b")]
+    [InlineData("/org/42/../43/x")]
+    [InlineData("/org/42//evil.com")]
+    [InlineData("/org/42/a\\b")]
+    [InlineData("/org/42/https://x")]
     [InlineData("/org/42/a\nb")]
-    [InlineData("no-leading-slash")]
+    [InlineData("/org/42/%2e%2e/43/x")]
+    [InlineData("/org/42/.%2E/43/x")]
+    [InlineData("/org/42/%2e./43/x")]
+    [InlineData("/org/42/%5c43")]
+    [InlineData("/org/42/%00")]
     public async Task UiOpen_Path_RejectsEscapes(string path)
     {
         var billing = AnyBillingRequest();
@@ -230,17 +233,81 @@ public class UiOpenToolTests : IAsyncLifetime
         var result = await mcp.CallToolAsync("ui_open", OpenArgs("data_list", path: path));
 
         result.IsError.Should().BeTrue();
+        Text(result).Should().Contain("isn't a valid dashboard path");
         _mock.GetMatchCount(billing).Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData("//evil.com")]
+    [InlineData("https://x")]
+    [InlineData("no-leading-slash")]
+    public async Task UiOpen_Path_NotUnderTheOrg_IsRefused(string path)
+    {
+        await using var mcp = await Connect(SingleProjectToken());
+
+        var result = await mcp.CallToolAsync("ui_open", OpenArgs("data_list", path: path));
+
+        result.IsError.Should().BeTrue();
     }
 
     [Fact]
     public async Task UiOpen_Path_Over512Characters_IsRefused()
     {
-        await using var mcp = await Connect(SingleProjectToken());
+        await using var mcp = await Connect(SingleProjectToken("offline_access"));
 
-        var result = await mcp.CallToolAsync("ui_open", OpenArgs("data_list", path: "/org/42/" + new string('a', 513 - "/org/42/".Length)));
+        var result = await mcp.CallToolAsync("ui_open", OpenArgs("data_list", path: LongPath(513)));
 
         result.IsError.Should().BeTrue();
+        Text(result).Should().Contain("isn't a valid dashboard path");
+    }
+
+    [Fact]
+    public async Task UiOpen_Path_Of512Characters_IsAccepted()
+    {
+        await using var mcp = await Connect(SingleProjectToken("offline_access"));
+
+        var opened = Opened(await mcp.CallToolAsync("ui_open", OpenArgs("data_list", path: LongPath(512))));
+
+        opened.GetProperty("url").GetString().Should().Be(DashboardOrigin + LongPath(512));
+    }
+
+    private static string LongPath(int length) => "/org/42/" + new string('a', length - "/org/42/".Length);
+
+    [Fact]
+    public async Task UiOpen_Path_WithEncodedSpace_IsStillAccepted()
+    {
+        await using var mcp = await Connect(SingleProjectToken("offline_access"));
+
+        var opened = Opened(await mcp.CallToolAsync("ui_open", OpenArgs("data_list", path: "/org/42/entities/my%20posts")));
+
+        opened.GetProperty("url").GetString().Should().Be(DashboardOrigin + "/org/42/entities/my%20posts");
+    }
+
+    [Fact]
+    public async Task UiOpen_BillingTimesOut_FallsBackToUnsignedUrl()
+    {
+        ProjectsAre((ProjectId, AccountId));
+        _mock.When(HttpMethod.Post, $"{Issuer}/v1/accounts/{AccountId}/shared-tenants/{ProjectId}/transfer-token").Throw(new TaskCanceledException());
+        await using var mcp = await Connect(SingleProjectToken());
+
+        var opened = Opened(await mcp.CallToolAsync("ui_open", OpenArgs("data_list", new { entity = "posts" })));
+
+        opened.GetProperty("url").GetString().Should().Be("https://uk01-lon.anythink.cloud/org/42/entities/posts");
+        opened.GetProperty("signedIn").GetBoolean().Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UiOpen_MalformedProjectListEntry_DoesNotStopSigning()
+    {
+        _mock.When(HttpMethod.Get, $"{Issuer}/oauth/v1/projects").Respond("application/json",
+            $$"""[{"name":"broken"},{"project_id":"{{ProjectId}}"},{"project_id":"{{ProjectId}}","account_id":"{{AccountId}}"}]""");
+        TransferTokenIs(ProjectId, TransferToken);
+        await using var mcp = await Connect(SingleProjectToken());
+
+        var opened = Opened(await mcp.CallToolAsync("ui_open", OpenArgs("data_list", new { entity = "posts" })));
+
+        opened.GetProperty("url").GetString().Should().Be(SignedUrl("/org/42/entities/posts"));
+        opened.GetProperty("signedIn").GetBoolean().Should().BeTrue();
     }
 
     [Fact]
