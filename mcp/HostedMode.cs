@@ -1,3 +1,4 @@
+using AnythinkMcp.Ui;
 using AnythinkMcp.Cli;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
@@ -34,6 +35,7 @@ public static class HostedMode
         public IReadOnlyList<string> AllowedOrigins { get; init; } = [];
         public IReadOnlyList<string> AllowedHosts { get; init; } = [];
         public bool AllowLoopbackInstance { get; init; }
+        public McpUiOptions? Ui { get; init; }
         public int MaxConcurrentRequestsPerProject { get; init; } = DefaultMaxConcurrentRequestsPerProject;
     }
 
@@ -112,19 +114,36 @@ public static class HostedMode
         });
 
         var hostedTools = CliCommandTool.All(CliToolScope.Hosted);
+        if (options.Ui is not null)
+            foreach (var tool in hostedTools.Where(tool => McpUiRoutes.TryGet(tool.ProtocolTool.Name, out _)))
+                tool.ProtocolTool.Meta = McpUiRoutes.ToolMeta();
         var accountTools = hostedTools.Where(tool => tool.NeedsAccountAccess).Select(tool => tool.ProtocolTool.Name).ToHashSet();
 
-        builder.Services
+        var mcpServer = builder.Services
             .AddMcpServer(server => server.ServerInfo = new() { Name = "anythink", Version = "1.0.0" })
             .WithTools<HostedTools>()
-            .WithTools(hostedTools)
-            .WithRequestFilters(filters => filters.AddListToolsFilter(next => async (request, cancellationToken) =>
+            .WithTools(hostedTools);
+        if (options.Ui is not null)
+            mcpServer.WithResources([new McpUiResource(options.Ui)]).WithTools([new UiOpenTool(options.Ui)]);
+        mcpServer
+            .WithRequestFilters(filters =>
             {
-                var result = await next(request, cancellationToken);
-                if (request.Services?.GetService<HostedAccounts>()?.HasAccess != true)
-                    result.Tools = result.Tools.Where(tool => !accountTools.Contains(tool.Name)).ToList();
-                return result;
-            }))
+                filters.AddListToolsFilter(next => async (request, cancellationToken) =>
+                {
+                    var result = await next(request, cancellationToken);
+                    if (request.Services?.GetService<HostedAccounts>()?.HasAccess != true)
+                        result.Tools = result.Tools.Where(tool => !accountTools.Contains(tool.Name)).ToList();
+                    return result;
+                });
+                if (options.Ui is not null)
+                    filters.AddCallToolFilter(next => async (request, cancellationToken) =>
+                    {
+                        var result = await next(request, cancellationToken);
+                        if (request.Params is { } call && McpUiRoutes.TryGet(call.Name, out _))
+                            (result.Meta ??= [])["anythink/tool"] = call.Name;
+                        return result;
+                    });
+            })
             .WithHttpTransport(http => http.SessionMode = HttpServerSessionMode.Stateless);
 
         var app = builder.Build();

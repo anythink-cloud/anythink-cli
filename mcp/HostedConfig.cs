@@ -1,3 +1,5 @@
+using AnythinkMcp.Ui;
+
 namespace AnythinkMcp;
 
 internal static class HostedConfig
@@ -28,6 +30,7 @@ internal static class HostedConfig
             AllowedOrigins = List(get("MCP_ALLOWED_ORIGINS")),
             AllowedHosts = List(get("MCP_ALLOWED_HOSTS")),
             AllowLoopbackInstance = LoopbackOptIn(get),
+            Ui = McpUiOptions.FromEnvironment(get, publicUrl),
         };
     }
 

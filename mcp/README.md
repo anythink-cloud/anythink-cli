@@ -141,6 +141,8 @@ Configuration is via environment variables:
 | `MCP_ALLOW_LOOPBACK_INSTANCE` | no | Set to `true` for local development to accept loopback `instance_url` values (and `X-Instance-Url` on the internal API). Only allowed when `ASPNETCORE_ENVIRONMENT=Development`; otherwise the server refuses to start. |
 | `MCP_INTERNAL_BIND` | no | Address the internal REST port listens on. Defaults to `127.0.0.1`. Any non-loopback address requires `MCP_INTERNAL_TOKEN`. |
 | `MCP_INTERNAL_TOKEN` | when bound beyond loopback | Shared secret internal callers send in the `X-Internal-Token` header on `/tools` and `/tools/call`. |
+| `MCP_UI_DASHBOARDS` | no | Turns on the in-chat dashboard view. Comma-separated `<instance origin>=<dashboard origin>` pairs (https origins, no path); the dashboard origins are the only ones Claude may frame. |
+| `MCP_UI_MY_ANYTHINK_URL` | no | https origin of My Anythink, shown for account-level views when the in-chat dashboard is on. |
 | `MCP_PORT` | no | Public port serving `/mcp` and the OAuth metadata. Defaults to `5300` (or pass `--port`). |
 | `MCP_INTERNAL_PORT` | no | Port serving the internal REST API described below. Defaults to `5301` (or pass `--internal-port`). |
 

@@ -1,4 +1,5 @@
 using AnythinkMcp.Cli;
+using AnythinkMcp.Ui;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -36,22 +37,33 @@ public class HostedModeTests : IAsyncLifetime
 
     private static string ExchangedFor(string inbound) => "ex-" + inbound[^16..];
 
-    public Task InitializeAsync() => StartAppAsync(HostedMode.DefaultMaxConcurrentRequestsPerProject);
+    public Task InitializeAsync() => StartAppAsync(HostedMode.DefaultMaxConcurrentRequestsPerProject, null);
 
     private async Task RestartAppAsync(int maxConcurrentRequestsPerProject)
     {
         await DisposeAsync();
-        await StartAppAsync(maxConcurrentRequestsPerProject);
+        await StartAppAsync(maxConcurrentRequestsPerProject, null);
     }
 
-    private async Task StartAppAsync(int maxConcurrentRequestsPerProject)
+    private async Task RestartWithUiAsync(McpUiOptions ui)
     {
-        _rsa = RSA.Create(2048);
-        _key = new RsaSecurityKey(_rsa) { KeyId = "test-key-1" };
-        _mock = new MockHttpMessageHandler();
-        HostedTestSupport.ConfigureIssuer(_mock, Issuer, _key);
+        await DisposeAsync();
+        await StartAppAsync(HostedMode.DefaultMaxConcurrentRequestsPerProject, ui);
+    }
 
-        _mock.When(HttpMethod.Post, $"{Issuer}/oauth/v1/token").Respond(async req =>
+    private async Task StartAppAsync(int maxConcurrentRequestsPerProject, McpUiOptions? ui)
+    {
+        var options = new HostedMode.Options
+        {
+            PublicUrl = PublicUrl,
+            Issuer = Issuer,
+            Audience = PublicUrl,
+            Exchange = new TokenExchangeOptions { ClientId = "mcp", ClientSecret = "s3cret", Audience = "anythink-oauth" },
+            AllowedOrigins = [Origin],
+            MaxConcurrentRequestsPerProject = maxConcurrentRequestsPerProject,
+            Ui = ui,
+        };
+        var app = await HostedTestSupport.StartPublicAppAsync(options, mock => mock.When(HttpMethod.Post, $"{Issuer}/oauth/v1/token").Respond(async req =>
         {
             Interlocked.Increment(ref _exchangeCount);
             var parsed = HttpUtility.ParseQueryString(await req.Content!.ReadAsStringAsync());
@@ -63,34 +75,11 @@ public class HostedModeTests : IAsyncLifetime
                     $$"""{"access_token":"{{ExchangedFor(parsed["subject_token"]!)}}","expires_in":3600,"token_type":"Bearer"}""",
                     Encoding.UTF8, "application/json")
             };
-        });
-
-        var options = new HostedMode.Options
-        {
-            PublicUrl = PublicUrl,
-            Issuer = Issuer,
-            Audience = PublicUrl,
-            Exchange = new TokenExchangeOptions { ClientId = "mcp", ClientSecret = "s3cret", Audience = "anythink-oauth" },
-            AllowedOrigins = [Origin],
-            MaxConcurrentRequestsPerProject = maxConcurrentRequestsPerProject,
-        };
-        var builder = WebApplication.CreateBuilder();
-        builder.WebHost.UseTestServer();
-
-        _app = HostedMode.BuildPublicApp(builder, options, new McpClientFactory(null, _mock),
-            jwt => jwt.BackchannelHttpHandler = _mock, exchangeHandler: _mock);
-
-        await _app.StartAsync();
-        _client = _app.GetTestClient();
-        _client.BaseAddress = new Uri("https://mcp.test/");
+        }));
+        (_app, _client, _rsa, _key, _mock) = (app.App, app.Client, app.Rsa, app.Key, app.Mock);
     }
 
-    public async Task DisposeAsync()
-    {
-        _client.Dispose();
-        await _app.StopAsync();
-        _rsa.Dispose();
-    }
+    public Task DisposeAsync() => new PublicApp(_app, _client, _rsa, _key, _mock).StopAsync();
 
     private string ValidToken(
         string? tid = "42", string? instanceUrl = "https://api.my.anythink.cloud",
@@ -259,6 +248,113 @@ public class HostedModeTests : IAsyncLifetime
             (annotations.ReadOnlyHint == true || annotations.DestructiveHint.HasValue).Should().BeTrue();
             tool.Name.Length.Should().BeLessOrEqualTo(64);
         }
+    }
+
+    private static readonly McpUiOptions UiOn = new(new Dictionary<string, string> { ["https://a.anythink.cloud"] = "https://dash.test" }, null, "x.claudemcpcontent.com");
+
+    [Fact]
+    public async Task ToolsList_WithUi_MappedToolsCarryResourceUri_OthersNone()
+    {
+        await RestartWithUiAsync(UiOn);
+        await using var mcpClient = await McpClient.CreateAsync(Transport(ValidToken()));
+        var tools = await mcpClient.ListToolsAsync();
+
+        var mapped = tools.Where(t => McpUiRoutes.ToolNames.Contains(t.Name)).ToList();
+        mapped.Should().NotBeEmpty().And.OnlyContain(t => t.ProtocolTool.Meta!["ui"]!["resourceUri"]!.GetValue<string>() == "ui://anythink/view");
+        tools.Except(mapped).Where(t => t.Name != "ui_open").Should().NotBeEmpty().And.OnlyContain(t => t.ProtocolTool.Meta == null);
+    }
+
+    [Fact]
+    public async Task ResourcesList_WithUi_ListsTheView()
+    {
+        await RestartWithUiAsync(UiOn);
+        await using var mcpClient = await McpClient.CreateAsync(Transport(ValidToken()));
+
+        var resources = await mcpClient.ListResourcesAsync();
+
+        var view = resources.Should().ContainSingle().Subject;
+        view.Uri.Should().Be("ui://anythink/view");
+        view.MimeType.Should().Be("text/html;profile=mcp-app");
+    }
+
+    [Fact]
+    public async Task ResourceRead_Meta_DeclaresExactlyTheDashboardOrigins()
+    {
+        await RestartWithUiAsync(UiOn);
+        await using var mcpClient = await McpClient.CreateAsync(Transport(ValidToken()));
+
+        var read = await mcpClient.ReadResourceAsync("ui://anythink/view");
+
+        var ui = read.Contents.Should().ContainSingle().Subject.Meta!["ui"]!;
+        ui["csp"]!["frameDomains"]!.AsArray().Select(n => n!.GetValue<string>()).Should().Equal("https://dash.test");
+        ui["csp"]!["connectDomains"]!.AsArray().Should().BeEmpty();
+        ui["csp"]!["resourceDomains"]!.AsArray().Should().BeEmpty();
+        ui["domain"]!.GetValue<string>().Should().Be(UiOn.SandboxDomain);
+        ui["prefersBorder"]!.GetValue<bool>().Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ResourceRead_InlinesTheScript()
+    {
+        await RestartWithUiAsync(UiOn);
+        await using var mcpClient = await McpClient.CreateAsync(Transport(ValidToken()));
+        using var script = new StreamReader(typeof(McpUiResource).Assembly.GetManifestResourceStream("AnythinkMcp.Ui.view.js")!);
+
+        var read = await mcpClient.ReadResourceAsync("ui://anythink/view");
+
+        var text = ((TextResourceContents)read.Contents.Single()).Text;
+        var js = script.ReadToEnd();
+        js.Should().Contain("ui/initialize");
+        text.Should().NotContain("/*VIEW_JS*/").And.Contain("<script>" + js + "</script>");
+    }
+
+    [Fact]
+    public async Task CallTool_WithUi_MappedToolResultNamesTheTool_OthersDont()
+    {
+        await RestartWithUiAsync(UiOn);
+        var token = ValidToken();
+        _mock.When(HttpMethod.Get, $"{UpstreamOrgUrl("42")}/entities/blog_posts/items*")
+            .Respond("application/json", """{"items":[{"id":1,"title":"Hello"}],"total_items":1,"total_pages":1,"has_next_page":false,"page":1,"page_size":20}""");
+        await using var mcpClient = await McpClient.CreateAsync(Transport(token));
+
+        var mapped = await mcpClient.CallToolAsync("data_list", new Dictionary<string, object?> { ["entity"] = "blog_posts" });
+        var unmapped = await mcpClient.CallToolAsync("project_details");
+
+        (mapped.Meta?["anythink/tool"]?.GetValue<string>()).Should().Be("data_list");
+        ((TextContentBlock)mapped.Content[0]).Text.Should().Contain("Hello").And.NotContain("anythink/tool");
+        unmapped.Meta?["anythink/tool"].Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CallTool_WithoutUi_ResultNamesNoTool()
+    {
+        var token = ValidToken();
+        _mock.When(HttpMethod.Get, $"{UpstreamOrgUrl("42")}/entities/blog_posts/items*")
+            .Respond("application/json", """{"items":[],"total_items":0,"total_pages":0,"has_next_page":false,"page":1,"page_size":20}""");
+        await using var mcpClient = await McpClient.CreateAsync(Transport(token));
+
+        var result = await mcpClient.CallToolAsync("data_list", new Dictionary<string, object?> { ["entity"] = "blog_posts" });
+
+        result.IsError.Should().NotBe(true);
+        result.Meta?["anythink/tool"].Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ResourcesList_WithoutUi_IsNotOffered()
+    {
+        await using var mcpClient = await McpClient.CreateAsync(Transport(ValidToken()));
+
+        mcpClient.ServerCapabilities.Resources.Should().BeNull();
+        await mcpClient.Invoking(c => c.ListResourcesAsync().AsTask()).Should().ThrowAsync<HttpRequestException>();
+    }
+
+    [Fact]
+    public async Task ToolsList_WithoutUi_NoToolHasMeta()
+    {
+        await using var mcpClient = await McpClient.CreateAsync(Transport(ValidToken()));
+        var tools = await mcpClient.ListToolsAsync();
+
+        tools.Should().OnlyContain(t => t.ProtocolTool.Meta == null);
     }
 
     [Fact]

@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+using AnythinkMcp.Ui;
 using FluentAssertions;
 
 namespace AnythinkMcp.Tests;
@@ -136,5 +139,98 @@ public class HostedConfigTests
         var act = () => Load(env => env["MCP_BILLING_URL"] = value);
 
         act.Should().Throw<InvalidOperationException>().WithMessage("MCP_BILLING_URL*");
+    }
+
+    [Fact]
+    public void UiConfig_Unset_LeavesUiOff()
+    {
+        Load().Ui.Should().BeNull();
+    }
+
+    [Fact]
+    public void UiConfig_ParsesInstanceToDashboardPairs()
+    {
+        var ui = Load(env => env["MCP_UI_DASHBOARDS"] =
+            "https://api.uk01-lon.anythink.cloud=https://uk01-lon.anythink.cloud, https://api.eu.example.test=https://eu.example.test").Ui!;
+
+        ui.Dashboards.Should().BeEquivalentTo(new Dictionary<string, string>
+        {
+            ["https://api.uk01-lon.anythink.cloud"] = "https://uk01-lon.anythink.cloud",
+            ["https://api.eu.example.test"] = "https://eu.example.test",
+        });
+        ui.FrameDomains.Should().BeEquivalentTo("https://uk01-lon.anythink.cloud", "https://eu.example.test");
+    }
+
+    [Theory]
+    [InlineData("http://x=https://y")]
+    [InlineData("https://api.x=https://y/path")]
+    [InlineData("https://api.x")]
+    [InlineData("https://api.x=https://*.y")]
+    public void UiConfig_RejectsNonHttpsOrPathOrMalformedPairs(string value)
+    {
+        var act = () => Load(env => env["MCP_UI_DASHBOARDS"] = value);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*MCP_UI_DASHBOARDS*");
+    }
+
+    [Fact]
+    public void UiConfig_MyAnythinkUrl_MustBeHttpsOrigin()
+    {
+        const string pair = "https://api.x=https://y";
+
+        Load(env => { env["MCP_UI_DASHBOARDS"] = pair; env["MCP_UI_MY_ANYTHINK_URL"] = "https://my.anythink.cloud"; })
+            .Ui!.MyAnythinkUrl.Should().Be("https://my.anythink.cloud");
+
+        var act = () => Load(env => { env["MCP_UI_DASHBOARDS"] = pair; env["MCP_UI_MY_ANYTHINK_URL"] = "https://my.anythink.cloud/x"; });
+        act.Should().Throw<InvalidOperationException>().WithMessage("*MCP_UI_MY_ANYTHINK_URL*");
+    }
+
+    [Fact]
+    public void SandboxDomain_IsSha256OfPublicUrl()
+    {
+        var options = Load(env => env["MCP_UI_DASHBOARDS"] = "https://api.x=https://y");
+        var expected = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(options.PublicUrl))).ToLowerInvariant()[..32] + ".claudemcpcontent.com";
+
+        McpUiOptions.SandboxDomainFor("https://example.com/mcp").Should().Be("c3d80a4ed901ee05b21755a88273b4a4.claudemcpcontent.com");
+        options.Ui!.SandboxDomain.Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("https://api.x=https://a, https://api.x=https://b")]
+    [InlineData("https://api.x=https://a, https://API.X=https://b")]
+    [InlineData("https://api.x=https://a, https://api.x:443=https://b")]
+    public void UiConfig_RepeatedInstance_IsRejected_NamingTheSettingAndInstance(string value)
+    {
+        var act = () => Load(env => env["MCP_UI_DASHBOARDS"] = value);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("MCP_UI_DASHBOARDS*https://api.x*");
+    }
+
+    [Theory]
+    [InlineData("https://u:pw@api.x=https://y")]
+    [InlineData("https://api.x=https://u:pw@y")]
+    public void UiConfig_OriginWithCredentials_IsRejected(string value)
+    {
+        var act = () => Load(env => env["MCP_UI_DASHBOARDS"] = value);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*MCP_UI_DASHBOARDS*").Which.Message.Should().NotContain("pw");
+    }
+
+    [Fact]
+    public void UiConfig_MyAnythinkUrlWithCredentials_IsRejected()
+    {
+        var act = () => Load(env => { env["MCP_UI_DASHBOARDS"] = "https://api.x=https://y"; env["MCP_UI_MY_ANYTHINK_URL"] = "https://u:pw@my.anythink.cloud"; });
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*MCP_UI_MY_ANYTHINK_URL*");
+    }
+
+    [Theory]
+    [InlineData(",")]
+    [InlineData(" , ")]
+    public void UiConfig_WithNoEntries_IsRejected(string value)
+    {
+        var act = () => Load(env => env["MCP_UI_DASHBOARDS"] = value);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("MCP_UI_DASHBOARDS*");
     }
 }

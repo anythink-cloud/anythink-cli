@@ -34,33 +34,11 @@ public class HostedAccountToolsTests : McpTestBase, IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        _rsa = RSA.Create(2048);
-        _key = new RsaSecurityKey(_rsa) { KeyId = "test-key-1" };
-        _mock = new MockHttpMessageHandler();
-        HostedTestSupport.ConfigureIssuer(_mock, Issuer, _key);
-
-        var options = new HostedMode.Options
-        {
-            PublicUrl = PublicUrl,
-            Issuer = Issuer,
-            Audience = PublicUrl,
-            Exchange = new TokenExchangeOptions { ClientId = "mcp", ClientSecret = "s3cret", Audience = "anythink-oauth" },
-        };
-        var builder = WebApplication.CreateBuilder();
-        builder.WebHost.UseTestServer();
-        _app = HostedMode.BuildPublicApp(builder, options, new McpClientFactory(null, _mock),
-            jwt => jwt.BackchannelHttpHandler = _mock, exchangeHandler: _mock);
-        await _app.StartAsync();
-        _client = _app.GetTestClient();
-        _client.BaseAddress = new Uri("https://mcp.test/");
+        var app = await HostedTestSupport.StartPublicAppAsync(HostedTestSupport.DefaultOptions());
+        (_app, _client, _rsa, _key, _mock) = (app.App, app.Client, app.Rsa, app.Key, app.Mock);
     }
 
-    public async Task DisposeAsync()
-    {
-        _client.Dispose();
-        await _app.StopAsync();
-        _rsa.Dispose();
-    }
+    public Task DisposeAsync() => new PublicApp(_app, _client, _rsa, _key, _mock).StopAsync();
 
     private const string WithAccount = "offline_access account";
 
@@ -81,12 +59,7 @@ public class HostedAccountToolsTests : McpTestBase, IAsyncLifetime
     private static Dictionary<string, object> Claims(params (string Name, object? Value)[] claims) =>
         claims.Where(c => c.Value is not null).ToDictionary(c => c.Name, c => c.Value!);
 
-    private Task<McpClient> Connect(string token) => McpClient.CreateAsync(new HttpClientTransport(new HttpClientTransportOptions
-    {
-        Endpoint = new Uri(PublicUrl),
-        TransportMode = HttpTransportMode.StreamableHttp,
-        AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = $"Bearer {token}" }
-    }, _client, ownsHttpClient: false));
+    private Task<McpClient> Connect(string token) => HostedTestSupport.Connect(_client, token);
 
     private static Dictionary<string, object?> Args(params (string Name, object? Value)[] arguments) =>
         arguments.ToDictionary(a => a.Name, a => a.Value);

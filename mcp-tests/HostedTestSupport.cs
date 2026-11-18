@@ -1,11 +1,65 @@
+using System.Security.Cryptography;
+using AnythinkMcp.Ui;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
+using ModelContextProtocol.Client;
 using RichardSzalay.MockHttp;
 
 namespace AnythinkMcp.Tests;
 
+internal sealed record PublicApp(WebApplication App, HttpClient Client, RSA Rsa, RsaSecurityKey Key, MockHttpMessageHandler Mock)
+{
+    public async Task StopAsync()
+    {
+        Client.Dispose();
+        await App.StopAsync();
+        Rsa.Dispose();
+    }
+}
+
 internal static class HostedTestSupport
 {
+    public const string Issuer = "https://issuer.test";
+    public const string PublicUrl = "https://mcp.test/mcp";
+
+    public static async Task<PublicApp> StartPublicAppAsync(
+        HostedMode.Options options, Action<MockHttpMessageHandler>? configureMock = null, Action<WebApplicationBuilder>? configureBuilder = null)
+    {
+        var rsa = RSA.Create(2048);
+        var key = new RsaSecurityKey(rsa) { KeyId = "test-key-1" };
+        var mock = new MockHttpMessageHandler();
+        ConfigureIssuer(mock, options.Issuer, key);
+        configureMock?.Invoke(mock);
+
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseTestServer();
+        configureBuilder?.Invoke(builder);
+        var app = HostedMode.BuildPublicApp(builder, options, new McpClientFactory(null, mock),
+            jwt => jwt.BackchannelHttpHandler = mock, exchangeHandler: mock);
+        await app.StartAsync();
+        var client = app.GetTestClient();
+        client.BaseAddress = new Uri("https://mcp.test/");
+        return new PublicApp(app, client, rsa, key, mock);
+    }
+
+    public static HostedMode.Options DefaultOptions(McpUiOptions? ui = null) => new()
+    {
+        PublicUrl = PublicUrl,
+        Issuer = Issuer,
+        Audience = PublicUrl,
+        Exchange = new TokenExchangeOptions { ClientId = "mcp", ClientSecret = "s3cret", Audience = "anythink-oauth" },
+        Ui = ui,
+    };
+
+    public static Task<McpClient> Connect(HttpClient client, string token) => McpClient.CreateAsync(new HttpClientTransport(new HttpClientTransportOptions
+    {
+        Endpoint = new Uri(PublicUrl),
+        TransportMode = HttpTransportMode.StreamableHttp,
+        AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = $"Bearer {token}" }
+    }, client, ownsHttpClient: false));
+
     public static void ConfigureIssuer(MockHttpMessageHandler mock, string issuer, RsaSecurityKey key)
     {
         mock.When(HttpMethod.Get, $"{issuer}/.well-known/openid-configuration")

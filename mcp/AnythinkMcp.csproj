@@ -36,6 +36,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Ui\view.html" LogicalName="AnythinkMcp.Ui.view.html" />
+    <EmbeddedResource Include="Ui\view.js" LogicalName="AnythinkMcp.Ui.view.js" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
     <PackageReference Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />

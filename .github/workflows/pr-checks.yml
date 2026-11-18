@@ -190,6 +190,9 @@ jobs:
       - name: Run hygiene script's own tests
         run: node --test scripts/ci/check-public-hygiene.test.js
 
+      - name: Run MCP view page tests
+        run: node --test mcp/Ui/view.test.js
+
       - name: Check added lines for internal names / secrets
         env:
           PUBLIC_HYGIENE_PATTERNS: ${{ secrets.PUBLIC_HYGIENE_PATTERNS }}
