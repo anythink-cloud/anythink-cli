@@ -47,7 +47,7 @@ public static class McpUiRoutes
         var template = route.Template;
         foreach (var name in Placeholders(template))
         {
-            if (!args.TryGetValue(name, out var value) || value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined || Text(value).Trim().Length == 0)
+            if (!args.TryGetValue(name, out var value) || value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined || Unusable(Text(value)))
                 return Fill(template[..template.IndexOf("/{" + name + "}", StringComparison.Ordinal)], args);
         }
         return Fill(template, args);
@@ -61,10 +61,12 @@ public static class McpUiRoutes
         foreach (var name in Placeholders(template))
         {
             var text = Text(args[name]);
-            template = template.Replace("{" + name + "}", text is "." or ".." ? text.Replace(".", "%2E") : Uri.EscapeDataString(text));
+            template = template.Replace("{" + name + "}", Uri.EscapeDataString(text));
         }
         return template;
     }
+
+    private static bool Unusable(string text) => text.Trim().Length == 0 || Uri.UnescapeDataString(text).Trim() is "." or "..";
 
     private static string Text(JsonElement value) => value.ValueKind == JsonValueKind.String ? value.GetString()! : value.GetRawText();
 

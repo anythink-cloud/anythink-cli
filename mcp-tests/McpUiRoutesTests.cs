@@ -51,9 +51,21 @@ public class McpUiRoutesTests
         PathFor("projects_create").Should().Be("/accounts");
     }
 
-    [Fact]
-    public void Path_DotSegmentValue_StaysInSection() =>
-        PathFor("data_get", ("entity", ".."), ("id", ".")).Should().Be("/entities/%2E%2E/%2E");
+    [Theory]
+    [InlineData(".")]
+    [InlineData("..")]
+    [InlineData("%2e%2e")]
+    [InlineData("%2E.")]
+    public void Path_DotSegmentValue_StaysInSection(string dots)
+    {
+        var inEntity = PathFor("data_get", ("entity", dots), ("id", "7"));
+        var inId = PathFor("data_get", ("entity", "posts"), ("id", dots));
+
+        inEntity.Should().Be("/entities");
+        inId.Should().Be("/entities/posts");
+        foreach (var path in new[] { inEntity, inId })
+            new Uri(new Uri("https://dash.test/org/42"), "/org/42" + path).AbsolutePath.Should().StartWith("/org/42/entities");
+    }
 
     [Fact]
     public void Path_EmptyArgument_FallsBackToSection()
