@@ -90,6 +90,26 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
     private const string ScopeFiles = "Files";
     private const string ScopeData = "Data (Entity Records)";
 
+    internal Func<string, AnythinkClient>? ClientFactory { get; set; }
+
+    // --force-data / --force-data-entities imply --include-data. Null means ask.
+    internal static HashSet<string>? FlagScope(MigrateSettings settings, bool interactive)
+    {
+        var data = settings.IncludeData || settings.ForceData || settings.ForceDataEntities != null;
+        if (!(settings.IncludeWorkflows || settings.IncludeRoles || settings.IncludeSettings ||
+              settings.IncludeMenus || settings.IncludeFiles || data))
+            return interactive ? null : [ScopeEntities];
+
+        var scope = new HashSet<string> { ScopeEntities };
+        if (settings.IncludeWorkflows) scope.Add(ScopeWorkflows);
+        if (settings.IncludeRoles) scope.Add(ScopeRoles);
+        if (settings.IncludeSettings) scope.Add(ScopeSettings);
+        if (settings.IncludeMenus) scope.Add(ScopeMenus);
+        if (settings.IncludeFiles) scope.Add(ScopeFiles);
+        if (data) scope.Add(ScopeData);
+        return scope;
+    }
+
     public override async Task<int> ExecuteAsync(CommandContext context, MigrateSettings settings)
     {
         // ── Resolve profiles ──────────────────────────────────────────────────
@@ -117,8 +137,9 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         AnythinkClient srcClient, dstClient;
         try
         {
-            srcClient = GetClientForProfile(fromKey);
-            dstClient = GetClientForProfile(toKey);
+            var clientFor = ClientFactory ?? (key => GetClientForProfile(key));
+            srcClient = clientFor(fromKey);
+            dstClient = clientFor(toKey);
         }
         catch (CliException ex)
         {
@@ -127,24 +148,8 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         }
 
         // ── Determine migration scope (flags or interactive) ──────────────────
-        // --force-data / --force-data-entities imply --include-data
-        bool anyFlagSet = settings.IncludeWorkflows || settings.IncludeRoles ||
-                          settings.IncludeSettings || settings.IncludeMenus ||
-                          settings.IncludeFiles || settings.IncludeData ||
-                          settings.ForceData || settings.ForceDataEntities != null;
-
-        HashSet<string> scope;
-        if (anyFlagSet)
-        {
-            scope = new HashSet<string> { ScopeEntities };
-            if (settings.IncludeWorkflows) scope.Add(ScopeWorkflows);
-            if (settings.IncludeRoles) scope.Add(ScopeRoles);
-            if (settings.IncludeSettings) scope.Add(ScopeSettings);
-            if (settings.IncludeMenus) scope.Add(ScopeMenus);
-            if (settings.IncludeFiles) scope.Add(ScopeFiles);
-            if (settings.IncludeData || settings.ForceData || settings.ForceDataEntities != null) scope.Add(ScopeData);
-        }
-        else
+        var scope = FlagScope(settings, ImportDirectusCommand.IsInteractive());
+        if (scope is null)
         {
             var selected = AnsiConsole.Prompt(
                 new MultiSelectionPrompt<string>()
@@ -245,6 +250,8 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         // Counters — written by progress tasks, read for summary
         var entitiesCreated = new Counter(); var entitiesSkipped = new Counter();
         var fieldsCreated = new Counter(); var fieldsSkipped = new Counter(); var fieldsFailed = new Counter();
+        var permissionsCreated = new Counter();
+        var madeSearchable = new List<string>();
         var workflowsCreated = new Counter();
         var rolesCreated = new Counter(); var rolesSkipped = new Counter();
         var settingsDone = new Counter();
@@ -366,7 +373,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                             }
 
                             await MigrateField(dstClient, entity.Name, field, settings.DryRun,
-                                srcIdToName, dstNameToId, errors,
+                                srcIdToName, dstNameToId, errors, madeSearchable,
                                 fieldsCreated, fieldsSkipped, fieldsFailed);
                             fieldTask.Increment(1);
                         }
@@ -382,10 +389,15 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                             continue;
                         }
                         await MigrateField(dstClient, entity.Name, field, settings.DryRun,
-                            srcIdToName, dstNameToId, errors,
+                            srcIdToName, dstNameToId, errors, madeSearchable,
                             fieldsCreated, fieldsSkipped, fieldsFailed);
                         fieldTask.Increment(1);
                     }
+
+                    // New entities get these from the platform; entities that already existed may not have them.
+                    dstPermissions = await dstClient.GetPermissionsAsync();
+                    permissionsCreated.Value = await AddMissingCrudPermissionsAsync(dstClient,
+                        migratable.Select(e => e.Name).Where(dstEntityNames.Contains), dstPermissions, settings.DryRun, errors);
 
                     entityTask.Value = entityTask.MaxValue;
                     fieldTask.Value = fieldTask.MaxValue;
@@ -1023,6 +1035,8 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
             AnsiConsole.MarkupLine($"  Entities              [green]+{entitiesCreated.Value}[/]  skipped [dim]{entitiesSkipped.Value}[/]");
             AnsiConsole.MarkupLine($"  Fields                [green]+{fieldsCreated.Value}[/]  skipped [dim]{fieldsSkipped.Value}[/]" +
                                    (fieldsFailed.Value > 0 ? $"  [red]failed {fieldsFailed.Value}[/]" : ""));
+            if (permissionsCreated.Value > 0)
+                AnsiConsole.MarkupLine($"  Permissions           [green]+{permissionsCreated.Value}[/]");
         }
         if (scope.Contains(ScopeWorkflows))
             AnsiConsole.MarkupLine($"  Workflows             [green]+{workflowsCreated.Value}[/]" +
@@ -1048,6 +1062,14 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                 else if (skipped > 0)
                     AnsiConsole.MarkupLine($"    [dim]·[/] {Markup.Escape(entity),-30} [dim]skipped — already has data[/]");
             }
+        }
+
+        if (madeSearchable.Count > 0)
+        {
+            AnsiConsole.WriteLine();
+            AnsiConsole.MarkupLine($"[yellow]{madeSearchable.Count} public field(s) {(settings.DryRun ? "would be" : "were")} made searchable, as public search requires it:[/]");
+            foreach (var name in madeSearchable)
+                AnsiConsole.MarkupLine($"  [dim]·[/] {Markup.Escape(name)}");
         }
 
         if (workflowsSkipped.Count > 0)
@@ -1091,7 +1113,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private sealed class Counter { public int Value; }
+    internal sealed class Counter { public int Value; }
 
     /// <summary>
     /// Returns the total record count for an entity.
@@ -1114,20 +1136,17 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
         return total;
     }
 
-    private static async Task MigrateField(
+    internal static async Task MigrateField(
         AnythinkClient client, string entityName, Field field, bool dryRun,
         Dictionary<int, string> srcIdToName, Dictionary<string, int> dstNameToId,
-        List<string> errors, Counter cCreated, Counter cSkipped, Counter cFailed)
+        List<string> errors, List<string> madeSearchable, Counter cCreated, Counter cSkipped, Counter cFailed)
     {
         if (!dryRun)
         {
             try
             {
                 var remapped = RemapRelationship(field.Relationship, srcIdToName, dstNameToId);
-                await client.AddFieldAsync(entityName, new CreateFieldRequest(
-                    field.Name, field.DatabaseType, field.DisplayType, field.Label,
-                    null, field.DefaultValue, field.IsRequired, field.IsNameField, field.IsUnique,
-                    field.IsSearchable, field.PubliclySearchable, field.IsIndexed, remapped));
+                await client.AddFieldAsync(entityName, BuildFieldRequest(field, remapped));
             }
             catch (AnythinkException ex)
             {
@@ -1137,6 +1156,38 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
             }
         }
         cCreated.Value++;
+        if (field.PubliclySearchable && !field.IsSearchable)
+            madeSearchable.Add($"{entityName}.{field.Name}");
+    }
+
+    internal static CreateFieldRequest BuildFieldRequest(Field field, JsonElement? relationship) => new(
+        field.Name, field.DatabaseType, field.DisplayType, field.Label,
+        null, field.DefaultValue, field.IsRequired, field.IsNameField, field.IsUnique,
+        field.IsSearchable || field.PubliclySearchable, field.PubliclySearchable, field.IsIndexed, relationship, field.Options);
+
+    internal static async Task<int> AddMissingCrudPermissionsAsync(
+        AnythinkClient client, IEnumerable<string> entityNames, List<Permission> existing, bool dryRun, List<string> errors)
+    {
+        var names = existing.Select(p => p.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var missing = entityNames
+            .SelectMany(e => new[] { "create", "read", "update", "delete" }.Select(a => $"{e}:{a}"))
+            .Where(n => !names.Contains(n))
+            .ToList();
+        var added = 0;
+        foreach (var name in missing)
+        {
+            try
+            {
+                if (!dryRun)
+                    existing.Add(await client.CreatePermissionAsync(new CreatePermissionRequest(name, null, true)));
+                added++;
+            }
+            catch (AnythinkException ex)
+            {
+                errors.Add($"Permission '{name}': {ex.Message}");
+            }
+        }
+        return added;
     }
 
     internal static TenantSettingsDto? BuildDestinationSettings(TenantSettingsDto? source, int? remappedDefaultRoleId)
