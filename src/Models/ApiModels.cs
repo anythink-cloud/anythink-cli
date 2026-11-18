@@ -19,7 +19,8 @@ public record LoginResponse(
 public record UpdateEntityRequest(
     [property: JsonPropertyName("enable_rls")] bool EnableRls,
     [property: JsonPropertyName("is_public")] bool IsPublic,
-    [property: JsonPropertyName("lock_new_records")] bool LockNewRecords
+    [property: JsonPropertyName("lock_new_records")] bool LockNewRecords,
+    [property: JsonPropertyName("allow_group_scope"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? AllowGroupScope = null
 );
 
 public record UpdateFieldRequest(

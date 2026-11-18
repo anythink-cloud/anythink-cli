@@ -12,7 +12,8 @@ public record Entity(
     [property: JsonPropertyName("is_public")] bool IsPublic,
     [property: JsonPropertyName("lock_new_records")] bool LockNewRecords,
     [property: JsonPropertyName("fields")] List<Field>? Fields,
-    [property: JsonPropertyName("id")] int? Id
+    [property: JsonPropertyName("id")] int? Id,
+    [property: JsonPropertyName("allow_group_scope")] bool AllowGroupScope = false
 );
 
 public record Field(
@@ -213,7 +214,8 @@ public record RoleResponse(
 public record CreateRoleRequest(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("description")] string? Description = null,
-    [property: JsonPropertyName("is_active")] bool IsActive = true
+    [property: JsonPropertyName("is_active")] bool IsActive = true,
+    [property: JsonPropertyName("anyapi_access")] bool AnyApiAccess = true
 );
 
 public record CreatePermissionRequest(

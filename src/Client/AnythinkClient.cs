@@ -259,8 +259,8 @@ public class AnythinkClient : HttpApiClient, IImportTarget
     public Task<UserResponse?> GetUserAsync(int userId)
         => GetAsync<UserResponse>(_org + $"/users/{userId}");
 
-    public Task<UserResponse> CreateUserAsync(CreateUserRequest req)
-        => PostAsync<UserResponse>(_org + "/users", req);
+    public Task<UserResponse?> CreateUserAsync(CreateUserRequest req)
+        => PostOptionalAsync<UserResponse>(_org + "/users", req);
 
     public Task<UserResponse?> UpdateUserAsync(int userId, UpdateUserRequest req)
         => PutAsync<UserResponse>(_org + $"/users/{userId}", req);
@@ -269,7 +269,7 @@ public class AnythinkClient : HttpApiClient, IImportTarget
         => DeleteAsync(_org + $"/users/{userId}");
 
     public Task SendInvitationAsync(int userId)
-        => PostAsync<object>(_org + $"/users/{userId}/send-invitation-email", new { });
+        => PostVoidAsync(_org + $"/users/{userId}/send-invitation-email");
 
     // ── Files ─────────────────────────────────────────────────────────────────
 

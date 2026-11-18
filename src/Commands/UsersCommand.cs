@@ -188,12 +188,42 @@ public class UsersInviteCommand : BaseCommand<UserInviteSettings>
                         settings.Email,
                         settings.RoleId
                     ));
-                    await client.SendInvitationAsync(user.Id);
                 });
 
             Renderer.Success($"User [#F97316]{Markup.Escape(settings.Email)}[/] created and invitation sent.");
-            Renderer.KeyValue("ID", user!.Id.ToString());
-            Renderer.KeyValue("Name", $"{user.FirstName} {user.LastName}");
+            if (user is not null)
+            {
+                Renderer.KeyValue("ID", user.Id.ToString());
+                Renderer.KeyValue("Name", $"{user.FirstName} {user.LastName}");
+            }
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            HandleError(ex);
+            return 1;
+        }
+    }
+}
+
+// ── users resend-invite ───────────────────────────────────────────────────────
+
+public class UserResendInviteSettings : CommandSettings
+{
+    [CommandArgument(0, "<ID>")]
+    [Description("User ID to send a fresh invitation to")]
+    public int Id { get; set; }
+}
+
+[CommandGuide("Emails an existing user a new invitation, which replaces the link in any earlier invitation email. `users_invite` already sends one, so use this only when the person says it never arrived or the link expired.")]
+public class UsersResendInviteCommand : BaseCommand<UserResendInviteSettings>
+{
+    public override async Task<int> ExecuteAsync(CommandContext context, UserResendInviteSettings settings)
+    {
+        try
+        {
+            await GetClient().SendInvitationAsync(settings.Id);
+            Renderer.Success($"Invitation sent to user [#F97316]{settings.Id}[/].");
             return 0;
         }
         catch (Exception ex)
