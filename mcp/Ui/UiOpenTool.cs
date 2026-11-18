@@ -9,6 +9,7 @@ namespace AnythinkMcp.Ui;
 public sealed class UiOpenTool(McpUiOptions options) : McpServerTool
 {
     private const int MaxPathLength = 512;
+    private const int MaxDecodeRounds = 5;
 
     public override Tool ProtocolTool { get; } = new()
     {
@@ -46,7 +47,7 @@ public sealed class UiOpenTool(McpUiOptions options) : McpServerTool
         UiRoute? route = null;
         if (path is null && (tool is null || !McpUiRoutes.TryGet(tool, out route)))
             return Fail("There's no view for this tool.");
-        if (path is not null && !(SafePath(path) && SafePath(Uri.UnescapeDataString(path))))
+        if (path is not null && !SafePath(path))
             return Fail("That path isn't a valid dashboard path.");
 
         try
@@ -94,8 +95,8 @@ public sealed class UiOpenTool(McpUiOptions options) : McpServerTool
         {
             using var projects = JsonDocument.Parse(await services.GetRequiredService<HostedProjects>().ListAsync(cancellationToken));
             var account = projects.RootElement.EnumerateArray()
-                .Where(p => p.TryGetProperty("project_id", out var id) && Guid.TryParse(id.GetString(), out var parsed) && parsed == projectId)
-                .Select(p => p.TryGetProperty("account_id", out var id) && Guid.TryParse(id.GetString(), out var parsed) ? parsed : Guid.Empty)
+                .Where(p => IdOf(p, "project_id") == projectId)
+                .Select(p => IdOf(p, "account_id"))
                 .FirstOrDefault(id => id != Guid.Empty);
             return account == Guid.Empty ? null : (await accounts.Client().GetTransferTokenAsync(account, projectId)).TransferToken;
         }
@@ -105,7 +106,23 @@ public sealed class UiOpenTool(McpUiOptions options) : McpServerTool
         }
     }
 
-    private static bool SafePath(string path) =>
+    private static Guid IdOf(JsonElement entry, string name) =>
+        entry.ValueKind == JsonValueKind.Object && entry.TryGetProperty(name, out var id) && id.ValueKind == JsonValueKind.String
+        && Guid.TryParse(id.GetString(), out var parsed) ? parsed : Guid.Empty;
+
+    private static bool SafePath(string path)
+    {
+        for (var round = 0; round < MaxDecodeRounds; round++)
+        {
+            if (!SafeForm(path)) return false;
+            var decoded = Uri.UnescapeDataString(path);
+            if (decoded == path) return true;
+            path = decoded;
+        }
+        return false;
+    }
+
+    private static bool SafeForm(string path) =>
         path.Length <= MaxPathLength && path.StartsWith('/') && !path.Contains("//")
         && !path.Contains("..") && !path.Any(c => c is ':' or '\\' || char.IsControl(c));
 

@@ -225,6 +225,10 @@ public class UiOpenToolTests : IAsyncLifetime
     [InlineData("/org/42/%2e./43/x")]
     [InlineData("/org/42/%5c43")]
     [InlineData("/org/42/%00")]
+    [InlineData("/org/42/a:b")]
+    [InlineData("/org/42/%252e%252e/43/x")]
+    [InlineData("/org/42/%25252e%25252e/43/x")]
+    [InlineData("/org/42/%255c43")]
     public async Task UiOpen_Path_RejectsEscapes(string path)
     {
         var billing = AnyBillingRequest();
@@ -300,7 +304,7 @@ public class UiOpenToolTests : IAsyncLifetime
     public async Task UiOpen_MalformedProjectListEntry_DoesNotStopSigning()
     {
         _mock.When(HttpMethod.Get, $"{Issuer}/oauth/v1/projects").Respond("application/json",
-            $$"""[{"name":"broken"},{"project_id":"{{ProjectId}}"},{"project_id":"{{ProjectId}}","account_id":"{{AccountId}}"}]""");
+            $$"""[{"name":"broken"},{"project_id":7,"account_id":"{{AccountId}}"},"odd",null,{"project_id":"{{ProjectId}}"},{"project_id":"{{ProjectId}}","account_id":"{{AccountId}}"}]""");
         TransferTokenIs(ProjectId, TransferToken);
         await using var mcp = await Connect(SingleProjectToken());
 
