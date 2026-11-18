@@ -53,7 +53,7 @@ public class PlansListCommand : BasePlatformCommand<PlansListSettings>
                     Markup.Escape(p.Resource.ToString()),
                     Markup.Escape(monthly),
                     Markup.Escape(annual),
-                    Markup.Escape($"{p.StorageQuotaGb}GB"),
+                    Markup.Escape(BillingPlan.FormatGb(p.StorageQuotaGb)),
                     Markup.Escape(p.UserQuota.ToString()),
                     p.CustomDomainEnabled ? "[green]✓[/]" : "[dim]—[/]",
                     p.BackupsEnabled ? "[green]✓[/]" : "[dim]—[/]"

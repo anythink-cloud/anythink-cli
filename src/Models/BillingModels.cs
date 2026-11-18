@@ -18,7 +18,13 @@ public record BillingPlan(
     [property: JsonPropertyName("priority_support")] bool PrioritySupport,
     [property: JsonPropertyName("is_active")] bool IsActive,
     [property: JsonPropertyName("display_order")] int DisplayOrder
-);
+)
+{
+    public string PickerLabel =>
+        $"{Name} — {(MonthlyPriceCents == 0 ? "Free" : $"{Currency.ToUpper()} {MonthlyPriceCents / 100m:0.00}/mo")} | {FormatGb(StorageQuotaGb)} | {UserQuota} users";
+
+    public static string FormatGb(decimal gb) => $"{gb:0.##}GB";
+}
 
 public record BillingAccount(
     [property: JsonPropertyName("account_id")] Guid Id,
