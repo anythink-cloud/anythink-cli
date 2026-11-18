@@ -1,3 +1,4 @@
+using Anythink.ProjectImporters;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -5,17 +6,6 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace AnythinkCli.Client;
-
-/// <summary>API error returned by the server (HTTP 4xx/5xx).</summary>
-public class AnythinkException(string message, int statusCode) : Exception(message)
-{
-    public int StatusCode { get; } = statusCode;
-    public TimeSpan? RetryAfter { get; init; }
-
-    public virtual string StatusOnlyMessage => StatusCode is >= 200 and < 300
-        ? "The project API returned a response this command couldn't read."
-        : $"The project API returned status {StatusCode}.";
-}
 
 /// <summary>
 /// User-facing CLI error that carries Spectre markup.
@@ -90,6 +80,9 @@ public abstract class HttpApiClient
         return await DeserializeAsync<T>(r)
                ?? throw Failure("Empty response.", (int)r.StatusCode);
     }
+
+    protected async Task<T?> PostOptionalAsync<T>(string url, object? body = null) =>
+        await DeserializeAsync<T>(await Http.PostAsync(Target(url), Serialize(body ?? new { }), ClientContext.Cancellation));
 
     protected async Task<T?> PutAsync<T>(string url, object body)
     {

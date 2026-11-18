@@ -1,8 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using AnythinkCli.Client;
 
-namespace AnythinkCli.Importers.Engine;
+namespace Anythink.ProjectImporters.Engine;
 
 public static class PlanJson
 {
@@ -19,7 +18,7 @@ public static class PlanJson
 
     public static ImportPlan Deserialise(string json) =>
         JsonSerializer.Deserialize<ImportPlan>(json, Options)
-        ?? throw new CliException("The plan file is empty.");
+        ?? throw new ImportException("The plan file is empty.");
 }
 
 public static class PlanFile
@@ -28,9 +27,9 @@ public static class PlanFile
     {
         var info = new FileInfo(path);
         if (info.LinkTarget is not null)
-            throw new CliException($"{Spectre.Console.Markup.Escape(path)} is a symbolic link. Choose a regular file path.");
+            throw new ImportException($"{path} is a symbolic link. Choose a regular file path.");
         if (info.Directory is { Exists: false })
-            throw new CliException($"The folder for {Spectre.Console.Markup.Escape(path)} does not exist.");
+            throw new ImportException($"The folder for {path} does not exist.");
         if (info.Exists && !force)
             throw AlreadyExists(path);
     }
@@ -61,6 +60,6 @@ public static class PlanFile
         }
     }
 
-    private static CliException AlreadyExists(string path) =>
-        new($"{Spectre.Console.Markup.Escape(path)} already exists. Pass [bold #F97316]--force[/] to overwrite it, or choose another file.");
+    private static ImportException AlreadyExists(string path) =>
+        new($"{path} already exists. Pass --force to overwrite it, or choose another file.");
 }

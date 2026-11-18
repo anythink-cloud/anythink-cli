@@ -1,4 +1,4 @@
-using AnythinkCli.Importers.Directus;
+using Anythink.ProjectImporters.Directus;
 using FluentAssertions;
 using System.Text.Json;
 

@@ -1,8 +1,8 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using AnythinkCli.Models;
+using Anythink.ProjectImporters.Models;
 
-namespace AnythinkCli.Importers.Directus;
+namespace Anythink.ProjectImporters.Directus;
 
 public class DirectusImporter : IPlatformImporter
 {

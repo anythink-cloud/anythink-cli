@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace AnythinkCli.Importers.Directus;
+namespace Anythink.ProjectImporters.Directus;
 
 public record DirectusCollection(
     [property: JsonPropertyName("collection")] string Collection,

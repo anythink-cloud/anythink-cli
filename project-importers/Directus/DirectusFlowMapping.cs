@@ -1,7 +1,7 @@
 using System.Text.Json;
-using AnythinkCli.Models;
+using Anythink.ProjectImporters.Models;
 
-namespace AnythinkCli.Importers.Directus;
+namespace Anythink.ProjectImporters.Directus;
 
 public record FlowStepTranslation(
     string Action,

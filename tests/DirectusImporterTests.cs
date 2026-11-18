@@ -1,4 +1,4 @@
-using AnythinkCli.Importers.Directus;
+using Anythink.ProjectImporters.Directus;
 using FluentAssertions;
 
 namespace AnythinkCli.Tests;
@@ -193,7 +193,7 @@ public class DirectusImporterTests
 
         var act = async () => await Importer(handler).FetchRecordsAsync("../users", 1, 100);
 
-        await act.Should().ThrowAsync<AnythinkCli.Client.AnythinkException>();
+        await act.Should().ThrowAsync<Anythink.ProjectImporters.AnythinkException>();
         handler.Requests.Should().BeEmpty();
     }
 

@@ -1,6 +1,6 @@
 using System.Text.Json.Nodes;
 
-namespace AnythinkCli.Importers.Engine;
+namespace Anythink.ProjectImporters.Engine;
 
 public enum PlanAction { Create, Merge, Skip, Report }
 
@@ -18,7 +18,7 @@ public static class PlanKind
     public const string RecordBatch = "record_batch";
     public const string Report = "report";
 
-    internal static int Rank(string kind) => kind switch
+    public static int Rank(string kind) => kind switch
     {
         Entity => 0,
         Field => 1,

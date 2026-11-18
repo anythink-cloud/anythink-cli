@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace AnythinkCli.Importers;
+namespace Anythink.ProjectImporters;
 
 // Platform-agnostic representation of what we want to import. Each platform
 // importer is responsible for translating its own schema into these records,
@@ -62,7 +62,7 @@ public record ImportFieldSpec(
 
 public record ImportFlow(
     string Name,
-    List<AnythinkCli.Models.WorkflowTriggerRequest> Triggers,
+    List<Anythink.ProjectImporters.Models.WorkflowTriggerRequest> Triggers,
     List<ImportStep> Steps
 );
 

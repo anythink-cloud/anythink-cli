@@ -1,9 +1,8 @@
-using AnythinkCli.Client;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace AnythinkCli.Importers.Directus;
+namespace Anythink.ProjectImporters.Directus;
 
 public class DirectusClient
 {

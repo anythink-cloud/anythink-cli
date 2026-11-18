@@ -1,7 +1,6 @@
-using AnythinkCli.Client;
-using AnythinkCli.Models;
+using Anythink.ProjectImporters.Models;
 
-namespace AnythinkCli.Importers.Engine;
+namespace Anythink.ProjectImporters.Engine;
 
 public record TargetSnapshot(
     IReadOnlyList<Entity> Entities,
@@ -18,7 +17,7 @@ public record TargetSnapshot(
 public static class TargetSnapshotReader
 {
     public static async Task<TargetSnapshot> ReadAsync(
-        AnythinkClient target, PlanOptions options, string platformName, ImportSchema schema)
+        IImportTarget target, PlanOptions options, string platformName, ImportSchema schema)
     {
         var entities = await Read("entities", target.GetEntitiesAsync);
         var workflows = options.IncludeFlows ? await Read("workflows", target.GetWorkflowsAsync) : [];
@@ -45,13 +44,13 @@ public static class TargetSnapshotReader
     private static async Task<T> Read<T>(string what, Func<Task<T>> read)
     {
         try { return await read(); }
-        catch (Exception ex) when (ex is not CliException)
+        catch (Exception ex) when (ex is not ImportException)
         {
-            throw new CliException($"Couldn't read the project's {Spectre.Console.Markup.Escape(what)} to plan the import: {Spectre.Console.Markup.Escape(ex.Message)}");
+            throw new ImportException($"Couldn't read the project's {what} to plan the import: {ex.Message}");
         }
     }
 
-    internal static async Task<int> CountRecordsAsync(AnythinkClient target, string entityName)
+    internal static async Task<int> CountRecordsAsync(IImportTarget target, string entityName)
     {
         var first = await target.ListItemsAsync(entityName, 1, 1);
         return first.TotalCount ?? first.Items.Count;

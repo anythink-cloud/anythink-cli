@@ -414,6 +414,10 @@ public static class CliApp
                 .WithExample("users", "invite", "alice@example.com", "Alice", "Smith")
                 .WithExample("users", "invite", "alice@example.com", "Alice", "Smith", "--role-id", "3");
 
+            users.AddCommand<UsersResendInviteCommand>("resend-invite")
+                .WithDescription("Send an existing user a fresh invitation email (replaces earlier links)")
+                .WithExample("users", "resend-invite", "42");
+
             users.AddCommand<UsersDeleteCommand>("delete")
                 .WithDescription("Delete a user by ID")
                 .WithExample("users", "delete", "42", "--yes");
@@ -455,6 +459,10 @@ public static class CliApp
             roles.AddCommand<RolesCreateCommand>("create")
                 .WithDescription("Create a new role")
                 .WithExample("roles", "create", "editor", "--description", "Can edit content");
+
+            roles.AddCommand<RolesUpdateCommand>("update")
+                .WithDescription("Change a role's name, description or API access")
+                .WithExample("roles", "update", "5", "--api-access", "true");
 
             roles.AddCommand<RolesDeleteCommand>("delete")
                 .WithDescription("Delete a role by ID")
