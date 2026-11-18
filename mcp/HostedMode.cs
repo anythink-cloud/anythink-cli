@@ -126,13 +126,24 @@ public static class HostedMode
         if (options.Ui is not null)
             mcpServer.WithResources([new McpUiResource(options.Ui)]).WithTools([new UiOpenTool(options.Ui)]);
         mcpServer
-            .WithRequestFilters(filters => filters.AddListToolsFilter(next => async (request, cancellationToken) =>
+            .WithRequestFilters(filters =>
             {
-                var result = await next(request, cancellationToken);
-                if (request.Services?.GetService<HostedAccounts>()?.HasAccess != true)
-                    result.Tools = result.Tools.Where(tool => !accountTools.Contains(tool.Name)).ToList();
-                return result;
-            }))
+                filters.AddListToolsFilter(next => async (request, cancellationToken) =>
+                {
+                    var result = await next(request, cancellationToken);
+                    if (request.Services?.GetService<HostedAccounts>()?.HasAccess != true)
+                        result.Tools = result.Tools.Where(tool => !accountTools.Contains(tool.Name)).ToList();
+                    return result;
+                });
+                if (options.Ui is not null)
+                    filters.AddCallToolFilter(next => async (request, cancellationToken) =>
+                    {
+                        var result = await next(request, cancellationToken);
+                        if (request.Params is { } call && McpUiRoutes.TryGet(call.Name, out _))
+                            (result.Meta ??= [])["anythink/tool"] = call.Name;
+                        return result;
+                    });
+            })
             .WithHttpTransport(http => http.SessionMode = HttpServerSessionMode.Stateless);
 
         var app = builder.Build();

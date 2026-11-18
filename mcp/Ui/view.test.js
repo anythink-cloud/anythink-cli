@@ -10,6 +10,7 @@ function fakeDocument() {
     attributes: {},
     children: [],
     listeners: {},
+    style: {},
     hidden: false,
     disabled: false,
     setAttribute(name, value) { this.attributes[name] = value; },
@@ -19,15 +20,14 @@ function fakeDocument() {
     click() { return this.listeners.click(); },
   });
   const root = make("div");
-  return { root, createElement: make, getElementById: id => (id === "root" ? root : null) };
+  return { root, documentElement: { clientWidth: 400 }, createElement: make, getElementById: id => (id === "root" ? root : null) };
 }
 
 const all = node => (typeof node === "string" ? [] : [node, ...node.children.flatMap(all)]);
 const find = (root, tag) => all(root).find(n => n.tag === tag);
 const text = node => (typeof node === "string" ? node : node.children.map(text).join(" "));
-const settle = () => new Promise(resolve => setImmediate(resolve));
 
-function fakeHost({ frameDomains = [dashboard], displayModes = ["inline", "fullscreen"], toolName = "data_list", failOpen, failFrom = 1, hostError } = {}) {
+function fakeHost({ frameDomains = [dashboard], displayModes = ["inline", "fullscreen"], toolName = "data_list", context = {}, failOpen, failFrom = 1, errors = {} } = {}) {
   const sent = [];
   let deliver;
   let links = 0;
@@ -36,7 +36,7 @@ function fakeHost({ frameDomains = [dashboard], displayModes = ["inline", "fulls
       return {
         protocolVersion: "2026-01-26",
         hostCapabilities: { sandbox: { csp: { frameDomains } } },
-        hostContext: { displayMode: "inline", availableDisplayModes: displayModes, toolInfo: { tool: { name: toolName } } },
+        hostContext: { displayMode: "inline", availableDisplayModes: displayModes, ...(toolName && { toolInfo: { tool: { name: toolName } } }), ...context },
       };
     if (msg.method === "tools/call") {
       links++;
@@ -51,7 +51,7 @@ function fakeHost({ frameDomains = [dashboard], displayModes = ["inline", "fulls
     msg => {
       sent.push(msg);
       if (msg.id === undefined || !msg.method) return;
-      const reply = hostError && msg.method === "tools/call" ? { error: { code: -32000, message: hostError } } : { result: answer(msg) };
+      const reply = errors[msg.method] ? { error: { code: -32000, message: errors[msg.method] } } : { result: answer(msg) };
       queueMicrotask(() => deliver({ jsonrpc: "2.0", id: msg.id, ...reply }));
     },
     listener => { deliver = listener; });
@@ -59,19 +59,19 @@ function fakeHost({ frameDomains = [dashboard], displayModes = ["inline", "fulls
   return { bridge, sent, notify, methods: () => sent.map(m => m.method) };
 }
 
-async function shownView(options) {
+async function shownView(options = {}) {
   const host = fakeHost(options);
   const doc = fakeDocument();
   const view = createView(host.bridge, doc);
   const started = view.start();
   host.notify("ui/notifications/tool-input", { arguments: { entity: "orders", project: "p1" } });
-  host.notify("ui/notifications/tool-result", { content: [{ type: "text", text: "ok" }] });
+  host.notify("ui/notifications/tool-result", options.toolResult || { content: [{ type: "text", text: "ok" }] });
   await started;
   return { host, doc, view };
 }
 
 test("frames when the host allows the link's origin", async () => {
-  assert.strictEqual(chooseMode({ url: `${dashboard}/x`, origin: dashboard }, [dashboard]), "frame");
+  assert.strictEqual(chooseMode({ url: `${dashboard}/x`, origin: dashboard, target: "dashboard" }, [dashboard]), "frame");
 
   const { doc } = await shownView();
   const frame = find(doc.root, "iframe");
@@ -82,7 +82,7 @@ test("frames when the host allows the link's origin", async () => {
 });
 
 test("shows the button when the host allows no frames or another origin", async () => {
-  const link = { url: `${dashboard}/x`, origin: dashboard };
+  const link = { url: `${dashboard}/x`, origin: dashboard, target: "dashboard" };
   assert.strictEqual(chooseMode(link, undefined), "button");
   assert.strictEqual(chooseMode(link, []), "button");
   assert.strictEqual(chooseMode(link, ["https://other.example.com"]), "button");
@@ -103,9 +103,15 @@ test("shows the message when ui_open failed", async () => {
 });
 
 test("shows the message when the host refuses the ui_open call", async () => {
-  const { doc } = await shownView({ hostError: "Tool call denied" });
+  const { doc } = await shownView({ errors: { "tools/call": "Tool call denied" } });
   assert.strictEqual(find(doc.root, "iframe"), undefined);
   assert.strictEqual(text(doc.root).trim(), "Tool call denied");
+});
+
+test("never frames account pages, even when their origin is allowed", () => {
+  const account = "https://my.example.com";
+  assert.strictEqual(chooseMode({ url: `${account}/accounts/1`, origin: account, target: "account" }, [account]), "button");
+  assert.strictEqual(chooseMode({ url: `${account}/accounts/1`, origin: account }, [account]), "button");
 });
 
 test("ignores messages from other origins, from \"null\", and of unknown types", () => {
@@ -239,4 +245,85 @@ test("script calls it the dashboard, never by its internal name, and inlines saf
   const source = require("node:fs").readFileSync(require.resolve("./view.js"), "utf8");
   assert.doesNotMatch(source, /breeze/i);
   assert.doesNotMatch(source, /<\/script/i);
+});
+
+const sizeReports = host => host.sent.filter(m => m.method === "ui/notifications/size-changed").map(m => m.params);
+
+test("inline view with a flexible height gets a usable height and reports it", async () => {
+  for (const [dims, height] of [[{ width: 400, maxHeight: 600 }, 600], [{ width: 400 }, 640], [{ maxHeight: 900 }, 640], [undefined, 640]]) {
+    const { host, doc } = await shownView({ context: { containerDimensions: dims } });
+    assert.strictEqual(doc.root.style.height, `${height}px`);
+    assert.deepStrictEqual(sizeReports(host).at(-1), { width: 400, height });
+  }
+});
+
+test("button and message pages get the same usable height", async () => {
+  const button = await shownView({ frameDomains: [], context: { containerDimensions: { maxHeight: 500 } } });
+  assert.strictEqual(button.doc.root.style.height, "500px");
+  assert.deepStrictEqual(sizeReports(button.host).at(-1), { width: 400, height: 500 });
+  const message = await shownView({ failOpen: "That page isn't available.", context: { containerDimensions: { maxHeight: 500 } } });
+  assert.strictEqual(message.doc.root.style.height, "500px");
+  assert.deepStrictEqual(sizeReports(message.host).at(-1), { width: 400, height: 500 });
+});
+
+test("fixed height and fullscreen keep the host's height", async () => {
+  const fixed = await shownView({ context: { containerDimensions: { height: 500, width: 400 } } });
+  assert.strictEqual(fixed.doc.root.style.height, "");
+  assert.deepStrictEqual(sizeReports(fixed.host), []);
+  const full = await shownView({ context: { displayMode: "fullscreen", containerDimensions: { maxHeight: 600 } } });
+  assert.strictEqual(full.doc.root.style.height, "");
+  assert.deepStrictEqual(sizeReports(full.host), []);
+});
+
+test("height is re-applied when the host context changes", async () => {
+  const { host, doc } = await shownView({ context: { containerDimensions: { maxHeight: 600 } } });
+  host.notify("ui/notifications/host-context-changed", { displayMode: "fullscreen" });
+  assert.strictEqual(doc.root.style.height, "");
+  host.notify("ui/notifications/host-context-changed", { displayMode: "inline", containerDimensions: { maxHeight: 300 } });
+  assert.strictEqual(doc.root.style.height, "300px");
+  assert.deepStrictEqual(sizeReports(host).at(-1), { width: 400, height: 300 });
+});
+
+test("without toolInfo the tool name comes from the tool result's _meta", async () => {
+  const { host } = await shownView({ toolName: null, toolResult: { content: [], _meta: { "anythink/tool": "workflows_get" } } });
+  const call = host.sent.find(m => m.method === "tools/call");
+  assert.strictEqual(call.params.arguments.tool, "workflows_get");
+});
+
+test("toolInfo wins over the tool result's _meta", async () => {
+  const { host } = await shownView({ toolResult: { content: [], _meta: { "anythink/tool": "workflows_get" } } });
+  assert.strictEqual(host.sent.find(m => m.method === "tools/call").params.arguments.tool, "data_list");
+});
+
+test("with no tool name at all the view shows a message and asks for no link", async () => {
+  const { host, doc } = await shownView({ toolName: null });
+  assert.strictEqual(host.methods().includes("tools/call"), false);
+  assert.strictEqual(find(doc.root, "iframe"), undefined);
+  assert.strictEqual(text(doc.root).trim(), "There's no view for this tool.");
+});
+
+test("a cancelled tool shows a message instead of the loading skeleton", { timeout: 2000 }, async () => {
+  const host = fakeHost();
+  const doc = fakeDocument();
+  const started = createView(host.bridge, doc).start();
+  host.notify("ui/notifications/tool-input", { arguments: {} });
+  host.notify("ui/notifications/tool-cancelled", { reason: "user" });
+  await started;
+  assert.strictEqual(host.methods().includes("tools/call"), false);
+  assert.strictEqual(text(doc.root).trim(), "The request was cancelled, so there's nothing to show.");
+});
+
+test("a refused ui/initialize shows a message", { timeout: 2000 }, async () => {
+  const host = fakeHost({ errors: { "ui/initialize": "Not supported" } });
+  const doc = fakeDocument();
+  await createView(host.bridge, doc).start();
+  assert.strictEqual(host.methods().includes("ui/notifications/initialized"), false);
+  assert.strictEqual(text(doc.root).trim(), "Not supported");
+});
+
+test("a refused fullscreen request keeps Expand and rejects nothing", async () => {
+  const { doc } = await shownView({ errors: { "ui/request-display-mode": "Denied" } });
+  const expand = all(doc.root).find(n => n.tag === "button" && text(n) === "Expand");
+  await expand.click();
+  assert.strictEqual(expand.hidden, false);
 });

@@ -328,6 +328,37 @@ public class HostedModeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CallTool_WithUi_MappedToolResultNamesTheTool_OthersDont()
+    {
+        await RestartWithUiAsync(UiOn);
+        var token = ValidToken();
+        _mock.When(HttpMethod.Get, $"{UpstreamOrgUrl("42")}/entities/blog_posts/items*")
+            .Respond("application/json", """{"items":[{"id":1,"title":"Hello"}],"total_items":1,"total_pages":1,"has_next_page":false,"page":1,"page_size":20}""");
+        await using var mcpClient = await McpClient.CreateAsync(Transport(token));
+
+        var mapped = await mcpClient.CallToolAsync("data_list", new Dictionary<string, object?> { ["entity"] = "blog_posts" });
+        var unmapped = await mcpClient.CallToolAsync("project_details");
+
+        (mapped.Meta?["anythink/tool"]?.GetValue<string>()).Should().Be("data_list");
+        ((TextContentBlock)mapped.Content[0]).Text.Should().Contain("Hello").And.NotContain("anythink/tool");
+        unmapped.Meta?["anythink/tool"].Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CallTool_WithoutUi_ResultNamesNoTool()
+    {
+        var token = ValidToken();
+        _mock.When(HttpMethod.Get, $"{UpstreamOrgUrl("42")}/entities/blog_posts/items*")
+            .Respond("application/json", """{"items":[],"total_items":0,"total_pages":0,"has_next_page":false,"page":1,"page_size":20}""");
+        await using var mcpClient = await McpClient.CreateAsync(Transport(token));
+
+        var result = await mcpClient.CallToolAsync("data_list", new Dictionary<string, object?> { ["entity"] = "blog_posts" });
+
+        result.IsError.Should().NotBe(true);
+        result.Meta?["anythink/tool"].Should().BeNull();
+    }
+
+    [Fact]
     public async Task ResourcesList_WithoutUi_IsNotOffered()
     {
         await using var mcpClient = await McpClient.CreateAsync(Transport(ValidToken()));
