@@ -4,10 +4,11 @@ const SESSION_ENDED = "Your dashboard session ended.";
 const NO_VIEW = "There's no view for this tool.";
 const CANCELLED = "The request was cancelled, so there's nothing to show.";
 const INLINE_HEIGHT = 640;
+const NOTICE_MS = 5000;
 
 function chooseMode(link, allowedFrameOrigins) {
   if (link.error) return "message";
-  return link.target === "dashboard" && (allowedFrameOrigins || []).includes(link.origin) ? "frame" : "button";
+  return link.target === "dashboard" && link.signedIn && (allowedFrameOrigins || []).includes(link.origin) ? "frame" : "button";
 }
 
 function acceptFrameMessage(event, framedOrigin) {
@@ -55,6 +56,7 @@ function createView(bridge, doc) {
   let call = {};
   let framedOrigin = null;
   let expand = null;
+  let notice = null;
   let reported = "";
 
   const el = (tag, attrs, ...children) => {
@@ -135,6 +137,14 @@ function createView(bridge, doc) {
     show(el("div", { class: "panel" }, button, el("p", {}, note)));
   }
 
+  function showNotice(text) {
+    if (notice) notice.hidden = true;
+    notice = el("p", { class: "notice", role: "status" }, text);
+    root.append(notice);
+    const shown = notice;
+    setTimeout(() => { shown.hidden = true; }, NOTICE_MS).unref?.();
+  }
+
   function showMessage(text) {
     framedOrigin = null;
     show(el("div", { class: "panel" }, el("p", {}, text)));
@@ -177,7 +187,10 @@ function createView(bridge, doc) {
     async frameMessage(event) {
       const message = acceptFrameMessage(event, framedOrigin);
       if (!message) return;
-      if (message.type === "open-in-new-tab") await openOutside({ path: message.path });
+      if (message.type === "open-in-new-tab") {
+        const found = await openOutside({ path: message.path });
+        if (found.error) showNotice(found.error);
+      }
       if (message.type === "exit-management") showButton(SESSION_ENDED);
     },
   };

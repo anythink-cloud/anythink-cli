@@ -27,7 +27,7 @@ const all = node => (typeof node === "string" ? [] : [node, ...node.children.fla
 const find = (root, tag) => all(root).find(n => n.tag === tag);
 const text = node => (typeof node === "string" ? node : node.children.map(text).join(" "));
 
-function fakeHost({ frameDomains = [dashboard], displayModes = ["inline", "fullscreen"], toolName = "data_list", context = {}, failOpen, failFrom = 1, errors = {} } = {}) {
+function fakeHost({ frameDomains = [dashboard], displayModes = ["inline", "fullscreen"], toolName = "data_list", context = {}, failOpen, failFrom = 1, errors = {}, signedIn = true } = {}) {
   const sent = [];
   let deliver;
   let links = 0;
@@ -41,7 +41,7 @@ function fakeHost({ frameDomains = [dashboard], displayModes = ["inline", "fulls
     if (msg.method === "tools/call") {
       links++;
       if (failOpen && links >= failFrom) return { isError: true, content: [{ type: "text", text: failOpen }] };
-      const link = { url: `${dashboard}/org/1/auth/transfer?transfer_token=t${links}`, origin: dashboard, target: "dashboard", signedIn: true };
+      const link = { url: `${dashboard}/org/1/auth/transfer?transfer_token=t${links}`, origin: dashboard, target: "dashboard", signedIn };
       return { content: [{ type: "text", text: JSON.stringify(link) }] };
     }
     if (msg.method === "ui/request-display-mode") return { mode: msg.params.mode };
@@ -71,7 +71,7 @@ async function shownView(options = {}) {
 }
 
 test("frames when the host allows the link's origin", async () => {
-  assert.strictEqual(chooseMode({ url: `${dashboard}/x`, origin: dashboard, target: "dashboard" }, [dashboard]), "frame");
+  assert.strictEqual(chooseMode({ url: `${dashboard}/x`, origin: dashboard, target: "dashboard", signedIn: true }, [dashboard]), "frame");
 
   const { doc } = await shownView();
   const frame = find(doc.root, "iframe");
@@ -351,4 +351,24 @@ test("expand on a flexible-height host drops the inline height", async () => {
   assert.strictEqual(doc.root.style.height, "600px");
   assert.deepStrictEqual(sizeReports(host).at(-1), { width: 400, height: 600 });
   assert.strictEqual(sizeReports(host).length, 2);
+});
+
+test("unsigned link shows the button even when the origin is allowed", async () => {
+  assert.strictEqual(chooseMode({ url: `${dashboard}/x`, origin: dashboard, target: "dashboard", signedIn: false }, [dashboard]), "button");
+
+  const { doc } = await shownView({ signedIn: false });
+  assert.strictEqual(find(doc.root, "iframe"), undefined);
+  assert.strictEqual(text(find(doc.root, "button")), "Open in Anythink");
+});
+
+test("open-in-new-tab that ui_open refuses shows the refusal and keeps the frame", async () => {
+  const { host, doc, view } = await shownView({ failOpen: "That page isn't available.", failFrom: 2 });
+
+  await view.frameMessage({ origin: dashboard, data: { type: "open-in-new-tab", path: "https://console.firebase.google.com/" } });
+
+  assert.ok(find(doc.root, "iframe"));
+  const notice = all(doc.root).find(n => n.attributes && n.attributes.class === "notice");
+  assert.strictEqual(text(notice), "That page isn't available.");
+  assert.strictEqual(notice.hidden, false);
+  assert.ok(!host.methods().includes("ui/open-link"));
 });

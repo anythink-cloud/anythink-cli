@@ -213,7 +213,7 @@ public class HostedConfigTests
     {
         var act = () => Load(env => env["MCP_UI_DASHBOARDS"] = value);
 
-        act.Should().Throw<InvalidOperationException>().WithMessage("*MCP_UI_DASHBOARDS*");
+        act.Should().Throw<InvalidOperationException>().WithMessage("*MCP_UI_DASHBOARDS*").Which.Message.Should().NotContain("pw");
     }
 
     [Fact]

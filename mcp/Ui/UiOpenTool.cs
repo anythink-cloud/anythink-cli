@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
@@ -100,8 +101,10 @@ public sealed class UiOpenTool(McpUiOptions options) : McpServerTool
                 .FirstOrDefault(id => id != Guid.Empty);
             return account == Guid.Empty ? null : (await accounts.Client().GetTransferTokenAsync(account, projectId)).TransferToken;
         }
-        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
+            services.GetRequiredService<ILoggerFactory>().CreateLogger<UiOpenTool>()
+                .LogWarning("Dashboard sign-in failed for project {ProjectId}: {ErrorType}", projectId, ex.GetType().Name);
             return null;
         }
     }

@@ -5,6 +5,7 @@ using AnythinkMcp.Ui;
 using FluentAssertions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
@@ -32,37 +33,16 @@ public class UiOpenToolTests : IAsyncLifetime
 
     public Task InitializeAsync() => StartAsync(new Dictionary<string, string> { [InstanceUrl] = DashboardOrigin });
 
-    private async Task StartAsync(Dictionary<string, string> dashboards)
+    private async Task StartAsync(Dictionary<string, string> dashboards, Action<WebApplicationBuilder>? configureBuilder = null)
     {
-        _rsa = RSA.Create(2048);
-        _key = new RsaSecurityKey(_rsa) { KeyId = "test-key-1" };
-        _mock = new MockHttpMessageHandler();
-        HostedTestSupport.ConfigureIssuer(_mock, Issuer, _key);
-        _mock.When(HttpMethod.Post, $"{Issuer}/oauth/v1/token").Respond("application/json", """{"access_token":"exchanged","expires_in":3600}""");
-
-        var options = new HostedMode.Options
-        {
-            PublicUrl = PublicUrl,
-            Issuer = Issuer,
-            Audience = PublicUrl,
-            Exchange = new TokenExchangeOptions { ClientId = "mcp", ClientSecret = "s3cret", Audience = "anythink-oauth" },
-            Ui = new McpUiOptions(dashboards, MyAnythinkOrigin, "x.claudemcpcontent.com"),
-        };
-        var builder = WebApplication.CreateBuilder();
-        builder.WebHost.UseTestServer();
-        _app = HostedMode.BuildPublicApp(builder, options, new McpClientFactory(null, _mock),
-            jwt => jwt.BackchannelHttpHandler = _mock, exchangeHandler: _mock);
-        await _app.StartAsync();
-        _client = _app.GetTestClient();
-        _client.BaseAddress = new Uri("https://mcp.test/");
+        var options = HostedTestSupport.DefaultOptions(new McpUiOptions(dashboards, MyAnythinkOrigin, "x.claudemcpcontent.com"));
+        var app = await HostedTestSupport.StartPublicAppAsync(options,
+            mock => mock.When(HttpMethod.Post, $"{Issuer}/oauth/v1/token").Respond("application/json", """{"access_token":"exchanged","expires_in":3600}"""),
+            configureBuilder);
+        (_app, _client, _rsa, _key, _mock) = (app.App, app.Client, app.Rsa, app.Key, app.Mock);
     }
 
-    public async Task DisposeAsync()
-    {
-        _client.Dispose();
-        await _app.StopAsync();
-        _rsa.Dispose();
-    }
+    public Task DisposeAsync() => new PublicApp(_app, _client, _rsa, _key, _mock).StopAsync();
 
     private string SingleProjectToken(string scope = "offline_access account") =>
         HostedTestSupport.CreateToken(_key, Issuer, PublicUrl, tid: "42", instanceUrl: InstanceUrl,
@@ -72,12 +52,7 @@ public class UiOpenToolTests : IAsyncLifetime
         HostedTestSupport.CreateToken(_key, Issuer, PublicUrl, tid: null, instanceUrl: null,
             extraClaims: new Dictionary<string, object> { ["projects"] = "all", ["scope"] = "offline_access account" });
 
-    private Task<McpClient> Connect(string token) => McpClient.CreateAsync(new HttpClientTransport(new HttpClientTransportOptions
-    {
-        Endpoint = new Uri(PublicUrl),
-        TransportMode = HttpTransportMode.StreamableHttp,
-        AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = $"Bearer {token}" }
-    }, _client, ownsHttpClient: false));
+    private Task<McpClient> Connect(string token) => HostedTestSupport.Connect(_client, token);
 
     private MockedRequest ProjectsAre(params (Guid Project, Guid Account)[] projects) =>
         _mock.When(HttpMethod.Get, $"{Issuer}/oauth/v1/projects").Respond("application/json",
@@ -130,6 +105,35 @@ public class UiOpenToolTests : IAsyncLifetime
         opened.GetProperty("url").GetString().Should().Be("https://uk01-lon.anythink.cloud/org/42/entities/posts");
         opened.GetProperty("signedIn").GetBoolean().Should().BeFalse();
         _mock.GetMatchCount(billing).Should().Be(0);
+    }
+
+    private sealed class WarningLog : ILoggerProvider, ILogger
+    {
+        public List<string> Warnings { get; } = [];
+        public ILogger CreateLogger(string categoryName) => this;
+        public void Dispose() { }
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel == LogLevel.Warning) lock (Warnings) Warnings.Add(formatter(state, exception));
+        }
+    }
+
+    [Fact]
+    public async Task UiOpen_SigningFails_LogsOneWarningNamingTheProject_WithoutTheTokenOrUrl()
+    {
+        var log = new WarningLog();
+        await DisposeAsync();
+        await StartAsync(new Dictionary<string, string> { [InstanceUrl] = DashboardOrigin }, b => b.Logging.AddProvider(log));
+        ProjectsAre((ProjectId, AccountId));
+        _mock.When(HttpMethod.Post, $"{Issuer}/v1/accounts/{AccountId}/shared-tenants/{ProjectId}/transfer-token").Respond(HttpStatusCode.InternalServerError);
+        await using var mcp = await Connect(SingleProjectToken());
+
+        await mcp.CallToolAsync("ui_open", OpenArgs("data_list", new { entity = "posts" }));
+
+        var warning = log.Warnings.Should().ContainSingle(w => w.Contains("sign-in failed")).Subject;
+        warning.Should().Contain(ProjectId.ToString()).And.NotContain("exchanged").And.NotContain(DashboardOrigin);
     }
 
     [Fact]

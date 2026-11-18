@@ -53,12 +53,17 @@ public class HostedModeTests : IAsyncLifetime
 
     private async Task StartAppAsync(int maxConcurrentRequestsPerProject, McpUiOptions? ui)
     {
-        _rsa = RSA.Create(2048);
-        _key = new RsaSecurityKey(_rsa) { KeyId = "test-key-1" };
-        _mock = new MockHttpMessageHandler();
-        HostedTestSupport.ConfigureIssuer(_mock, Issuer, _key);
-
-        _mock.When(HttpMethod.Post, $"{Issuer}/oauth/v1/token").Respond(async req =>
+        var options = new HostedMode.Options
+        {
+            PublicUrl = PublicUrl,
+            Issuer = Issuer,
+            Audience = PublicUrl,
+            Exchange = new TokenExchangeOptions { ClientId = "mcp", ClientSecret = "s3cret", Audience = "anythink-oauth" },
+            AllowedOrigins = [Origin],
+            MaxConcurrentRequestsPerProject = maxConcurrentRequestsPerProject,
+            Ui = ui,
+        };
+        var app = await HostedTestSupport.StartPublicAppAsync(options, mock => mock.When(HttpMethod.Post, $"{Issuer}/oauth/v1/token").Respond(async req =>
         {
             Interlocked.Increment(ref _exchangeCount);
             var parsed = HttpUtility.ParseQueryString(await req.Content!.ReadAsStringAsync());
@@ -70,35 +75,11 @@ public class HostedModeTests : IAsyncLifetime
                     $$"""{"access_token":"{{ExchangedFor(parsed["subject_token"]!)}}","expires_in":3600,"token_type":"Bearer"}""",
                     Encoding.UTF8, "application/json")
             };
-        });
-
-        var options = new HostedMode.Options
-        {
-            PublicUrl = PublicUrl,
-            Issuer = Issuer,
-            Audience = PublicUrl,
-            Exchange = new TokenExchangeOptions { ClientId = "mcp", ClientSecret = "s3cret", Audience = "anythink-oauth" },
-            AllowedOrigins = [Origin],
-            MaxConcurrentRequestsPerProject = maxConcurrentRequestsPerProject,
-            Ui = ui,
-        };
-        var builder = WebApplication.CreateBuilder();
-        builder.WebHost.UseTestServer();
-
-        _app = HostedMode.BuildPublicApp(builder, options, new McpClientFactory(null, _mock),
-            jwt => jwt.BackchannelHttpHandler = _mock, exchangeHandler: _mock);
-
-        await _app.StartAsync();
-        _client = _app.GetTestClient();
-        _client.BaseAddress = new Uri("https://mcp.test/");
+        }));
+        (_app, _client, _rsa, _key, _mock) = (app.App, app.Client, app.Rsa, app.Key, app.Mock);
     }
 
-    public async Task DisposeAsync()
-    {
-        _client.Dispose();
-        await _app.StopAsync();
-        _rsa.Dispose();
-    }
+    public Task DisposeAsync() => new PublicApp(_app, _client, _rsa, _key, _mock).StopAsync();
 
     private string ValidToken(
         string? tid = "42", string? instanceUrl = "https://api.my.anythink.cloud",

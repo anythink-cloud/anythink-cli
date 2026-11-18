@@ -34,5 +34,7 @@ public sealed record McpUiOptions(IReadOnlyDictionary<string, string> Dashboards
     private static string Origin(string value, string setting) =>
         Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps && uri.PathAndQuery == "/" && uri.Fragment.Length == 0 && uri.UserInfo.Length == 0 && !uri.Host.Contains('*')
             ? uri.GetLeftPart(UriPartial.Authority)
-            : throw new InvalidOperationException($"{setting} must hold https origins with no path, got '{value}'.");
+            : throw new InvalidOperationException(value.Contains('@')
+                ? $"{setting} must hold https origins with no path; credentials aren't allowed."
+                : $"{setting} must hold https origins with no path, got '{value}'.");
 }
