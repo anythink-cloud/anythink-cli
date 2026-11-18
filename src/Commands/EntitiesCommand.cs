@@ -69,7 +69,7 @@ public class EntityGetSettings : CommandSettings
     public string Name { get; set; } = "";
 }
 
-[CommandGuide("Takes the entity name. Returns its table name, its public, RLS, lock-new-records and team-reads flags, and each field's id, name, database type, display type and required, unique and indexed flags. For one field's full definition, including relationship and select options, use `fields_get`.")]
+[CommandGuide("Takes the entity name. Returns its table name, its public, RLS, lock-new-records and team-reads flags, its team field, and each field's id, name, database type, display type and required, unique and indexed flags. For one field's full definition, including relationship and select options, use `fields_get`.")]
 public class EntitiesGetCommand : BaseCommand<EntityGetSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EntityGetSettings settings)
@@ -95,6 +95,7 @@ public class EntitiesGetCommand : BaseCommand<EntityGetSettings>
             Renderer.KeyValue("System entity", entity.IsSystem ? "yes" : "no");
             Renderer.KeyValue("Lock new records", entity.LockNewRecords ? "yes" : "no");
             Renderer.KeyValue("Team reads", entity.AllowGroupScope ? "yes" : "no");
+            Renderer.KeyValue("Team field", entity.GroupScopeField ?? "none");
 
             var fields = entity.Fields ?? [];
             if (fields.Count > 0)
@@ -209,9 +210,13 @@ public class EntityUpdateSettings : CommandSettings
     [CommandOption("--team-reads <BOOL>")]
     [Description("Let members of a record owner's team read the record (true/false)")]
     public bool? AllowGroupScope { get; set; }
+
+    [CommandOption("--team-field <NAME>")]
+    [Description("Integer field holding the team's group id; a team read then only returns that team's records. Pass none to clear")]
+    public string? GroupScopeField { get; set; }
 }
 
-[CommandGuide("Changes an entity's public, row-level security (RLS), lock-new-records and team-reads settings; any you leave out keep their current value. It cannot rename the entity or change its fields, so use `fields_update` for columns. Making an entity public lets anyone query its records without signing in.")]
+[CommandGuide("Changes an entity's public, row-level security (RLS), lock-new-records, team-reads and team-field settings; any you leave out keep their current value. The team field must be an integer field holding the team's group id; `none` clears it. It cannot rename the entity or change its fields, so use `fields_update` for columns. Making an entity public lets anyone query its records without signing in.")]
 public class EntitiesUpdateCommand : BaseCommand<EntityUpdateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EntityUpdateSettings settings)
@@ -227,7 +232,8 @@ public class EntitiesUpdateCommand : BaseCommand<EntityUpdateSettings>
                 settings.EnableRls ?? current.EnableRls,
                 settings.IsPublic ?? current.IsPublic,
                 settings.LockNewRecords ?? current.LockNewRecords,
-                settings.AllowGroupScope
+                settings.AllowGroupScope,
+                string.Equals(settings.GroupScopeField, "none", StringComparison.OrdinalIgnoreCase) ? "" : settings.GroupScopeField
             );
 
             Entity? updated = null;

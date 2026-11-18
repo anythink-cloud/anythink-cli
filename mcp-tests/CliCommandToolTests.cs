@@ -772,6 +772,42 @@ public partial class CliCommandToolTests
         sent.GetProperty("enable_rls").GetBoolean().Should().BeTrue();
     }
 
+    private static async Task<JsonElement> EntitiesUpdateSends(object args)
+    {
+        JsonElement sent = default;
+        var mock = new MockHttpMessageHandler();
+        mock.When(HttpMethod.Get, $"{ApiUrl}/org/42/entities/posts").Respond("application/json",
+            """{"name":"posts","table_name":"posts","enable_rls":true,"is_public":true,"lock_new_records":true,"group_scope_field":"team_group_id","fields":[]}""");
+        mock.When(HttpMethod.Put, $"{ApiUrl}/org/42/entities/posts").Respond(async req =>
+        {
+            sent = JsonDocument.Parse(await req.Content!.ReadAsStringAsync()).RootElement.Clone();
+            return new HttpResponseMessage { Content = new StringContent("""{"name":"posts","table_name":"posts","fields":[]}""") };
+        });
+
+        var result = await Tool("entities_update").RunAsync(Args(args), Client(mock));
+
+        result.ExitCode.Should().Be(0, result.Output);
+        return sent;
+    }
+
+    [Fact]
+    public async Task EntitiesUpdate_WithTeamField_SendsGroupScopeField() =>
+        (await EntitiesUpdateSends(new { name = "posts", team_field = "team_group_id" }))
+            .GetProperty("group_scope_field").GetString().Should().Be("team_group_id");
+
+    [Theory]
+    [InlineData("none")]
+    [InlineData("None")]
+    [InlineData("NONE")]
+    public async Task EntitiesUpdate_WithTeamFieldNone_ClearsIt_InAnyCase(string none) =>
+        (await EntitiesUpdateSends(new { name = "posts", team_field = none }))
+            .GetProperty("group_scope_field").GetString().Should().BeEmpty();
+
+    [Fact]
+    public async Task EntitiesUpdate_WithoutTeamField_SendsNoGroupScopeField() =>
+        (await EntitiesUpdateSends(new { name = "posts", rls = false }))
+            .TryGetProperty("group_scope_field", out _).Should().BeFalse();
+
     [Fact]
     public async Task FieldsUpdate_FalseIsSentAsFalse()
     {
