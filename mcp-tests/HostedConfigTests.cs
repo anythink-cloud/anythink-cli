@@ -151,14 +151,14 @@ public class HostedConfigTests
     public void UiConfig_ParsesInstanceToDashboardPairs()
     {
         var ui = Load(env => env["MCP_UI_DASHBOARDS"] =
-            "https://api.uk01-lon.anythink.cloud=https://uk01-lon.anythink.cloud, https://api.my.anythink.dev=https://my-dev.anythink.dev").Ui!;
+            "https://api.uk01-lon.anythink.cloud=https://uk01-lon.anythink.cloud, https://api.eu.example.test=https://eu.example.test").Ui!;
 
         ui.Dashboards.Should().BeEquivalentTo(new Dictionary<string, string>
         {
             ["https://api.uk01-lon.anythink.cloud"] = "https://uk01-lon.anythink.cloud",
-            ["https://api.my.anythink.dev"] = "https://my-dev.anythink.dev",
+            ["https://api.eu.example.test"] = "https://eu.example.test",
         });
-        ui.FrameDomains.Should().BeEquivalentTo("https://uk01-lon.anythink.cloud", "https://my-dev.anythink.dev");
+        ui.FrameDomains.Should().BeEquivalentTo("https://uk01-lon.anythink.cloud", "https://eu.example.test");
     }
 
     [Theory]
@@ -188,11 +188,11 @@ public class HostedConfigTests
     [Fact]
     public void SandboxDomain_IsSha256OfPublicUrl()
     {
-        var expected = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("https://mcp.anythink.dev/mcp"))).ToLowerInvariant()[..32] + ".claudemcpcontent.com";
+        var options = Load(env => env["MCP_UI_DASHBOARDS"] = "https://api.x=https://y");
+        var expected = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(options.PublicUrl))).ToLowerInvariant()[..32] + ".claudemcpcontent.com";
 
-        McpUiOptions.SandboxDomainFor("https://mcp.anythink.dev/mcp").Should().Be(expected);
         McpUiOptions.SandboxDomainFor("https://example.com/mcp").Should().Be("c3d80a4ed901ee05b21755a88273b4a4.claudemcpcontent.com");
-        Load(env => env["MCP_UI_DASHBOARDS"] = "https://api.x=https://y").Ui!.SandboxDomain.Should().Be(expected);
+        options.Ui!.SandboxDomain.Should().Be(expected);
     }
 
     [Theory]
