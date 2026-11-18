@@ -3,6 +3,7 @@ using System.Text;
 using AnythinkCli.Client;
 using RichardSzalay.MockHttp;
 using Spectre.Console;
+using Spectre.Console.Rendering;
 
 namespace AnythinkCli.Tests;
 
@@ -21,6 +22,20 @@ internal static class MockHttpExtensions
         });
 }
 
+internal sealed class EnterKeyConsole(IAnsiConsole inner) : IAnsiConsole, IAnsiConsoleInput
+{
+    public Profile Profile => inner.Profile;
+    public IAnsiConsoleCursor Cursor => inner.Cursor;
+    public IAnsiConsoleInput Input => this;
+    public IExclusivityMode ExclusivityMode => inner.ExclusivityMode;
+    public RenderPipeline Pipeline => inner.Pipeline;
+    public void Clear(bool home) => inner.Clear(home);
+    public void Write(IRenderable renderable) => inner.Write(renderable);
+    public bool IsKeyAvailable() => true;
+    public ConsoleKeyInfo? ReadKey(bool intercept) => new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false);
+    public Task<ConsoleKeyInfo?> ReadKeyAsync(bool intercept, CancellationToken cancellationToken) => Task.FromResult(ReadKey(intercept));
+}
+
 internal static class CommandRunner
 {
     public const string Org = "https://api.example.com/org/99999";
@@ -28,7 +43,7 @@ internal static class CommandRunner
     public static AnythinkClient ClientFor(MockHttpMessageHandler mock) =>
         new("99999", "https://api.example.com", new HttpClient(mock));
 
-    public static async Task<(int Code, string Output)> RunAsync(MockHttpMessageHandler mock, Func<Task<int>> command)
+    public static async Task<(int Code, string Output)> RunAsync(MockHttpMessageHandler mock, Func<Task<int>> command, bool interactive = false)
     {
         var writer = new StringWriter();
         var originalOut = Console.Out;
@@ -36,16 +51,16 @@ internal static class CommandRunner
         // Spectre re-enables ANSI under GITHUB_ACTIONS, which puts escape codes in the captured output
         var console = AnsiConsole.Create(new AnsiConsoleSettings
         {
-            Ansi = AnsiSupport.No,
+            Ansi = interactive ? AnsiSupport.Yes : AnsiSupport.No,
             ColorSystem = ColorSystemSupport.NoColors,
-            Interactive = InteractionSupport.No,
+            Interactive = interactive ? InteractionSupport.Yes : InteractionSupport.No,
             Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false },
             Out = new AnsiConsoleOutput(writer),
         });
         console.Profile.Width = 240;
 
         Console.SetOut(writer);
-        AnsiConsole.Console = console;
+        AnsiConsole.Console = interactive ? new EnterKeyConsole(console) : console;
         ClientContext.Current = ClientFor(mock);
         try
         {
