@@ -119,10 +119,12 @@ public static class HostedMode
                 tool.ProtocolTool.Meta = McpUiRoutes.ToolMeta();
         var accountTools = hostedTools.Where(tool => tool.NeedsAccountAccess).Select(tool => tool.ProtocolTool.Name).ToHashSet();
 
-        builder.Services
+        var mcpServer = builder.Services
             .AddMcpServer(server => server.ServerInfo = new() { Name = "anythink", Version = "1.0.0" })
             .WithTools<HostedTools>()
-            .WithTools(hostedTools)
+            .WithTools(hostedTools);
+        if (options.Ui is not null) mcpServer.WithResources([new McpUiResource(options.Ui)]);
+        mcpServer
             .WithRequestFilters(filters => filters.AddListToolsFilter(next => async (request, cancellationToken) =>
             {
                 var result = await next(request, cancellationToken);

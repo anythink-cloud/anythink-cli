@@ -284,6 +284,57 @@ public class HostedModeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ResourcesList_WithUi_ListsTheView()
+    {
+        await RestartWithUiAsync(UiOn);
+        await using var mcpClient = await McpClient.CreateAsync(Transport(ValidToken()));
+
+        var resources = await mcpClient.ListResourcesAsync();
+
+        var view = resources.Should().ContainSingle().Subject;
+        view.Uri.Should().Be("ui://anythink/view");
+        view.MimeType.Should().Be("text/html;profile=mcp-app");
+    }
+
+    [Fact]
+    public async Task ResourceRead_Meta_DeclaresExactlyTheDashboardOrigins()
+    {
+        await RestartWithUiAsync(UiOn);
+        await using var mcpClient = await McpClient.CreateAsync(Transport(ValidToken()));
+
+        var read = await mcpClient.ReadResourceAsync("ui://anythink/view");
+
+        var ui = read.Contents.Should().ContainSingle().Subject.Meta!["ui"]!;
+        ui["csp"]!["frameDomains"]!.AsArray().Select(n => n!.GetValue<string>()).Should().Equal("https://dash.test");
+        ui["csp"]!["connectDomains"]!.AsArray().Should().BeEmpty();
+        ui["csp"]!["resourceDomains"]!.AsArray().Should().BeEmpty();
+        ui["domain"]!.GetValue<string>().Should().Be(UiOn.SandboxDomain);
+        ui["prefersBorder"]!.GetValue<bool>().Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ResourceRead_InlinesTheScript()
+    {
+        await RestartWithUiAsync(UiOn);
+        await using var mcpClient = await McpClient.CreateAsync(Transport(ValidToken()));
+        using var script = new StreamReader(typeof(McpUiResource).Assembly.GetManifestResourceStream("AnythinkMcp.Ui.view.js")!);
+
+        var read = await mcpClient.ReadResourceAsync("ui://anythink/view");
+
+        var text = ((TextResourceContents)read.Contents.Single()).Text;
+        text.Should().NotContain("/*VIEW_JS*/").And.Contain("<script>" + script.ReadToEnd() + "</script>");
+    }
+
+    [Fact]
+    public async Task ResourcesList_WithoutUi_IsNotOffered()
+    {
+        await using var mcpClient = await McpClient.CreateAsync(Transport(ValidToken()));
+
+        mcpClient.ServerCapabilities.Resources.Should().BeNull();
+        await mcpClient.Invoking(c => c.ListResourcesAsync().AsTask()).Should().ThrowAsync<HttpRequestException>();
+    }
+
+    [Fact]
     public async Task ToolsList_WithoutUi_NoToolHasMeta()
     {
         await using var mcpClient = await McpClient.CreateAsync(Transport(ValidToken()));
