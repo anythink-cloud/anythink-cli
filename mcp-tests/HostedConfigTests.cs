@@ -194,4 +194,43 @@ public class HostedConfigTests
         McpUiOptions.SandboxDomainFor("https://example.com/mcp").Should().Be("c3d80a4ed901ee05b21755a88273b4a4.claudemcpcontent.com");
         Load(env => env["MCP_UI_DASHBOARDS"] = "https://api.x=https://y").Ui!.SandboxDomain.Should().Be(expected);
     }
+
+    [Theory]
+    [InlineData("https://api.x=https://a, https://api.x=https://b")]
+    [InlineData("https://api.x=https://a, https://API.X=https://b")]
+    [InlineData("https://api.x=https://a, https://api.x:443=https://b")]
+    public void UiConfig_RepeatedInstance_IsRejected_NamingTheSettingAndInstance(string value)
+    {
+        var act = () => Load(env => env["MCP_UI_DASHBOARDS"] = value);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("MCP_UI_DASHBOARDS*https://api.x*");
+    }
+
+    [Theory]
+    [InlineData("https://u:pw@api.x=https://y")]
+    [InlineData("https://api.x=https://u:pw@y")]
+    public void UiConfig_OriginWithCredentials_IsRejected(string value)
+    {
+        var act = () => Load(env => env["MCP_UI_DASHBOARDS"] = value);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*MCP_UI_DASHBOARDS*");
+    }
+
+    [Fact]
+    public void UiConfig_MyAnythinkUrlWithCredentials_IsRejected()
+    {
+        var act = () => Load(env => { env["MCP_UI_DASHBOARDS"] = "https://api.x=https://y"; env["MCP_UI_MY_ANYTHINK_URL"] = "https://u:pw@my.anythink.cloud"; });
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*MCP_UI_MY_ANYTHINK_URL*");
+    }
+
+    [Theory]
+    [InlineData(",")]
+    [InlineData(" , ")]
+    public void UiConfig_WithNoEntries_IsRejected(string value)
+    {
+        var act = () => Load(env => env["MCP_UI_DASHBOARDS"] = value);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("MCP_UI_DASHBOARDS*");
+    }
 }
