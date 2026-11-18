@@ -52,6 +52,6 @@ public class RemoteToolSurfaceTests
             var rest = line[hint..].TrimStart();
             return $"{line[..hint]} project?{(rest.Length > 0 ? " " + rest : "")}";
         })));
-        hosted.Where(IsAccountToolLine).Should().HaveCount(5).And.AllSatisfy(line => line.Should().NotContain("project?"));
+        hosted.Where(IsAccountToolLine).Should().HaveCount(7).And.AllSatisfy(line => line.Should().NotContain("project?"));
     }
 }

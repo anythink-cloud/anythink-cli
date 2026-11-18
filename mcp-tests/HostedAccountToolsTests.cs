@@ -23,7 +23,7 @@ public class HostedAccountToolsTests : McpTestBase, IAsyncLifetime
     private static readonly Guid OtherAccountId = Guid.Parse("bbbbbbbb-1111-2222-3333-444444444444");
     private static readonly Guid PlanId = Guid.Parse("cccccccc-1111-2222-3333-444444444444");
     private static readonly Guid ProjectId = Guid.Parse("dddddddd-1111-2222-3333-444444444444");
-    private static readonly string[] AccountToolNames = ["accounts_list", "accounts_create", "plans", "projects_create", "projects_delete"];
+    private static readonly string[] AccountToolNames = ["accounts_list", "accounts_create", "accounts_directories_list", "accounts_directories_remove", "plans", "projects_create", "projects_delete"];
 
     private RSA _rsa = null!;
     private RsaSecurityKey _key = null!;
@@ -374,7 +374,7 @@ public class HostedAccountToolsTests : McpTestBase, IAsyncLifetime
 
         var tools = (await mcp.ListToolsAsync()).Where(t => AccountToolNames.Contains(t.Name));
 
-        tools.Should().HaveCount(5).And.AllSatisfy(tool =>
+        tools.Should().HaveCount(AccountToolNames.Length).And.AllSatisfy(tool =>
             tool.ProtocolTool.InputSchema.GetProperty("properties").TryGetProperty("project", out _).Should().BeFalse(tool.Name));
     }
 

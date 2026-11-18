@@ -9,8 +9,8 @@ using ModelContextProtocol.Server;
 namespace AnythinkMcp.Tools;
 
 /// <summary>
-/// MCP tools for authentication: signup, login (email/password, Google, or direct credentials), and logout.
-/// Google sign-in opens a local browser, so it works over stdio only.
+/// MCP tools for authentication: signup, login (email/password, Google, Microsoft, or direct credentials), and logout.
+/// Google and Microsoft sign-in open a local browser, so they work over stdio only.
 /// </summary>
 [McpServerToolType]
 public class AuthTools
@@ -46,7 +46,7 @@ public class AuthTools
      Description(
         "Log in to the Anythink platform with email and password. " +
         "Returns a session token used for account and project management. " +
-        "For Google sign-in, use the 'login_google' tool.")]
+        "For Google sign-in, use the 'login_google' tool; for a Microsoft work account, 'login_microsoft'.")]
     public async Task<string> Login(
         [Description("Email address")] string email,
         [Description("Password")] string password)
@@ -75,20 +75,33 @@ public class AuthTools
         + "billing account or project — after it returns, call 'accounts_list' then 'accounts_use', and "
         + "'projects_list' then 'projects_use'. Needs a local browser, so it only works over stdio (not "
         + "the hosted HTTP server).")]
-    public async Task<string> LoginGoogle()
+    public Task<string> LoginGoogle() => SocialLogin("google");
+
+    [McpServerTool(Name = "login_microsoft", Title = "Sign in with a Microsoft work account", Destructive = false, OpenWorld = true),
+     Description(
+        "Sign in to the Anythink platform with a Microsoft work account (Entra ID). Opens the user's browser "
+        + "to Microsoft's sign-in page and waits for them to finish, then stores the session token. Only works "
+        + "when the person's Microsoft directory has been connected to an Anythink account by its owner; the first "
+        + "sign-in adds them to that account. This does NOT pick a billing account or project — after it returns, "
+        + "call 'accounts_list' then 'accounts_use', and 'projects_list' then 'projects_use'. Needs a local browser, "
+        + "so it only works over stdio (not the hosted HTTP server).")]
+    public Task<string> LoginMicrosoft() => SocialLogin("microsoft");
+
+    private static async Task<string> SocialLogin(string provider)
     {
+        var name = SocialAuthFlow.DisplayName(provider);
         var platform = ConfigService.ResolvePlatform();
         var eff = ConfigService.ApplyRuntimeOverrides(platform);
 
         LoginResponse tokens;
         try
         {
-            tokens = await GoogleAuthFlow.RunAsync(eff,
-                url => Console.Error.WriteLine($"[anythink] Complete Google sign-in in your browser: {url}"));
+            tokens = await SocialAuthFlow.RunAsync(eff, provider,
+                url => Console.Error.WriteLine($"[anythink] Complete {name} sign-in in your browser: {url}"));
         }
         catch (Exception ex)
         {
-            return $"Google sign-in failed: {ex.Message}";
+            return $"{name} sign-in failed: {ex.Message}";
         }
 
         platform.Token = tokens.AccessToken;
@@ -97,7 +110,7 @@ public class AuthTools
             : DateTime.UtcNow.AddHours(1);
         ConfigService.SavePlatform(platform);
 
-        return "Signed in with Google. Next: call 'accounts_list' to choose a billing account (then 'accounts_use'), "
+        return $"Signed in with {name}. Next: call 'accounts_list' to choose a billing account (then 'accounts_use'), "
             + "then 'projects_list' / 'projects_use' to connect to a project.";
     }
 

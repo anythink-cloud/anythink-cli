@@ -101,15 +101,18 @@ public class PlatformLoginSettings : CommandSettings
     [CommandOption("--google")]
     [Description("Sign in with Google (opens browser)")]
     public bool Google { get; set; }
+
+    [CommandOption("--microsoft")]
+    [Description("Sign in with a Microsoft work account (opens browser)")]
+    public bool Microsoft { get; set; }
 }
 
 public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, PlatformLoginSettings settings)
     {
-        // ── Google OAuth path ──────────────────────────────────────────────────
-        if (settings.Google)
-            return await GoogleLogin();
+        if (settings.Google || settings.Microsoft)
+            return await SocialLogin(settings.Microsoft ? "microsoft" : "google");
 
         var (platformKey, platform) = ResolvePlatformContext();
 
@@ -142,7 +145,7 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
 
         // ── Platform (billing) login path: email + password ────────────────────
         if (string.IsNullOrEmpty(settings.Email))
-            AnsiConsole.MarkupLine("[dim]Tip: run [bold]anythink login --google[/] to sign in with Google.[/]\n");
+            AnsiConsole.MarkupLine("[dim]Tip: run [bold]anythink login --google[/] or [bold]--microsoft[/] to sign in with Google or a Microsoft work account.[/]\n");
 
         var email = settings.Email ?? AnsiConsole.Ask<string>("[#F97316]Email:[/]");
         var password = settings.Password ?? AnsiConsole.Prompt(new TextPrompt<string>("[#F97316]Password:[/]").Secret());
@@ -193,9 +196,9 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
         }
     }
 
-    // ── Google OAuth: browser → loopback → JWT ────────────────────────────────
+    // ── Social sign-in: browser → loopback → JWT ──────────────────────────────
 
-    private async Task<int> GoogleLogin()
+    private async Task<int> SocialLogin(string provider)
     {
         var (platformKey, platform) = ResolvePlatformContext();
         var eff = ConfigService.ApplyRuntimeOverrides(platform);
@@ -203,8 +206,8 @@ public class PlatformLoginCommand : BasePlatformCommand<PlatformLoginSettings>
         LoginResponse tokens;
         try
         {
-            AnsiConsole.MarkupLine("\n[#F97316]Opening browser for Google sign-in...[/]");
-            tokens = await GoogleAuthFlow.RunAsync(eff, url =>
+            AnsiConsole.MarkupLine($"\n[#F97316]Opening browser for {Markup.Escape(SocialAuthFlow.DisplayName(provider))} sign-in...[/]");
+            tokens = await SocialAuthFlow.RunAsync(eff, provider, url =>
             {
                 AnsiConsole.MarkupLine($"[dim]If it doesn't open automatically, visit:[/]\n{Markup.Escape(url)}\n");
                 AnsiConsole.MarkupLine("[dim]Waiting for sign-in...[/]");

@@ -24,6 +24,14 @@ public static class ApiDefaults
 
     /// <summary>Key under which a fresh production platform session is stored.</summary>
     public const string ProductionKey = "production";
+
+    // My Anythink is served from the API's host without "api." (api.my.anythink.cloud → my.anythink.cloud); locally on :3001.
+    public static string PortalUrl(string myAnythinkApiUrl)
+    {
+        var uri = new Uri(myAnythinkApiUrl);
+        if (uri.IsLoopback) return "http://localhost:3001";
+        return $"{uri.Scheme}://{(uri.Host.StartsWith("api.") ? uri.Host[4..] : uri.Host)}";
+    }
 }
 
 /// <summary>Credentials for a specific project (per-org API access).</summary>

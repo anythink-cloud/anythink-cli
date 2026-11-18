@@ -83,6 +83,21 @@ public static class CliApp
             acc.AddCommand<AccountsUseCommand>("use")
                 .WithDescription("Set the active billing account")
                 .WithExample("accounts", "use", "a1b2c3d4");
+
+            acc.AddBranch("directories", dir =>
+            {
+                dir.SetDescription("Microsoft Entra ID directories whose staff can sign in and join the account");
+
+                dir.AddCommand<AccountsDirectoriesListCommand>("list")
+                    .WithDescription("List connected Microsoft directories");
+
+                dir.AddCommand<AccountsDirectoriesAddCommand>("add")
+                    .WithDescription("Start an administrator's approval at Microsoft to connect a directory")
+                    .WithExample("accounts", "directories", "add", "--default-level", "viewer");
+
+                dir.AddCommand<AccountsDirectoriesRemoveCommand>("remove")
+                    .WithDescription("Disconnect a Microsoft directory");
+            });
         });
 
         // ── Projects ──────────────────────────────────────────────────────────────
