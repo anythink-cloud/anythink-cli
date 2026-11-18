@@ -24,6 +24,7 @@ internal static class EmailMarketingOutput
 
 // ── email-marketing settings get ──────────────────────────────────────────────
 
+[CommandGuide("Gives the project's email-marketing settings, including double opt-in, soft opt-in, postal address, default consent wording and privacy policy link. Use it before `email_marketing_settings_set` to see the current values.")]
 public class EmailMarketingSettingsGetCommand : BaseCommand<JsonSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, JsonSettings settings)
@@ -80,6 +81,7 @@ public class EmailMarketingSettingsSetSettings : JsonSettings
             : Spectre.Console.ValidationResult.Success();
 }
 
+[CommandGuide("Changes only the email-marketing settings you give and leaves the rest as they are. Returns the settings after the change.")]
 public class EmailMarketingSettingsSetCommand : BaseCommand<EmailMarketingSettingsSetSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmailMarketingSettingsSetSettings settings)
@@ -110,6 +112,7 @@ public class EmailMarketingSettingsSetCommand : BaseCommand<EmailMarketingSettin
 
 // ── email-marketing options ───────────────────────────────────────────────────
 
+[CommandGuide("Gives the options the public signup forms use: whether double opt-in is on, the newsletter consent wording and privacy policy link, and whether signup offers a marketing opt-out and its wording. Use it to check what a new subscriber will be shown.")]
 public class EmailMarketingOptionsCommand : BaseCommand<JsonSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, JsonSettings settings)

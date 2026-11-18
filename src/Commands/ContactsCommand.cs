@@ -100,6 +100,7 @@ public class ContactsListSettings : JsonSettings
     public int Limit { get; set; } = 25;
 }
 
+[CommandGuide("Lists contacts a page at a time with each one's id, email, name, marketing status, source and whether they are a project user. Use it to find a contact id for `contacts_get`, `contacts_update`, `contacts_unsubscribe` or `contacts_erase`; filter by status, source, user or search text.")]
 public class ContactsListCommand : BaseCommand<ContactsListSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, ContactsListSettings settings)
@@ -147,6 +148,7 @@ public class ContactIdSettings : JsonSettings
             : Spectre.Console.ValidationResult.Error("The contact ID must be a positive whole number.");
 }
 
+[CommandGuide("Gives one contact's id, email, name, source, marketing status and consent history, including the wording agreed to and when. Use it to check what a person has consented to before changing them.")]
 public class ContactsGetCommand : BaseCommand<ContactIdSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, ContactIdSettings settings)
@@ -217,6 +219,7 @@ public class ContactsCreateSettings : JsonSettings
             : Spectre.Console.ValidationResult.Success();
 }
 
+[CommandGuide("Adds a contact. With consent it records that the person agreed to marketing emails, using the project's default wording unless wording is given; without consent the contact is not subscribed. Returns the new contact.")]
 public class ContactsCreateCommand : BaseCommand<ContactsCreateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, ContactsCreateSettings settings)
@@ -260,6 +263,7 @@ public class ContactsUpdateSettings : ContactIdSettings
             : Spectre.Console.ValidationResult.Success();
 }
 
+[CommandGuide("Changes the contact's first name, last name or source and leaves everything else, including marketing status and consent, as it is. To stop marketing emails use `contacts_unsubscribe`.")]
 public class ContactsUpdateCommand : BaseCommand<ContactsUpdateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, ContactsUpdateSettings settings)
@@ -281,6 +285,7 @@ public class ContactsUpdateCommand : BaseCommand<ContactsUpdateSettings>
 
 // ── contacts unsubscribe ──────────────────────────────────────────────────────
 
+[CommandGuide("Stops marketing emails to the contact and records it in their history; the contact stays in the project. To remove their personal data as well, use `contacts_erase`.")]
 public class ContactsUnsubscribeCommand : BaseCommand<ContactIdSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, ContactIdSettings settings)
@@ -307,6 +312,7 @@ public class ContactsEraseSettings : ContactIdSettings
     public bool Yes { get; set; }
 }
 
+[CommandGuide("Permanently removes the contact's personal data and can't be undone. Use `contacts_export` first if the person asked for a copy.")]
 public class ContactsEraseCommand : BaseCommand<ContactsEraseSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, ContactsEraseSettings settings)
@@ -327,6 +333,7 @@ public class ContactsEraseCommand : BaseCommand<ContactsEraseSettings>
 
 // ── contacts export ───────────────────────────────────────────────────────────
 
+[CommandGuide("Gives everything held about one contact, including their consent history, as JSON. Use it to answer a data-access request before an erase.")]
 public class ContactsExportCommand : BaseCommand<ContactIdSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, ContactIdSettings settings)
@@ -414,6 +421,7 @@ public class ContactsImportSettings : JsonSettings
             : Spectre.Console.ValidationResult.Success();
 }
 
+[CommandGuide("Imports contacts from CSV text with the columns email, status and optionally first_name, last_name, source, consented_at, wording and ip_address. Checks every row first and sends nothing if any is invalid unless skip_invalid is set; dry_run only checks. Never resubscribes anyone who unsubscribed, bounced or complained. Returns counts of created, updated, suppressed and invalid rows, with row numbers only.")]
 public class ContactsImportCommand : BaseCommand<ContactsImportSettings>
 {
     private const int MaxIssuesShown = 25;
