@@ -1,0 +1,79 @@
+{
+  "board": {
+    "provider": "anythink",
+    "api_url": "https://api.my.anythink.cloud",
+    "org_id": 20804318,
+    "entity": "delivery_work_items",
+    "key_env": "ANYTHINK_BOARD_KEY_MYANYTHINK",
+    "repo": "anythink-cli",
+    "key_prefix": "CLI",
+    "mcp_server": "anythink",
+    "statuses": {
+      "backlog": "Backlog",
+      "ready": "Ready",
+      "in_progress": "In Progress",
+      "in_review": "In Review",
+      "done": "Done",
+      "blocked": "Blocked",
+      "awaiting_approval": "Awaiting Approval"
+    },
+    "commands": {
+      "_comment": "Optional shell fallbacks if the Anythink MCP server is not connected. Placeholders: {id} {agent} {status} {hours} {points} {confidence} {body_file} {title} {type} {parent} {pr_url}",
+      "list_available": "\"${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/ways-of-working}/scripts/board.sh\" available",
+      "get": "\"${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/ways-of-working}/scripts/board.sh\" get {id}",
+      "estimate": "",
+      "claim": "\"${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/ways-of-working}/scripts/board.sh\" claim {id}",
+      "release": "\"${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/ways-of-working}/scripts/board.sh\" release {id}",
+      "comment": "",
+      "transition": "",
+      "log_time": "",
+      "create": "\"${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/ways-of-working}/scripts/board.sh\" create --title {title} --type {type} --body-file {body_file} --parent {parent}",
+      "link_pr": "",
+      "list_mine_blocked": "",
+      "list_mine_waiting": ""
+    }
+  },
+  "git": {
+    "base_branch": "main",
+    "worktree_root": "../.worktrees",
+    "max_parallel": 3,
+    "merge_method": "squash",
+    "required_approvals": 1
+  },
+  "test": {
+    "unit": "rm -rf .delivery/coverage && dotnet test AnythinkCli.sln -c Release --collect:\"XPlat Code Coverage\" --results-directory .delivery/coverage/raw && { command -v reportgenerator >/dev/null || dotnet tool install -g dotnet-reportgenerator-globaltool; } && reportgenerator -reports:'.delivery/coverage/raw/**/coverage.cobertura.xml' -targetdir:.delivery/coverage -reporttypes:Cobertura",
+    "e2e_mock": "",
+    "e2e_integration": "",
+    "integration_required": false
+  },
+  "coverage": {
+    "format": "cobertura",
+    "path": ".delivery/coverage/Cobertura.xml",
+    "min_lines": 80,
+    "min_branches": 80
+  },
+  "quality": {
+    "lint": "dotnet build AnythinkCli.sln -c Release",
+    "typecheck": "",
+    "duplication": "npx --yes jscpd src mcp --silent --ignore \"**/node_modules/**,**/.next/**,**/bin/**,**/obj/**,**/Migrations/**,**/*.g.dart,**/*.freezed.dart\" --reporters json --output .delivery/jscpd",
+    "duplication_report": ".delivery/jscpd/jscpd-report.json",
+    "max_duplication_pct": 3
+  },
+  "docs": {
+    "internal": "docs/internal",
+    "external": "docs/external",
+    "changelog": "CHANGELOG.md"
+  },
+  "marketing": {
+    "enabled": true,
+    "voice_guide": "docs/brand/voice.md",
+    "site_repo": "https://github.com/Anythink-Ltd/marketing-site",
+    "brand_dir": "docs/brand",
+    "tts_command": "",
+    "release_check": "gh pr view {pr} --json state -q .state | grep -q MERGED",
+    "channels": {
+      "youtube": "draft-only",
+      "social": "draft-only"
+    }
+  }
+}
