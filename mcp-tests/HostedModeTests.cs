@@ -322,7 +322,9 @@ public class HostedModeTests : IAsyncLifetime
         var read = await mcpClient.ReadResourceAsync("ui://anythink/view");
 
         var text = ((TextResourceContents)read.Contents.Single()).Text;
-        text.Should().NotContain("/*VIEW_JS*/").And.Contain("<script>" + script.ReadToEnd() + "</script>");
+        var js = script.ReadToEnd();
+        js.Should().Contain("ui/initialize");
+        text.Should().NotContain("/*VIEW_JS*/").And.Contain("<script>" + js + "</script>");
     }
 
     [Fact]
