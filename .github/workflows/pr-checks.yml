@@ -152,6 +152,7 @@ jobs:
           set -e
           declare -A PROJECTS=(
             [src/]=src/AnythinkCli.csproj
+            [project-importers/]=project-importers/Anythink.ProjectImporters.csproj
             [mcp/]=mcp/AnythinkMcp.csproj
             [tests/]=tests/AnythinkCli.Tests.csproj
             [tests-mcp/]=tests-mcp/AnythinkMcp.Tests.csproj
@@ -220,6 +221,9 @@ jobs:
 
       - name: Pack dotnet tool (anythink-mcp)
         run: dotnet pack mcp/AnythinkMcp.csproj -c Release -o "${{ runner.temp }}/nupkg"
+
+      - name: Pack importers library (Anythink.ProjectImporters)
+        run: dotnet pack project-importers/Anythink.ProjectImporters.csproj -c Release -o "${{ runner.temp }}/nupkg"
 
       - name: Pack CLI dotnet tool (anythink)
         run: dotnet pack src/AnythinkCli.csproj -c Release -o "${{ runner.temp }}/nupkg"

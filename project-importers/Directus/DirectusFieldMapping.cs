@@ -1,4 +1,4 @@
-namespace AnythinkCli.Importers.Directus;
+namespace Anythink.ProjectImporters.Directus;
 
 // Maps Directus field types and interfaces onto valid Anythink db_type and
 // display_type values. Anythink validates display_type against db_type

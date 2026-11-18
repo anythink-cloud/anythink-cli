@@ -4,6 +4,7 @@ WORKDIR /src
 # Copy project files and restore
 COPY ["mcp/AnythinkMcp.csproj", "mcp/"]
 COPY ["src/AnythinkCli.csproj", "src/"]
+COPY ["project-importers/Anythink.ProjectImporters.csproj", "project-importers/"]
 RUN dotnet restore "mcp/AnythinkMcp.csproj"
 
 # Copy all source and publish

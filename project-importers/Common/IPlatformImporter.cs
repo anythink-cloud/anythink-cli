@@ -1,4 +1,4 @@
-namespace AnythinkCli.Importers;
+namespace Anythink.ProjectImporters;
 
 // Each platform we migrate from (Directus, Supabase, Strapi, n8n, ...) implements
 // this interface. The interface is intentionally narrow — only fetch and translate.

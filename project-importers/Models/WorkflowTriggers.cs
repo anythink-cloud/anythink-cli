@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace AnythinkCli.Models;
+namespace Anythink.ProjectImporters.Models;
 
 public static class WorkflowTriggers
 {

@@ -1,4 +1,6 @@
+using Anythink.ProjectImporters.Models;
 using AnythinkCli.Config;
+using Anythink.ProjectImporters;
 using AnythinkCli.Models;
 using System.Text;
 using System.Text.Json;
@@ -6,7 +8,7 @@ using System.Text.Json.Nodes;
 
 namespace AnythinkCli.Client;
 
-public class AnythinkClient : HttpApiClient
+public class AnythinkClient : HttpApiClient, IImportTarget
 {
     public string OrgId { get; }
     public string BaseUrl { get; }

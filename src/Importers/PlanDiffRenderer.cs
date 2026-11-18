@@ -1,7 +1,9 @@
+using Anythink.ProjectImporters;
+using Anythink.ProjectImporters.Engine;
 using AnythinkCli.Output;
 using Spectre.Console;
 
-namespace AnythinkCli.Importers.Engine;
+namespace AnythinkCli.Importers;
 
 public static class PlanDiffRenderer
 {
@@ -37,13 +39,6 @@ public static class PlanDiffRenderer
             $"{counts.GetValueOrDefault(PlanAction.Create)} to create, {counts.GetValueOrDefault(PlanAction.Merge)} to merge, " +
             $"{counts.GetValueOrDefault(PlanAction.Skip)} unchanged, {counts.GetValueOrDefault(PlanAction.Report)} to review.");
     }
-
-    public static string EntityAction(PlanItem entity) => entity.Action switch
-    {
-        PlanAction.Create => "create",
-        PlanAction.Merge => $"merge (+{entity.Spec?["new_fields"]?.GetValue<int>() ?? 0} fields)",
-        _ => "skip (up to date)"
-    };
 
     private static bool IsUnchanged(PlanItem item) => item.Action == PlanAction.Skip && item.Category == ReportCategory.Mapped;
 

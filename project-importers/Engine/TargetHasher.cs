@@ -2,9 +2,9 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using AnythinkCli.Models;
+using Anythink.ProjectImporters.Models;
 
-namespace AnythinkCli.Importers.Engine;
+namespace Anythink.ProjectImporters.Engine;
 
 public static class TargetHasher
 {

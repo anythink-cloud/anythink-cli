@@ -29,6 +29,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\src\AnythinkCli.csproj" />
+    <ProjectReference Include="..\project-importers\Anythink.ProjectImporters.csproj" />
   </ItemGroup>
 
 </Project>
