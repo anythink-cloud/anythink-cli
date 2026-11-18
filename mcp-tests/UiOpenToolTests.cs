@@ -319,7 +319,7 @@ public class UiOpenToolTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task UiOpen_Path_FromBreeze_IsSigned()
+    public async Task UiOpen_Path_FromTheDashboard_IsSigned()
     {
         ProjectsAre((ProjectId, AccountId));
         TransferTokenIs(ProjectId, TransferToken);

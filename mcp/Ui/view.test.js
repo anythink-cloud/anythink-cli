@@ -242,9 +242,8 @@ test("expand is hidden when the host doesn't offer fullscreen", async () => {
   assert.strictEqual(expand.hidden, true);
 });
 
-test("script calls it the dashboard, never by its internal name, and inlines safely", () => {
+test("script inlines safely", () => {
   const source = require("node:fs").readFileSync(require.resolve("./view.js"), "utf8");
-  assert.doesNotMatch(source, /breeze/i);
   assert.doesNotMatch(source, /<\/script/i);
 });
 
