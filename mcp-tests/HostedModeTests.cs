@@ -276,10 +276,11 @@ public class HostedModeTests : IAsyncLifetime
     {
         await RestartWithUiAsync(UiOn);
         await using var mcpClient = await McpClient.CreateAsync(Transport(ValidToken()));
-        var tools = (await mcpClient.ListToolsAsync()).ToDictionary(t => t.Name);
+        var tools = await mcpClient.ListToolsAsync();
 
-        tools["data_list"].ProtocolTool.Meta!["ui"]!["resourceUri"]!.GetValue<string>().Should().Be("ui://anythink/view");
-        tools["data_delete"].ProtocolTool.Meta.Should().BeNull();
+        var mapped = tools.Where(t => McpUiRoutes.ToolNames.Contains(t.Name)).ToList();
+        mapped.Should().NotBeEmpty().And.OnlyContain(t => t.ProtocolTool.Meta!["ui"]!["resourceUri"]!.GetValue<string>() == "ui://anythink/view");
+        tools.Except(mapped).Should().NotBeEmpty().And.OnlyContain(t => t.ProtocolTool.Meta == null);
     }
 
     [Fact]

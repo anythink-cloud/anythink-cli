@@ -47,7 +47,7 @@ public static class McpUiRoutes
         var template = route.Template;
         foreach (var name in Placeholders(template))
         {
-            if (!args.TryGetValue(name, out var value) || value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+            if (!args.TryGetValue(name, out var value) || value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined || Text(value).Trim().Length == 0)
                 return Fill(template[..template.IndexOf("/{" + name + "}", StringComparison.Ordinal)], args);
         }
         return Fill(template, args);
@@ -60,11 +60,13 @@ public static class McpUiRoutes
     {
         foreach (var name in Placeholders(template))
         {
-            var value = args[name];
-            template = template.Replace("{" + name + "}", Uri.EscapeDataString(value.ValueKind == JsonValueKind.String ? value.GetString()! : value.GetRawText()));
+            var text = Text(args[name]);
+            template = template.Replace("{" + name + "}", text is "." or ".." ? text.Replace(".", "%2E") : Uri.EscapeDataString(text));
         }
         return template;
     }
+
+    private static string Text(JsonElement value) => value.ValueKind == JsonValueKind.String ? value.GetString()! : value.GetRawText();
 
     private static Dictionary<string, UiRoute> Build(params (UiTarget Target, string Template, string Tools)[] rows) =>
         rows.SelectMany(row => row.Tools.Split(' ').Select(tool => (tool, route: new UiRoute(row.Target, row.Template))))

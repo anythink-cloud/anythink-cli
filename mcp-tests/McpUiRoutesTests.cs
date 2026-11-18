@@ -50,4 +50,15 @@ public class McpUiRoutesTests
         PathFor("data_get").Should().Be("/entities");
         PathFor("projects_create").Should().Be("/accounts");
     }
+
+    [Fact]
+    public void Path_DotSegmentValue_StaysInSection() =>
+        PathFor("data_get", ("entity", ".."), ("id", ".")).Should().Be("/entities/%2E%2E/%2E");
+
+    [Fact]
+    public void Path_EmptyArgument_FallsBackToSection()
+    {
+        PathFor("data_get", ("entity", "posts"), ("id", "")).Should().Be("/entities/posts");
+        PathFor("data_get", ("entity", "posts"), ("id", "  ")).Should().Be("/entities/posts");
+    }
 }
