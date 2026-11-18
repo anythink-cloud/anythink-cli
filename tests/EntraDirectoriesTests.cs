@@ -53,7 +53,7 @@ public class EntraDirectoriesTests
 
     [Theory]
     [InlineData("https://api.my.anythink.cloud", "https://my.anythink.cloud")]
-    [InlineData("https://api.my.anythink.dev", "https://my.anythink.dev")]
+    [InlineData("https://api.my.example.test", "https://my.example.test")]
     [InlineData("https://localhost:7136", "http://localhost:3001")]
     [InlineData("https://platform.example.com", "https://platform.example.com")]
     public void PortalUrl_IsTheApiHostWithoutApi(string api, string portal) =>
@@ -199,6 +199,6 @@ public class EntraDirectoriesTests
         var (code, output) = await CommandRunner.RunAsync(mock, () => Run("accounts", "directories", "add", "--help"));
 
         code.Should().Be(0);
-        output.Should().Contain("--default-level").And.NotContain("TENANT_ID");
+        output.Should().Contain("--default-level").And.NotContain("DIRECTORY_ID");
     }
 }

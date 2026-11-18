@@ -329,7 +329,7 @@ public class AccountsDirectoriesListCommand : BasePlatformCommand<AccountsDirect
                 return 0;
             }
 
-            var table = Renderer.BuildTable("Tenant ID", "New people join as");
+            var table = Renderer.BuildTable("Directory ID", "New people join as");
             foreach (var d in directories)
                 table.AddRow(new Text(d.TenantId.ToString()), new Text(AccountStatusText.AccessLevel(d.DefaultAccessLevel)));
             AnsiConsole.Write(table);
@@ -385,8 +385,8 @@ public class AccountsDirectoriesAddCommand : BasePlatformCommand<AccountsDirecto
 
 public class AccountsDirectoriesRemoveSettings : CommandSettings
 {
-    [CommandArgument(0, "<TENANT_ID>")]
-    [Description("Microsoft Entra tenant id to disconnect")]
+    [CommandArgument(0, "<DIRECTORY_ID>")]
+    [Description("Microsoft Entra directory id to disconnect")]
     public string TenantId { get; set; } = "";
 
     [CommandOption("--account <ID>")]
@@ -405,7 +405,7 @@ public class AccountsDirectoriesRemoveCommand : BasePlatformCommand<AccountsDire
     {
         if (!Guid.TryParse(settings.TenantId, out var tenantId))
         {
-            Renderer.Error("The tenant id must be a GUID.");
+            Renderer.Error("The directory id must be a GUID.");
             return 1;
         }
         if (!settings.Yes &&

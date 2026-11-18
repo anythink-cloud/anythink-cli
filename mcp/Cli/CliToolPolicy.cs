@@ -40,7 +40,7 @@ public static class CliToolPolicy
         ["projects delete account"] = ("account_id", AccountIdDescription, false),
         ["accounts create name"] = ("name", "Organisation name for the account.", true),
         ["accounts directories list account"] = ("account_id", AccountIdDescription, false),
-        ["accounts directories remove tenant_id"] = ("tenant_id", "Tenant id of the directory to disconnect, from accounts_directories_list.", true),
+        ["accounts directories remove directory_id"] = ("directory_id", "Directory id of the directory to disconnect, from accounts_directories_list.", true),
         ["accounts directories remove account"] = ("account_id", AccountIdDescription, false),
         ["accounts create email"] = ("email", "Billing email address for invoices.", true),
         ["accounts create currency"] = ("currency", $"Currency code: gbp, usd or eur. Defaults to {AccountsCreateCommand.DefaultCurrency}.", false)
