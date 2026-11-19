@@ -8,6 +8,7 @@ using RichardSzalay.MockHttp;
 
 namespace AnythinkCli.Tests;
 
+[Collection("ConsoleOutput")]
 public class SettingsTests
 {
     private const string BaseUrl = "https://api.example.com";
@@ -228,6 +229,38 @@ public class SettingsTests
         ts["default_role_id"]!.GetValue<int>().Should().Be(3);
         SentUrls(captured).Should().Equal("https://app.example.com", "*.example.org");
         captured.ClearCacheCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Set_SignupBotCheck_TurnsItOn_AndKeepsOtherSettings()
+    {
+        var (client, captured) = BuildClient();
+
+        var result = await SettingsHelpers.SetAsync(client, "signup_bot_check", "true");
+
+        result.Should().Be(SaveResult.Saved);
+        var ts = captured.PutBody!["tenant_settings"]!;
+        ts["signup_bot_check"]!.GetValue<bool>().Should().BeTrue();
+        ts["some_future_setting"]!.GetValue<string>().Should().Be("keep-me");
+    }
+
+    [Fact]
+    public async Task Get_SignupBotCheck_IsReadFromTenantSettings()
+    {
+        var (client, _) = BuildClient(TenantJson.Replace("\"enable_group_rls\": true,", "\"enable_group_rls\": true, \"signup_bot_check\": true,"));
+
+        (await client.GetTenantAsync())!.TenantSettings!.SignupBotCheck.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SettingsGet_ShowsSignupBotCheck()
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.ReplyWith(HttpMethod.Get, OrgPath, TenantJson.Replace("\"enable_group_rls\": true,", "\"enable_group_rls\": true, \"signup_bot_check\": true,"));
+
+        var (_, output) = await CommandRunner.RunAsync(mock, () => new SettingsGetCommand().ExecuteAsync(null!, new SettingsGetSettings()));
+
+        output.Should().Contain("signup_bot_check: true");
     }
 
     [Fact]
