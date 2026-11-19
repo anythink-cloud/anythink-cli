@@ -662,7 +662,8 @@ public record TenantSettingsDto(
     [property: JsonPropertyName("ai_mode")] string? AiMode = null,
     [property: JsonPropertyName("ai_byok_provider")] string? AiByokProvider = null,
     [property: JsonPropertyName("ai_default_model")] string? AiDefaultModel = null,
-    [property: JsonPropertyName("enable_group_rls")] bool? EnableGroupRls = null
+    [property: JsonPropertyName("enable_group_rls")] bool? EnableGroupRls = null,
+    [property: JsonPropertyName("signup_bot_check")] bool? SignupBotCheck = null
 )
 {
     // Update replaces the whole object, so unmodelled fields must round-trip.
