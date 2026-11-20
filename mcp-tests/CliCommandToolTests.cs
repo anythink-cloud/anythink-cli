@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Net;
 using System.Text.Json;
 using AnythinkCli.Client;
@@ -93,6 +94,14 @@ public partial class CliCommandToolTests
         Find(name, CliToolScope.Local).Should().BeNull();
         Find(name, CliToolScope.Internal).Should().BeNull();
         Find(name, CliToolScope.Hosted).Should().NotBeNull();
+    }
+
+    [Fact]
+    public void CreatingAProject_CanChargeTheCardOnFile_SoClaudeAsksFirst()
+    {
+        Tool("projects_create", CliToolScope.Hosted).ProtocolTool.Annotations!.DestructiveHint.Should().BeTrue();
+        typeof(AnythinkMcp.Tools.ProjectTools).GetMethod(nameof(AnythinkMcp.Tools.ProjectTools.ProjectsCreate))!
+            .GetCustomAttribute<ModelContextProtocol.Server.McpServerToolAttribute>()!.Destructive.Should().BeTrue();
     }
 
     [Theory]

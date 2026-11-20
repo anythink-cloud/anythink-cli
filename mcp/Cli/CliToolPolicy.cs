@@ -154,6 +154,8 @@ public static class CliToolPolicy
     // Import adds records; export only writes a local file and refuses to overwrite one without --force, so neither destroys project data.
     private static readonly string[] AdditiveCommands = ["data import", "data export", "pay offers user-code"];
 
+    private static readonly string[] ChargingCommands = ["projects create"];
+
     private static readonly HashSet<string> OpenWorldVerbs = ["execute", "trigger", "invite"];
 
     public static bool IsRemote(CliToolScope scope) => scope != CliToolScope.Local;
@@ -238,7 +240,7 @@ public static class CliToolPolicy
         || (IsRemote(scope) && ReadOnlyRemotely.Contains(command.Key));
 
     public static bool IsDestructive(CliCommand command, CliToolScope scope) =>
-        !IsReadOnly(command, scope) && !AdditiveVerbs.Contains(command.Verb) && !AdditiveCommands.Contains(command.Key);
+        !IsReadOnly(command, scope) && (ChargingCommands.Contains(command.Key) || (!AdditiveVerbs.Contains(command.Verb) && !AdditiveCommands.Contains(command.Key)));
 
     public static bool IsOpenWorld(CliCommand command) => OpenWorldVerbs.Contains(command.Verb);
 

@@ -618,11 +618,11 @@ public class HostedAccountToolsTests : McpTestBase, IAsyncLifetime
     // ── Rule: annotations and descriptions suit a remote caller ───────────────
 
     [Fact]
-    public void Annotations_MarkDeleteDestructive_CreatesAdditive_AndListsReadOnly()
+    public void Annotations_MarkDeleteAndChargingDestructive_AccountCreateAdditive_AndListsReadOnly()
     {
-        ToolNamed("projects_delete").Annotations.Should().BeEquivalentTo(new { ReadOnlyHint = false, DestructiveHint = true });
-        foreach (var name in new[] { "projects_create", "accounts_create" })
-            ToolNamed(name).Annotations.Should().BeEquivalentTo(new { ReadOnlyHint = false, DestructiveHint = false }, name);
+        foreach (var name in new[] { "projects_delete", "projects_create" })
+            ToolNamed(name).Annotations.Should().BeEquivalentTo(new { ReadOnlyHint = false, DestructiveHint = true }, name);
+        ToolNamed("accounts_create").Annotations.Should().BeEquivalentTo(new { ReadOnlyHint = false, DestructiveHint = false });
         foreach (var name in new[] { "accounts_list", "plans" })
             ToolNamed(name).Annotations!.ReadOnlyHint.Should().BeTrue(name);
     }
