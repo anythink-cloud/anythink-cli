@@ -184,7 +184,7 @@ public static class HostedMode
         using var buffer = new MemoryStream();
         stream.CopyTo(buffer);
         var bytes = buffer.ToArray();
-        app.MapGet(path, (HttpContext context) =>
+        app.MapMethods(path, [HttpMethods.Get, HttpMethods.Head], (HttpContext context) =>
         {
             context.Response.Headers.CacheControl = "public, max-age=86400";
             return Results.Bytes(bytes, contentType);

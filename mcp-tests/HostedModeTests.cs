@@ -529,6 +529,18 @@ public class HostedModeTests : IAsyncLifetime
         (await response.Content.ReadAsByteArrayAsync()).Take(4).Should().Equal(signature);
     }
 
+    // Rule: directories and checks that probe the icon with HEAD get 200, not 405
+    [Theory]
+    [InlineData("/favicon.ico", "image/x-icon")]
+    [InlineData("/icon.png", "image/png")]
+    public async Task Icons_AnswerHeadRequests(string path, string contentType)
+    {
+        var response = await _client.SendAsync(new HttpRequestMessage(HttpMethod.Head, path));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Content.Headers.ContentType!.MediaType.Should().Be(contentType);
+    }
+
     [Fact]
     public async Task Icons_StillRejectUnknownHosts()
     {
