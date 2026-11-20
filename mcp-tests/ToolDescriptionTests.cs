@@ -1,5 +1,7 @@
 using System.Reflection;
+using System.Text.RegularExpressions;
 using AnythinkMcp.Cli;
+using AnythinkMcp.Tools;
 using FluentAssertions;
 using ModelContextProtocol.Server;
 
@@ -30,6 +32,38 @@ public class ToolDescriptionTests
         thin.Should().BeEmpty("every tool needs a [CommandGuide] saying when to use it, what it returns and what it changes");
     }
 
+    private static IEnumerable<string> HandWrittenToolNames(IEnumerable<Type> types) =>
+        types.SelectMany(t => t.GetMethods()).Select(m => m.GetCustomAttribute<McpServerToolAttribute>()?.Name).OfType<string>();
+
+    private static IEnumerable<string> OfferedTools(CliToolScope scope) => scope switch
+    {
+        CliToolScope.Local => StdioToolRegistrationTests.ExpectedStdioTools,
+        CliToolScope.Hosted => CliCommandTool.All(scope).Where(t => !t.NeedsAccountAccess).Select(t => t.ProtocolTool.Name)
+            .Concat(HandWrittenToolNames([typeof(HostedTools)])),
+        _ => CliCommandTool.All(scope).Select(t => t.ProtocolTool.Name)
+    };
+
+    [Theory]
+    [InlineData(CliToolScope.Local)]
+    [InlineData(CliToolScope.Internal)]
+    [InlineData(CliToolScope.Hosted)]
+    public void EveryToolNamedInADescription_IsOfferedInThatScope(CliToolScope scope)
+    {
+        var anyTool = CliCommandModel.All.Select(c => c.ToolName)
+            .Concat(HandWrittenToolNames(typeof(McpClientFactory).Assembly.GetTypes())).ToHashSet();
+        var offered = OfferedTools(scope).ToHashSet();
+        var references = CliCommandTool.All(scope)
+            .SelectMany(t => Regex.Matches(t.ProtocolTool.Description + t.ProtocolTool.InputSchema.GetRawText(), "`([a-z_]+)`")
+                .Select(m => m.Groups[1].Value)
+                .Where(anyTool.Contains)
+                .Select(name => (Tool: t.ProtocolTool.Name, Named: name)))
+            .ToList();
+
+        references.Should().NotBeEmpty();
+        references.Where(r => !offered.Contains(r.Named)).Select(r => $"{r.Tool} names {r.Named}")
+            .Should().BeEmpty($"the {scope} server doesn't offer the tools these descriptions name");
+    }
+
     [Fact]
     public void EveryGeneratedCommand_HasAGuide() =>
         CliCommandModel.All
@@ -58,13 +92,16 @@ public class ToolDescriptionTests
     public void JsonCommands_SayTheyReturnJson() =>
         Tool("data_list").ProtocolTool.Description.Should().Contain("Returns JSON.");
 
-    [Fact]
-    public void DestructiveCommands_AskForConfirmation() =>
-        Tool("entities_delete").ProtocolTool.Description.Should().Contain("check with the user before running it");
+    [Theory]
+    [InlineData(CliToolScope.Local)]
+    [InlineData(CliToolScope.Hosted)]
+    public void DestructiveCommands_SayItThroughTheHint_NotAnInstructionInTheDescription(CliToolScope scope)
+    {
+        var tool = Tool("entities_delete", scope).ProtocolTool;
 
-    [Fact]
-    public void ReadOnlyCommands_DoNotAskForConfirmation() =>
-        Tool("entities_list").ProtocolTool.Description.Should().NotContain("check with the user");
+        tool.Annotations!.DestructiveHint.Should().BeTrue();
+        tool.Description.Should().NotContain("check with the user");
+    }
 
     [Theory]
     [InlineData("users_get", "id", "users_list")]
