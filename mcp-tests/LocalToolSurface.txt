@@ -113,13 +113,13 @@ pay_subscriptions_resync [destructive] id
 pay_trial_disable [write]
 pay_trial_enable [write]
 pay_trial_status [read-only]
-roles_create [write] name api_access? description?
+roles_create [write] name api_access? assignable_in_groups? description?
 roles_delete [destructive] id
 roles_list [read-only]
 roles_permissions_add [write] role_id entity actions?
 roles_permissions_list [read-only] role_id
 roles_permissions_remove [destructive] role_id entity actions?
-roles_update [destructive] id api_access? description? name?
+roles_update [destructive] id api_access? assignable_in_groups? description? name?
 search_audit [read-only] entity query? sample?
 search_purge [destructive] entity?
 search_query [read-only] text entities? facet? filter? highlight? limit? page? public? sort?

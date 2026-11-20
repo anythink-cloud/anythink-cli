@@ -550,7 +550,7 @@ public class MigrateCommand : BaseCommand<MigrateSettings>
                             await dstClient.UpdateRoleWithPermissionsAsync(targetRoleId,
                                 new UpdateRolePermissionsRequest(
                                     role.Name, role.Description, role.IsActive,
-                                    true, [.. targetPermIds]));
+                                    true, [.. targetPermIds], role.AssignableInGroups));
                         }
                         catch (AnythinkException ex)
                         {

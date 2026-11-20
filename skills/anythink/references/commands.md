@@ -40,7 +40,7 @@ join table). See `references/data-modeling.md`.
 ## Access control
 | Command | Purpose |
 | --- | --- |
-| `roles list` / `roles create <name> [--description ...] [--api-access false]` / `roles update <id> [--name ...] [--description ...] [--api-access true]` / `roles delete <id>` | Roles |
+| `roles list` / `roles create <name> [--description ...] [--api-access false] [--assignable-in-groups false]` / `roles update <id> [--name ...] [--description ...] [--api-access true] [--assignable-in-groups false]` / `roles delete <id>` | Roles |
 | `users list` / `users me` / `users get <id>` / `users invite <email> <first> <last> [--role-id N]` (sends the invitation) / `users resend-invite <id>` / `users delete <id>` | End-users |
 | `api-keys list` / `api-keys create <name> --permissions "<e>:<a>,..." [--save-as <profile>]` / `api-keys revoke <id>` | API keys (value prints to **stderr**) |
 

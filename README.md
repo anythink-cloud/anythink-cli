@@ -659,8 +659,9 @@ anythink roles delete <id>             Delete a role
 | ---------------------- | -------------------------------------- |
 | `--description <text>` | Human-readable description of the role |
 | `--api-access <bool>`  | Let the role's users reach data through the API (default `true`; entity permissions only apply when on) |
+| `--assignable-in-groups <bool>` | Let team managers give the role to people in their teams (default `true`; off takes it out of the team invite and role pickers) |
 
-`roles update <id>` takes `--name`, `--description` and `--api-access`; only what you pass changes.
+`roles update <id>` takes `--name`, `--description`, `--api-access` and `--assignable-in-groups`; only what you pass changes.
 
 **Examples**
 

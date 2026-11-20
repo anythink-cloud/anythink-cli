@@ -208,14 +208,16 @@ public record RoleResponse(
     [property: JsonPropertyName("is_active")] bool IsActive,
     [property: JsonPropertyName("anyapi_access")] bool AnyApiAccess = false,
     [property: JsonPropertyName("permissions")] List<Permission>? Permissions = null,
-    [property: JsonPropertyName("is_administrator")] bool IsAdministrator = false
+    [property: JsonPropertyName("is_administrator")] bool IsAdministrator = false,
+    [property: JsonPropertyName("assignable_in_groups")] bool AssignableInGroups = true
 );
 
 public record CreateRoleRequest(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("description")] string? Description = null,
     [property: JsonPropertyName("is_active")] bool IsActive = true,
-    [property: JsonPropertyName("anyapi_access")] bool AnyApiAccess = true
+    [property: JsonPropertyName("anyapi_access")] bool AnyApiAccess = true,
+    [property: JsonPropertyName("assignable_in_groups")] bool AssignableInGroups = true
 );
 
 public record CreatePermissionRequest(
@@ -229,5 +231,6 @@ public record UpdateRolePermissionsRequest(
     [property: JsonPropertyName("description")] string? Description,
     [property: JsonPropertyName("is_active")] bool IsActive,
     [property: JsonPropertyName("anyapi_access")] bool AnyApiAccess,
-    [property: JsonPropertyName("permission_ids")] List<int> PermissionIds
+    [property: JsonPropertyName("permission_ids")] List<int> PermissionIds,
+    [property: JsonPropertyName("assignable_in_groups")] bool? AssignableInGroups = null
 );
