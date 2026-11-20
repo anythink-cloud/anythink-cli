@@ -289,7 +289,7 @@ internal static class PayValidation
 
 // ── pay plans ────────────────────────────────────────────────────────────────
 
-[CommandGuide("Lists the project's own subscription plans, the recurring prices its end users can subscribe to: id, internal plan name, display name, price per interval, trial days, Apple product id and whether active. Read-only. Not the same as `plans`, which lists Anythink's hosting plans for projects.")]
+[CommandGuide("Lists the project's own subscription plans, the recurring prices its end users can subscribe to: id, internal plan name, display name, price per interval, trial days, Apple product id and whether active. Read-only. Not the same as Anythink's hosting plans, which projects are created on.")]
 public class PayPlansListCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)

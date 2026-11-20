@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using AnythinkCli.Commands;
 
 namespace AnythinkMcp.Cli;
@@ -23,7 +24,7 @@ public static class CliToolPolicy
         ["accounts create"] = "Create a billing account: the organisation that owns projects and pays for them. Check accounts_list first, as most people need only one.",
         ["plans"] = "List the plans a project can be created on, with each plan's id, price and limits. Use a plan's id as plan_id in projects_create.",
         ["projects create"] = "Create a new project in a billing account. A paid plan is billed to the account, which needs a payment method. The project takes about a minute to set up, then appears in projects_list.",
-        ["projects delete"] = "Permanently delete a project and all its data. This can't be undone."
+        ["projects delete"] = "Permanently delete a project and all its data. This can't be undone. Takes the full project id from projects_list, plus account_id when you have more than one account."
     };
 
     private static readonly Dictionary<string, (string Name, string Description, bool Required)> AccountParameters = new()
@@ -174,12 +175,9 @@ public static class CliToolPolicy
             ? description
             : command.Description;
         var parts = new List<string> { Sentence(summary) };
-        if (command.Guide.Length > 0)
-            parts.Add(command.Guide);
+        parts.Add(ScopedGuide(command.Guide, scope));
         if (command.Parameters.Any(p => p.Token == "--json"))
             parts.Add("Returns JSON.");
-        if (IsDestructive(command, scope))
-            parts.Add("It changes or deletes existing data, so check with the user before running it.");
         return string.Join(' ', parts.Where(part => part.Length > 0));
     }
 
@@ -199,6 +197,12 @@ public static class CliToolPolicy
             .Select(scope => new Lazy<HashSet<string>>(() =>
                 CliCommandModel.All.Where(c => Includes(c, scope)).Select(c => c.ToolName).ToHashSet()))
             .ToArray();
+
+    private static readonly Lazy<HashSet<string>> AnyToolName = new(() => CliCommandModel.All.Select(c => c.ToolName).ToHashSet());
+
+    private static string ScopedGuide(string guide, CliToolScope scope) =>
+        string.Join(' ', Regex.Split(guide, @"(?<=\.)\s+").Where(sentence => Regex.Matches(sentence, "`([a-z_]+)`")
+            .All(m => !AnyToolName.Value.Contains(m.Groups[1].Value) || ToolNames[(int)scope].Value.Contains(m.Groups[1].Value))));
 
     private static CliParameter WithIdSource(CliCommand command, CliParameter parameter, CliToolScope scope)
     {
