@@ -53,7 +53,7 @@ public class ProjectTools
         }));
     }
 
-    [McpServerTool(Name = "projects_create", Title = "Create a project", Destructive = false),
+    [McpServerTool(Name = "projects_create", Title = "Create a project", Destructive = true),
      Description(
         "Provision a new project — a dedicated, isolated Anythink backend instance with its own " +
         "database, API, auth, and storage. Requires platform login and an active billing account " +

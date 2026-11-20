@@ -190,7 +190,7 @@ connection's own token and never this server's saved login:
 | `accounts_list` | List your billing accounts, with their ids | read-only |
 | `accounts_create` | Create a billing account (`name`, `email`, optional `currency`) | additive |
 | `plans` | List the plans a project can use, with their ids | read-only |
-| `projects_create` | Create a project (`name`, `plan_id`, optional `region`, `description`, `account_id`) | additive |
+| `projects_create` | Create a project (`name`, `plan_id`, optional `region`, `description`, `account_id`) | destructive (a paid plan charges the card on file) |
 | `projects_delete` | Delete a project by its full id (`id`, optional `account_id`) | destructive |
 
 These tools take no `project` argument, work on both one-project and all-projects connections, and never prompt.
