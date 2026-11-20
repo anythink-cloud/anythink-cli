@@ -133,6 +133,66 @@ public class UsersRolesCommandTests
         output.Should().Contain("API access");
     }
 
+    // ── "Can be given in teams" (CLI-1292) ──
+
+    [Fact]
+    public async Task RolesUpdate_CanKeepARoleOutOfTeams_KeepingItsPermissionsAndApiAccess()
+    {
+        var bodies = new List<string>();
+        var mock = new MockHttpMessageHandler();
+        mock.ReplyWith(HttpMethod.Get, $"{Org}/roles/5", Role);
+        mock.ReplyWith(HttpMethod.Put, $"{Org}/roles/5", Role, bodies);
+
+        var (code, output) = await CommandRunner.RunAsync(mock, () => new RolesUpdateCommand().ExecuteAsync(null!, new RoleUpdateSettings { Id = 5, AssignableInGroups = false }));
+
+        code.Should().Be(0, output);
+        var put = JsonNode.Parse(bodies.Single())!;
+        put["assignable_in_groups"]!.GetValue<bool>().Should().BeFalse();
+        put["anyapi_access"]!.GetValue<bool>().Should().BeFalse();
+        put["permission_ids"]!.AsArray().Select(n => n!.GetValue<int>()).Should().Equal(10);
+        output.Should().Contain("Given in teams");
+    }
+
+    [Fact]
+    public async Task RolesUpdate_WithoutTheTeamsSwitch_SendsTheRolesCurrentValue()
+    {
+        var bodies = new List<string>();
+        var mock = new MockHttpMessageHandler();
+        mock.ReplyWith(HttpMethod.Get, $"{Org}/roles/5", Role.Replace("\"is_active\":true", "\"is_active\":true,\"assignable_in_groups\":false"));
+        mock.ReplyWith(HttpMethod.Put, $"{Org}/roles/5", Role, bodies);
+
+        await CommandRunner.RunAsync(mock, () => new RolesUpdateCommand().ExecuteAsync(null!, new RoleUpdateSettings { Id = 5, Name = "writer" }));
+
+        JsonNode.Parse(bodies.Single())!["assignable_in_groups"]!.GetValue<bool>().Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(null, true)]
+    [InlineData(false, false)]
+    public async Task RolesCreate_IsGivenInTeams_UnlessToldOtherwise(bool? flag, bool sent)
+    {
+        var bodies = new List<string>();
+        var mock = new MockHttpMessageHandler();
+        mock.ReplyWith(HttpMethod.Post, $"{Org}/roles", Role, bodies);
+        var settings = new RoleCreateSettings { Name = "editor" };
+        if (flag is { } f) settings.AssignableInGroups = f;
+
+        await CommandRunner.RunAsync(mock, () => new RolesCreateCommand().ExecuteAsync(null!, settings));
+
+        JsonNode.Parse(bodies.Single())!["assignable_in_groups"]!.GetValue<bool>().Should().Be(sent);
+    }
+
+    [Fact]
+    public async Task RolesList_ShowsWhetherEachRoleCanBeGivenInTeams()
+    {
+        var mock = new MockHttpMessageHandler();
+        mock.ReplyWith(HttpMethod.Get, $"{Org}/roles", $"[{Role}]");
+
+        var (_, output) = await CommandRunner.RunAsync(mock, () => new RolesListCommand().ExecuteAsync(null!, new EmptySettings()));
+
+        output.Should().Contain("In teams");
+    }
+
     [Theory]
     [InlineData("users", "resend-invite")]
     [InlineData("roles", "update")]

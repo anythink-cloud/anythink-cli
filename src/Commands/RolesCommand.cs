@@ -9,7 +9,7 @@ namespace AnythinkCli.Commands;
 
 // ── roles list ────────────────────────────────────────────────────────────────
 
-[CommandGuide("Lists the project's roles with id, name, description, whether each is active and whether it has API access (without it, the role's entity permissions never apply and its users get 403 on data calls). Access works through roles: each user holds one role, and a role grants actions (read, create, update, delete) per entity. Use `roles_permissions_list` to see what one role grants.")]
+[CommandGuide("Lists the project's roles with id, name, description, whether each is active, whether it has API access (without it, the role's entity permissions never apply and its users get 403 on data calls) and whether team managers may give it in their teams. Access works through roles: each user holds one role, and a role grants actions (read, create, update, delete) per entity. Use `roles_permissions_list` to see what one role grants.")]
 public class RolesListCommand : BaseCommand<EmptySettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, EmptySettings settings)
@@ -34,7 +34,7 @@ public class RolesListCommand : BaseCommand<EmptySettings>
 
             Renderer.Header($"Roles ({roles.Count})");
 
-            var table = Renderer.BuildTable("ID", "Name", "Description", "Active", "API access");
+            var table = Renderer.BuildTable("ID", "Name", "Description", "Active", "API access", "In teams");
             foreach (var r in roles.OrderBy(x => x.Id))
             {
                 Renderer.AddRow(table,
@@ -42,7 +42,8 @@ public class RolesListCommand : BaseCommand<EmptySettings>
                     r.Name,
                     r.Description,
                     r.IsActive ? "yes" : "no",
-                    r.AnyApiAccess ? "yes" : "no"
+                    r.AnyApiAccess ? "yes" : "no",
+                    r.AssignableInGroups ? "yes" : "no"
                 );
             }
 
@@ -72,6 +73,10 @@ public class RoleCreateSettings : CommandSettings
     [CommandOption("--api-access <BOOL>")]
     [Description("Let the role's users reach data through the API (true/false, default true). Entity permissions only apply when this is on")]
     public bool ApiAccess { get; set; } = true;
+
+    [CommandOption("--assignable-in-groups <BOOL>")]
+    [Description("Let team managers give this role to people in their teams (true/false, default true)")]
+    public bool AssignableInGroups { get; set; } = true;
 }
 
 [CommandGuide("Adds a role with API access on (set api_access false to turn it off) and no entity permissions yet, so its users can't reach any data until you grant actions with `roles_permissions_add`. Then give it to people by passing its id as role_id to `users_invite`. Role names must be unique in the project.")]
@@ -91,7 +96,8 @@ public class RolesCreateCommand : BaseCommand<RoleCreateSettings>
                     role = await client.CreateRoleAsync(new CreateRoleRequest(
                         settings.Name,
                         settings.Description,
-                        AnyApiAccess: settings.ApiAccess
+                        AnyApiAccess: settings.ApiAccess,
+                        AssignableInGroups: settings.AssignableInGroups
                     ));
                 });
 
@@ -99,6 +105,7 @@ public class RolesCreateCommand : BaseCommand<RoleCreateSettings>
             Renderer.KeyValue("ID", role.Id.ToString());
             Renderer.KeyValue("Active", role.IsActive ? "yes" : "no");
             Renderer.KeyValue("API access", role.AnyApiAccess ? "yes" : "no");
+            Renderer.KeyValue("Given in teams", role.AssignableInGroups ? "yes" : "no");
             return 0;
         }
         catch (Exception ex)
@@ -128,9 +135,13 @@ public class RoleUpdateSettings : CommandSettings
     [CommandOption("--api-access <BOOL>")]
     [Description("Let the role's users reach data through the API (true/false)")]
     public bool? ApiAccess { get; set; }
+
+    [CommandOption("--assignable-in-groups <BOOL>")]
+    [Description("Let team managers give this role to people in their teams (true/false)")]
+    public bool? AssignableInGroups { get; set; }
 }
 
-[CommandGuide("Changes a role's name, description or API access, keeping its permissions and active state; only what you pass changes. Turn api_access on for a role whose users get 403 on data calls: without it the role's entity permissions never apply.")]
+[CommandGuide("Changes a role's name, description, API access or whether team managers may give it in their teams, keeping its permissions and active state; only what you pass changes. Turn api_access on for a role whose users get 403 on data calls: without it the role's entity permissions never apply. Turn assignable_in_groups off to take a role out of the team invite and role pickers.")]
 public class RolesUpdateCommand : BaseCommand<RoleUpdateSettings>
 {
     public override async Task<int> ExecuteAsync(CommandContext context, RoleUpdateSettings settings)
@@ -142,17 +153,20 @@ public class RolesUpdateCommand : BaseCommand<RoleUpdateSettings>
                 ?? throw new Anythink.ProjectImporters.AnythinkException($"Role {settings.Id} not found.", 404);
 
             var apiAccess = settings.ApiAccess ?? role.AnyApiAccess;
+            var inTeams = settings.AssignableInGroups ?? role.AssignableInGroups;
             await client.UpdateRoleWithPermissionsAsync(settings.Id,
                 new UpdateRolePermissionsRequest(
                     settings.Name ?? role.Name,
                     settings.Description ?? role.Description,
                     role.IsActive,
                     apiAccess,
-                    (role.Permissions ?? []).Select(p => p.Id).ToList()));
+                    (role.Permissions ?? []).Select(p => p.Id).ToList(),
+                    inTeams));
 
             Renderer.Success($"Role [#F97316]{settings.Id}[/] updated.");
             Renderer.KeyValue("Name", settings.Name ?? role.Name);
             Renderer.KeyValue("API access", apiAccess ? "yes" : "no");
+            Renderer.KeyValue("Given in teams", inTeams ? "yes" : "no");
             return 0;
         }
         catch (Exception ex)
